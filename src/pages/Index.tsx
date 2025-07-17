@@ -3,6 +3,7 @@ import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
 import { FeatureCard } from "@/components/FeatureCard";
 import { RecentActivity } from "@/components/RecentActivity";
+import { DashboardFilters } from "@/components/DashboardFilters";
 import { Button } from "@/components/ui/button";
 import {
   FileText,
@@ -124,6 +125,9 @@ const Index = () => {
         </header>
 
         <main className="p-6">
+          {/* Dashboard Filters */}
+          <DashboardFilters />
+
           {/* Metrics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {metrics.map((metric, index) => (

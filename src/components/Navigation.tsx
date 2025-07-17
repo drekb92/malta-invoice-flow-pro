@@ -13,6 +13,7 @@ import {
   Receipt,
   Mail,
   Calendar,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Invoices", href: "/invoices", icon: FileText },
+  { name: "Quotations", href: "/quotations", icon: FileCheck },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Payments", href: "/payments", icon: CreditCard },
   { name: "Reports", href: "/reports", icon: BarChart3 },
