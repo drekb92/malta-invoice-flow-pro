@@ -22,6 +22,7 @@ export type Database = {
           id: string
           name: string
           payment_terms: string | null
+          phone: string | null
           vat_number: string | null
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           id?: string
           name: string
           payment_terms?: string | null
+          phone?: string | null
           vat_number?: string | null
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           id?: string
           name?: string
           payment_terms?: string | null
+          phone?: string | null
           vat_number?: string | null
         }
         Relationships: []

@@ -27,62 +27,104 @@ import {
   Eye,
   Edit,
   Mail,
+  Trash2,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { CustomerForm } from "@/components/CustomerForm";
+import { useToast } from "@/hooks/use-toast";
+
+interface Customer {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  vat_number: string | null;
+  address: string | null;
+  payment_terms: string | null;
+  created_at: string;
+}
 
 const Customers = () => {
-  const customers = [
-    {
-      id: "CUST-001",
-      name: "Acme Corporation",
-      email: "contact@acme.com",
-      phone: "+356 1234 5678",
-      vatNumber: "MT12345678",
-      paymentTerms: "Net 30",
-      totalInvoiced: "€12,450.00",
-      outstanding: "€1,200.00",
-      status: "active",
-    },
-    {
-      id: "CUST-002",
-      name: "Tech Solutions Ltd",
-      email: "info@techsolutions.com",
-      phone: "+356 9876 5432",
-      vatNumber: "MT87654321",
-      paymentTerms: "Net 15",
-      totalInvoiced: "€8,920.00",
-      outstanding: "€2,450.00",
-      status: "active",
-    },
-    {
-      id: "CUST-003",
-      name: "Global Enterprises",
-      email: "billing@global.com",
-      phone: "+356 5555 1234",
-      vatNumber: "MT11223344",
-      paymentTerms: "Net 45",
-      totalInvoiced: "€15,750.00",
-      outstanding: "€3,750.00",
-      status: "active",
-    },
-    {
-      id: "CUST-004",
-      name: "Local Business",
-      email: "admin@localbiz.mt",
-      phone: "+356 7777 8888",
-      vatNumber: "MT99887766",
-      paymentTerms: "Net 0",
-      totalInvoiced: "€3,200.00",
-      outstanding: "€850.00",
-      status: "inactive",
-    },
-  ];
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  const getStatusBadge = (status: string) => {
+  const fetchCustomers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      setCustomers(data || []);
+      setFilteredCustomers(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load customers",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredCustomers(customers);
+    } else {
+      const filtered = customers.filter((customer) =>
+        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.vat_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.payment_terms?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [searchTerm, customers]);
+
+  const handleDeleteCustomer = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Customer deleted",
+        description: "Customer has been successfully removed.",
+      });
+      
+      fetchCustomers();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete customer",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusBadge = (customer: Customer) => {
+    // Simple status logic - could be enhanced with actual status field
+    const hasRecentActivity = new Date(customer.created_at) > new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const status = hasRecentActivity ? "active" : "inactive";
+    
     const variants = {
-      active: "bg-green-100 text-green-800",
-      inactive: "bg-gray-100 text-gray-800",
+      active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      inactive: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
     };
-    return variants[status as keyof typeof variants] || variants.inactive;
+    return { status, className: variants[status] };
   };
 
   return (
@@ -108,10 +150,7 @@ const Customers = () => {
                   <Download className="h-4 w-4 mr-2" />
                   Export All
                 </Button>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Customer
-                </Button>
+                <CustomerForm onSave={fetchCustomers} />
               </div>
             </div>
           </div>
@@ -125,6 +164,8 @@ const Customers = () => {
               <Input
                 placeholder="Search customers..."
                 className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
@@ -149,56 +190,84 @@ const Customers = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {customers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{customer.name}</div>
-                          <div className="text-sm text-muted-foreground">{customer.id}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="text-sm">{customer.email}</div>
-                          <div className="text-sm text-muted-foreground">{customer.phone}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{customer.vatNumber}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{customer.paymentTerms}</Badge>
-                      </TableCell>
-                      <TableCell>{customer.totalInvoiced}</TableCell>
-                      <TableCell className="font-medium">{customer.outstanding}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusBadge(customer.status)}>
-                          {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Customer
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Mail className="h-4 w-4 mr-2" />
-                              Send Email
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-6">
+                        Loading customers...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : filteredCustomers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-6">
+                        {searchTerm ? "No customers found matching your search." : "No customers found."}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredCustomers.map((customer) => {
+                      const statusInfo = getStatusBadge(customer);
+                      return (
+                        <TableRow key={customer.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{customer.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {customer.id.substring(0, 8)}...
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="text-sm">{customer.email || "No email"}</div>
+                              <div className="text-sm text-muted-foreground">{customer.phone || "No phone"}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{customer.vat_number || "N/A"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{customer.payment_terms || "Not set"}</Badge>
+                          </TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell className="font-medium">-</TableCell>
+                          <TableCell>
+                            <Badge className={statusInfo.className}>
+                              {statusInfo.status.charAt(0).toUpperCase() + statusInfo.status.slice(1)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                <CustomerForm 
+                                  customer={customer} 
+                                  onSave={fetchCustomers}
+                                  trigger={
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Customer
+                                    </DropdownMenuItem>
+                                  }
+                                />
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteCustomer(customer.id)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Customer
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
