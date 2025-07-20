@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 
 export interface LineItem {
   id: string;
@@ -26,6 +26,8 @@ interface InvoiceLineItemsProps {
 }
 
 export function InvoiceLineItems({ lineItems, onLineItemsChange }: InvoiceLineItemsProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  
   const addLineItem = () => {
     const newItem: LineItem = {
       id: crypto.randomUUID(),
@@ -68,10 +70,23 @@ export function InvoiceLineItems({ lineItems, onLineItemsChange }: InvoiceLineIt
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <Label className="text-base font-medium">Line Items</Label>
-        <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Line Item
-        </Button>
+        <div className="flex gap-2">
+          {lineItems.length > 1 && (
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              {collapsed ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronUp className="h-4 w-4 mr-2" />}
+              {collapsed ? "Expand All" : "Collapse All"}
+            </Button>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Line Item
+          </Button>
+        </div>
       </div>
 
       {lineItems.length === 0 ? (
@@ -79,99 +94,120 @@ export function InvoiceLineItems({ lineItems, onLineItemsChange }: InvoiceLineIt
           No line items added. Click "Add Line Item" to get started.
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
           {lineItems.map((item, index) => (
-            <div key={item.id} className="border rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Item {index + 1}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeLineItem(item.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="md:col-span-2">
-                  <Label htmlFor={`description-${item.id}`}>Description *</Label>
-                  <Input
-                    id={`description-${item.id}`}
-                    value={item.description}
-                    onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                    placeholder="Service description"
-                    required
-                  />
+            <div key={item.id} className="border rounded-lg overflow-hidden">
+              <div className="p-4">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">
+                    Item {index + 1}
+                    {collapsed && item.description && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        - {item.description.substring(0, 30)}
+                        {item.description.length > 30 ? "..." : ""}
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {collapsed && (
+                      <span className="text-sm text-muted-foreground">
+                        €{calculateItemTotal(item).toFixed(2)}
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeLineItem(item.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 
-                <div>
-                  <Label htmlFor={`quantity-${item.id}`}>Quantity *</Label>
-                  <Input
-                    id={`quantity-${item.id}`}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.quantity}
-                    onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor={`unit-${item.id}`}>Unit</Label>
-                  <Select
-                    value={item.unit}
-                    onValueChange={(value) => updateLineItem(item.id, 'unit', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="service">Service</SelectItem>
-                      <SelectItem value="hours">Hours</SelectItem>
-                      <SelectItem value="days">Days</SelectItem>
-                      <SelectItem value="pieces">Pieces</SelectItem>
-                      <SelectItem value="kg">Kg</SelectItem>
-                      <SelectItem value="m">Meters</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor={`unit_price-${item.id}`}>Unit Price (€) *</Label>
-                  <Input
-                    id={`unit_price-${item.id}`}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.unit_price}
-                    onChange={(e) => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor={`vat_rate-${item.id}`}>VAT Rate</Label>
-                  <Select
-                    value={item.vat_rate.toString()}
-                    onValueChange={(value) => updateLineItem(item.id, 'vat_rate', parseFloat(value))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">0% (Exempt)</SelectItem>
-                      <SelectItem value="0.05">5%</SelectItem>
-                      <SelectItem value="0.18">18% (Standard)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="flex justify-end text-sm text-muted-foreground">
-                Item Total: €{calculateItemTotal(item).toFixed(2)}
+                {!collapsed && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                      <div className="md:col-span-2">
+                        <Label htmlFor={`description-${item.id}`}>Description *</Label>
+                        <Input
+                          id={`description-${item.id}`}
+                          value={item.description}
+                          onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                          placeholder="Service description"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor={`quantity-${item.id}`}>Quantity *</Label>
+                        <Input
+                          id={`quantity-${item.id}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) => updateLineItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor={`unit-${item.id}`}>Unit</Label>
+                        <Select
+                          value={item.unit}
+                          onValueChange={(value) => updateLineItem(item.id, 'unit', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="service">Service</SelectItem>
+                            <SelectItem value="hours">Hours</SelectItem>
+                            <SelectItem value="days">Days</SelectItem>
+                            <SelectItem value="pieces">Pieces</SelectItem>
+                            <SelectItem value="kg">Kg</SelectItem>
+                            <SelectItem value="m">Meters</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor={`unit_price-${item.id}`}>Unit Price (€) *</Label>
+                        <Input
+                          id={`unit_price-${item.id}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.unit_price}
+                          onChange={(e) => updateLineItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor={`vat_rate-${item.id}`}>VAT Rate</Label>
+                        <Select
+                          value={item.vat_rate.toString()}
+                          onValueChange={(value) => updateLineItem(item.id, 'vat_rate', parseFloat(value))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">0% (Exempt)</SelectItem>
+                            <SelectItem value="0.05">5%</SelectItem>
+                            <SelectItem value="0.18">18% (Standard)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end text-sm text-muted-foreground mt-3">
+                      Item Total: €{calculateItemTotal(item).toFixed(2)}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           ))}
