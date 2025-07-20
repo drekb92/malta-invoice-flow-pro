@@ -161,7 +161,7 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
 
         // Delete existing line items and insert new ones
         const { error: deleteError } = await supabase
-          .from("invoice_items")
+          .from("invoice_items" as any)
           .delete()
           .eq("invoice_id", invoice.id);
 
@@ -177,7 +177,7 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
         }));
 
         const { error: itemsError } = await supabase
-          .from("invoice_items")
+          .from("invoice_items" as any)
           .insert(lineItemsData);
 
         if (itemsError) throw itemsError;
@@ -207,7 +207,7 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
         }));
 
         const { error: itemsError } = await supabase
-          .from("invoice_items")
+          .from("invoice_items" as any)
           .insert(lineItemsData);
 
         if (itemsError) throw itemsError;
