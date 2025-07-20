@@ -27,6 +27,7 @@ import { Plus, Edit, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { InvoiceLineItems, LineItem } from "./InvoiceLineItems";
 
 interface Customer {
   id: string;
@@ -54,21 +55,25 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({
     invoice_number: invoice?.invoice_number || "",
     customer_id: invoice?.customer_id || "",
-    amount: invoice?.amount || 0,
-    vat_rate: invoice?.vat_rate || 0.18,
     due_date: invoice ? new Date(invoice.due_date) : undefined as Date | undefined,
     status: invoice?.status || "draft",
   });
 
-  // Calculate totals
-  const netAmount = formData.amount;
-  const vatAmount = netAmount * formData.vat_rate;
-  const totalAmount = netAmount + vatAmount;
+  // Calculate totals from line items
+  const calculateTotals = () => {
+    const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    const vatTotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price * item.vat_rate), 0);
+    const grandTotal = subtotal + vatTotal;
+    return { subtotal, vatTotal, grandTotal };
+  };
+
+  const { subtotal, vatTotal, grandTotal } = calculateTotals();
 
   // Fetch customers for dropdown
   useEffect(() => {
@@ -132,23 +137,50 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
         throw new Error("Due date is required");
       }
 
+      if (lineItems.length === 0) {
+        throw new Error("At least one line item is required");
+      }
+
       const invoiceData = {
         invoice_number: formData.invoice_number,
         customer_id: formData.customer_id,
-        amount: netAmount,
-        vat_rate: formData.vat_rate,
+        amount: subtotal,
+        vat_rate: 0.18, // Average VAT rate or calculated from line items
         due_date: formData.due_date.toISOString().split('T')[0],
         status: formData.status,
       };
 
       if (invoice?.id) {
         // Update existing invoice
-        const { error } = await supabase
+        const { error: invoiceError } = await supabase
           .from("invoices")
           .update(invoiceData)
           .eq("id", invoice.id);
 
-        if (error) throw error;
+        if (invoiceError) throw invoiceError;
+
+        // Delete existing line items and insert new ones
+        const { error: deleteError } = await supabase
+          .from("invoice_items")
+          .delete()
+          .eq("invoice_id", invoice.id);
+
+        if (deleteError) throw deleteError;
+
+        const lineItemsData = lineItems.map(item => ({
+          invoice_id: invoice.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("invoice_items")
+          .insert(lineItemsData);
+
+        if (itemsError) throw itemsError;
         
         toast({
           title: "Invoice updated",
@@ -156,11 +188,29 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
         });
       } else {
         // Create new invoice
-        const { error } = await supabase
+        const { data: newInvoice, error: invoiceError } = await supabase
           .from("invoices")
-          .insert([invoiceData]);
+          .insert([invoiceData])
+          .select("id")
+          .single();
 
-        if (error) throw error;
+        if (invoiceError) throw invoiceError;
+
+        // Insert line items
+        const lineItemsData = lineItems.map(item => ({
+          invoice_id: newInvoice.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("invoice_items")
+          .insert(lineItemsData);
+
+        if (itemsError) throw itemsError;
         
         toast({
           title: "Invoice created",
@@ -176,11 +226,10 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
         setFormData({
           invoice_number: "",
           customer_id: "",
-          amount: 0,
-          vat_rate: 0.18,
           due_date: undefined,
           status: "draft",
         });
+        setLineItems([]);
       }
     } catch (error) {
       toast({
@@ -250,18 +299,6 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Net Amount (€) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="due_date">Due Date *</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -287,25 +324,6 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
                 </PopoverContent>
               </Popover>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="vat_rate">VAT Rate</Label>
-              <Select
-                value={formData.vat_rate.toString()}
-                onValueChange={(value) => setFormData({ ...formData, vat_rate: parseFloat(value) })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">0% (Exempt)</SelectItem>
-                  <SelectItem value="0.05">5%</SelectItem>
-                  <SelectItem value="0.18">18% (Standard)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
               <Select
@@ -325,21 +343,10 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
             </div>
           </div>
 
-          {/* Calculation Summary */}
-          <div className="border-t pt-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Net Amount:</span>
-              <span>€{netAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>VAT ({(formData.vat_rate * 100).toFixed(0)}%):</span>
-              <span>€{vatAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-medium border-t pt-2">
-              <span>Total Amount:</span>
-              <span>€{totalAmount.toFixed(2)}</span>
-            </div>
-          </div>
+          <InvoiceLineItems 
+            lineItems={lineItems}
+            onLineItemsChange={setLineItems}
+          />
 
           <div className="flex justify-end space-x-2 pt-4">
             <Button
