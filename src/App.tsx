@@ -12,6 +12,7 @@ import Quotations from "./pages/Quotations";
 import Customers from "./pages/Customers";
 import Reports from "./pages/Reports";
 import ReminderSettings from "./pages/ReminderSettings";
+import InvoiceTemplates from "./pages/InvoiceTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -37,6 +38,7 @@ const App: React.FC = () => (
           <Route path="/customers" element={<Customers />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/reminders" element={<ReminderSettings />} />
+          <Route path="/invoice-templates" element={<InvoiceTemplates />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

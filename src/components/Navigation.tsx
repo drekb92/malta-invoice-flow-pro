@@ -27,6 +27,7 @@ const navigationItems = [
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Reminders", href: "/reminders", icon: Mail },
   { name: "Calendar", href: "/calendar", icon: Calendar },
+  { name: "Templates", href: "/invoice-templates", icon: FileText },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
