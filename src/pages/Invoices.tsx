@@ -31,6 +31,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoiceForm } from "@/components/InvoiceForm";
 import { useToast } from "@/hooks/use-toast";
@@ -258,9 +259,11 @@ const Invoices = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/invoices/${invoice.id}`}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View
+                                  </Link>
                                 </DropdownMenuItem>
                                 <InvoiceForm 
                                   invoice={{

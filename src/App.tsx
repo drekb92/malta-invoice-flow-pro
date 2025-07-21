@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Invoices from "./pages/Invoices";
+import InvoiceDetails from "./pages/InvoiceDetails";
 import Quotations from "./pages/Quotations";
 import Customers from "./pages/Customers";
 import Reports from "./pages/Reports";
@@ -31,6 +32,7 @@ const App: React.FC = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/invoices" element={<Invoices />} />
+          <Route path="/invoices/:invoice_id" element={<InvoiceDetails />} />
           <Route path="/quotations" element={<Quotations />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/reports" element={<Reports />} />
