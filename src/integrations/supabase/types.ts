@@ -47,6 +47,96 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_items: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          invoice_id: string | null
+          quantity: number | null
+          unit: string | null
+          unit_price: number
+          vat_rate: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          invoice_id?: string | null
+          quantity?: number | null
+          unit?: string | null
+          unit_price: number
+          vat_rate?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          invoice_id?: string | null
+          quantity?: number | null
+          unit?: string | null
+          unit_price?: number
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_templates: {
+        Row: {
+          accent_color: string | null
+          created_at: string | null
+          font_family: string | null
+          font_size: string | null
+          id: string
+          is_default: boolean | null
+          logo_url: string | null
+          logo_x_offset: number | null
+          logo_y_offset: number | null
+          name: string
+          primary_color: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          created_at?: string | null
+          font_family?: string | null
+          font_size?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          logo_x_offset?: number | null
+          logo_y_offset?: number | null
+          name: string
+          primary_color?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          created_at?: string | null
+          font_family?: string | null
+          font_size?: string | null
+          id?: string
+          is_default?: boolean | null
+          logo_url?: string | null
+          logo_x_offset?: number | null
+          logo_y_offset?: number | null
+          name?: string
+          primary_color?: string | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number | null
@@ -118,6 +208,13 @@ export type Database = {
             foreignKeyName: "payments_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
+            referencedRelation: "invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -125,7 +222,28 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      invoice_totals: {
+        Row: {
+          customer_id: string | null
+          due_date: string | null
+          invoice_created_at: string | null
+          invoice_id: string | null
+          invoice_number: string | null
+          net_amount: number | null
+          status: string | null
+          total_amount: number | null
+          vat_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
