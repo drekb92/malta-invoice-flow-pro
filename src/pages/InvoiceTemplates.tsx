@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
   Upload,
@@ -21,68 +23,219 @@ import {
   Settings2,
 } from "lucide-react";
 
-interface Template {
+interface InvoiceTemplate {
   id: string;
   name: string;
-  isDefault: boolean;
-  settings: {
-    primaryColor: string;
-    accentColor: string;
-    fontFamily: string;
-    fontSize: string;
-    showVatNumber: boolean;
-    showAddress: boolean;
-    showPaymentTerms: boolean;
-    logo?: string;
-    companyName: string;
-    notes: string;
-  };
+  is_default: boolean;
+  logo_url?: string;
+  primary_color: string;
+  accent_color: string;
+  font_family: string;
+  font_size: string;
+  logo_x_offset: number;
+  logo_y_offset: number;
+  created_at?: string;
 }
 
 const InvoiceTemplates = () => {
-  const [templates] = useState<Template[]>([
-    {
-      id: "default",
-      name: "Default Template",
-      isDefault: true,
-      settings: {
-        primaryColor: "#2563eb",
-        accentColor: "#3b82f6",
-        fontFamily: "Inter",
-        fontSize: "14",
-        showVatNumber: true,
-        showAddress: true,
-        showPaymentTerms: true,
-        companyName: "InvoicePro Malta",
-        notes: "Thank you for your business!",
-      },
-    },
-    {
-      id: "template-a",
-      name: "Template A",
-      isDefault: false,
-      settings: {
-        primaryColor: "#059669",
-        accentColor: "#10b981",
-        fontFamily: "Roboto",
-        fontSize: "14",
-        showVatNumber: true,
-        showAddress: false,
-        showPaymentTerms: true,
-        companyName: "InvoicePro Malta",
-        notes: "Payment due within 30 days.",
-      },
-    },
-  ]);
+  const { toast } = useToast();
+  const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplate | null>(null);
+  const [currentSettings, setCurrentSettings] = useState<Partial<InvoiceTemplate>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const [selectedTemplate, setSelectedTemplate] = useState(templates[0]);
-  const [currentSettings, setCurrentSettings] = useState(selectedTemplate.settings);
+  // Load templates from Supabase
+  const loadTemplates = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('invoice_templates')
+        .select('*')
+        .order('is_default', { ascending: false });
 
-  const updateSetting = (key: string, value: any) => {
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setTemplates(data);
+        const defaultTemplate = data.find(t => t.is_default) || data[0];
+        setSelectedTemplate(defaultTemplate);
+        setCurrentSettings(defaultTemplate);
+      } else {
+        // Create default template if none exists
+        await createDefaultTemplate();
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      toast({
+        title: "Error loading templates",
+        description: "Failed to load invoice templates from database.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  // Create default template
+  const createDefaultTemplate = async () => {
+    try {
+      const defaultTemplate = {
+        name: 'Default Template',
+        is_default: true,
+        primary_color: '#26A65B',
+        accent_color: '#1F2D3D',
+        font_family: 'Inter',
+        font_size: '14px',
+        logo_x_offset: 0,
+        logo_y_offset: 0,
+      };
+
+      const { data, error } = await supabase
+        .from('invoice_templates')
+        .insert([defaultTemplate])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setTemplates([data]);
+      setSelectedTemplate(data);
+      setCurrentSettings(data);
+    } catch (error) {
+      console.error('Error creating default template:', error);
+    }
+  };
+
+  // Load templates on component mount
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  const updateSetting = (key: keyof InvoiceTemplate, value: any) => {
     setCurrentSettings(prev => ({
       ...prev,
       [key]: value,
     }));
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
+    if (!selectedTemplate) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${selectedTemplate.id}-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('logos')
+        .getPublicUrl(fileName);
+
+      updateSetting('logo_url', data.publicUrl);
+      
+      toast({
+        title: "Logo uploaded",
+        description: "Logo has been successfully uploaded.",
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload logo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Save template
+  const handleSave = async () => {
+    if (!selectedTemplate || !currentSettings.id) return;
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('invoice_templates')
+        .update({
+          primary_color: currentSettings.primary_color,
+          accent_color: currentSettings.accent_color,
+          font_family: currentSettings.font_family,
+          font_size: currentSettings.font_size,
+          logo_url: currentSettings.logo_url,
+          logo_x_offset: currentSettings.logo_x_offset,
+          logo_y_offset: currentSettings.logo_y_offset,
+        })
+        .eq('id', currentSettings.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setTemplates(prev => prev.map(t => 
+        t.id === currentSettings.id ? { ...t, ...currentSettings } as InvoiceTemplate : t
+      ));
+      setSelectedTemplate({ ...selectedTemplate, ...currentSettings } as InvoiceTemplate);
+
+      toast({
+        title: "Template saved",
+        description: "Template settings have been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast({
+        title: "Save failed",
+        description: "Failed to save template. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Set as default
+  const handleSetDefault = async () => {
+    if (!selectedTemplate) return;
+
+    try {
+      // First, unset all templates as default
+      await supabase
+        .from('invoice_templates')
+        .update({ is_default: false })
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // dummy condition to update all
+
+      // Then set current template as default
+      const { error } = await supabase
+        .from('invoice_templates')
+        .update({ is_default: true })
+        .eq('id', selectedTemplate.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setTemplates(prev => prev.map(t => ({
+        ...t,
+        is_default: t.id === selectedTemplate.id
+      })));
+
+      toast({
+        title: "Default template set",
+        description: "This template has been set as the default.",
+      });
+    } catch (error) {
+      console.error('Error setting default template:', error);
+      toast({
+        title: "Error",
+        description: "Failed to set default template. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const fontFamilies = [
@@ -139,196 +292,218 @@ const InvoiceTemplates = () => {
                     Template Settings
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Template Tabs */}
-                  <Tabs value={selectedTemplate.id} onValueChange={(value) => {
-                    const template = templates.find(t => t.id === value);
-                    if (template) {
-                      setSelectedTemplate(template);
-                      setCurrentSettings(template.settings);
-                    }
-                  }}>
-                    <TabsList className="grid w-full grid-cols-2">
-                      {templates.map((template) => (
-                        <TabsTrigger key={template.id} value={template.id} className="text-xs">
-                          {template.name}
-                          {template.isDefault && <Star className="h-3 w-3 ml-1 fill-current" />}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
+                 <CardContent className="space-y-6">
+                   {isLoading ? (
+                     <div className="text-center py-8">Loading templates...</div>
+                   ) : (
+                     <>
+                       {/* Template Tabs */}
+                       {templates.length > 0 && selectedTemplate && (
+                         <Tabs value={selectedTemplate.id} onValueChange={(value) => {
+                           const template = templates.find(t => t.id === value);
+                           if (template) {
+                             setSelectedTemplate(template);
+                             setCurrentSettings(template);
+                           }
+                         }}>
+                           <TabsList className="grid w-full grid-cols-2">
+                             {templates.map((template) => (
+                               <TabsTrigger key={template.id} value={template.id} className="text-xs">
+                                 {template.name}
+                                 {template.is_default && <Star className="h-3 w-3 ml-1 fill-current" />}
+                               </TabsTrigger>
+                             ))}
+                           </TabsList>
+                         </Tabs>
+                       )}
 
-                  <Separator />
+                       <Separator />
 
-                  {/* Logo Upload */}
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Image className="h-4 w-4" />
-                      Company Logo
-                    </Label>
-                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
-                      <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        Click to upload or drag and drop
-                      </p>
-                      <p className="text-xs text-muted-foreground">PNG, JPG up to 2MB</p>
-                    </div>
-                  </div>
+                       {/* Logo Upload */}
+                       <div className="space-y-2">
+                         <Label className="flex items-center gap-2">
+                           <Image className="h-4 w-4" />
+                           Company Logo
+                         </Label>
+                         <div 
+                           className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                           onDrop={(e) => {
+                             e.preventDefault();
+                             const file = e.dataTransfer.files[0];
+                             if (file && (file.type === 'image/png' || file.type === 'image/jpeg')) {
+                               handleFileUpload(file);
+                             }
+                           }}
+                           onDragOver={(e) => e.preventDefault()}
+                           onClick={() => {
+                             const input = document.createElement('input');
+                             input.type = 'file';
+                             input.accept = 'image/png,image/jpeg';
+                             input.onchange = (e) => {
+                               const file = (e.target as HTMLInputElement).files?.[0];
+                               if (file) handleFileUpload(file);
+                             };
+                             input.click();
+                           }}
+                         >
+                           {isUploading ? (
+                             <div className="text-center">
+                               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                               <p className="text-sm text-muted-foreground">Uploading...</p>
+                             </div>
+                           ) : currentSettings.logo_url ? (
+                             <div className="text-center">
+                               <img 
+                                 src={currentSettings.logo_url} 
+                                 alt="Logo" 
+                                 className="h-16 w-auto mx-auto mb-2 rounded"
+                               />
+                               <p className="text-sm text-muted-foreground">Click to change logo</p>
+                             </div>
+                           ) : (
+                             <>
+                               <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                               <p className="text-sm text-muted-foreground">
+                                 Click to upload or drag and drop
+                               </p>
+                               <p className="text-xs text-muted-foreground">PNG, JPG up to 2MB</p>
+                             </>
+                           )}
+                         </div>
+                       </div>
 
-                  {/* Company Name */}
-                  <div className="space-y-2">
-                    <Label>Company Name</Label>
-                    <Input
-                      value={currentSettings.companyName}
-                      onChange={(e) => updateSetting('companyName', e.target.value)}
-                    />
-                  </div>
+                       {/* Logo Position */}
+                       <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                           <Label className="text-sm">Logo X Offset (px)</Label>
+                           <Input
+                             type="number"
+                             value={currentSettings.logo_x_offset || 0}
+                             onChange={(e) => updateSetting('logo_x_offset', parseInt(e.target.value) || 0)}
+                             placeholder="0"
+                           />
+                         </div>
+                         <div className="space-y-2">
+                           <Label className="text-sm">Logo Y Offset (px)</Label>
+                           <Input
+                             type="number"
+                             value={currentSettings.logo_y_offset || 0}
+                             onChange={(e) => updateSetting('logo_y_offset', parseInt(e.target.value) || 0)}
+                             placeholder="0"
+                           />
+                         </div>
+                       </div>
 
-                  <Separator />
+                       <Separator />
 
-                  {/* Colors */}
-                  <div className="space-y-4">
-                    <Label className="flex items-center gap-2">
-                      <Palette className="h-4 w-4" />
-                      Colors
-                    </Label>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-sm">Primary Color</Label>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-8 h-8 rounded border border-border"
-                            style={{ backgroundColor: currentSettings.primaryColor }}
-                          />
-                          <Input
-                            type="color"
-                            value={currentSettings.primaryColor}
-                            onChange={(e) => updateSetting('primaryColor', e.target.value)}
-                            className="w-16 h-8 p-0 border-0"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label className="text-sm">Accent Color</Label>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-8 h-8 rounded border border-border"
-                            style={{ backgroundColor: currentSettings.accentColor }}
-                          />
-                          <Input
-                            type="color"
-                            value={currentSettings.accentColor}
-                            onChange={(e) => updateSetting('accentColor', e.target.value)}
-                            className="w-16 h-8 p-0 border-0"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                       {/* Colors */}
+                       <div className="space-y-4">
+                         <Label className="flex items-center gap-2">
+                           <Palette className="h-4 w-4" />
+                           Colors
+                         </Label>
+                         
+                         <div className="grid grid-cols-2 gap-4">
+                           <div className="space-y-2">
+                             <Label className="text-sm">Primary Color</Label>
+                             <div className="flex items-center gap-2">
+                               <div
+                                 className="w-8 h-8 rounded border border-border"
+                                 style={{ backgroundColor: currentSettings.primary_color }}
+                               />
+                               <Input
+                                 type="color"
+                                 value={currentSettings.primary_color || '#26A65B'}
+                                 onChange={(e) => updateSetting('primary_color', e.target.value)}
+                                 className="w-16 h-8 p-0 border-0"
+                               />
+                             </div>
+                           </div>
+                           
+                           <div className="space-y-2">
+                             <Label className="text-sm">Accent Color</Label>
+                             <div className="flex items-center gap-2">
+                               <div
+                                 className="w-8 h-8 rounded border border-border"
+                                 style={{ backgroundColor: currentSettings.accent_color }}
+                               />
+                               <Input
+                                 type="color"
+                                 value={currentSettings.accent_color || '#1F2D3D'}
+                                 onChange={(e) => updateSetting('accent_color', e.target.value)}
+                                 className="w-16 h-8 p-0 border-0"
+                               />
+                             </div>
+                           </div>
+                         </div>
+                       </div>
 
-                  <Separator />
+                       <Separator />
 
-                  {/* Typography */}
-                  <div className="space-y-4">
-                    <Label className="flex items-center gap-2">
-                      <Type className="h-4 w-4" />
-                      Typography
-                    </Label>
-                    
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-sm">Font Family</Label>
-                        <Select value={currentSettings.fontFamily} onValueChange={(value) => updateSetting('fontFamily', value)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {fontFamilies.map((font) => (
-                              <SelectItem key={font.value} value={font.value}>
-                                {font.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <Label className="text-sm">Font Size</Label>
-                        <Select value={currentSettings.fontSize} onValueChange={(value) => updateSetting('fontSize', value)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {fontSizes.map((size) => (
-                              <SelectItem key={size.value} value={size.value}>
-                                {size.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
+                       {/* Typography */}
+                       <div className="space-y-4">
+                         <Label className="flex items-center gap-2">
+                           <Type className="h-4 w-4" />
+                           Typography
+                         </Label>
+                         
+                         <div className="space-y-3">
+                           <div>
+                             <Label className="text-sm">Font Family</Label>
+                             <Select value={currentSettings.font_family || 'Inter'} onValueChange={(value) => updateSetting('font_family', value)}>
+                               <SelectTrigger>
+                                 <SelectValue />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 {fontFamilies.map((font) => (
+                                   <SelectItem key={font.value} value={font.value}>
+                                     {font.label}
+                                   </SelectItem>
+                                 ))}
+                               </SelectContent>
+                             </Select>
+                           </div>
+                           
+                           <div>
+                             <Label className="text-sm">Font Size</Label>
+                             <Select value={currentSettings.font_size || '14px'} onValueChange={(value) => updateSetting('font_size', value)}>
+                               <SelectTrigger>
+                                 <SelectValue />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 {fontSizes.map((size) => (
+                                   <SelectItem key={size.value} value={`${size.value}px`}>
+                                     {size.label}
+                                   </SelectItem>
+                                 ))}
+                               </SelectContent>
+                             </Select>
+                           </div>
+                         </div>
+                       </div>
 
-                  <Separator />
-
-                  {/* Field Toggles */}
-                  <div className="space-y-4">
-                    <Label>Show/Hide Fields</Label>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">VAT Number</Label>
-                        <Switch
-                          checked={currentSettings.showVatNumber}
-                          onCheckedChange={(checked) => updateSetting('showVatNumber', checked)}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">Address</Label>
-                        <Switch
-                          checked={currentSettings.showAddress}
-                          onCheckedChange={(checked) => updateSetting('showAddress', checked)}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">Payment Terms</Label>
-                        <Switch
-                          checked={currentSettings.showPaymentTerms}
-                          onCheckedChange={(checked) => updateSetting('showPaymentTerms', checked)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Notes */}
-                  <div className="space-y-2">
-                    <Label>Default Notes</Label>
-                    <Textarea
-                      value={currentSettings.notes}
-                      onChange={(e) => updateSetting('notes', e.target.value)}
-                      placeholder="Add default notes for invoices..."
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-col gap-2 pt-4">
-                    <Button className="w-full">
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Template
-                    </Button>
-                    <Button variant="outline" className="w-full">
-                      <Star className="h-4 w-4 mr-2" />
-                      Set as Default
-                    </Button>
-                  </div>
+                       {/* Action Buttons */}
+                       <div className="flex flex-col gap-2 pt-4">
+                         <Button 
+                           className="w-full" 
+                           onClick={handleSave}
+                           disabled={isSaving || !selectedTemplate}
+                         >
+                           <Save className="h-4 w-4 mr-2" />
+                           {isSaving ? 'Saving...' : 'Save Template'}
+                         </Button>
+                         <Button 
+                           variant="outline" 
+                           className="w-full"
+                           onClick={handleSetDefault}
+                           disabled={!selectedTemplate || selectedTemplate?.is_default}
+                         >
+                           <Star className="h-4 w-4 mr-2" />
+                           {selectedTemplate?.is_default ? 'Default Template' : 'Set as Default'}
+                         </Button>
+                       </div>
+                     </>
+                   )}
                 </CardContent>
               </Card>
             </div>
@@ -340,145 +515,156 @@ const InvoiceTemplates = () => {
                   <CardTitle>Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div 
-                    className="bg-white border rounded-lg p-8 min-h-[600px] shadow-sm"
-                    style={{ 
-                      fontFamily: currentSettings.fontFamily,
-                      fontSize: `${currentSettings.fontSize}px`,
-                    }}
-                  >
-                    {/* Invoice Header */}
-                    <div className="flex justify-between items-start mb-8">
-                      <div>
-                        <div className="w-20 h-20 bg-gray-200 rounded border-2 border-dashed border-gray-300 flex items-center justify-center mb-4">
-                          <Image className="h-8 w-8 text-gray-400" />
-                        </div>
-                        <h1 
-                          className="text-2xl font-bold"
-                          style={{ color: currentSettings.primaryColor }}
-                        >
-                          {currentSettings.companyName}
-                        </h1>
-                        {currentSettings.showAddress && (
-                          <div className="text-gray-600 mt-2">
-                            <p>123 Business Street</p>
-                            <p>Valletta, Malta VLT 1234</p>
-                          </div>
-                        )}
-                        {currentSettings.showVatNumber && (
-                          <p className="text-gray-600 mt-1">VAT: MT12345678</p>
-                        )}
-                      </div>
-                      
-                      <div className="text-right">
-                        <h2 
-                          className="text-3xl font-bold mb-2"
-                          style={{ color: currentSettings.primaryColor }}
-                        >
-                          INVOICE
-                        </h2>
-                        <p className="text-gray-600"># INV-2024-001</p>
-                      </div>
-                    </div>
+                   <div 
+                     className="bg-white border rounded-lg p-8 min-h-[600px] shadow-sm"
+                     style={{ 
+                       fontFamily: currentSettings.font_family || 'Inter',
+                       fontSize: currentSettings.font_size || '14px',
+                       '--primary': currentSettings.primary_color || '#26A65B',
+                       '--accent': currentSettings.accent_color || '#1F2D3D',
+                     } as React.CSSProperties}
+                   >
+                     {/* Invoice Header */}
+                     <div className="flex justify-between items-start mb-8">
+                       <div>
+                         {/* Logo */}
+                         <div 
+                           className="w-20 h-20 mb-4"
+                           style={{
+                             transform: `translate(${currentSettings.logo_x_offset || 0}px, ${currentSettings.logo_y_offset || 0}px)`
+                           }}
+                         >
+                           {currentSettings.logo_url ? (
+                             <img 
+                               src={currentSettings.logo_url} 
+                               alt="Company Logo" 
+                               className="w-full h-full object-contain"
+                             />
+                           ) : (
+                             <div className="w-full h-full bg-gray-200 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                               <Image className="h-8 w-8 text-gray-400" />
+                             </div>
+                           )}
+                         </div>
+                         
+                         <h1 
+                           className="text-2xl font-bold"
+                           style={{ color: currentSettings.primary_color || '#26A65B' }}
+                         >
+                           InvoicePro Malta
+                         </h1>
+                         <div className="text-gray-600 mt-2">
+                           <p>123 Business Street</p>
+                           <p>Valletta, Malta VLT 1234</p>
+                           <p>VAT: MT12345678</p>
+                         </div>
+                       </div>
+                       
+                       <div className="text-right">
+                         <h2 
+                           className="text-3xl font-bold mb-2"
+                           style={{ color: currentSettings.primary_color || '#26A65B' }}
+                         >
+                           INVOICE
+                         </h2>
+                         <p className="text-gray-600"># INV-2024-001</p>
+                       </div>
+                     </div>
 
-                    {/* Bill To Section */}
-                    <div className="grid grid-cols-2 gap-8 mb-8">
-                      <div>
-                        <h3 
-                          className="font-semibold mb-2"
-                          style={{ color: currentSettings.accentColor }}
-                        >
-                          Bill To:
-                        </h3>
-                        <div className="text-gray-600">
-                          <p className="font-medium">Sample Customer</p>
-                          <p>456 Customer Ave</p>
-                          <p>Sliema, Malta SLM 1234</p>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Issue Date:</span>
-                            <span>January 15, 2024</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Due Date:</span>
-                            <span>February 14, 2024</span>
-                          </div>
-                          {currentSettings.showPaymentTerms && (
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Terms:</span>
-                              <span>Net 30</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                     {/* Bill To Section */}
+                     <div className="grid grid-cols-2 gap-8 mb-8">
+                       <div>
+                         <h3 
+                           className="font-semibold mb-2"
+                           style={{ color: currentSettings.accent_color || '#1F2D3D' }}
+                         >
+                           Bill To:
+                         </h3>
+                         <div className="text-gray-600">
+                           <p className="font-medium">Sample Customer</p>
+                           <p>456 Customer Ave</p>
+                           <p>Sliema, Malta SLM 1234</p>
+                         </div>
+                       </div>
+                       
+                       <div>
+                         <div className="space-y-1">
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">Issue Date:</span>
+                             <span>January 15, 2024</span>
+                           </div>
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">Due Date:</span>
+                             <span>February 14, 2024</span>
+                           </div>
+                           <div className="flex justify-between">
+                             <span className="text-gray-600">Terms:</span>
+                             <span>Net 30</span>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
 
-                    {/* Items Table */}
-                    <div className="mb-8">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b-2" style={{ borderColor: currentSettings.primaryColor }}>
-                            <th className="text-left py-2">Description</th>
-                            <th className="text-right py-2">Qty</th>
-                            <th className="text-right py-2">Unit Price</th>
-                            <th className="text-right py-2">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="py-3">Professional Services</td>
-                            <td className="text-right py-3">10</td>
-                            <td className="text-right py-3">€50.00</td>
-                            <td className="text-right py-3">€500.00</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-3">Consultation Fee</td>
-                            <td className="text-right py-3">1</td>
-                            <td className="text-right py-3">€150.00</td>
-                            <td className="text-right py-3">€150.00</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                     {/* Items Table */}
+                     <div className="mb-8">
+                       <table className="w-full">
+                         <thead>
+                           <tr className="border-b-2" style={{ borderColor: currentSettings.primary_color || '#26A65B' }}>
+                             <th className="text-left py-2">Description</th>
+                             <th className="text-right py-2">Qty</th>
+                             <th className="text-right py-2">Unit Price</th>
+                             <th className="text-right py-2">Total</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           <tr className="border-b">
+                             <td className="py-3">Professional Services</td>
+                             <td className="text-right py-3">10</td>
+                             <td className="text-right py-3">€50.00</td>
+                             <td className="text-right py-3">€500.00</td>
+                           </tr>
+                           <tr className="border-b">
+                             <td className="py-3">Consultation Fee</td>
+                             <td className="text-right py-3">1</td>
+                             <td className="text-right py-3">€150.00</td>
+                             <td className="text-right py-3">€150.00</td>
+                           </tr>
+                         </tbody>
+                       </table>
+                     </div>
 
-                    {/* Totals */}
-                    <div className="flex justify-end mb-8">
-                      <div className="w-64">
-                        <div className="flex justify-between py-1">
-                          <span>Subtotal:</span>
-                          <span>€650.00</span>
-                        </div>
-                        <div className="flex justify-between py-1">
-                          <span>VAT (18%):</span>
-                          <span>€117.00</span>
-                        </div>
-                        <div 
-                          className="flex justify-between py-2 border-t-2 font-bold text-lg"
-                          style={{ borderColor: currentSettings.primaryColor }}
-                        >
-                          <span>Total:</span>
-                          <span>€767.00</span>
-                        </div>
-                      </div>
-                    </div>
+                     {/* Totals */}
+                     <div className="flex justify-end mb-8">
+                       <div className="w-64">
+                         <div className="flex justify-between py-1">
+                           <span>Subtotal:</span>
+                           <span>€650.00</span>
+                         </div>
+                         <div className="flex justify-between py-1">
+                           <span>VAT (18%):</span>
+                           <span>€117.00</span>
+                         </div>
+                         <div 
+                           className="flex justify-between py-2 border-t-2 font-bold text-lg"
+                           style={{ borderColor: currentSettings.primary_color || '#26A65B' }}
+                         >
+                           <span>Total:</span>
+                           <span>€767.00</span>
+                         </div>
+                       </div>
+                     </div>
 
-                    {/* Notes */}
-                    {currentSettings.notes && (
-                      <div>
-                        <h3 
-                          className="font-semibold mb-2"
-                          style={{ color: currentSettings.accentColor }}
-                        >
-                          Notes:
-                        </h3>
-                        <p className="text-gray-600">{currentSettings.notes}</p>
-                      </div>
-                    )}
-                  </div>
+                     {/* Notes */}
+                     <div>
+                       <h3 
+                         className="font-semibold mb-2"
+                         style={{ color: currentSettings.accent_color || '#1F2D3D' }}
+                       >
+                         Notes:
+                       </h3>
+                       <p className="text-gray-600">Thank you for your business!</p>
+                     </div>
+                   </div>
                 </CardContent>
               </Card>
             </div>
