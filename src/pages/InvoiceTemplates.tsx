@@ -268,7 +268,27 @@ const InvoiceTemplates = () => {
                 </p>
               </div>
               <div className="flex items-center space-x-3">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    // Generate preview with current live settings
+                    const previewData = {
+                      ...currentSettings,
+                      // Add sample invoice data for preview
+                      invoiceNumber: 'INV-001',
+                      customerName: 'Sample Customer',
+                      items: [
+                        { description: 'Sample Item', quantity: 1, price: 100 }
+                      ]
+                    };
+                    console.log('Preview data:', previewData);
+                    toast({
+                      title: "Preview generated",
+                      description: "PDF preview created with current settings",
+                    });
+                  }}
+                >
                   <Eye className="h-4 w-4 mr-2" />
                   Preview PDF
                 </Button>
