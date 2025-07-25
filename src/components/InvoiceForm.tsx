@@ -22,7 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { Plus, Edit, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +61,7 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
   const [formData, setFormData] = useState({
     invoice_number: invoice?.invoice_number || "",
     customer_id: invoice?.customer_id || "",
+    invoice_date: invoice ? new Date(invoice.due_date) : new Date(),
     due_date: invoice ? new Date(invoice.due_date) : undefined as Date | undefined,
     status: invoice?.status || "draft",
   });
@@ -133,20 +134,28 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
     setLoading(true);
 
     try {
-      if (!formData.due_date) {
-        throw new Error("Due date is required");
-      }
-
       if (lineItems.length === 0) {
         throw new Error("At least one line item is required");
       }
+
+      // Get selected customer's payment terms to calculate due date
+      const selectedCustomer = customers.find(c => c.id === formData.customer_id);
+      const paymentTerms = selectedCustomer?.payment_terms || "Net 30";
+      
+      // Extract number of days from payment terms (e.g., "Net 30" -> 30)
+      const daysMatch = paymentTerms.match(/\d+/);
+      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      
+      // Calculate due date from invoice date + payment terms
+      const calculatedDueDate = addDays(formData.invoice_date, paymentDays);
 
       const invoiceData = {
         invoice_number: formData.invoice_number,
         customer_id: formData.customer_id,
         amount: subtotal,
         vat_rate: 0.18, // Average VAT rate or calculated from line items
-        due_date: formData.due_date.toISOString().split('T')[0],
+        invoice_date: formData.invoice_date.toISOString().split('T')[0],
+        due_date: calculatedDueDate.toISOString().split('T')[0],
         status: formData.status,
       };
 
@@ -226,6 +235,7 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
         setFormData({
           invoice_number: "",
           customer_id: "",
+          invoice_date: new Date(),
           due_date: undefined,
           status: "draft",
         });
@@ -302,30 +312,41 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="due_date">Due Date *</Label>
+                  <Label htmlFor="invoice_date">Invoice Date *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !formData.due_date && "text-muted-foreground"
+                          "w-full justify-start text-left font-normal"
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.due_date ? format(formData.due_date, "PPP") : <span>Pick a date</span>}
+                        {format(formData.invoice_date, "PPP")}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={formData.due_date}
-                        onSelect={(date) => setFormData({ ...formData, due_date: date })}
+                        selected={formData.invoice_date}
+                        onSelect={(date) => setFormData({ ...formData, invoice_date: date || new Date() })}
                         initialFocus
                         className="p-3 pointer-events-auto"
                       />
                     </PopoverContent>
                   </Popover>
+                  {formData.customer_id && (
+                    <div className="text-sm text-muted-foreground">
+                      Due: {(() => {
+                        const selectedCustomer = customers.find(c => c.id === formData.customer_id);
+                        const paymentTerms = selectedCustomer?.payment_terms || "Net 30";
+                        const daysMatch = paymentTerms.match(/\d+/);
+                        const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+                        const calculatedDueDate = addDays(formData.invoice_date, paymentDays);
+                        return format(calculatedDueDate, "PPP");
+                      })()}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
