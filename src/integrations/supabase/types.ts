@@ -23,6 +23,7 @@ export type Database = {
           name: string
           payment_terms: string | null
           phone: string | null
+          user_id: string | null
           vat_number: string | null
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           name: string
           payment_terms?: string | null
           phone?: string | null
+          user_id?: string | null
           vat_number?: string | null
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           name?: string
           payment_terms?: string | null
           phone?: string | null
+          user_id?: string | null
           vat_number?: string | null
         }
         Relationships: []
@@ -108,6 +111,7 @@ export type Database = {
           logo_y_offset: number | null
           name: string
           primary_color: string | null
+          user_id: string | null
         }
         Insert: {
           accent_color?: string | null
@@ -121,6 +125,7 @@ export type Database = {
           logo_y_offset?: number | null
           name: string
           primary_color?: string | null
+          user_id?: string | null
         }
         Update: {
           accent_color?: string | null
@@ -134,6 +139,7 @@ export type Database = {
           logo_y_offset?: number | null
           name?: string
           primary_color?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -144,8 +150,10 @@ export type Database = {
           customer_id: string | null
           due_date: string | null
           id: string
+          invoice_date: string | null
           invoice_number: string | null
           status: string | null
+          user_id: string | null
           vat_rate: number | null
         }
         Insert: {
@@ -154,8 +162,10 @@ export type Database = {
           customer_id?: string | null
           due_date?: string | null
           id?: string
+          invoice_date?: string | null
           invoice_number?: string | null
           status?: string | null
+          user_id?: string | null
           vat_rate?: number | null
         }
         Update: {
@@ -164,8 +174,10 @@ export type Database = {
           customer_id?: string | null
           due_date?: string | null
           id?: string
+          invoice_date?: string | null
           invoice_number?: string | null
           status?: string | null
+          user_id?: string | null
           vat_rate?: number | null
         }
         Relationships: [
@@ -186,6 +198,7 @@ export type Database = {
           invoice_id: string | null
           method: string | null
           payment_date: string | null
+          user_id: string | null
         }
         Insert: {
           amount?: number | null
@@ -194,6 +207,7 @@ export type Database = {
           invoice_id?: string | null
           method?: string | null
           payment_date?: string | null
+          user_id?: string | null
         }
         Update: {
           amount?: number | null
@@ -202,6 +216,7 @@ export type Database = {
           invoice_id?: string | null
           method?: string | null
           payment_date?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -219,6 +234,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
