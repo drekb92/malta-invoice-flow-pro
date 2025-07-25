@@ -244,6 +244,7 @@ const InvoiceTemplates = () => {
     { value: "Open Sans", label: "Open Sans" },
     { value: "Montserrat", label: "Montserrat" },
     { value: "Lato", label: "Lato" },
+    { value: "Poppins", label: "Poppins" },
   ];
 
   const fontSizes = [
