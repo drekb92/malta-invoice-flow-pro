@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { InvoiceLineItems, LineItem } from "./InvoiceLineItems";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Customer {
   id: string;
@@ -57,6 +58,7 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState({
     invoice_number: invoice?.invoice_number || "",
@@ -197,9 +199,13 @@ export function InvoiceForm({ invoice, onSave, trigger }: InvoiceFormProps) {
         });
       } else {
         // Create new invoice
+        if (!user?.id) {
+          throw new Error("User not authenticated");
+        }
+        
         const { data: newInvoice, error: invoiceError } = await supabase
           .from("invoices")
-          .insert([invoiceData])
+          .insert([{ ...invoiceData, user_id: user.id }])
           .select("id")
           .single();
 

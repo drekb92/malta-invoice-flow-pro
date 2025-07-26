@@ -20,6 +20,7 @@ import {
 import { Plus, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Customer {
   id?: string;
@@ -41,6 +42,7 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState<Customer>({
     name: customer?.name || "",
@@ -71,9 +73,13 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
         });
       } else {
         // Create new customer
+        if (!user?.id) {
+          throw new Error("User not authenticated");
+        }
+        
         const { error } = await supabase
           .from("customers")
-          .insert([formData]);
+          .insert([{ ...formData, user_id: user.id }]);
 
         if (error) throw error;
         

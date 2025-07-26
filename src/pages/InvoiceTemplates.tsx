@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Plus,
   Upload,
@@ -39,6 +40,7 @@ interface InvoiceTemplate {
 
 const InvoiceTemplates = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplate | null>(null);
   const [currentSettings, setCurrentSettings] = useState<Partial<InvoiceTemplate>>({});
@@ -80,6 +82,10 @@ const InvoiceTemplates = () => {
   // Create default template
   const createDefaultTemplate = async () => {
     try {
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
+
       const defaultTemplate = {
         name: 'Default Template',
         is_default: true,
@@ -89,6 +95,7 @@ const InvoiceTemplates = () => {
         font_size: '14px',
         logo_x_offset: 0,
         logo_y_offset: 0,
+        user_id: user.id,
       };
 
       const { data, error } = await supabase
