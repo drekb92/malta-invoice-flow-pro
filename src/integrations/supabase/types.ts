@@ -17,36 +17,51 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          business_name: string | null
+          client_type: string | null
           created_at: string | null
+          date_added: string | null
           email: string | null
           id: string
           name: string
+          notes: string | null
           payment_terms: string | null
           phone: string | null
           user_id: string | null
           vat_number: string | null
+          vat_status: string | null
         }
         Insert: {
           address?: string | null
+          business_name?: string | null
+          client_type?: string | null
           created_at?: string | null
+          date_added?: string | null
           email?: string | null
           id?: string
           name: string
+          notes?: string | null
           payment_terms?: string | null
           phone?: string | null
           user_id?: string | null
           vat_number?: string | null
+          vat_status?: string | null
         }
         Update: {
           address?: string | null
+          business_name?: string | null
+          client_type?: string | null
           created_at?: string | null
+          date_added?: string | null
           email?: string | null
           id?: string
           name?: string
+          notes?: string | null
           payment_terms?: string | null
           phone?: string | null
           user_id?: string | null
           vat_number?: string | null
+          vat_status?: string | null
         }
         Relationships: []
       }
