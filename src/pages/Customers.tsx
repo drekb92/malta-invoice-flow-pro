@@ -31,6 +31,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomerForm } from "@/components/CustomerForm";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +60,7 @@ const Customers = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const fetchCustomers = async () => {
     try {
@@ -259,43 +261,61 @@ const Customers = () => {
                               </PopoverTrigger>
                               <PopoverContent className="w-60">
                                 <div className="space-y-1">
-                                  <Button variant="ghost" className="justify-start w-full">
+                                  <Button 
+                                    variant="ghost" 
+                                    className="justify-start w-full text-sm"
+                                    onClick={() => navigate(`/customers/${customer.id}`)}
+                                  >
                                     <Eye className="h-4 w-4 mr-2" />
-                                    View Details
+                                    👁 View Details
                                   </Button>
-                                  <Button variant="ghost" className="justify-start w-full">
+                                  <Button 
+                                    variant="ghost" 
+                                    className="justify-start w-full text-sm"
+                                    onClick={() => navigate(`/statements/${customer.id}`)}
+                                  >
                                     <Receipt className="h-4 w-4 mr-2" />
-                                    View Statement
+                                    🧾 View Statement
                                   </Button>
-                                  <Button variant="ghost" className="justify-start w-full">
+                                  <Button 
+                                    variant="ghost" 
+                                    className="justify-start w-full text-sm"
+                                    onClick={() => navigate(`/quotations?client=${customer.id}`)}
+                                  >
                                     <FileText className="h-4 w-4 mr-2" />
-                                    View Quotations
+                                    📄 View Quotations
                                   </Button>
-                                  <Button variant="ghost" className="justify-start w-full">
+                                  <Button 
+                                    variant="ghost" 
+                                    className="justify-start w-full text-sm"
+                                    onClick={() => navigate(`/invoices/new?client=${customer.id}`)}
+                                  >
                                     <Plus className="h-4 w-4 mr-2" />
-                                    Create Invoice
+                                    ➕ Create Invoice
                                   </Button>
-                                  <Button variant="ghost" className="justify-start w-full">
+                                  <Button 
+                                    variant="ghost" 
+                                    className="justify-start w-full text-sm"
+                                    onClick={() => navigate(`/quotations/new?client=${customer.id}`)}
+                                  >
                                     <Plus className="h-4 w-4 mr-2" />
-                                    Create Quotation
+                                    ➕ Create Quotation
                                   </Button>
-                                  <CustomerForm 
-                                    customer={customer} 
-                                    onSave={fetchCustomers}
-                                    trigger={
-                                      <Button variant="ghost" className="justify-start w-full">
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Edit Customer
-                                      </Button>
-                                    }
-                                  />
+                                  <Button 
+                                    variant="ghost" 
+                                    className="justify-start w-full text-sm"
+                                    onClick={() => navigate(`/customers/edit/${customer.id}`)}
+                                  >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    ✏️ Edit Customer
+                                  </Button>
                                   <Button 
                                     variant="destructive" 
-                                    className="justify-start w-full"
+                                    className="justify-start w-full text-sm"
                                     onClick={() => handleDeleteCustomer(customer.id)}
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete Customer
+                                    🗑 Delete Customer
                                   </Button>
                                 </div>
                               </PopoverContent>
