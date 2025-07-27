@@ -51,6 +51,7 @@ interface Customer {
   business_name: string | null;
   notes: string | null;
   date_added?: string | null;
+  user_id?: string;
 }
 
 const Customers = () => {
@@ -112,6 +113,17 @@ const Customers = () => {
   }, [searchTerm, customers]);
 
   const handleDeleteCustomer = async (id: string) => {
+    // Security check: Verify user owns this customer before deletion
+    const customerToDelete = customers.find(c => c.id === id);
+    if (!customerToDelete || customerToDelete.user_id !== user?.id) {
+      toast({
+        title: "Error",
+        description: "Unauthorized: You can only delete your own customers",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("customers")
@@ -129,7 +141,7 @@ const Customers = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to delete customer",
+        description: "Failed to delete customer. Please check your permissions.",
         variant: "destructive",
       });
     }
