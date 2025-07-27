@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ArrowLeft } from "lucide-react";
+import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { format, addDays } from "date-fns";
 
 interface Customer {
   id: string;
@@ -29,38 +36,38 @@ interface InvoiceItem {
 }
 
 const NewInvoice = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { toast } = useToast();
-  const { user } = useAuth();
-  
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
+  const [invoiceNumber, setInvoiceNumber] = useState<string>("");
+  const [invoiceDate, setInvoiceDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
+  const [status, setStatus] = useState<string>("draft");
   const [items, setItems] = useState<InvoiceItem[]>([
-    { description: '', quantity: 1, unit_price: 0, vat_rate: 0.18, unit: 'unit' }
+    {
+      description: "",
+      quantity: 1,
+      unit_price: 0,
+      vat_rate: 0.18,
+      unit: "service",
+    },
   ]);
   const [loading, setLoading] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { id } = useParams();
+  const { toast } = useToast();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    fetchCustomers();
-    generateInvoiceNumber();
-    
-    // Pre-select customer if client ID is provided in URL
-    const clientId = searchParams.get('client');
-    if (clientId) {
-      setSelectedCustomerId(clientId);
-    }
-  }, [searchParams]);
-
+  // Fetch customers
   const fetchCustomers = async () => {
     try {
       const { data, error } = await supabase
-        .from('customers')
-        .select('id, name, email, address, vat_number, payment_terms')
-        .order('name');
+        .from("customers")
+        .select("id, name, email, address, vat_number, payment_terms")
+        .order("name");
 
       if (error) throw error;
       setCustomers(data || []);
@@ -73,16 +80,101 @@ const NewInvoice = () => {
     }
   };
 
-  const generateInvoiceNumber = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    setInvoiceNumber(`INV-${year}${month}-${random}`);
+  // Generate invoice number
+  const generateInvoiceNumber = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("invoice_number")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      let nextNumber = 1;
+      if (data && data.length > 0) {
+        const lastNumber = data[0].invoice_number;
+        const match = lastNumber.match(/INV-(\d+)/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
+      }
+
+      const invoiceNum = `INV-${String(nextNumber).padStart(6, '0')}`;
+      setInvoiceNumber(invoiceNum);
+    } catch (error) {
+      console.error("Error generating invoice number:", error);
+    }
   };
 
+  // Pre-select customer if coming from customer page or load invoice data for editing
+  const clientId = searchParams.get("client");
+  useEffect(() => {
+    if (clientId && customers.length > 0) {
+      setSelectedCustomer(clientId);
+    }
+  }, [clientId, customers]);
+
+  // Load invoice data if in edit mode
+  useEffect(() => {
+    if (id) {
+      setIsEditMode(true);
+      fetchInvoiceData(id);
+    }
+  }, [id]);
+
+  const fetchInvoiceData = async (invoiceId: string) => {
+    try {
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          invoice_items (
+            description,
+            quantity,
+            unit,
+            unit_price,
+            vat_rate
+          )
+        `)
+        .eq("id", invoiceId)
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      setInvoiceNumber(invoiceData.invoice_number);
+      setSelectedCustomer(invoiceData.customer_id);
+      setInvoiceDate(invoiceData.invoice_date || invoiceData.created_at.split("T")[0]);
+      setStatus(invoiceData.status);
+      
+      if (invoiceData.invoice_items && invoiceData.invoice_items.length > 0) {
+        setItems(invoiceData.invoice_items.map((item: any) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+          unit: item.unit,
+        })));
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load invoice data",
+        variant: "destructive",
+      });
+      navigate("/invoices");
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+    if (!isEditMode) {
+      generateInvoiceNumber();
+    }
+  }, [isEditMode]);
+
   const addItem = () => {
-    setItems([...items, { description: '', quantity: 1, unit_price: 0, vat_rate: 0.18, unit: 'unit' }]);
+    setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: 0.18, unit: "service" }]);
   };
 
   const removeItem = (index: number) => {
@@ -98,83 +190,124 @@ const NewInvoice = () => {
   };
 
   const calculateTotals = () => {
-    let netAmount = 0;
-    let vatAmount = 0;
-
-    items.forEach(item => {
-      const lineTotal = item.quantity * item.unit_price;
-      netAmount += lineTotal;
-      vatAmount += lineTotal * item.vat_rate;
-    });
-
-    return {
-      netAmount,
-      vatAmount,
-      totalAmount: netAmount + vatAmount
-    };
+    const netTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    const vatTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price * item.vat_rate), 0);
+    const grandTotal = netTotal + vatTotal;
+    return { netTotal, vatTotal, grandTotal };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!selectedCustomerId) {
-      toast({
-        title: "Error",
-        description: "Please select a customer",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const totals = calculateTotals();
+      if (!selectedCustomer) {
+        throw new Error("Please select a customer");
+      }
 
-      // Create invoice
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert({
-          user_id: user?.id,
-          customer_id: selectedCustomerId,
-          invoice_number: invoiceNumber,
-          invoice_date: invoiceDate,
-          due_date: dueDate || null,
-          amount: totals.totalAmount,
-          status: 'draft'
-        })
-        .select()
-        .single();
+      if (items.some(item => !item.description || item.quantity <= 0 || item.unit_price < 0)) {
+        throw new Error("Please fill in all item details");
+      }
 
-      if (invoiceError) throw invoiceError;
+      // Get selected customer's payment terms to calculate due date
+      const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+      const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+      
+      // Extract number of days from payment terms (e.g., "Net 30" -> 30)
+      const daysMatch = paymentTerms.match(/\d+/);
+      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      
+      // Calculate due date from invoice date + payment terms
+      const invoiceDateObj = new Date(invoiceDate);
+      const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
 
-      // Create invoice items
-      const invoiceItems = items.map(item => ({
-        invoice_id: invoice.id,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        vat_rate: item.vat_rate,
-        unit: item.unit
-      }));
+      const { netTotal, vatTotal, grandTotal } = calculateTotals();
 
-      const { error: itemsError } = await supabase
-        .from('invoice_items')
-        .insert(invoiceItems);
+      const invoiceData = {
+        invoice_number: invoiceNumber,
+        customer_id: selectedCustomer,
+        amount: netTotal,
+        vat_amount: vatTotal,
+        total_amount: grandTotal,
+        invoice_date: invoiceDate,
+        due_date: calculatedDueDate.toISOString().split("T")[0],
+        status: status,
+        user_id: user?.id,
+      };
 
-      if (itemsError) throw itemsError;
+      if (isEditMode && id) {
+        // Update existing invoice
+        const { error: invoiceError } = await supabase
+          .from("invoices")
+          .update(invoiceData)
+          .eq("id", id);
 
-      toast({
-        title: "Success",
-        description: "Invoice created successfully",
-      });
+        if (invoiceError) throw invoiceError;
 
-      navigate(`/invoices/${invoice.id}`);
+        // Delete existing items and insert new ones
+        const { error: deleteError } = await supabase
+          .from("invoice_items")
+          .delete()
+          .eq("invoice_id", id);
+
+        if (deleteError) throw deleteError;
+
+        const itemsData = items.map(item => ({
+          invoice_id: id,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("invoice_items")
+          .insert(itemsData);
+
+        if (itemsError) throw itemsError;
+
+        toast({
+          title: "Invoice updated",
+          description: "Invoice has been successfully updated.",
+        });
+      } else {
+        // Create new invoice
+        const { data: invoice, error: invoiceError } = await supabase
+          .from("invoices")
+          .insert([invoiceData])
+          .select("id")
+          .single();
+
+        if (invoiceError) throw invoiceError;
+
+        // Create invoice items
+        const itemsData = items.map(item => ({
+          invoice_id: invoice.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("invoice_items")
+          .insert(itemsData);
+
+        if (itemsError) throw itemsError;
+
+        toast({
+          title: "Invoice created",
+          description: "Invoice has been successfully created.",
+        });
+      }
+
+      navigate("/invoices");
     } catch (error) {
-      console.error('Error creating invoice:', error);
       toast({
         title: "Error",
-        description: "Failed to create invoice",
+        description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
     } finally {
@@ -193,14 +326,18 @@ const NewInvoice = () => {
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Button variant="ghost" onClick={() => navigate('/invoices')}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Invoices
+                <Button variant="ghost" asChild>
+                  <Link to="/invoices">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Invoices
+                  </Link>
                 </Button>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">Create New Invoice</h1>
+                  <h1 className="text-2xl font-bold text-foreground">
+                    {isEditMode ? "Edit Invoice" : "New Invoice"}
+                  </h1>
                   <p className="text-muted-foreground">
-                    Create a new invoice for your customer
+                    {isEditMode ? "Update existing invoice" : "Create a new Malta VAT-compliant invoice"}
                   </p>
                 </div>
               </div>
@@ -220,7 +357,7 @@ const NewInvoice = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="customer">Customer *</Label>
-                      <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                      <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a customer" />
                         </SelectTrigger>
@@ -235,36 +372,58 @@ const NewInvoice = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="invoice-number">Invoice Number</Label>
+                      <Label htmlFor="invoiceNumber">Invoice Number *</Label>
                       <Input
-                        id="invoice-number"
+                        id="invoiceNumber"
                         value={invoiceNumber}
                         onChange={(e) => setInvoiceNumber(e.target.value)}
+                        placeholder="INV-000001"
                         required
+                        readOnly={!isEditMode} // Auto-generated for new invoices
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="invoice-date">Invoice Date *</Label>
+                      <Label htmlFor="invoiceDate">Invoice Date *</Label>
                       <Input
-                        id="invoice-date"
+                        id="invoiceDate"
                         type="date"
                         value={invoiceDate}
                         onChange={(e) => setInvoiceDate(e.target.value)}
                         required
                       />
                     </div>
-
+                    
                     <div>
-                      <Label htmlFor="due-date">Due Date</Label>
-                      <Input
-                        id="due-date"
-                        type="date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                      />
+                      <Label htmlFor="status">Status</Label>
+                      <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
+                  
+                  {selectedCustomer && (
+                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                      <strong>Due Date Preview:</strong> {(() => {
+                        const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+                        const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+                        const daysMatch = paymentTerms.match(/\d+/);
+                        const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+                        const calculatedDueDate = addDays(new Date(invoiceDate), paymentDays);
+                        return format(calculatedDueDate, "PPP");
+                      })()}
+                      <br />
+                      <strong>Payment Terms:</strong> {customers.find(c => c.id === selectedCustomer)?.payment_terms || "Net 30"}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -273,19 +432,19 @@ const NewInvoice = () => {
                 <CardHeader>
                   <CardTitle>Invoice Summary</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Net Amount:</span>
-                    <span>€{totals.netAmount.toFixed(2)}</span>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span>€{totals.netTotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">VAT Amount:</span>
-                    <span>€{totals.vatAmount.toFixed(2)}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">VAT Total:</span>
+                    <span>€{totals.vatTotal.toFixed(2)}</span>
                   </div>
-                  <div className="border-t pt-2">
+                  <div className="border-t pt-3">
                     <div className="flex justify-between font-bold">
-                      <span>Total Amount:</span>
-                      <span>€{totals.totalAmount.toFixed(2)}</span>
+                      <span>Grand Total:</span>
+                      <span>€{totals.grandTotal.toFixed(2)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -312,7 +471,7 @@ const NewInvoice = () => {
                         <Input
                           value={item.description}
                           onChange={(e) => updateItem(index, 'description', e.target.value)}
-                          placeholder="Item description"
+                          placeholder="Service description"
                           required
                         />
                       </div>
@@ -330,7 +489,7 @@ const NewInvoice = () => {
                       </div>
                       
                       <div>
-                        <Label>Unit Price *</Label>
+                        <Label>Unit Price (€) *</Label>
                         <Input
                           type="number"
                           min="0"
@@ -351,9 +510,9 @@ const NewInvoice = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="0">0%</SelectItem>
-                            <SelectItem value="0.18">18%</SelectItem>
-                            <SelectItem value="0.21">21%</SelectItem>
+                            <SelectItem value="0">0% (Exempt)</SelectItem>
+                            <SelectItem value="0.05">5%</SelectItem>
+                            <SelectItem value="0.18">18% (Standard)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -377,11 +536,11 @@ const NewInvoice = () => {
 
             {/* Actions */}
             <div className="flex justify-end space-x-4">
-              <Button type="button" variant="outline" onClick={() => navigate('/invoices')}>
-                Cancel
+              <Button type="button" variant="outline" asChild>
+                <Link to="/invoices">Cancel</Link>
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'Creating...' : 'Create Invoice'}
+                {loading ? "Saving..." : (isEditMode ? "Update Invoice" : "Create Invoice")}
               </Button>
             </div>
           </form>

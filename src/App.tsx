@@ -39,7 +39,8 @@ const App: React.FC = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
+          <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
+          <Route path="/invoices/edit/:id" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
             <Route path="/invoices/:invoice_id" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
             <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />

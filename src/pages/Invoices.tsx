@@ -33,7 +33,7 @@ import {
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { InvoiceForm } from "@/components/InvoiceForm";
+
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -168,7 +168,12 @@ const Invoices = () => {
                   <Download className="h-4 w-4 mr-2" />
                   Export All
                 </Button>
-                <InvoiceForm onSave={fetchInvoices} />
+                <Button asChild>
+                  <Link to="/invoices/new">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Invoice
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
@@ -265,24 +270,12 @@ const Invoices = () => {
                                     View
                                   </Link>
                                 </DropdownMenuItem>
-                                <InvoiceForm 
-                                  invoice={{
-                                    id: invoice.id,
-                                    invoice_number: invoice.invoice_number,
-                                    customer_id: invoice.customer_id,
-                                    amount: invoice.amount,
-                                    vat_rate: invoice.vat_rate,
-                                    due_date: invoice.due_date,
-                                    status: invoice.status,
-                                  }}
-                                  onSave={fetchInvoices}
-                                  trigger={
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <Edit className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                  }
-                                />
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/invoices/edit/${invoice.id}`}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </Link>
+                                </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   onClick={() => handleDeleteInvoice(invoice.id)}
                                   className="text-red-600"
