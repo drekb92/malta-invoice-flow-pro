@@ -44,6 +44,11 @@ interface Customer {
   address: string | null;
   payment_terms: string | null;
   created_at: string;
+  vat_status: string | null;
+  client_type: string | null;
+  business_name: string | null;
+  notes: string | null;
+  date_added?: string | null;
 }
 
 const Customers = () => {
@@ -63,8 +68,18 @@ const Customers = () => {
 
       if (error) throw error;
       
-      setCustomers(data || []);
-      setFilteredCustomers(data || []);
+      // Map the data to ensure all fields are present with defaults
+      const customersWithDefaults = (data || []).map(customer => ({
+        ...customer,
+        vat_status: (customer as any).vat_status || null,
+        client_type: (customer as any).client_type || null,
+        business_name: (customer as any).business_name || null,
+        notes: (customer as any).notes || null,
+        date_added: (customer as any).date_added || null,
+      }));
+      
+      setCustomers(customersWithDefaults);
+      setFilteredCustomers(customersWithDefaults);
     } catch (error) {
       toast({
         title: "Error",
