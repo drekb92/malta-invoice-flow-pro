@@ -15,6 +15,7 @@ import Customers from "./pages/Customers";
 import Reports from "./pages/Reports";
 import ReminderSettings from "./pages/ReminderSettings";
 import InvoiceTemplates from "./pages/InvoiceTemplates";
+import NewInvoice from "./pages/NewInvoice";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +39,7 @@ const App: React.FC = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+            <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
             <Route path="/invoices/:invoice_id" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
             <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
