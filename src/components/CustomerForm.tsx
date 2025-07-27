@@ -167,6 +167,42 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
           <Card>
             <CardContent className="pt-6">
               <div className="space-y-4">
+                {/* Client Type */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Client Type</h3>
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <Label>Client Type</Label>
+                      <RadioGroup
+                        value={formData.client_type}
+                        onValueChange={(value) => setFormData({ ...formData, client_type: value })}
+                        className="flex flex-col space-y-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Individual" id="individual" />
+                          <Label htmlFor="individual">Individual</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="Business" id="business" />
+                          <Label htmlFor="business">Business</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                    
+                    {formData.client_type === "Business" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="business_name">Business Name *</Label>
+                        <Input
+                          id="business_name"
+                          value={formData.business_name}
+                          onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
+                          required={formData.client_type === "Business"}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Basic Information */}
                 <div>
                   <h3 className="text-lg font-medium mb-4">Basic Information</h3>
@@ -205,42 +241,16 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
                         onChange={(e) => setFormData({ ...formData, vat_number: e.target.value })}
                       />
                     </div>
-                  </div>
-                </div>
-
-                {/* Client Type */}
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Client Type</h3>
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      <Label>Client Type</Label>
-                      <RadioGroup
-                        value={formData.client_type}
-                        onValueChange={(value) => setFormData({ ...formData, client_type: value })}
-                        className="flex flex-col space-y-2"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Individual" id="individual" />
-                          <Label htmlFor="individual">Individual</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Business" id="business" />
-                          <Label htmlFor="business">Business</Label>
-                        </div>
-                      </RadioGroup>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="address">Address</Label>
+                      <Textarea
+                        id="address"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                        rows={3}
+                        placeholder="Street address, city, postal code, country"
+                      />
                     </div>
-                    
-                    {formData.client_type === "Business" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="business_name">Business Name *</Label>
-                        <Input
-                          id="business_name"
-                          value={formData.business_name}
-                          onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
-                          required={formData.client_type === "Business"}
-                        />
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -300,20 +310,10 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
                   </div>
                 </div>
 
-                {/* Address and Notes */}
+                {/* Additional Information */}
                 <div>
                   <h3 className="text-lg font-medium mb-4">Additional Information</h3>
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="address">Address</Label>
-                      <Textarea
-                        id="address"
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        rows={3}
-                        placeholder="Street address, city, postal code, country"
-                      />
-                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="notes">Notes (Internal use)</Label>
                       <Textarea
