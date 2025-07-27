@@ -261,23 +261,23 @@ const Customers = () => {
                                 <div className="space-y-1">
                                   <Button variant="ghost" className="justify-start w-full">
                                     <Eye className="h-4 w-4 mr-2" />
-                                    👁 View Details
+                                    View Details
                                   </Button>
                                   <Button variant="ghost" className="justify-start w-full">
                                     <Receipt className="h-4 w-4 mr-2" />
-                                    🧾 View Statement
+                                    View Statement
                                   </Button>
                                   <Button variant="ghost" className="justify-start w-full">
                                     <FileText className="h-4 w-4 mr-2" />
-                                    📄 View Quotations
+                                    View Quotations
                                   </Button>
                                   <Button variant="ghost" className="justify-start w-full">
                                     <Plus className="h-4 w-4 mr-2" />
-                                    ➕ Create Invoice
+                                    Create Invoice
                                   </Button>
                                   <Button variant="ghost" className="justify-start w-full">
                                     <Plus className="h-4 w-4 mr-2" />
-                                    ➕ Create Quotation
+                                    Create Quotation
                                   </Button>
                                   <CustomerForm 
                                     customer={customer} 
@@ -285,7 +285,7 @@ const Customers = () => {
                                     trigger={
                                       <Button variant="ghost" className="justify-start w-full">
                                         <Edit className="h-4 w-4 mr-2" />
-                                        ✏️ Edit Customer
+                                        Edit Customer
                                       </Button>
                                     }
                                   />
@@ -295,7 +295,7 @@ const Customers = () => {
                                     onClick={() => handleDeleteCustomer(customer.id)}
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
-                                    🗑 Delete Customer
+                                    Delete Customer
                                   </Button>
                                 </div>
                               </PopoverContent>
