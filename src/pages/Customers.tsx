@@ -13,11 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Plus,
   Search,
@@ -28,6 +27,8 @@ import {
   Edit,
   Mail,
   Trash2,
+  FileText,
+  Receipt,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -250,36 +251,55 @@ const Customers = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon">
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <CustomerForm 
-                                  customer={customer} 
-                                  onSave={fetchCustomers}
-                                  trigger={
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <Edit className="h-4 w-4 mr-2" />
-                                      Edit Customer
-                                    </DropdownMenuItem>
-                                  }
-                                />
-                                <DropdownMenuItem 
-                                  onClick={() => handleDeleteCustomer(customer.id)}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Customer
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-60">
+                                <div className="space-y-1">
+                                  <Button variant="ghost" className="justify-start w-full">
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    👁 View Details
+                                  </Button>
+                                  <Button variant="ghost" className="justify-start w-full">
+                                    <Receipt className="h-4 w-4 mr-2" />
+                                    🧾 View Statement
+                                  </Button>
+                                  <Button variant="ghost" className="justify-start w-full">
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    📄 View Quotations
+                                  </Button>
+                                  <Button variant="ghost" className="justify-start w-full">
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    ➕ Create Invoice
+                                  </Button>
+                                  <Button variant="ghost" className="justify-start w-full">
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    ➕ Create Quotation
+                                  </Button>
+                                  <CustomerForm 
+                                    customer={customer} 
+                                    onSave={fetchCustomers}
+                                    trigger={
+                                      <Button variant="ghost" className="justify-start w-full">
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        ✏️ Edit Customer
+                                      </Button>
+                                    }
+                                  />
+                                  <Button 
+                                    variant="destructive" 
+                                    className="justify-start w-full"
+                                    onClick={() => handleDeleteCustomer(customer.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    🗑 Delete Customer
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </TableCell>
                         </TableRow>
                       );
