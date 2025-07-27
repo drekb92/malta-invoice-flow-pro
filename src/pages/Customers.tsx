@@ -267,7 +267,7 @@ const Customers = () => {
                                     onClick={() => navigate(`/customers/${customer.id}`)}
                                   >
                                     <Eye className="h-4 w-4 mr-2" />
-                                    👁 View Details
+                                    View Details
                                   </Button>
                                   <Button 
                                     variant="ghost" 
@@ -275,7 +275,7 @@ const Customers = () => {
                                     onClick={() => navigate(`/statements/${customer.id}`)}
                                   >
                                     <Receipt className="h-4 w-4 mr-2" />
-                                    🧾 View Statement
+                                    View Statement
                                   </Button>
                                   <Button 
                                     variant="ghost" 
@@ -283,7 +283,7 @@ const Customers = () => {
                                     onClick={() => navigate(`/quotations?client=${customer.id}`)}
                                   >
                                     <FileText className="h-4 w-4 mr-2" />
-                                    📄 View Quotations
+                                    View Quotations
                                   </Button>
                                   <Button 
                                     variant="ghost" 
@@ -291,7 +291,7 @@ const Customers = () => {
                                     onClick={() => navigate(`/invoices/new?client=${customer.id}`)}
                                   >
                                     <Plus className="h-4 w-4 mr-2" />
-                                    ➕ Create Invoice
+                                    Create Invoice
                                   </Button>
                                   <Button 
                                     variant="ghost" 
@@ -299,7 +299,7 @@ const Customers = () => {
                                     onClick={() => navigate(`/quotations/new?client=${customer.id}`)}
                                   >
                                     <Plus className="h-4 w-4 mr-2" />
-                                    ➕ Create Quotation
+                                    Create Quotation
                                   </Button>
                                   <Button 
                                     variant="ghost" 
@@ -307,7 +307,7 @@ const Customers = () => {
                                     onClick={() => navigate(`/customers/edit/${customer.id}`)}
                                   >
                                     <Edit className="h-4 w-4 mr-2" />
-                                    ✏️ Edit Customer
+                                    Edit Customer
                                   </Button>
                                   <Button 
                                     variant="destructive" 
@@ -315,7 +315,7 @@ const Customers = () => {
                                     onClick={() => handleDeleteCustomer(customer.id)}
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
-                                    🗑 Delete Customer
+                                    Delete Customer
                                   </Button>
                                 </div>
                               </PopoverContent>
