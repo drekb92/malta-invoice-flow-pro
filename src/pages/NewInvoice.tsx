@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Download } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -315,6 +315,31 @@ const NewInvoice = () => {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!id) return;
+    
+    try {
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.href = `/api/invoices/${id}/pdf`;
+      link.download = `invoice-${invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Download started",
+        description: "Your invoice PDF is being downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
   const totals = calculateTotals();
 
   return (
@@ -539,6 +564,16 @@ const NewInvoice = () => {
               <Button type="button" variant="outline" asChild>
                 <Link to="/invoices">Cancel</Link>
               </Button>
+              {isEditMode && status !== 'draft' && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleDownloadPDF}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              )}
               <Button type="submit" disabled={loading}>
                 {loading ? "Saving..." : (isEditMode ? "Update Invoice" : "Create Invoice")}
               </Button>
