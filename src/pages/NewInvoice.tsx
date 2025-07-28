@@ -316,25 +316,51 @@ const NewInvoice = () => {
   };
 
   const handleDownloadPDF = async () => {
-    if (!id) return;
-    
     try {
-      // Create a temporary link element to trigger download
+      const preview = document.getElementById('invoice-html-preview');
+      if (!preview) {
+        toast({
+          title: "Error",
+          description: "Invoice preview not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const html = preview.innerHTML;
+      
+      const response = await supabase.functions.invoke('generate-invoice-pdf', {
+        body: { 
+          html: html, 
+          filename: invoiceNumber 
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      // Create download link
+      const blob = new Blob([response.data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = `/api/invoices/${id}/pdf`;
-      link.download = `invoice-${invoiceNumber}.pdf`;
+      link.href = url;
+      link.download = `${invoiceNumber}.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+      window.URL.revokeObjectURL(url);
+
       toast({
-        title: "Download started",
-        description: "Your invoice PDF is being downloaded.",
+        title: "Success",
+        description: "Invoice downloaded successfully",
       });
-    } catch (error) {
+
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error);
       toast({
         title: "Error",
-        description: "Failed to download PDF",
+        description: "Failed to download invoice: " + error.message,
         variant: "destructive",
       });
     }
