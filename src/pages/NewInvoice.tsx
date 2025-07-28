@@ -340,12 +340,12 @@ const NewInvoice = () => {
         throw new Error(response.error.message);
       }
 
-      // Create download link
-      const blob = new Blob([response.data], { type: 'text/html' });
+      // Create download link for PDF
+      const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${invoiceNumber}.html`;
+      link.download = `${invoiceNumber}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
