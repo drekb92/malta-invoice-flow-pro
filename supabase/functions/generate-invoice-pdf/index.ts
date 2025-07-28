@@ -36,10 +36,20 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    const apiKey = Deno.env.get('HTML2PDF_API_KEY');
+    if (!apiKey) {
+      console.error('HTML2PDF_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'PDF service not configured' }),
+        { 
+          status: 500, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
+    }
+
     console.log(`Generating PDF for invoice: ${filename}`);
 
-    // For now, we'll use a simple HTML to PDF conversion using the browser's print functionality
-    // In a production environment, you might want to use Puppeteer or a similar library
     const fullHtml = `
       <!DOCTYPE html>
       <html>
@@ -100,21 +110,45 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Since we can't use Puppeteer in this simple implementation,
-    // we'll return the HTML with proper headers to trigger browser download
-    // In a real implementation, you'd use a PDF generation library
+    // Call HTML2PDF.app API to generate PDF
+    const html2pdfResponse = await fetch('https://api.html2pdf.app/v1/generate', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        html: fullHtml,
+        options: {
+          format: 'A4',
+          margin: '1cm',
+          printBackground: true,
+        }
+      }),
+    });
+
+    if (!html2pdfResponse.ok) {
+      const errorText = await html2pdfResponse.text();
+      console.error('HTML2PDF API error:', html2pdfResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate PDF from HTML2PDF service' }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    const pdfBuffer = await html2pdfResponse.arrayBuffer();
     
-    const response = new Response(fullHtml, {
+    console.log(`PDF generation completed for: ${filename}`);
+    return new Response(pdfBuffer, {
       status: 200,
       headers: {
-        'Content-Type': 'text/html',
-        'Content-Disposition': `attachment; filename="${filename}.html"`,
+        'Content-Type': 'application/pdf',
         ...corsHeaders,
       },
     });
-
-    console.log(`PDF generation completed for: ${filename}`);
-    return response;
 
   } catch (error: any) {
     console.error('Error in generate-invoice-pdf function:', error);
