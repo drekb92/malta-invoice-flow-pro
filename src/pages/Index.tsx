@@ -5,6 +5,7 @@ import { FeatureCard } from "@/components/FeatureCard";
 import { RecentActivity } from "@/components/RecentActivity";
 import { DashboardFilters } from "@/components/DashboardFilters";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import {
   FileText,
   Users,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
   const metrics = [
     {
       title: "Outstanding Invoices",
@@ -56,7 +58,7 @@ const Index = () => {
       description: "Generate VAT-compliant invoices with Malta tax requirements",
       icon: Plus,
       action: "New Invoice",
-      onClick: () => console.log("Create invoice"),
+      onClick: () => navigate("/invoices/new"),
     },
     {
       title: "Payment Tracking",
@@ -115,7 +117,7 @@ const Index = () => {
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
-                <Button size="sm">
+                <Button size="sm" onClick={() => navigate("/invoices/new")}>
                   <Plus className="h-4 w-4 mr-2" />
                   New Invoice
                 </Button>
