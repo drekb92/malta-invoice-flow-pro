@@ -135,6 +135,29 @@ const Invoices = () => {
     }
   };
 
+  const handleDownloadPDF = async (invoiceId: string) => {
+    try {
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.href = `/api/invoices/${invoiceId}/pdf`;
+      link.download = `invoice-${invoiceId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Download started",
+        description: "Your invoice PDF is being downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants = {
       paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -275,6 +298,12 @@ const Invoices = () => {
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit
                                   </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDownloadPDF(invoice.id)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download PDF
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   onClick={() => handleDeleteInvoice(invoice.id)}
