@@ -540,6 +540,9 @@ const NewInvoice = () => {
                             <SelectItem value="0.18">18% (Standard)</SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          VAT: €{(item.quantity * item.unit_price * item.vat_rate).toFixed(2)}
+                        </p>
                       </div>
                       
                       <div className="flex items-end">
