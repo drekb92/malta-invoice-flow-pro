@@ -168,7 +168,9 @@ export type Database = {
           invoice_date: string | null
           invoice_number: string | null
           status: string | null
+          total_amount: number | null
           user_id: string | null
+          vat_amount: number | null
           vat_rate: number | null
         }
         Insert: {
@@ -180,7 +182,9 @@ export type Database = {
           invoice_date?: string | null
           invoice_number?: string | null
           status?: string | null
+          total_amount?: number | null
           user_id?: string | null
+          vat_amount?: number | null
           vat_rate?: number | null
         }
         Update: {
@@ -192,7 +196,9 @@ export type Database = {
           invoice_date?: string | null
           invoice_number?: string | null
           status?: string | null
+          total_amount?: number | null
           user_id?: string | null
+          vat_amount?: number | null
           vat_rate?: number | null
         }
         Relationships: [
