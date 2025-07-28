@@ -584,6 +584,56 @@ const NewInvoice = () => {
           </form>
         </main>
       </div>
+
+      {/* Hidden Invoice Preview Block for PDF Generation */}
+      <div id="invoice-html-preview" style={{ display: 'none' }} className="p-8 bg-white">
+        {/* Company Logo */}
+        <img 
+          src="/placeholder.svg" 
+          alt="Company Logo" 
+          className="max-h-20 mb-4"
+        />
+        
+        {/* Invoice Header */}
+        <h1 className="text-2xl font-bold mb-4">Invoice {invoiceNumber}</h1>
+        
+        {/* Customer and Date Info */}
+        <div className="mb-6">
+          <p className="mb-2">Customer: {customers.find(c => c.id === selectedCustomer)?.name || ''}</p>
+          <p>Date: {invoiceDate}</p>
+        </div>
+        
+        {/* Items Table */}
+        <table className="w-full border-collapse border border-gray-300 mb-6">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 px-4 py-2 text-left">Description</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Qty</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Unit Price (€)</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">VAT (%)</th>
+              <th className="border border-gray-300 px-4 py-2 text-left">Total (€)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={index}>
+                <td className="border border-gray-300 px-4 py-2">{item.description}</td>
+                <td className="border border-gray-300 px-4 py-2">{item.quantity}</td>
+                <td className="border border-gray-300 px-4 py-2">{item.unit_price.toFixed(2)}</td>
+                <td className="border border-gray-300 px-4 py-2">{(item.vat_rate * 100).toFixed(0)}%</td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {(item.quantity * item.unit_price * (1 + item.vat_rate)).toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        {/* Total */}
+        <div className="text-right mt-6">
+          <p className="text-xl font-bold">Total: €{totals.grandTotal.toFixed(2)}</p>
+        </div>
+      </div>
     </div>
   );
 };
