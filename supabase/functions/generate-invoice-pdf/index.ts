@@ -37,10 +37,24 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const apiKey = Deno.env.get('HTML2PDF_API_KEY');
+    console.log('HTML2PDF_API_KEY status:', apiKey ? `Found (length: ${apiKey.length})` : 'Not found');
+    
     if (!apiKey) {
       console.error('HTML2PDF_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'PDF service not configured' }),
+        JSON.stringify({ error: 'PDF service not configured - HTML2PDF_API_KEY missing' }),
+        { 
+          status: 500, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
+    }
+
+    // Validate API key format (basic check)
+    if (apiKey.length < 10) {
+      console.error('HTML2PDF_API_KEY appears to be invalid (too short)');
+      return new Response(
+        JSON.stringify({ error: 'PDF service misconfigured - Invalid API key format' }),
         { 
           status: 500, 
           headers: { 'Content-Type': 'application/json', ...corsHeaders }
