@@ -336,8 +336,34 @@ const NewInvoice = () => {
         }
       });
 
+      console.log('PDF Generation Response:', {
+        error: response.error,
+        dataType: typeof response.data,
+        dataSize: response.data ? response.data.byteLength || response.data.length : 0
+      });
+
       if (response.error) {
+        console.error('PDF Generation Error:', response.error);
         throw new Error(response.error.message);
+      }
+
+      // Check if we got valid PDF data
+      if (!response.data) {
+        throw new Error('No PDF data received from server');
+      }
+
+      // Check if response.data is an error object (JSON) instead of binary data
+      if (typeof response.data === 'object' && response.data.error) {
+        throw new Error(response.data.error || 'PDF generation failed');
+      }
+
+      // Verify we have binary data (ArrayBuffer or similar)
+      const dataSize = response.data.byteLength || response.data.length || 0;
+      console.log('PDF data size:', dataSize, 'bytes');
+      
+      if (dataSize < 1000) {
+        console.warn('PDF file seems too small, might be an error response');
+        console.log('Response data:', response.data);
       }
 
       // Create download link for PDF

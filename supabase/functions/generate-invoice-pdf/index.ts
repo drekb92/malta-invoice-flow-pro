@@ -49,6 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log(`Generating PDF for invoice: ${filename}`);
+    console.log('HTML content length:', html.length);
 
     const fullHtml = `
       <!DOCTYPE html>
@@ -130,8 +131,9 @@ const handler = async (req: Request): Promise<Response> => {
     if (!html2pdfResponse.ok) {
       const errorText = await html2pdfResponse.text();
       console.error('HTML2PDF API error:', html2pdfResponse.status, errorText);
+      console.error('HTML2PDF Response headers:', Object.fromEntries(html2pdfResponse.headers.entries()));
       return new Response(
-        JSON.stringify({ error: 'Failed to generate PDF from HTML2PDF service' }),
+        JSON.stringify({ error: `HTML2PDF API failed: ${html2pdfResponse.status} - ${errorText}` }),
         {
           status: 500,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -140,8 +142,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const pdfBuffer = await html2pdfResponse.arrayBuffer();
-    
-    console.log(`PDF generation completed for: ${filename}`);
+    console.log(`PDF generation completed for: ${filename}, size: ${pdfBuffer.byteLength} bytes`);
     return new Response(pdfBuffer, {
       status: 200,
       headers: {
