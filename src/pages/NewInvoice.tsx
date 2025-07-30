@@ -316,79 +316,24 @@ const NewInvoice = () => {
   };
 
   const handleDownloadPDF = async () => {
+    setLoading(true);
     try {
-      const preview = document.getElementById('invoice-html-preview');
-      if (!preview) {
-        toast({
-          title: "Error",
-          description: "Invoice preview not found",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const html = preview.innerHTML;
+      const { generateInvoicePDF } = await import('@/lib/pdfGenerator');
+      await generateInvoicePDF(invoiceNumber);
       
-      const response = await supabase.functions.invoke('generate-invoice-pdf', {
-        body: { 
-          html: html, 
-          filename: invoiceNumber 
-        }
-      });
-
-      console.log('PDF Generation Response:', {
-        error: response.error,
-        dataType: typeof response.data,
-        dataSize: response.data ? response.data.byteLength || response.data.length : 0
-      });
-
-      if (response.error) {
-        console.error('PDF Generation Error:', response.error);
-        throw new Error(response.error.message);
-      }
-
-      // Check if we got valid PDF data
-      if (!response.data) {
-        throw new Error('No PDF data received from server');
-      }
-
-      // Check if response.data is an error object (JSON) instead of binary data
-      if (typeof response.data === 'object' && response.data.error) {
-        throw new Error(response.data.error || 'PDF generation failed');
-      }
-
-      // Verify we have binary data (ArrayBuffer or similar)
-      const dataSize = response.data.byteLength || response.data.length || 0;
-      console.log('PDF data size:', dataSize, 'bytes');
-      
-      if (dataSize < 1000) {
-        console.warn('PDF file seems too small, might be an error response');
-        console.log('Response data:', response.data);
-      }
-
-      // Create download link for PDF
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${invoiceNumber}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
       toast({
         title: "Success",
         description: "Invoice downloaded successfully",
       });
-
     } catch (error: any) {
       console.error('Error downloading PDF:', error);
       toast({
         title: "Error",
-        description: "Failed to download invoice: " + error.message,
+        description: error.message || "Failed to download invoice",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
