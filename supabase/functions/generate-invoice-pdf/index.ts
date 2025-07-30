@@ -16,6 +16,69 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Add a GET endpoint for testing API key
+  if (req.method === 'GET') {
+    const apiKey = Deno.env.get('HTML2PDF_API_KEY');
+    console.log('Testing API key availability and format...');
+    
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ 
+          status: 'error', 
+          message: 'HTML2PDF_API_KEY not found in environment',
+          hasKey: false
+        }),
+        { 
+          status: 200, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
+    }
+
+    // Test the API key with a simple request
+    try {
+      const testResponse = await fetch('https://api.html2pdf.app/v1/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          html: '<h1>Test</h1>',
+          options: { format: 'A4', margin: '1cm' }
+        }),
+      });
+
+      return new Response(
+        JSON.stringify({ 
+          status: testResponse.ok ? 'success' : 'error',
+          statusCode: testResponse.status,
+          statusText: testResponse.statusText,
+          hasKey: true,
+          keyLength: apiKey.length,
+          message: testResponse.ok ? 'API key is working' : `API returned ${testResponse.status}: ${testResponse.statusText}`
+        }),
+        { 
+          status: 200, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ 
+          status: 'error', 
+          message: `Failed to test API: ${error.message}`,
+          hasKey: true,
+          keyLength: apiKey.length
+        }),
+        { 
+          status: 200, 
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
+      );
+    }
+  }
+
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { 
       status: 405, 
