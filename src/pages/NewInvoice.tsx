@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
+import { InvoiceHTML } from "@/components/InvoiceHTML";
 
 interface Customer {
   id: string;
@@ -318,8 +319,37 @@ const NewInvoice = () => {
   const handleDownloadPDF = async () => {
     setLoading(true);
     try {
-      const { generateInvoicePDF } = await import('@/lib/pdfGenerator');
-      await generateInvoicePDF(invoiceNumber);
+      const { generateInvoicePDFWithTemplate } = await import('@/lib/pdfGenerator');
+      
+      // Get selected customer data
+      const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+      if (!selectedCustomerData) {
+        throw new Error('Please select a customer first');
+      }
+
+      // Calculate due date
+      const paymentTerms = selectedCustomerData.payment_terms || "Net 30";
+      const daysMatch = paymentTerms.match(/\d+/);
+      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      const invoiceDateObj = new Date(invoiceDate);
+      const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
+
+      // Prepare invoice data for PDF generation
+      const invoiceData = {
+        invoiceNumber: invoiceNumber,
+        invoiceDate: invoiceDate,
+        dueDate: calculatedDueDate.toISOString().split("T")[0],
+        customer: {
+          name: selectedCustomerData.name,
+          email: selectedCustomerData.email || undefined,
+          address: selectedCustomerData.address || undefined,
+          vat_number: selectedCustomerData.vat_number || undefined,
+        },
+        items: items,
+        totals: calculateTotals(),
+      };
+      
+      await generateInvoicePDFWithTemplate(invoiceData, invoiceNumber);
       
       toast({
         title: "Success",
@@ -582,101 +612,44 @@ const NewInvoice = () => {
         </main>
       </div>
 
-      {/* Hidden Invoice Preview Block for PDF Generation */}
+      {/* Hidden Invoice Preview Block for Legacy Compatibility */}
       <div id="invoice-html-preview" style={{ display: 'none' }} className="bg-white p-8 min-h-[297mm] w-[210mm]">
-        <div className="max-w-4xl mx-auto p-8 bg-white">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">INVOICE</h1>
-              <p className="text-lg text-gray-600">#{invoiceNumber}</p>
-            </div>
-            <div className="text-right">
-              <div className="w-20 h-20 bg-gray-200 rounded mb-4"></div>
-              <p className="text-sm text-gray-600">Company Logo</p>
-            </div>
-          </div>
-
-          {/* Invoice Details */}
-          <div className="grid grid-cols-2 gap-8 mb-8">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Bill To:</h3>
-              <div className="text-gray-700">
-                <p className="font-medium">{customers.find(c => c.id === selectedCustomer)?.name || ''}</p>
-                <p className="text-sm mt-1">{customers.find(c => c.id === selectedCustomer)?.email || ''}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="space-y-2">
-                <div>
-                  <span className="text-gray-600">Invoice Date:</span>
-                  <span className="ml-2 font-medium">{invoiceDate}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Status:</span>
-                  <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${status === 'paid' ? 'bg-green-100 text-green-800' : status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
-                    {status.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Items Table */}
-          <div className="mb-8">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2 border-gray-300">
-                  <th className="text-left py-3 px-2 font-semibold text-gray-900">Description</th>
-                  <th className="text-center py-3 px-2 font-semibold text-gray-900">Qty</th>
-                  <th className="text-right py-3 px-2 font-semibold text-gray-900">Unit Price</th>
-                  <th className="text-right py-3 px-2 font-semibold text-gray-900">VAT</th>
-                  <th className="text-right py-3 px-2 font-semibold text-gray-900">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-200">
-                    <td className="py-4 px-2 text-gray-700">{item.description}</td>
-                    <td className="py-4 px-2 text-center text-gray-700">{item.quantity}</td>
-                    <td className="py-4 px-2 text-right text-gray-700">€{item.unit_price.toFixed(2)}</td>
-                    <td className="py-4 px-2 text-right text-gray-700">{(item.vat_rate * 100).toFixed(0)}%</td>
-                    <td className="py-4 px-2 text-right font-medium text-gray-900">
-                      €{(item.quantity * item.unit_price * (1 + item.vat_rate)).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-64">
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-gray-700">
-                  <span>Subtotal:</span>
-                  <span>€{totals.netTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-700">
-                  <span>VAT:</span>
-                  <span>€{totals.vatTotal.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="border-t-2 border-gray-300 pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-xl font-bold text-gray-900">Total:</span>
-                  <span className="text-2xl font-bold text-gray-900">€{totals.grandTotal.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-12 pt-8 border-t border-gray-200 text-center text-gray-600 text-sm">
-            <p>Thank you for your business!</p>
-          </div>
-        </div>
+        {selectedCustomer && (
+          <InvoiceHTML 
+            invoiceData={{
+              invoiceNumber: invoiceNumber,
+              invoiceDate: invoiceDate,
+              dueDate: (() => {
+                const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+                const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+                const daysMatch = paymentTerms.match(/\d+/);
+                const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+                const invoiceDateObj = new Date(invoiceDate);
+                const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
+                return calculatedDueDate.toISOString().split("T")[0];
+              })(),
+              customer: {
+                name: customers.find(c => c.id === selectedCustomer)?.name || '',
+                email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
+                address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
+                vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
+              },
+              items: items,
+              totals: totals,
+            }}
+            template={{
+              id: 'default',
+              name: 'Default Template',
+              is_default: true,
+              primary_color: '#26A65B',
+              accent_color: '#1F2D3D',
+              font_family: 'Inter',
+              font_size: '14px',
+              logo_x_offset: 0,
+              logo_y_offset: 0,
+            }}
+          />
+        )}
       </div>
     </div>
   );

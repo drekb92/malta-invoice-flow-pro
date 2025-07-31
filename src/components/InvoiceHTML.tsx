@@ -1,0 +1,153 @@
+import { InvoiceTemplate } from "@/services/templateService";
+
+interface InvoiceHTMLProps {
+  invoiceData: {
+    invoiceNumber: string;
+    invoiceDate: string;
+    dueDate: string;
+    customer: {
+      name: string;
+      email?: string;
+      address?: string;
+      vat_number?: string;
+    };
+    items: Array<{
+      description: string;
+      quantity: number;
+      unit_price: number;
+      vat_rate: number;
+      unit?: string;
+    }>;
+    totals: {
+      netTotal: number;
+      vatTotal: number;
+      grandTotal: number;
+    };
+  };
+  template: InvoiceTemplate;
+  id?: string;
+}
+
+export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview" }: InvoiceHTMLProps) => {
+  const fontSizeValue = parseInt(template.font_size);
+  
+  return (
+    <div 
+      id={id}
+      className="bg-white p-8 max-w-4xl mx-auto print:p-0 print:shadow-none shadow-lg"
+      style={{
+        fontFamily: template.font_family,
+        fontSize: `${fontSizeValue}px`,
+        color: template.accent_color,
+      }}
+    >
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8">
+        <div className="flex items-center">
+          {template.logo_url && (
+            <img 
+              src={template.logo_url} 
+              alt="Company Logo" 
+              className="max-h-16 w-auto mr-4"
+              style={{
+                marginLeft: `${template.logo_x_offset}px`,
+                marginTop: `${template.logo_y_offset}px`,
+              }}
+            />
+          )}
+        </div>
+        <div className="text-right">
+          <h1 
+            className="text-3xl font-bold mb-2"
+            style={{ color: template.primary_color }}
+          >
+            INVOICE
+          </h1>
+          <div className="space-y-1 text-sm">
+            <div><strong>Invoice #:</strong> {invoiceData.invoiceNumber}</div>
+            <div><strong>Date:</strong> {invoiceData.invoiceDate}</div>
+            <div><strong>Due Date:</strong> {invoiceData.dueDate}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Billing Information */}
+      <div className="mb-8">
+        <h2 
+          className="text-lg font-semibold mb-3"
+          style={{ color: template.accent_color }}
+        >
+          Bill To:
+        </h2>
+        <div className="space-y-1">
+          <div className="font-medium">{invoiceData.customer.name}</div>
+          {invoiceData.customer.email && <div>{invoiceData.customer.email}</div>}
+          {invoiceData.customer.address && (
+            <div className="whitespace-pre-line">{invoiceData.customer.address}</div>
+          )}
+          {invoiceData.customer.vat_number && (
+            <div><strong>VAT Number:</strong> {invoiceData.customer.vat_number}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Items Table */}
+      <div className="mb-8">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr style={{ backgroundColor: template.primary_color }}>
+              <th className="text-white px-4 py-3 text-left border">Description</th>
+              <th className="text-white px-4 py-3 text-center border w-20">Qty</th>
+              <th className="text-white px-4 py-3 text-right border w-24">Price</th>
+              <th className="text-white px-4 py-3 text-center border w-20">VAT %</th>
+              <th className="text-white px-4 py-3 text-right border w-24">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoiceData.items.map((item, index) => (
+              <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                <td className="px-4 py-3 border">{item.description}</td>
+                <td className="px-4 py-3 border text-center">{item.quantity}</td>
+                <td className="px-4 py-3 border text-right">€{item.unit_price.toFixed(2)}</td>
+                <td className="px-4 py-3 border text-center">{(item.vat_rate * 100).toFixed(0)}%</td>
+                <td className="px-4 py-3 border text-right">
+                  €{(item.quantity * item.unit_price).toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totals */}
+      <div className="flex justify-end mb-8">
+        <div className="w-64 space-y-2">
+          <div className="flex justify-between py-1">
+            <span>Subtotal:</span>
+            <span>€{invoiceData.totals.netTotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between py-1">
+            <span>VAT Total:</span>
+            <span>€{invoiceData.totals.vatTotal.toFixed(2)}</span>
+          </div>
+          <div 
+            className="flex justify-between py-2 font-bold text-lg border-t-2"
+            style={{ 
+              borderColor: template.primary_color,
+              color: template.primary_color 
+            }}
+          >
+            <span>Total:</span>
+            <span>€{invoiceData.totals.grandTotal.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center text-sm text-gray-600 mt-12 pt-8 border-t">
+        <p>Thank you for your business!</p>
+        <p>Payment terms apply as agreed.</p>
+      </div>
+    </div>
+  );
+};

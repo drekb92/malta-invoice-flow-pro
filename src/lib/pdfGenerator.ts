@@ -1,3 +1,7 @@
+import { generateInvoicePDF, InvoiceData } from '@/services/pdfService';
+import { getDefaultTemplate } from '@/services/templateService';
+
+// Legacy PDF generation using html2canvas (kept for compatibility)
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -90,7 +94,22 @@ export const generatePDF = async (
   }
 };
 
-export const generateInvoicePDF = async (invoiceNumber: string): Promise<void> => {
+// New vector-based PDF generation with template support
+export const generateInvoicePDFWithTemplate = async (
+  invoiceData: InvoiceData,
+  filename: string
+): Promise<void> => {
+  try {
+    const template = await getDefaultTemplate();
+    await generateInvoicePDF(invoiceData, template, filename);
+  } catch (error) {
+    console.error('Error generating PDF with template:', error);
+    throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+// Legacy function (kept for compatibility)
+export const generateInvoicePDFLegacy = async (invoiceNumber: string): Promise<void> => {
   return generatePDF('invoice-html-preview', invoiceNumber, {
     format: 'A4',
     orientation: 'portrait',
