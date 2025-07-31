@@ -583,52 +583,99 @@ const NewInvoice = () => {
       </div>
 
       {/* Hidden Invoice Preview Block for PDF Generation */}
-      <div id="invoice-html-preview" style={{ display: 'none' }} className="p-8 bg-white">
-        {/* Company Logo */}
-        <img 
-          src="/placeholder.svg" 
-          alt="Company Logo" 
-          className="max-h-20 mb-4"
-        />
-        
-        {/* Invoice Header */}
-        <h1 className="text-2xl font-bold mb-4">Invoice {invoiceNumber}</h1>
-        
-        {/* Customer and Date Info */}
-        <div className="mb-6">
-          <p className="mb-2">Customer: {customers.find(c => c.id === selectedCustomer)?.name || ''}</p>
-          <p>Date: {invoiceDate}</p>
-        </div>
-        
-        {/* Items Table */}
-        <table className="w-full border-collapse border border-gray-300 mb-6">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-4 py-2 text-left">Description</th>
-              <th className="border border-gray-300 px-4 py-2 text-left">Qty</th>
-              <th className="border border-gray-300 px-4 py-2 text-left">Unit Price (€)</th>
-              <th className="border border-gray-300 px-4 py-2 text-left">VAT (%)</th>
-              <th className="border border-gray-300 px-4 py-2 text-left">Total (€)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => (
-              <tr key={index}>
-                <td className="border border-gray-300 px-4 py-2">{item.description}</td>
-                <td className="border border-gray-300 px-4 py-2">{item.quantity}</td>
-                <td className="border border-gray-300 px-4 py-2">{item.unit_price.toFixed(2)}</td>
-                <td className="border border-gray-300 px-4 py-2">{(item.vat_rate * 100).toFixed(0)}%</td>
-                <td className="border border-gray-300 px-4 py-2">
-                  {(item.quantity * item.unit_price * (1 + item.vat_rate)).toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        
-        {/* Total */}
-        <div className="text-right mt-6">
-          <p className="text-xl font-bold">Total: €{totals.grandTotal.toFixed(2)}</p>
+      <div id="invoice-html-preview" style={{ display: 'none' }} className="bg-white p-8 min-h-[297mm] w-[210mm]">
+        <div className="max-w-4xl mx-auto p-8 bg-white">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">INVOICE</h1>
+              <p className="text-lg text-gray-600">#{invoiceNumber}</p>
+            </div>
+            <div className="text-right">
+              <div className="w-20 h-20 bg-gray-200 rounded mb-4"></div>
+              <p className="text-sm text-gray-600">Company Logo</p>
+            </div>
+          </div>
+
+          {/* Invoice Details */}
+          <div className="grid grid-cols-2 gap-8 mb-8">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Bill To:</h3>
+              <div className="text-gray-700">
+                <p className="font-medium">{customers.find(c => c.id === selectedCustomer)?.name || ''}</p>
+                <p className="text-sm mt-1">{customers.find(c => c.id === selectedCustomer)?.email || ''}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="space-y-2">
+                <div>
+                  <span className="text-gray-600">Invoice Date:</span>
+                  <span className="ml-2 font-medium">{invoiceDate}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Status:</span>
+                  <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${status === 'paid' ? 'bg-green-100 text-green-800' : status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                    {status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <div className="mb-8">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b-2 border-gray-300">
+                  <th className="text-left py-3 px-2 font-semibold text-gray-900">Description</th>
+                  <th className="text-center py-3 px-2 font-semibold text-gray-900">Qty</th>
+                  <th className="text-right py-3 px-2 font-semibold text-gray-900">Unit Price</th>
+                  <th className="text-right py-3 px-2 font-semibold text-gray-900">VAT</th>
+                  <th className="text-right py-3 px-2 font-semibold text-gray-900">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, index) => (
+                  <tr key={index} className="border-b border-gray-200">
+                    <td className="py-4 px-2 text-gray-700">{item.description}</td>
+                    <td className="py-4 px-2 text-center text-gray-700">{item.quantity}</td>
+                    <td className="py-4 px-2 text-right text-gray-700">€{item.unit_price.toFixed(2)}</td>
+                    <td className="py-4 px-2 text-right text-gray-700">{(item.vat_rate * 100).toFixed(0)}%</td>
+                    <td className="py-4 px-2 text-right font-medium text-gray-900">
+                      €{(item.quantity * item.unit_price * (1 + item.vat_rate)).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals */}
+          <div className="flex justify-end">
+            <div className="w-64">
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-gray-700">
+                  <span>Subtotal:</span>
+                  <span>€{totals.netTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-700">
+                  <span>VAT:</span>
+                  <span>€{totals.vatTotal.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="border-t-2 border-gray-300 pt-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-xl font-bold text-gray-900">Total:</span>
+                  <span className="text-2xl font-bold text-gray-900">€{totals.grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-12 pt-8 border-t border-gray-200 text-center text-gray-600 text-sm">
+            <p>Thank you for your business!</p>
+          </div>
         </div>
       </div>
     </div>

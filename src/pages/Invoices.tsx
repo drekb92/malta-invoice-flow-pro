@@ -137,22 +137,128 @@ const Invoices = () => {
 
   const handleDownloadPDF = async (invoiceId: string) => {
     try {
-      // Create a temporary link element to trigger download
-      const link = document.createElement('a');
-      link.href = `/api/invoices/${invoiceId}/pdf`;
-      link.download = `invoice-${invoiceId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice) {
+        throw new Error('Invoice not found');
+      }
+
+      // Import the PDF generator
+      const { generatePDF } = await import('../lib/pdfGenerator');
+      
+      // Create a temporary preview element for PDF generation
+      const previewId = `temp-invoice-preview-${invoiceId}`;
+      const previewElement = document.createElement('div');
+      previewElement.id = previewId;
+      previewElement.style.position = 'absolute';
+      previewElement.style.left = '-9999px';
+      previewElement.className = 'bg-white p-8 min-h-[297mm] w-[210mm]';
+      
+      // Create invoice HTML content using template styling
+      previewElement.innerHTML = `
+        <div class="max-w-4xl mx-auto p-8 bg-white">
+          <!-- Header -->
+          <div class="flex justify-between items-start mb-8">
+            <div>
+              <h1 class="text-4xl font-bold text-gray-900 mb-2">INVOICE</h1>
+              <p class="text-lg text-gray-600">#${invoice.invoice_number}</p>
+            </div>
+            <div class="text-right">
+              <div class="w-20 h-20 bg-gray-200 rounded mb-4"></div>
+              <p class="text-sm text-gray-600">Company Logo</p>
+            </div>
+          </div>
+
+          <!-- Invoice Details -->
+          <div class="grid grid-cols-2 gap-8 mb-8">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900 mb-3">Bill To:</h3>
+              <div class="text-gray-700">
+                <p class="font-medium">${invoice.customers?.name || 'Unknown Customer'}</p>
+                <p class="text-sm mt-1">Customer ID: ${invoice.customer_id}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="space-y-2">
+                <div>
+                  <span class="text-gray-600">Invoice Date:</span>
+                  <span class="ml-2 font-medium">${new Date(invoice.created_at).toLocaleDateString()}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">Due Date:</span>
+                  <span class="ml-2 font-medium">${new Date(invoice.due_date).toLocaleDateString()}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">Status:</span>
+                  <span class="ml-2 px-2 py-1 rounded text-xs font-medium ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : invoice.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">${invoice.status.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <div class="mb-8">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b-2 border-gray-300">
+                  <th class="text-left py-3 px-2 font-semibold text-gray-900">Description</th>
+                  <th class="text-center py-3 px-2 font-semibold text-gray-900">Qty</th>
+                  <th class="text-right py-3 px-2 font-semibold text-gray-900">Unit Price</th>
+                  <th class="text-right py-3 px-2 font-semibold text-gray-900">VAT</th>
+                  <th class="text-right py-3 px-2 font-semibold text-gray-900">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-200">
+                  <td class="py-4 px-2 text-gray-700">Professional Services</td>
+                  <td class="py-4 px-2 text-center text-gray-700">1</td>
+                  <td class="py-4 px-2 text-right text-gray-700">€${(invoice.amount / 1.18).toFixed(2)}</td>
+                  <td class="py-4 px-2 text-right text-gray-700">18%</td>
+                  <td class="py-4 px-2 text-right font-medium text-gray-900">€${invoice.amount.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total -->
+          <div class="flex justify-end">
+            <div class="w-64">
+              <div class="border-t-2 border-gray-300 pt-4">
+                <div class="flex justify-between items-center">
+                  <span class="text-xl font-bold text-gray-900">Total:</span>
+                  <span class="text-2xl font-bold text-gray-900">€${invoice.amount.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="mt-12 pt-8 border-t border-gray-200 text-center text-gray-600 text-sm">
+            <p>Thank you for your business!</p>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(previewElement);
+      
+      // Generate PDF
+      await generatePDF(previewId, `invoice-${invoice.invoice_number}`, {
+        format: 'A4',
+        orientation: 'portrait',
+        margin: 15,
+        quality: 0.95
+      });
+      
+      // Clean up
+      document.body.removeChild(previewElement);
       
       toast({
-        title: "Download started",
-        description: "Your invoice PDF is being downloaded.",
+        title: "Success",
+        description: "PDF downloaded successfully",
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to download PDF",
+        description: `Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
