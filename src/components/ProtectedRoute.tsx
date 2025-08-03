@@ -9,31 +9,30 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
 
-  // Development bypass for testing
+  // Development bypass indicator
   const isDev = import.meta.env.DEV;
   const bypassAuth = isDev && localStorage.getItem('bypass-auth') === 'true';
 
-  if (bypassAuth) {
-    return (
-      <>
-        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 text-black text-center py-1 text-sm font-medium">
-          ⚠️ AUTH BYPASS ACTIVE - Development Mode
-          <button 
-            onClick={() => {
-              localStorage.removeItem('bypass-auth');
-              window.location.reload();
-            }}
-            className="ml-2 underline hover:no-underline"
-          >
-            Disable
-          </button>
-        </div>
-        <div style={{ paddingTop: '32px' }}>
-          {children}
-        </div>
-      </>
-    );
-  }
+  // Show bypass banner if active
+  const content = bypassAuth ? (
+    <>
+      <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 text-black text-center py-1 text-sm font-medium">
+        ⚠️ AUTH BYPASS ACTIVE - Logged in as drekb92@gmail.com (Development Mode)
+        <button 
+          onClick={() => {
+            localStorage.removeItem('bypass-auth');
+            window.location.reload();
+          }}
+          className="ml-2 underline hover:no-underline"
+        >
+          Disable
+        </button>
+      </div>
+      <div style={{ paddingTop: '32px' }}>
+        {children}
+      </div>
+    </>
+  ) : children;
 
   if (loading) {
     return (
@@ -47,7 +46,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  return <>{children}</>;
+  return <>{content}</>;
 };
 
 export default ProtectedRoute;
