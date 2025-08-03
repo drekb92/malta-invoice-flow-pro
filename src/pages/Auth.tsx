@@ -28,18 +28,6 @@ const Auth = () => {
     checkUser();
   }, [navigate]);
 
-  // Development bypass toggle
-  const isDev = import.meta.env.DEV;
-  const toggleBypass = () => {
-    const currentBypass = localStorage.getItem('bypass-auth') === 'true';
-    if (currentBypass) {
-      localStorage.removeItem('bypass-auth');
-    } else {
-      localStorage.setItem('bypass-auth', 'true');
-    }
-    window.location.href = '/';
-  };
-
   const cleanupAuthState = () => {
     // Clear all auth-related keys from localStorage
     Object.keys(localStorage).forEach((key) => {
@@ -234,16 +222,6 @@ const Auth = () => {
           <CardDescription>
             Sign in to your account or create a new one
           </CardDescription>
-          {isDev && (
-            <div className="mt-4">
-              <button
-                onClick={toggleBypass}
-                className="text-xs text-muted-foreground hover:text-primary underline"
-              >
-                🔓 Bypass Auth (Dev Mode)
-              </button>
-            </div>
-          )}
         </CardHeader>
         <CardContent>
           {showResetPassword ? (

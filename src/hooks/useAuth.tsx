@@ -53,38 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Development bypass - mock your actual user session
-  const isDev = import.meta.env.DEV;
-  const bypassAuth = isDev && localStorage.getItem('bypass-auth') === 'true';
-
   useEffect(() => {
-    // If bypassing auth, set mock user and return early
-    if (bypassAuth) {
-      const mockUser = {
-        id: 'd28aef93-2cb5-44e8-96f5-5f9e5d911225',
-        email: 'drekb92@gmail.com',
-        aud: 'authenticated',
-        role: 'authenticated',
-        app_metadata: {},
-        user_metadata: {},
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z'
-      } as User;
-
-      const mockSession = {
-        access_token: 'mock-token',
-        refresh_token: 'mock-refresh',
-        expires_in: 3600,
-        token_type: 'bearer',
-        user: mockUser
-      } as Session;
-
-      setUser(mockUser);
-      setSession(mockSession);
-      setLoading(false);
-      return;
-    }
-
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -110,7 +79,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, [bypassAuth]);
+  }, []);
 
   const value = {
     user,
