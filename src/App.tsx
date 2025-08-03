@@ -17,6 +17,7 @@ import ReminderSettings from "./pages/ReminderSettings";
 import InvoiceTemplates from "./pages/InvoiceTemplates";
 import NewInvoice from "./pages/NewInvoice";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -37,6 +38,7 @@ const App: React.FC = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
           <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
