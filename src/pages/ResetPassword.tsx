@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 const ResetPassword = () => {
   const [password, setPassword] = useState('');
@@ -15,19 +16,20 @@ const ResetPassword = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isRecoverySession } = useAuth();
 
   useEffect(() => {
     // Check if this is a password reset session
     const checkResetSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Check if user came from email link with access_token and type=recovery
+      // Check if user came from email link with recovery parameters or is in recovery session
       const accessToken = searchParams.get('access_token');
       const type = searchParams.get('type');
       
-      if (session && (type === 'recovery' || accessToken)) {
+      if (session && (type === 'recovery' || accessToken || isRecoverySession)) {
         setIsValidSession(true);
-      } else if (session) {
+      } else if (session && !isRecoverySession) {
         // User is already logged in normally, redirect to dashboard
         navigate('/');
       } else {
@@ -37,7 +39,7 @@ const ResetPassword = () => {
     };
 
     checkResetSession();
-  }, [navigate, searchParams]);
+  }, [navigate, searchParams, isRecoverySession]);
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,7 +86,8 @@ const ResetPassword = () => {
         description: "Password updated successfully! You can now sign in with your new password.",
       });
 
-      // Sign out and redirect to auth page
+      // Clear URL parameters and sign out to clear recovery session
+      window.history.replaceState({}, document.title, window.location.pathname);
       await supabase.auth.signOut();
       navigate('/auth');
     } catch (error: any) {

@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isRecoverySession: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -15,6 +16,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecoverySession, setIsRecoverySession] = useState(false);
 
   const cleanupAuthState = () => {
     // Clear all auth-related keys from localStorage
@@ -54,6 +56,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    // Check if this is a recovery session from URL params
+    const checkRecoverySession = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const type = urlParams.get('type');
+      const accessToken = urlParams.get('access_token');
+      return type === 'recovery' || accessToken !== null;
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -61,8 +71,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         setLoading(false);
         
+        // Check if this is a recovery session
+        const isRecovery = checkRecoverySession();
+        setIsRecoverySession(isRecovery);
+        
         // Defer any additional data fetching to prevent deadlocks
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === 'SIGNED_IN' && session?.user && !isRecovery) {
           setTimeout(() => {
             // Any additional user data fetching can go here
             console.log('User signed in:', session.user.email);
@@ -75,6 +89,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      const isRecovery = checkRecoverySession();
+      setIsRecoverySession(isRecovery);
       setLoading(false);
     });
 
@@ -85,6 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     session,
     loading,
+    isRecoverySession,
     signOut,
   };
 

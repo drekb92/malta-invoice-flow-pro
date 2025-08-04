@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isRecoverySession } = useAuth();
 
   if (loading) {
     return (
@@ -19,6 +19,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // If user is in recovery session and trying to access any page other than reset-password,
+  // redirect to reset-password page
+  if (isRecoverySession && window.location.pathname !== '/reset-password') {
+    return <Navigate to="/reset-password" replace />;
   }
 
   return <>{children}</>;
