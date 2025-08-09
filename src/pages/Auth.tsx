@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -16,17 +17,38 @@ const Auth = () => {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isRecoverySession } = useAuth();
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Check if user is already logged in or in recovery
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+
+      // Detect recovery via URL hash or query and context flag
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const type = searchParams.get('type') || hashParams.get('type');
+      const accessToken = searchParams.get('access_token') || hashParams.get('access_token');
+      const recoveryDetected = type === 'recovery' || accessToken !== null || isRecoverySession;
+
+      if (session && recoveryDetected) {
+        navigate('/reset-password');
+        return;
+      }
       if (session) {
         navigate('/');
       }
     };
     checkUser();
-  }, [navigate]);
+
+    // Also listen for recovery events while on this page
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password');
+      }
+    });
+    return () => subscription?.unsubscribe();
+  }, [navigate, isRecoverySession]);
 
   const cleanupAuthState = () => {
     // Clear all auth-related keys from localStorage

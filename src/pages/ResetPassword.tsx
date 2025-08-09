@@ -45,6 +45,19 @@ const ResetPassword = () => {
     checkResetSession();
   }, [navigate, searchParams, isRecoverySession]);
 
+  // Listen for Supabase auth events to detect recovery reliably
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsValidSession(true);
+      }
+      // If user signs in normally and not in recovery, redirect to dashboard
+      if (event === 'SIGNED_IN' && session && !isRecoverySession) {
+        navigate('/');
+      }
+    });
+    return () => subscription?.unsubscribe();
+  }, [navigate, isRecoverySession]);
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -92,7 +105,7 @@ const ResetPassword = () => {
 
       // Clear URL parameters and sign out to clear recovery session
       window.history.replaceState({}, document.title, window.location.pathname);
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'global' });
       navigate('/auth');
     } catch (error: any) {
       toast({

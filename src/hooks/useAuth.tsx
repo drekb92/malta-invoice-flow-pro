@@ -72,15 +72,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        
-        // Check if this is a recovery session
-        const isRecovery = checkRecoverySession();
+
+        // Detect recovery via event or URL tokens
+        const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
+        const isRecovery = isRecoveryEvent || checkRecoverySession();
         setIsRecoverySession(isRecovery);
-        
+
+        // When signed out, ensure recovery flag is cleared
+        if (event === 'SIGNED_OUT') {
+          setIsRecoverySession(false);
+        }
+
         // Defer any additional data fetching to prevent deadlocks
         if (event === 'SIGNED_IN' && session?.user && !isRecovery) {
           setTimeout(() => {
-            // Any additional user data fetching can go here
             console.log('User signed in:', session.user.email);
           }, 0);
         }
