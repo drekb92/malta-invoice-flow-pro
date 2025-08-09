@@ -601,29 +601,60 @@ const InvoiceTemplates = () => {
                   </div>
 
                   {/* Styles to ensure A4 layout and font binding for export */}
-                  <style>{`
-                    @page { size: A4; margin: 0; }
-                    #invoice-preview-root{
-                      --font: '${templateForPreview.font_family}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-                      font-family: var(--font);
-                      width: 21cm; min-height: 29.7cm; background:#fff; color:#111827;
-                      box-sizing: border-box; position: relative;
-                    }
-                  `}</style>
+                    <style>{`
+                      @page { size: A4; margin: 0; }
+
+                      /* A4 canvas + template variables */
+                      #invoice-preview-root{
+                        --font: '${templateForPreview.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+                        --color-primary: ${templateForPreview.primary_color || '#111827'};
+                        --color-accent: ${templateForPreview.accent_color || '#2563EB'};
+                        --th-bg: ${'#F3F4F6'};
+                        --th-text: ${'#111827'};
+
+                        /* margins (cm) */
+                        --m-top: ${'1.2cm'};
+                        --m-right: ${'1.2cm'};
+                        --m-bottom: ${'1.2cm'};
+                        --m-left: ${'1.2cm'};
+
+                        width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
+                        font-family: var(--font);
+                        box-sizing: border-box; position: relative;
+                      }
+                      #invoice-inner{
+                        padding-top: var(--m-top);
+                        padding-right: var(--m-right);
+                        padding-bottom: var(--m-bottom);
+                        padding-left: var(--m-left);
+                      }
+                      table.items{ width:100%; border-collapse:collapse; font-size:10pt; }
+                      table.items th{
+                        background: var(--th-bg); color: var(--th-text);
+                        padding: 8pt; text-align:left; border-bottom: 1px solid #E5E7EB;
+                      }
+                      table.items td{ padding: 8pt; border-bottom: 1px solid #E5E7EB; }
+                      .totals{ width:45%; margin-left:auto; font-size:10pt; margin-top:8pt; }
+                      .totals .row{ display:grid; grid-template-columns:1fr auto; padding:4pt 0; }
+                      .totals .row.total{ font-weight:700; border-top:1px solid #E5E7EB; padding-top:8pt; }
+
+                      /* Hide toolbars/controls during export if needed */
+                      .exporting .toolbar { display:none !important; }
+                    `}</style>
 
                   <section
                     id="invoice-preview-root"
                     style={{
                       width: '21cm',
                       minHeight: '29.7cm',
-                      padding: 'var(--m-top) var(--m-right) var(--m-bottom) var(--m-left)',
                       margin: '0 auto',
                       backgroundColor: '#ffffff',
-                      fontFamily: 'var(--font)',
-                      ...(previewVars as any),
+                      fontFamily: 'var(--font)'
                     }}
                   >
-                    <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} />
+                    <div id="invoice-inner">
+                      <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} />
+                    </div>
                   </section>
                 </CardContent>
               </Card>
