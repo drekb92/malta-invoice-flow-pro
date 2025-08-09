@@ -23,6 +23,8 @@ import {
   Image,
   Settings2,
 } from "lucide-react";
+import { InvoiceHTML } from "@/components/InvoiceHTML";
+import { generatePDF } from "@/lib/pdfGenerator";
 
 interface InvoiceTemplate {
   id: string;
@@ -261,6 +263,40 @@ const InvoiceTemplates = () => {
     { value: "18", label: "18px" },
   ];
 
+  const templateForPreview = {
+    id: (currentSettings as any).id || 'preview',
+    name: (selectedTemplate?.name || 'Preview Template'),
+    is_default: !!selectedTemplate?.is_default,
+    primary_color: currentSettings.primary_color || '#26A65B',
+    accent_color: currentSettings.accent_color || '#1F2D3D',
+    font_family: currentSettings.font_family || 'Inter',
+    font_size: currentSettings.font_size || '14px',
+    logo_url: currentSettings.logo_url,
+    logo_x_offset: currentSettings.logo_x_offset || 0,
+    logo_y_offset: currentSettings.logo_y_offset || 0,
+  };
+
+  const sampleInvoiceData = {
+    invoiceNumber: 'INV-2024-001',
+    invoiceDate: '2024-01-15',
+    dueDate: '2024-02-14',
+    customer: {
+      name: 'Sample Customer',
+      email: 'customer@example.com',
+      address: '456 Customer Ave\nSliema, Malta SLM 1234',
+      vat_number: 'MT98765432',
+    },
+    items: [
+      { description: 'Professional Services', quantity: 10, unit_price: 50, vat_rate: 0.18, unit: 'hours' },
+      { description: 'Consultation Fee', quantity: 1, unit_price: 150, vat_rate: 0.18 },
+    ],
+    totals: {
+      netTotal: 650.00,
+      vatTotal: 117.00,
+      grandTotal: 767.00,
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -279,26 +315,29 @@ const InvoiceTemplates = () => {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => {
-                    // Generate preview with current live settings
-                    const previewData = {
-                      ...currentSettings,
-                      // Add sample invoice data for preview
-                      invoiceNumber: 'INV-001',
-                      customerName: 'Sample Customer',
-                      items: [
-                        { description: 'Sample Item', quantity: 1, price: 100 }
-                      ]
-                    };
-                    console.log('Preview data:', previewData);
-                    toast({
-                      title: "Preview generated",
-                      description: "PDF preview created with current settings",
-                    });
+                  onClick={async () => {
+                    try {
+                      await generatePDF('invoice-html-preview', 'invoice-template-preview', {
+                        format: 'A4',
+                        orientation: 'portrait',
+                        margin: 15,
+                        quality: 0.95,
+                      });
+                      toast({
+                        title: 'Downloaded',
+                        description: 'Template preview saved as PDF.',
+                      });
+                    } catch (error) {
+                      toast({
+                        title: 'Export failed',
+                        description: 'Could not generate PDF from preview.',
+                        variant: 'destructive',
+                      });
+                    }
                   }}
                 >
                   <Eye className="h-4 w-4 mr-2" />
-                  Preview PDF
+                  Download PDF
                 </Button>
                 <Button size="sm">
                   <Plus className="h-4 w-4 mr-2" />
@@ -543,156 +582,7 @@ const InvoiceTemplates = () => {
                   <CardTitle>Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                   <div 
-                     className="bg-white border rounded-lg p-8 min-h-[600px] shadow-sm"
-                     style={{ 
-                       fontFamily: currentSettings.font_family || 'Inter',
-                       fontSize: currentSettings.font_size || '14px',
-                       '--primary': currentSettings.primary_color || '#26A65B',
-                       '--accent': currentSettings.accent_color || '#1F2D3D',
-                     } as React.CSSProperties}
-                   >
-                     {/* Invoice Header */}
-                     <div className="flex justify-between items-start mb-8">
-                       <div>
-                         {/* Logo */}
-                         <div 
-                           className="w-20 h-20 mb-4"
-                           style={{
-                             transform: `translate(${currentSettings.logo_x_offset || 0}px, ${currentSettings.logo_y_offset || 0}px)`
-                           }}
-                         >
-                           {currentSettings.logo_url ? (
-                             <img 
-                               src={currentSettings.logo_url} 
-                               alt="Company Logo" 
-                               className="w-full h-full object-contain"
-                             />
-                           ) : (
-                             <div className="w-full h-full bg-gray-200 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
-                               <Image className="h-8 w-8 text-gray-400" />
-                             </div>
-                           )}
-                         </div>
-                         
-                         <h1 
-                           className="text-2xl font-bold"
-                           style={{ color: currentSettings.primary_color || '#26A65B' }}
-                         >
-                           InvoicePro Malta
-                         </h1>
-                         <div className="text-gray-600 mt-2">
-                           <p>123 Business Street</p>
-                           <p>Valletta, Malta VLT 1234</p>
-                           <p>VAT: MT12345678</p>
-                         </div>
-                       </div>
-                       
-                       <div className="text-right">
-                         <h2 
-                           className="text-3xl font-bold mb-2"
-                           style={{ color: currentSettings.primary_color || '#26A65B' }}
-                         >
-                           INVOICE
-                         </h2>
-                         <p className="text-gray-600"># INV-2024-001</p>
-                       </div>
-                     </div>
-
-                     {/* Bill To Section */}
-                     <div className="grid grid-cols-2 gap-8 mb-8">
-                       <div>
-                         <h3 
-                           className="font-semibold mb-2"
-                           style={{ color: currentSettings.accent_color || '#1F2D3D' }}
-                         >
-                           Bill To:
-                         </h3>
-                         <div className="text-gray-600">
-                           <p className="font-medium">Sample Customer</p>
-                           <p>456 Customer Ave</p>
-                           <p>Sliema, Malta SLM 1234</p>
-                         </div>
-                       </div>
-                       
-                       <div>
-                         <div className="space-y-1">
-                           <div className="flex justify-between">
-                             <span className="text-gray-600">Issue Date:</span>
-                             <span>January 15, 2024</span>
-                           </div>
-                           <div className="flex justify-between">
-                             <span className="text-gray-600">Due Date:</span>
-                             <span>February 14, 2024</span>
-                           </div>
-                           <div className="flex justify-between">
-                             <span className="text-gray-600">Terms:</span>
-                             <span>Net 30</span>
-                           </div>
-                         </div>
-                       </div>
-                     </div>
-
-                     {/* Items Table */}
-                     <div className="mb-8">
-                       <table className="w-full">
-                         <thead>
-                           <tr className="border-b-2" style={{ borderColor: currentSettings.primary_color || '#26A65B' }}>
-                             <th className="text-left py-2">Description</th>
-                             <th className="text-right py-2">Qty</th>
-                             <th className="text-right py-2">Unit Price</th>
-                             <th className="text-right py-2">Total</th>
-                           </tr>
-                         </thead>
-                         <tbody>
-                           <tr className="border-b">
-                             <td className="py-3">Professional Services</td>
-                             <td className="text-right py-3">10</td>
-                             <td className="text-right py-3">€50.00</td>
-                             <td className="text-right py-3">€500.00</td>
-                           </tr>
-                           <tr className="border-b">
-                             <td className="py-3">Consultation Fee</td>
-                             <td className="text-right py-3">1</td>
-                             <td className="text-right py-3">€150.00</td>
-                             <td className="text-right py-3">€150.00</td>
-                           </tr>
-                         </tbody>
-                       </table>
-                     </div>
-
-                     {/* Totals */}
-                     <div className="flex justify-end mb-8">
-                       <div className="w-64">
-                         <div className="flex justify-between py-1">
-                           <span>Subtotal:</span>
-                           <span>€650.00</span>
-                         </div>
-                         <div className="flex justify-between py-1">
-                           <span>VAT (18%):</span>
-                           <span>€117.00</span>
-                         </div>
-                         <div 
-                           className="flex justify-between py-2 border-t-2 font-bold text-lg"
-                           style={{ borderColor: currentSettings.primary_color || '#26A65B' }}
-                         >
-                           <span>Total:</span>
-                           <span>€767.00</span>
-                         </div>
-                       </div>
-                     </div>
-
-                     {/* Notes */}
-                     <div>
-                       <h3 
-                         className="font-semibold mb-2"
-                         style={{ color: currentSettings.accent_color || '#1F2D3D' }}
-                       >
-                         Notes:
-                       </h3>
-                       <p className="text-gray-600">Thank you for your business!</p>
-                     </div>
-                   </div>
+                  <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} />
                 </CardContent>
               </Card>
             </div>
