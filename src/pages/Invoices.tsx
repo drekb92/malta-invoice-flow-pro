@@ -151,41 +151,15 @@ const Invoices = () => {
         throw new Error('Invoice not found');
       }
 
-      // Use the new vector-based PDF generation with template support
-      const { generateInvoicePDFWithTemplate } = await import('@/lib/pdfGenerator');
-      
-      // Prepare invoice data for PDF generation
-      const invoiceData = {
-        invoiceNumber: invoice.invoice_number || 'INV-000',
-        invoiceDate: new Date(invoice.invoice_date || invoice.created_at).toLocaleDateString(),
-        dueDate: new Date(invoice.due_date).toLocaleDateString(),
-        customer: {
-          name: invoice.customers?.name || 'Customer Name',
-          email: invoice.customers?.email || undefined,
-          address: invoice.customers?.address || undefined,
-          vat_number: invoice.customers?.vat_number || undefined,
-        },
-        items: [
-          {
-            description: 'Service/Product',
-            quantity: 1,
-            unit_price: invoice.amount || 0,
-            vat_rate: invoice.vat_rate || 0.18,
-            unit: 'service',
-          }
-        ],
-        totals: {
-          netTotal: invoice.amount || 0,
-          vatTotal: invoice.vat_amount || 0,
-          grandTotal: invoice.total_amount || invoice.amount || 0,
-        }
-      };
-      
-      await generateInvoicePDFWithTemplate(invoiceData, invoice.invoice_number || 'invoice');
-      
+      // Switch to Edge Function export using the live A4 DOM
+      const { downloadPdfFromFunction } = await import('@/lib/edgePdf');
+      const { getDefaultTemplate } = await import('@/services/templateService');
+      const tpl = await getDefaultTemplate();
+      await downloadPdfFromFunction(invoice.invoice_number || 'invoice', tpl.font_family || 'Inter');
+
       toast({
-        title: "Success",
-        description: "PDF downloaded successfully",
+        title: 'Success',
+        description: 'PDF downloaded successfully',
       });
     } catch (error) {
       toast({

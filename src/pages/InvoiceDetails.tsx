@@ -60,6 +60,7 @@ const InvoiceDetails = () => {
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [invoiceTotals, setInvoiceTotals] = useState<InvoiceTotals | null>(null);
   const [loading, setLoading] = useState(true);
+  const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -115,6 +116,13 @@ const InvoiceDetails = () => {
     fetchInvoiceDetails();
   }, [invoice_id, toast]);
 
+  useEffect(() => {
+    const loadTemplate = async () => {
+      try { const t = await getDefaultTemplate(); setTemplateForPreview(t as any); } catch {}
+    };
+    loadTemplate();
+  }, []);
+
   const getStatusBadge = (status: string) => {
     const variants = {
       paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -141,35 +149,12 @@ const InvoiceDetails = () => {
   const handleDownload = async () => {
     if (!invoice) return;
     try {
-      const invoiceData = {
-        invoiceNumber: invoice.invoice_number,
-        invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy"),
-        dueDate: format(new Date(invoice.due_date), "dd/MM/yyyy"),
-        customer: {
-          name: invoice.customers?.name || "Unknown Customer",
-          email: invoice.customers?.email || undefined,
-          address: invoice.customers?.address || undefined,
-          vat_number: invoice.customers?.vat_number || undefined,
-        },
-        items: invoiceItems.map((i) => ({
-          description: i.description,
-          quantity: i.quantity,
-          unit_price: i.unit_price,
-          vat_rate: i.vat_rate,
-          unit: i.unit,
-        })),
-        totals: {
-          netTotal: computedTotals.net,
-          vatTotal: computedTotals.vat,
-          grandTotal: computedTotals.total,
-        },
-      } as const;
-
-      await generateInvoicePDFWithTemplate(invoiceData as any, invoice.invoice_number);
-      toast({ title: "PDF downloaded", description: `Invoice ${invoice.invoice_number} saved.` });
+      const family = (templateForPreview as any)?.font_family || 'Inter';
+      await downloadPdfFromFunction(invoice.invoice_number || 'invoice-preview', family);
+      toast({ title: 'PDF downloaded', description: `Invoice ${invoice.invoice_number} saved.` });
     } catch (e) {
       console.error(e);
-      toast({ title: "PDF error", description: "Failed to generate invoice PDF.", variant: "destructive" });
+      toast({ title: 'PDF error', description: 'Failed to generate invoice PDF.', variant: 'destructive' });
     }
   };
 
@@ -376,6 +361,98 @@ const InvoiceDetails = () => {
           </Card>
         </main>
       </div>
+
+      {/* Hidden Font Injector for Google Font based on template */}
+      <div style={{ display: 'none' }}>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent((templateForPreview as any)?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+          rel="stylesheet"
+        />
+      </div>
+
+      {/* A4 canvas + template CSS variables */}
+      <style>{`
+        @page { size: A4; margin: 0; }
+        #invoice-preview-root{
+          --font: '${(templateForPreview as any)?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+          --color-primary: ${(templateForPreview as any)?.primary_color || '#111827'};
+          --color-accent: ${(templateForPreview as any)?.accent_color || '#2563EB'};
+          --th-bg: ${(templateForPreview as any)?.line_item_header_bg || '#F3F4F6'};
+          --th-text: ${(templateForPreview as any)?.line_item_header_text || '#111827'};
+
+          /* margins (cm) */
+          --m-top: ${typeof (templateForPreview as any)?.margin_top === 'number' ? `${(templateForPreview as any).margin_top}cm` : '1.2cm'};
+          --m-right: ${typeof (templateForPreview as any)?.margin_right === 'number' ? `${(templateForPreview as any).margin_right}cm` : '1.2cm'};
+          --m-bottom: ${typeof (templateForPreview as any)?.margin_bottom === 'number' ? `${(templateForPreview as any).margin_bottom}cm` : '1.2cm'};
+          --m-left: ${typeof (templateForPreview as any)?.margin_left === 'number' ? `${(templateForPreview as any).margin_left}cm` : '1.2cm'};
+
+          width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
+          font-family: var(--font);
+          box-sizing: border-box; position: relative;
+        }
+        #invoice-inner{
+          padding-top: var(--m-top);
+          padding-right: var(--m-right);
+          padding-bottom: var(--m-bottom);
+          padding-left: var(--m-left);
+        }
+        table.items{ width:100%; border-collapse:collapse; font-size:10pt; }
+        table.items th{
+          background: var(--th-bg); color: var(--th-text);
+          padding: 8pt; text-align:left; border-bottom: 1px solid #E5E7EB;
+        }
+        table.items td{ padding: 8pt; border-bottom: 1px solid #E5E7EB; }
+        .totals{ width:45%; margin-left:auto; font-size:10pt; margin-top:8pt; }
+        .totals .row{ display:grid; grid-template-columns:1fr auto; padding:4pt 0; }
+        .totals .row.total{ font-weight:700; border-top:1px solid #E5E7EB; padding-top:8pt; }
+      `}</style>
+
+      {/* Hidden A4 DOM used for 1:1 export */}
+      <section id="invoice-preview-root" style={{ display: 'none', width: '21cm', minHeight: '29.7cm', background: '#fff' }}>
+        <div id="invoice-inner">
+          {invoice && (
+            <InvoiceHTML
+              invoiceData={{
+                invoiceNumber: invoice.invoice_number,
+                invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), 'yyyy-MM-dd'),
+                dueDate: invoice.due_date,
+                customer: {
+                  name: invoice.customers?.name || 'Unknown Customer',
+                  email: invoice.customers?.email || undefined,
+                  address: invoice.customers?.address || undefined,
+                  vat_number: invoice.customers?.vat_number || undefined,
+                },
+                items: invoiceItems.map((i) => ({
+                  description: i.description,
+                  quantity: i.quantity,
+                  unit_price: i.unit_price,
+                  vat_rate: i.vat_rate,
+                  unit: i.unit,
+                })),
+                totals: {
+                  netTotal: Number(invoiceTotals?.net_amount ?? computedTotals.net),
+                  vatTotal: Number(invoiceTotals?.vat_amount ?? computedTotals.vat),
+                  grandTotal: Number(invoiceTotals?.total_amount ?? computedTotals.total),
+                },
+              }}
+              template={(templateForPreview as any) || {
+                id: 'default',
+                name: 'Default Template',
+                is_default: true,
+                primary_color: '#26A65B',
+                accent_color: '#1F2D3D',
+                font_family: 'Inter',
+                font_size: '14px',
+                logo_x_offset: 0,
+                logo_y_offset: 0,
+              } as any}
+            />
+          )}
+        </div>
+      </section>
+
     </div>
   );
 };
