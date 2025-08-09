@@ -19,30 +19,40 @@ const ResetPassword = () => {
   const { isRecoverySession } = useAuth();
 
   useEffect(() => {
-    // Check if this is a password reset session
-    const checkResetSession = async () => {
+    let attempts = 0;
+    let timeoutId: number | undefined;
+
+    const evaluate = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      // Check if user came from email link with recovery parameters or is in recovery session
+
       // Check both query string and URL hash (Supabase often uses hash)
-      const accessToken = searchParams.get('access_token');
-      const type = searchParams.get('type');
-      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      const hashAccessToken = hashParams.get('access_token');
-      const hashType = hashParams.get('type');
-      
-      if (session && (type === 'recovery' || hashType === 'recovery' || accessToken || hashAccessToken || isRecoverySession)) {
+      const search = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const type = search.get('type') || hash.get('type');
+      const accessToken = search.get('access_token') || hash.get('access_token');
+
+      const recoveryDetected = type === 'recovery' || !!accessToken || isRecoverySession;
+
+      // If we have a session of any kind OR recovery indicators, allow reset page
+      if (session || recoveryDetected) {
         setIsValidSession(true);
-      } else if (session && !isRecoverySession) {
-        // User is already logged in normally, redirect to dashboard
-        navigate('/');
+        return;
+      }
+
+      // Retry briefly to allow Supabase to hydrate session from URL
+      if (attempts < 10) {
+        attempts += 1;
+        timeoutId = window.setTimeout(evaluate, 300);
       } else {
-        // No valid session, redirect to auth
+        // No valid session after retries, send to auth
         navigate('/auth');
       }
     };
 
-    checkResetSession();
+    evaluate();
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, [navigate, searchParams, isRecoverySession]);
 
   // Listen for Supabase auth events to detect recovery reliably

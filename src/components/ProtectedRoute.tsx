@@ -21,9 +21,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  // If user is in recovery session and trying to access any page other than reset-password,
+  // Detect recovery via URL or context and force reset-password
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const type = searchParams.get('type') || hashParams.get('type');
+  const hasRecoveryTokens = type === 'recovery' || !!searchParams.get('access_token') || !!hashParams.get('access_token');
+
+  // If user is in recovery flow and trying to access any page other than reset-password,
   // redirect to reset-password page
-  if (isRecoverySession && window.location.pathname !== '/reset-password') {
+  if ((isRecoverySession || hasRecoveryTokens) && window.location.pathname !== '/reset-password') {
     return <Navigate to="/reset-password" replace />;
   }
 
