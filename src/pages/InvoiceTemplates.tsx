@@ -297,6 +297,14 @@ const InvoiceTemplates = () => {
     },
   };
 
+  const previewVars = {
+    ['--font' as any]: templateForPreview.font_family,
+    ['--color-primary' as any]: templateForPreview.primary_color,
+    ['--color-accent' as any]: templateForPreview.accent_color,
+    ['--th-bg' as any]: templateForPreview.primary_color,
+    ['--th-text' as any]: '#FFFFFF',
+  } as any;
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -317,10 +325,10 @@ const InvoiceTemplates = () => {
                   size="sm"
                   onClick={async () => {
                     try {
-                      await generatePDF('invoice-html-preview', 'invoice-template-preview', {
+                      await generatePDF('invoice-preview-root', 'invoice-template-preview', {
                         format: 'A4',
                         orientation: 'portrait',
-                        margin: 15,
+                        margin: 0,
                         quality: 0.95,
                       });
                       toast({
@@ -582,7 +590,21 @@ const InvoiceTemplates = () => {
                   <CardTitle>Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} />
+                  <section
+                    id="invoice-preview-root"
+                    style={{
+                      width: '21cm',
+                      minHeight: '29.7cm',
+                      padding: '2cm',
+                      margin: '0 auto',
+                      backgroundColor: '#ffffff',
+                      fontFamily: 'var(--font)',
+                      ...(previewVars as any),
+                    }}
+                  >
+                    <style>{`@page { size: A4; margin: 0 }`}</style>
+                    <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} />
+                  </section>
                 </CardContent>
               </Card>
             </div>

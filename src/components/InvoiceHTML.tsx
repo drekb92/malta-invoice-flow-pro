@@ -48,10 +48,12 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
             <img 
               src={template.logo_url} 
               alt="Company Logo" 
-              className="max-h-16 w-auto mr-4"
               style={{
                 marginLeft: `${template.logo_x_offset}px`,
                 marginTop: `${template.logo_y_offset}px`,
+                maxHeight: '2cm',
+                width: 'auto',
+                objectFit: 'contain',
               }}
             />
           )}
@@ -95,12 +97,12 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
       <div className="mb-8">
         <table className="w-full border-collapse">
           <thead>
-            <tr style={{ backgroundColor: template.primary_color }}>
-              <th className="text-white px-4 py-3 text-left border">Description</th>
-              <th className="text-white px-4 py-3 text-center border w-20">Qty</th>
-              <th className="text-white px-4 py-3 text-right border w-24">Price</th>
-              <th className="text-white px-4 py-3 text-center border w-20">VAT %</th>
-              <th className="text-white px-4 py-3 text-right border w-24">Total</th>
+            <tr style={{ backgroundColor: `var(--th-bg, ${template.primary_color})` }}>
+              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-left border">Description</th>
+              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-center border w-20">Qty</th>
+              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-right border w-24">Price</th>
+              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-center border w-20">VAT %</th>
+              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-right border w-24">Total</th>
             </tr>
           </thead>
           <tbody>
