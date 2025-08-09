@@ -87,7 +87,34 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { html, filename }: PdfRequest = await req.json();
+    const contentType = req.headers.get('content-type') || '';
+    let html: string | undefined;
+    let filename: string | undefined;
+
+    try {
+      if (contentType.includes('application/json')) {
+        const body = await req.json() as PdfRequest;
+        html = body?.html;
+        filename = body?.filename;
+      } else if (contentType.includes('application/x-www-form-urlencoded')) {
+        const form = await req.formData();
+        html = (form.get('html') || '') as string;
+        filename = (form.get('filename') || '') as string;
+      } else {
+        // Fallback: try text then JSON.parse; if still not JSON, treat as raw HTML
+        const raw = await req.text();
+        try {
+          const parsed = JSON.parse(raw) as PdfRequest;
+          html = parsed?.html;
+          filename = parsed?.filename;
+        } catch {
+          html = raw;
+          filename = 'invoice-preview';
+        }
+      }
+    } catch (parseErr) {
+      console.error('Request body parse error:', parseErr);
+    }
 
     if (!html || !filename) {
       return new Response(
