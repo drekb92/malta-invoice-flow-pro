@@ -24,7 +24,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
-import { generatePDF } from "@/lib/pdfGenerator";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 
 interface InvoiceTemplate {
   id: string;
@@ -334,21 +334,14 @@ const InvoiceTemplates = () => {
                   variant="outline" 
                   size="sm"
                   onClick={async () => {
+                    const file = (sampleInvoiceData as any).invoiceNumber || 'invoice-preview';
                     try {
-                      await generatePDF('invoice-preview-root', 'invoice-template-preview', {
-                        format: 'A4',
-                        orientation: 'portrait',
-                        margin: 0,
-                        quality: 0.95,
-                      });
-                      toast({
-                        title: 'Downloaded',
-                        description: 'Template preview saved as PDF.',
-                      });
-                    } catch (error) {
+                      await downloadPdfFromFunction(file, templateForPreview.font_family);
+                      toast({ title: 'Downloaded', description: 'Template preview saved as PDF.' });
+                    } catch (error: any) {
                       toast({
                         title: 'Export failed',
-                        description: 'Could not generate PDF from preview.',
+                        description: error?.message || 'Could not generate PDF from preview.',
                         variant: 'destructive',
                       });
                     }

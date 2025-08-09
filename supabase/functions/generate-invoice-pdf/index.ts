@@ -128,65 +128,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Generating PDF for invoice: ${filename}`);
     console.log('HTML content length:', html.length);
 
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Invoice ${filename}</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              margin: 0;
-              padding: 20px;
-              color: #000;
-              background: white;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin: 20px 0;
-            }
-            th, td {
-              border: 1px solid #ddd;
-              padding: 8px;
-              text-align: left;
-            }
-            th {
-              background-color: #f5f5f5;
-              font-weight: bold;
-            }
-            .text-right {
-              text-align: right;
-            }
-            .font-bold {
-              font-weight: bold;
-            }
-            .text-2xl {
-              font-size: 1.5rem;
-            }
-            .text-xl {
-              font-size: 1.25rem;
-            }
-            .mb-4 {
-              margin-bottom: 1rem;
-            }
-            .mb-6 {
-              margin-bottom: 1.5rem;
-            }
-            .mt-6 {
-              margin-top: 1.5rem;
-            }
-            .max-h-20 {
-              max-height: 5rem;
-            }
-          </style>
-        </head>
-        <body>
-          ${html}
-        </body>
-      </html>
-    `;
+    const fullHtml = html;
 
     // Call HTML2PDF.app API to generate PDF
     const html2pdfResponse = await fetch('https://api.html2pdf.app/v1/generate', {
@@ -199,7 +141,7 @@ const handler = async (req: Request): Promise<Response> => {
         html: fullHtml,
         options: {
           format: 'A4',
-          margin: '1cm',
+          margin: '0',
           printBackground: true,
         }
       }),
