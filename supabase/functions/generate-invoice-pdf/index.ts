@@ -93,9 +93,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     try {
       if (contentType.includes('application/json')) {
-        const body = await req.json() as PdfRequest;
-        html = body?.html;
-        filename = body?.filename;
+        const body: any = await req.json();
+        if (body) {
+          if (typeof body.html === 'string' && typeof body.filename === 'string') {
+            html = body.html;
+            filename = body.filename;
+          } else if (body.body && typeof body.body === 'object') {
+            const inner = body.body as any;
+            html = inner?.html;
+            filename = inner?.filename;
+          }
+        }
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
         const form = await req.formData();
         html = (form.get('html') || '') as string;
