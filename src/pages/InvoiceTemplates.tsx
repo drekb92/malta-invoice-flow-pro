@@ -297,12 +297,22 @@ const InvoiceTemplates = () => {
     },
   };
 
+  const getGoogleFontHref = (family: string) => {
+    const familyParam = family.trim().replace(/\s+/g, '+');
+    return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@400;700&display=swap`;
+  };
+
   const previewVars = {
     ['--font' as any]: templateForPreview.font_family,
     ['--color-primary' as any]: templateForPreview.primary_color,
     ['--color-accent' as any]: templateForPreview.accent_color,
     ['--th-bg' as any]: templateForPreview.primary_color,
     ['--th-text' as any]: '#FFFFFF',
+    // Margin variables (defaults)
+    ['--m-top' as any]: '2cm',
+    ['--m-right' as any]: '2cm',
+    ['--m-bottom' as any]: '2cm',
+    ['--m-left' as any]: '2cm',
   } as any;
 
   return (
@@ -590,12 +600,13 @@ const InvoiceTemplates = () => {
                   <CardTitle>Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <link rel="stylesheet" href={getGoogleFontHref(templateForPreview.font_family)} />
                   <section
                     id="invoice-preview-root"
                     style={{
                       width: '21cm',
                       minHeight: '29.7cm',
-                      padding: '2cm',
+                      padding: 'var(--m-top) var(--m-right) var(--m-bottom) var(--m-left)',
                       margin: '0 auto',
                       backgroundColor: '#ffffff',
                       fontFamily: 'var(--font)',
