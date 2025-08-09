@@ -597,7 +597,7 @@ const InvoiceTemplates = () => {
                   <div id="font-injector" style={{ display: 'none' }}>
                     <link rel="preconnect" href="https://fonts.googleapis.com" />
                     <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                    <link href={getGoogleFontHref(templateForPreview.font_family)} rel="stylesheet" />
+                    <link href={getGoogleFontHref(templateForPreview.font_family || 'Inter')} rel="stylesheet" />
                   </div>
 
                   {/* Styles to ensure A4 layout and font binding for export */}
@@ -609,14 +609,14 @@ const InvoiceTemplates = () => {
                         --font: '${templateForPreview.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
                         --color-primary: ${templateForPreview.primary_color || '#111827'};
                         --color-accent: ${templateForPreview.accent_color || '#2563EB'};
-                        --th-bg: ${'#F3F4F6'};
-                        --th-text: ${'#111827'};
+                        --th-bg: ${(templateForPreview as any)?.line_item_header_bg || '#F3F4F6'};
+                        --th-text: ${(templateForPreview as any)?.line_item_header_text || '#111827'};
 
                         /* margins (cm) */
-                        --m-top: ${'1.2cm'};
-                        --m-right: ${'1.2cm'};
-                        --m-bottom: ${'1.2cm'};
-                        --m-left: ${'1.2cm'};
+                        --m-top: ${typeof (templateForPreview as any).margin_top === 'number' ? `${(templateForPreview as any).margin_top}cm` : '1.2cm'};
+                        --m-right: ${typeof (templateForPreview as any).margin_right === 'number' ? `${(templateForPreview as any).margin_right}cm` : '1.2cm'};
+                        --m-bottom: ${typeof (templateForPreview as any).margin_bottom === 'number' ? `${(templateForPreview as any).margin_bottom}cm` : '1.2cm'};
+                        --m-left: ${typeof (templateForPreview as any).margin_left === 'number' ? `${(templateForPreview as any).margin_left}cm` : '1.2cm'};
 
                         width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
                         font-family: var(--font);
