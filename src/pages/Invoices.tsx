@@ -36,6 +36,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { InvoiceHTML } from "@/components/InvoiceHTML";
+import { getDefaultTemplate } from "@/services/templateService";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 
 interface Invoice {
   id: string;
@@ -65,6 +68,10 @@ const Invoices = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
+  const [exportInvoice, setExportInvoice] = useState<Invoice | null>(null);
+  const [exportItems, setExportItems] = useState<any[]>([]);
+  const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number } | null>(null);
 
   const fetchInvoices = async () => {
     try {
@@ -99,6 +106,13 @@ const Invoices = () => {
 
   useEffect(() => {
     fetchInvoices();
+  }, []);
+
+  useEffect(() => {
+    const loadTemplate = async () => {
+      try { const t = await getDefaultTemplate(); setTemplateForPreview(t as any); } catch {}
+    };
+    loadTemplate();
   }, []);
 
   useEffect(() => {
@@ -151,21 +165,43 @@ const Invoices = () => {
         throw new Error('Invoice not found');
       }
 
-      // Switch to Edge Function export using the live A4 DOM
-      const { downloadPdfFromFunction } = await import('@/lib/edgePdf');
-      const { getDefaultTemplate } = await import('@/services/templateService');
-      const tpl = await getDefaultTemplate();
-      await downloadPdfFromFunction(invoice.invoice_number || 'invoice', tpl.font_family || 'Inter');
+      // Fetch items and totals to render exact DOM
+      const { data: itemsData, error: itemsError } = await (supabase as any)
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', invoiceId);
+      if (itemsError) throw itemsError;
 
-      toast({
-        title: 'Success',
-        description: 'PDF downloaded successfully',
-      });
+      const { data: totalsData } = await (supabase as any)
+        .from('invoice_totals')
+        .select('net_amount, vat_amount, total_amount')
+        .eq('invoice_id', invoiceId)
+        .maybeSingle();
+
+      const net = totalsData?.net_amount ?? (itemsData || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
+      const vat = totalsData?.vat_amount ?? (itemsData || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
+      const total = totalsData?.total_amount ?? net + vat;
+
+      // Prepare hidden DOM state
+      setExportInvoice(invoice);
+      setExportItems(itemsData || []);
+      setExportTotals({ net: Number(net), vat: Number(vat), total: Number(total) });
+
+      // Ensure template is ready
+      const tpl = templateForPreview || (await getDefaultTemplate());
+      setTemplateForPreview(tpl as any);
+
+      // Wait for DOM to paint
+      await new Promise(requestAnimationFrame);
+
+      await downloadPdfFromFunction(invoice.invoice_number || 'invoice', (tpl as any)?.font_family || 'Inter');
+
+      toast({ title: 'Success', description: 'PDF downloaded successfully' });
     } catch (error) {
       toast({
-        title: "Error",
+        title: 'Error',
         description: `Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive",
+        variant: 'destructive',
       });
     }
   };
@@ -336,6 +372,98 @@ const Invoices = () => {
             </CardContent>
           </Card>
         </main>
+
+        {/* Hidden Font Injector for Google Font based on template */}
+        <div style={{ display: 'none' }}>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link
+            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent((templateForPreview as any)?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+            rel="stylesheet"
+          />
+        </div>
+
+        {/* A4 canvas + template CSS variables */}
+        <style>{`
+          @page { size: A4; margin: 0; }
+          #invoice-preview-root{
+            --font: '${(templateForPreview as any)?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            --color-primary: ${(templateForPreview as any)?.primary_color || '#111827'};
+            --color-accent: ${(templateForPreview as any)?.accent_color || '#2563EB'};
+            --th-bg: ${(templateForPreview as any)?.line_item_header_bg || '#F3F4F6'};
+            --th-text: ${(templateForPreview as any)?.line_item_header_text || '#111827'};
+
+            /* margins (cm) */
+            --m-top: ${typeof (templateForPreview as any)?.margin_top === 'number' ? `${(templateForPreview as any).margin_top}cm` : '1.2cm'};
+            --m-right: ${typeof (templateForPreview as any)?.margin_right === 'number' ? `${(templateForPreview as any).margin_right}cm` : '1.2cm'};
+            --m-bottom: ${typeof (templateForPreview as any)?.margin_bottom === 'number' ? `${(templateForPreview as any).margin_bottom}cm` : '1.2cm'};
+            --m-left: ${typeof (templateForPreview as any)?.margin_left === 'number' ? `${(templateForPreview as any).margin_left}cm` : '1.2cm'};
+
+            width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
+            font-family: var(--font);
+            box-sizing: border-box; position: relative;
+          }
+          #invoice-inner{
+            padding-top: var(--m-top);
+            padding-right: var(--m-right);
+            padding-bottom: var(--m-bottom);
+            padding-left: var(--m-left);
+          }
+          table.items{ width:100%; border-collapse:collapse; font-size:10pt; }
+          table.items th{
+            background: var(--th-bg); color: var(--th-text);
+            padding: 8pt; text-align:left; border-bottom: 1px solid #E5E7EB;
+          }
+          table.items td{ padding: 8pt; border-bottom: 1px solid #E5E7EB; }
+          .totals{ width:45%; margin-left:auto; font-size:10pt; margin-top:8pt; }
+          .totals .row{ display:grid; grid-template-columns:1fr auto; padding:4pt 0; }
+          .totals .row.total{ font-weight:700; border-top:1px solid #E5E7EB; padding-top:8pt; }
+        `}</style>
+
+        {/* Hidden A4 DOM used for 1:1 export */}
+        <section id="invoice-preview-root" style={{ display: 'none', width: '21cm', minHeight: '29.7cm', background: '#fff' }}>
+          <div id="invoice-inner">
+            {exportInvoice && (
+              <InvoiceHTML
+                invoiceData={{
+                  invoiceNumber: exportInvoice.invoice_number,
+                  invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),
+                  dueDate: exportInvoice.due_date,
+                  customer: {
+                    name: exportInvoice.customers?.name || 'Unknown Customer',
+                    email: exportInvoice.customers?.email || undefined,
+                    address: exportInvoice.customers?.address || undefined,
+                    vat_number: exportInvoice.customers?.vat_number || undefined,
+                  },
+                  items: exportItems.map((i: any) => ({
+                    description: i.description,
+                    quantity: i.quantity,
+                    unit_price: i.unit_price,
+                    vat_rate: i.vat_rate,
+                    unit: i.unit,
+                  })),
+                  totals: {
+                    netTotal: Number(exportTotals?.net ?? 0),
+                    vatTotal: Number(exportTotals?.vat ?? 0),
+                    grandTotal: Number(exportTotals?.total ?? 0),
+                  },
+                }}
+                template={(templateForPreview as any) || {
+                  id: 'default',
+                  name: 'Default Template',
+                  is_default: true,
+                  primary_color: '#26A65B',
+                  accent_color: '#1F2D3D',
+                  font_family: 'Inter',
+                  font_size: '14px',
+                  logo_x_offset: 0,
+                  logo_y_offset: 0,
+                } as any}
+              />
+            )}
+          </div>
+        </section>
+
       </div>
     </div>
   );
