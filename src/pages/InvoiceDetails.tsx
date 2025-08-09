@@ -10,12 +10,13 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowLeft, Download, Mail, MessageCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 
 interface Invoice {
   id: string;
@@ -26,8 +27,13 @@ interface Invoice {
   due_date: string;
   status: string;
   created_at: string;
+  invoice_date?: string;
   customers?: {
     name: string;
+    email?: string | null;
+    address?: string | null;
+    vat_number?: string | null;
+    phone?: string | null;
   };
 }
 
@@ -65,7 +71,7 @@ const InvoiceDetails = () => {
           .select(`
             *,
             customers (
-              name
+              name, email, address, vat_number, phone
             )
           `)
           .eq("id", invoice_id)
@@ -117,6 +123,75 @@ const InvoiceDetails = () => {
     return variants[status as keyof typeof variants] || variants.draft;
   };
 
+  const computedTotals = useMemo(() => {
+    if (invoiceTotals) {
+      return {
+        net: Number(invoiceTotals.net_amount || 0),
+        vat: Number(invoiceTotals.vat_amount || 0),
+        total: Number(invoiceTotals.total_amount || 0),
+      };
+    }
+    const net = invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const vat = invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
+    return { net, vat, total: net + vat };
+  }, [invoiceItems, invoiceTotals]);
+
+  const handleDownload = async () => {
+    if (!invoice) return;
+    try {
+      const invoiceData = {
+        invoiceNumber: invoice.invoice_number,
+        invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy"),
+        dueDate: format(new Date(invoice.due_date), "dd/MM/yyyy"),
+        customer: {
+          name: invoice.customers?.name || "Unknown Customer",
+          email: invoice.customers?.email || undefined,
+          address: invoice.customers?.address || undefined,
+          vat_number: invoice.customers?.vat_number || undefined,
+        },
+        items: invoiceItems.map((i) => ({
+          description: i.description,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          vat_rate: i.vat_rate,
+          unit: i.unit,
+        })),
+        totals: {
+          netTotal: computedTotals.net,
+          vatTotal: computedTotals.vat,
+          grandTotal: computedTotals.total,
+        },
+      } as const;
+
+      await generateInvoicePDFWithTemplate(invoiceData as any, invoice.invoice_number);
+      toast({ title: "PDF downloaded", description: `Invoice ${invoice.invoice_number} saved.` });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "PDF error", description: "Failed to generate invoice PDF.", variant: "destructive" });
+    }
+  };
+
+  const handleEmailReminder = () => {
+    if (!invoice) return;
+    const email = invoice.customers?.email || "";
+    const subject = `Payment Reminder: Invoice ${invoice.invoice_number}`;
+    const body = `Dear ${invoice.customers?.name || "Customer"},%0D%0A%0D%0AThis is a friendly reminder that invoice ${invoice.invoice_number} for €${computedTotals.total.toFixed(2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.%0D%0A%0D%0AThank you.`;
+    if (email) {
+      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${body}`;
+    } else {
+      toast({ title: "No email available", description: "Customer email not found.", variant: "destructive" });
+    }
+  };
+
+  const handleWhatsAppReminder = () => {
+    if (!invoice) return;
+    const message = `Payment Reminder: Invoice ${invoice.invoice_number} of €${computedTotals.total.toFixed(2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.`;
+    const phoneRaw = invoice.customers?.phone || "";
+    const phone = phoneRaw.replace(/\D/g, "");
+    const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -164,17 +239,30 @@ const InvoiceDetails = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Link to="/invoices">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" aria-label="Back to invoices">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back to List
                   </Button>
                 </Link>
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">Invoice {invoice.invoice_number}</h1>
-                  <p className="text-muted-foreground">
-                    Invoice details and line items
-                  </p>
+                  <p className="text-muted-foreground">Invoice details and line items</p>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleDownload} aria-label="Download invoice PDF" title="Download invoice PDF">
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">Download</span>
+                  <span className="hidden sm:inline">Download</span>
+                </Button>
+                <Button variant="secondary" onClick={handleEmailReminder} aria-label="Send email reminder" title="Send email reminder">
+                  <Mail className="h-4 w-4" />
+                  <span className="hidden sm:inline">Email Reminder</span>
+                </Button>
+                <Button variant="secondary" onClick={handleWhatsAppReminder} aria-label="Send WhatsApp reminder" title="Send WhatsApp reminder">
+                  <MessageCircle className="h-4 w-4" />
+                  <span className="hidden sm:inline">WhatsApp</span>
+                </Button>
               </div>
             </div>
           </div>
@@ -198,7 +286,7 @@ const InvoiceDetails = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Issue Date</label>
-                  <p className="text-lg">{format(new Date(invoice.created_at), "dd/MM/yyyy")}</p>
+                  <p className="text-lg">{format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy")}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Due Date</label>
@@ -269,16 +357,16 @@ const InvoiceDetails = () => {
               <div className="space-y-2 max-w-sm ml-auto">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Net Amount:</span>
-                  <span className="font-medium">€{invoiceTotals?.net_amount?.toFixed(2) || "0.00"}</span>
+                  <span className="font-medium">€{(invoiceTotals?.net_amount ?? computedTotals.net).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">VAT Amount:</span>
-                  <span className="font-medium">€{invoiceTotals?.vat_amount?.toFixed(2) || "0.00"}</span>
+                  <span className="font-medium">€{(invoiceTotals?.vat_amount ?? computedTotals.vat).toFixed(2)}</span>
                 </div>
                 <div className="border-t pt-2">
                   <div className="flex justify-between">
                     <span className="text-lg font-semibold">Total Amount:</span>
-                    <span className="text-lg font-bold">€{invoiceTotals?.total_amount?.toFixed(2) || "0.00"}</span>
+                    <span className="text-lg font-bold">€{(invoiceTotals?.total_amount ?? computedTotals.total).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
