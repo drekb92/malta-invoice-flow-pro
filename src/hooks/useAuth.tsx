@@ -58,9 +58,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Check if this is a recovery session from URL params
     const checkRecoverySession = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const type = urlParams.get('type');
-      const accessToken = urlParams.get('access_token');
+      // Check both query string and URL hash (Supabase uses hash for tokens)
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const type = searchParams.get('type') || hashParams.get('type');
+      const accessToken = searchParams.get('access_token') || hashParams.get('access_token');
       return type === 'recovery' || accessToken !== null;
     };
 

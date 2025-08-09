@@ -24,10 +24,14 @@ const ResetPassword = () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       // Check if user came from email link with recovery parameters or is in recovery session
+      // Check both query string and URL hash (Supabase often uses hash)
       const accessToken = searchParams.get('access_token');
       const type = searchParams.get('type');
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const hashAccessToken = hashParams.get('access_token');
+      const hashType = hashParams.get('type');
       
-      if (session && (type === 'recovery' || accessToken || isRecoverySession)) {
+      if (session && (type === 'recovery' || hashType === 'recovery' || accessToken || hashAccessToken || isRecoverySession)) {
         setIsValidSession(true);
       } else if (session && !isRecoverySession) {
         // User is already logged in normally, redirect to dashboard
