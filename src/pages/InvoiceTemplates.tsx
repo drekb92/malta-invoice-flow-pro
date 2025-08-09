@@ -298,8 +298,8 @@ const InvoiceTemplates = () => {
   };
 
   const getGoogleFontHref = (family: string) => {
-    const familyParam = family.trim().replace(/\s+/g, '+');
-    return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@400;700&display=swap`;
+    const familyParam = encodeURIComponent(family.trim());
+    return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@400;600;700&display=swap`;
   };
 
   const previewVars = {
@@ -600,7 +600,24 @@ const InvoiceTemplates = () => {
                   <CardTitle>Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <link rel="stylesheet" href={getGoogleFontHref(templateForPreview.font_family)} />
+                  {/* Hidden font injector for Google Fonts */}
+                  <div id="font-injector" style={{ display: 'none' }}>
+                    <link rel="preconnect" href="https://fonts.googleapis.com" />
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                    <link href={getGoogleFontHref(templateForPreview.font_family)} rel="stylesheet" />
+                  </div>
+
+                  {/* Styles to ensure A4 layout and font binding for export */}
+                  <style>{`
+                    @page { size: A4; margin: 0; }
+                    #invoice-preview-root{
+                      --font: '${templateForPreview.font_family}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+                      font-family: var(--font);
+                      width: 21cm; min-height: 29.7cm; background:#fff; color:#111827;
+                      box-sizing: border-box; position: relative;
+                    }
+                  `}</style>
+
                   <section
                     id="invoice-preview-root"
                     style={{
@@ -613,7 +630,6 @@ const InvoiceTemplates = () => {
                       ...(previewVars as any),
                     }}
                   >
-                    <style>{`@page { size: A4; margin: 0 }`}</style>
                     <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} />
                   </section>
                 </CardContent>
