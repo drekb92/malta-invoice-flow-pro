@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
+import { getDefaultTemplate } from "@/services/templateService";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 
 interface Customer {
   id: string;
@@ -55,7 +57,8 @@ const NewInvoice = () => {
   ]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  
+  const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { id } = useParams();
@@ -173,6 +176,18 @@ const NewInvoice = () => {
       generateInvoiceNumber();
     }
   }, [isEditMode]);
+
+  useEffect(() => {
+    const loadTemplate = async () => {
+      try {
+        const t = await getDefaultTemplate();
+        setTemplateForPreview(t as any);
+      } catch (e) {
+        // Fallback handled by consumer
+      }
+    };
+    loadTemplate();
+  }, []);
 
   const addItem = () => {
     setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: 0.18, unit: "service" }]);
@@ -319,48 +334,15 @@ const NewInvoice = () => {
   const handleDownloadPDF = async () => {
     setLoading(true);
     try {
-      const { generateInvoicePDFWithTemplate } = await import('@/lib/pdfGenerator');
-      
-      // Get selected customer data
-      const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-      if (!selectedCustomerData) {
-        throw new Error('Please select a customer first');
-      }
-
-      // Calculate due date
-      const paymentTerms = selectedCustomerData.payment_terms || "Net 30";
-      const daysMatch = paymentTerms.match(/\d+/);
-      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
-      const invoiceDateObj = new Date(invoiceDate);
-      const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
-
-      // Prepare invoice data for PDF generation
-      const invoiceData = {
-        invoiceNumber: invoiceNumber,
-        invoiceDate: invoiceDate,
-        dueDate: calculatedDueDate.toISOString().split("T")[0],
-        customer: {
-          name: selectedCustomerData.name,
-          email: selectedCustomerData.email || undefined,
-          address: selectedCustomerData.address || undefined,
-          vat_number: selectedCustomerData.vat_number || undefined,
-        },
-        items: items,
-        totals: calculateTotals(),
-      };
-      
-      await generateInvoicePDFWithTemplate(invoiceData, invoiceNumber);
-      
-      toast({
-        title: "Success",
-        description: "Invoice downloaded successfully",
-      });
+      const family = (templateForPreview as any)?.font_family || 'Inter';
+      await downloadPdfFromFunction(invoiceNumber || 'invoice-preview', family);
+      toast({ title: 'Success', description: 'Invoice downloaded successfully' });
     } catch (error: any) {
       console.error('Error downloading PDF:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to download invoice",
-        variant: "destructive",
+        title: 'Error',
+        description: error?.message || 'Failed to download invoice',
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -612,45 +594,94 @@ const NewInvoice = () => {
         </main>
       </div>
 
-      {/* Hidden Invoice Preview Block for Legacy Compatibility */}
-      <div id="invoice-html-preview" style={{ display: 'none' }} className="bg-white p-8 min-h-[297mm] w-[210mm]">
-        {selectedCustomer && (
-          <InvoiceHTML 
-            invoiceData={{
-              invoiceNumber: invoiceNumber,
-              invoiceDate: invoiceDate,
-              dueDate: (() => {
-                const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-                const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
-                const daysMatch = paymentTerms.match(/\d+/);
-                const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
-                const invoiceDateObj = new Date(invoiceDate);
-                const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
-                return calculatedDueDate.toISOString().split("T")[0];
-              })(),
-              customer: {
-                name: customers.find(c => c.id === selectedCustomer)?.name || '',
-                email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
-                address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
-                vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
-              },
-              items: items,
-              totals: totals,
-            }}
-            template={{
-              id: 'default',
-              name: 'Default Template',
-              is_default: true,
-              primary_color: '#26A65B',
-              accent_color: '#1F2D3D',
-              font_family: 'Inter',
-              font_size: '14px',
-              logo_x_offset: 0,
-              logo_y_offset: 0,
-            }}
-          />
-        )}
+      {/* Hidden Font Injector for Google Font based on template */}
+      <div style={{ display: 'none' }}>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent((templateForPreview as any)?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+          rel="stylesheet"
+        />
       </div>
+
+      {/* A4 canvas + template CSS variables */}
+      <style>{`
+        @page { size: A4; margin: 0; }
+        #invoice-preview-root{
+          --font: '${(templateForPreview as any)?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+          --color-primary: ${(templateForPreview as any)?.primary_color || '#111827'};
+          --color-accent: ${(templateForPreview as any)?.accent_color || '#2563EB'};
+          --th-bg: ${(templateForPreview as any)?.line_item_header_bg || '#F3F4F6'};
+          --th-text: ${(templateForPreview as any)?.line_item_header_text || '#111827'};
+
+          /* margins (cm) */
+          --m-top: ${typeof (templateForPreview as any)?.margin_top === 'number' ? `${(templateForPreview as any).margin_top}cm` : '1.2cm'};
+          --m-right: ${typeof (templateForPreview as any)?.margin_right === 'number' ? `${(templateForPreview as any).margin_right}cm` : '1.2cm'};
+          --m-bottom: ${typeof (templateForPreview as any)?.margin_bottom === 'number' ? `${(templateForPreview as any).margin_bottom}cm` : '1.2cm'};
+          --m-left: ${typeof (templateForPreview as any)?.margin_left === 'number' ? `${(templateForPreview as any).margin_left}cm` : '1.2cm'};
+
+          width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
+          font-family: var(--font);
+          box-sizing: border-box; position: relative;
+        }
+        #invoice-inner{
+          padding-top: var(--m-top);
+          padding-right: var(--m-right);
+          padding-bottom: var(--m-bottom);
+          padding-left: var(--m-left);
+        }
+        table.items{ width:100%; border-collapse:collapse; font-size:10pt; }
+        table.items th{
+          background: var(--th-bg); color: var(--th-text);
+          padding: 8pt; text-align:left; border-bottom: 1px solid #E5E7EB;
+        }
+        table.items td{ padding: 8pt; border-bottom: 1px solid #E5E7EB; }
+        .totals{ width:45%; margin-left:auto; font-size:10pt; margin-top:8pt; }
+        .totals .row{ display:grid; grid-template-columns:1fr auto; padding:4pt 0; }
+        .totals .row.total{ font-weight:700; border-top:1px solid #E5E7EB; padding-top:8pt; }
+      `}</style>
+
+      {/* Hidden A4 DOM used for 1:1 export */}
+      <section id="invoice-preview-root" style={{ display: 'none', width: '21cm', minHeight: '29.7cm', background: '#fff' }}>
+        <div id="invoice-inner">
+          {selectedCustomer && (
+            <InvoiceHTML 
+              invoiceData={{
+                invoiceNumber: invoiceNumber,
+                invoiceDate: invoiceDate,
+                dueDate: (() => {
+                  const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+                  const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+                  const daysMatch = paymentTerms.match(/\d+/);
+                  const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+                  const invoiceDateObj = new Date(invoiceDate);
+                  const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
+                  return calculatedDueDate.toISOString().split("T")[0];
+                })(),
+                customer: {
+                  name: customers.find(c => c.id === selectedCustomer)?.name || '',
+                  email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
+                  address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
+                  vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
+                },
+                items: items,
+                totals: totals,
+              }}
+              template={(templateForPreview as any) || {
+                id: 'default',
+                name: 'Default Template',
+                is_default: true,
+                primary_color: '#26A65B',
+                accent_color: '#1F2D3D',
+                font_family: 'Inter',
+                font_size: '14px',
+                logo_x_offset: 0,
+                logo_y_offset: 0,
+              } as any}
+            />
+          )}
+        </div>
+      </section>
     </div>
   );
 };

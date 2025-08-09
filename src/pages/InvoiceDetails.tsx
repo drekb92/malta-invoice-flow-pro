@@ -16,7 +16,9 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import { InvoiceHTML } from "@/components/InvoiceHTML";
+import { getDefaultTemplate } from "@/services/templateService";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 
 interface Invoice {
   id: string;
