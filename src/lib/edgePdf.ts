@@ -4,11 +4,59 @@ import { supabase } from "@/integrations/supabase/client";
  * Build full HTML from the on-screen preview and request PDF from Edge Function.
  */
 export async function downloadPdfFromFunction(filename: string, selectedFontFamily?: string) {
-  const root = document.getElementById('invoice-preview-root');
+  const root = document.getElementById('invoice-preview-root') as HTMLElement | null;
   if (!root) throw new Error('Preview root not found (invoice-preview-root).');
 
   const family = selectedFontFamily || 'Inter';
   const encodedFamily = encodeURIComponent(family);
+
+  // Clone the preview and inline all images so logos and assets render reliably in the PDF
+  const cloned = root.cloneNode(true) as HTMLElement;
+
+  async function inlineImages(container: HTMLElement) {
+    const imgs = Array.from(container.querySelectorAll('img'));
+    await Promise.all(
+      imgs.map(async (img) => {
+        const src = img.getAttribute('src');
+        if (!src || src.startsWith('data:')) return;
+        try {
+          const res = await fetch(src, { mode: 'cors' });
+          const blob = await res.blob();
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          img.setAttribute('src', dataUrl);
+        } catch (e) {
+          console.warn('Failed to inline image for PDF:', src, e);
+        }
+      })
+    );
+  }
+
+  await inlineImages(cloned);
+
+  // Capture CSS variables from the on-screen preview so template colors/spacing match
+  let cssVars = '';
+  try {
+    const computed = getComputedStyle(root);
+    for (let i = 0; i < computed.length; i++) {
+      const prop = computed[i];
+      if (prop && prop.startsWith('--')) {
+        const val = computed.getPropertyValue(prop).trim();
+        if (val) cssVars += `${prop}: ${val};`;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to extract CSS variables for PDF:', e);
+  }
+
+  if (cssVars) {
+    const existingStyle = cloned.getAttribute('style') || '';
+    cloned.setAttribute('style', `${existingStyle}${existingStyle ? ' ' : ''}${cssVars}`);
+  }
 
   const html = `<!DOCTYPE html>
 <html>
@@ -35,7 +83,8 @@ export async function downloadPdfFromFunction(filename: string, selectedFontFami
         width: 210mm;
         min-height: 297mm;
         margin: 0 auto;
-        padding: 20mm;
+        padding: 0; /* Match on-screen layout; inner containers handle padding */
+        background: #ffffff;
       }
       img { max-width: 100%; height: auto; }
       h1, h2, h3, h4 { margin: 0 0 0.5rem 0; line-height: 1.25; }
@@ -81,7 +130,7 @@ export async function downloadPdfFromFunction(filename: string, selectedFontFami
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@400;600;700&display=swap" rel="stylesheet">
   </head>
-  <body>${root.outerHTML}</body>
+  <body>${cloned.outerHTML}</body>
 </html>`;
 
   // Call Edge Function directly with proper auth and get a Blob response
