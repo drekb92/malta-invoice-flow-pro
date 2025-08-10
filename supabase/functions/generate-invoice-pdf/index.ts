@@ -93,16 +93,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     try {
       if (contentType.includes('application/json')) {
-        const body: any = await req.json();
-        if (body) {
-          if (typeof body.html === 'string' && typeof body.filename === 'string') {
-            html = body.html;
-            filename = body.filename;
-          } else if (body.body && typeof body.body === 'object') {
-            const inner = body.body as any;
-            html = inner?.html;
-            filename = inner?.filename;
+        const raw = await req.text();
+        if (raw && raw.trim().length > 0) {
+          try {
+            const body: any = JSON.parse(raw);
+            if (typeof body.html === 'string' && typeof body.filename === 'string') {
+              html = body.html;
+              filename = body.filename;
+            } else if (body.body && typeof body.body === 'object') {
+              const inner = body.body as any;
+              html = inner?.html;
+              filename = inner?.filename;
+            }
+          } catch (e) {
+            console.warn('Failed to parse JSON body, using raw text as HTML');
+            html = raw;
+            filename = 'invoice-preview';
           }
+        } else {
+          console.warn('Empty JSON body received');
         }
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
         const form = await req.formData();

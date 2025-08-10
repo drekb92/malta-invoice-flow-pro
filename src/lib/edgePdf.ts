@@ -27,7 +27,6 @@ export async function downloadPdfFromFunction(filename: string, selectedFontFami
   // Note: Some environments may not return a Blob here; handle common cases.
   const { data, error } = await supabase.functions.invoke('generate-invoice-pdf', {
     body: { html, filename },
-    headers: { 'Content-Type': 'application/json' },
   });
 
   if (error) {
