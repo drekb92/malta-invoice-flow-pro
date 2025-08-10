@@ -37,10 +37,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Test the API key with a simple request
     try {
-      const testResponse = await fetch('https://api.html2pdf.app/v1/generate', {
+      const testUrl = `https://api.html2pdf.app/v1/generate?apiKey=${encodeURIComponent(apiKey)}`;
+      const testResponse = await fetch(testUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -175,10 +175,10 @@ const handler = async (req: Request): Promise<Response> => {
     const fullHtml = html;
 
     // Call HTML2PDF.app API to generate PDF
-    const html2pdfResponse = await fetch('https://api.html2pdf.app/v1/generate', {
+    const url = `https://api.html2pdf.app/v1/generate?apiKey=${encodeURIComponent(apiKey)}`;
+    const html2pdfResponse = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
