@@ -29,12 +29,18 @@ import {
   ArrowRight,
   Trash2,
   Download,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from "date-fns";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
 
 interface Quotation {
   id: string;
@@ -63,6 +69,11 @@ const Quotations = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [dateOption, setDateOption] = useState<"quotation" | "today" | "custom">("quotation");
+  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
+  const [isConverting, setIsConverting] = useState(false);
 
   const fetchQuotations = async () => {
     try {
@@ -140,7 +151,7 @@ const Quotations = () => {
     }
   };
 
-  const handleConvertToInvoice = async (quotationId: string) => {
+  const handleConvertToInvoice = async (quotationId: string, invoiceDateOverride?: Date) => {
     try {
       // Load quotation + items + customer payment terms
       const { data: qData, error: qErr } = await supabase
@@ -152,27 +163,33 @@ const Quotations = () => {
 
       const invoiceNumber = await generateNextInvoiceNumber();
 
-      // Calculate due date from payment terms and issue_date
+      // Determine base invoice date
+      const baseDateObj = invoiceDateOverride
+        ? new Date(invoiceDateOverride)
+        : new Date(qData.issue_date || qData.created_at);
+
+      // Calculate due date from payment terms and base date
       const paymentTerms = qData.customers?.payment_terms || "Net 30";
       const daysMatch = paymentTerms.match(/\d+/);
       const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
-      const issueDateObj = new Date(qData.issue_date || qData.created_at);
-      const dueDate = addDays(issueDateObj, paymentDays);
+      const dueDate = addDays(baseDateObj, paymentDays);
 
       // Create invoice
       const { data: inv, error: invErr } = await supabase
         .from("invoices")
-        .insert([{
-          invoice_number: invoiceNumber,
-          customer_id: qData.customer_id,
-          amount: qData.amount,
-          vat_amount: qData.vat_amount,
-          total_amount: qData.total_amount,
-          invoice_date: qData.issue_date,
-          due_date: dueDate.toISOString().split("T")[0],
-          status: "pending",
-          user_id: qData.user_id,
-        }])
+        .insert([
+          {
+            invoice_number: invoiceNumber,
+            customer_id: qData.customer_id,
+            amount: qData.amount,
+            vat_amount: qData.vat_amount,
+            total_amount: qData.total_amount,
+            invoice_date: baseDateObj.toISOString().split("T")[0],
+            due_date: dueDate.toISOString().split("T")[0],
+            status: "pending",
+            user_id: (qData as any).user_id,
+          },
+        ])
         .select("id")
         .single();
       if (invErr) throw invErr;
@@ -202,6 +219,31 @@ const Quotations = () => {
       fetchQuotations();
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Failed to convert quotation", variant: "destructive" });
+      throw e;
+    }
+  };
+
+  const openConvertDialog = (q: Quotation) => {
+    setSelectedQuotation(q);
+    setDateOption("quotation");
+    setCustomDate(undefined);
+    setConvertDialogOpen(true);
+  };
+
+  const confirmConvert = async () => {
+    if (!selectedQuotation) return;
+    if (dateOption === "custom" && !customDate) {
+      toast({ title: "Select a date", description: "Please choose a valid custom date.", variant: "destructive" });
+      return;
+    }
+    setIsConverting(true);
+    try {
+      const override = dateOption === "today" ? new Date() : dateOption === "custom" ? customDate : undefined;
+      await handleConvertToInvoice(selectedQuotation.id, override);
+      setConvertDialogOpen(false);
+      setSelectedQuotation(null);
+    } finally {
+      setIsConverting(false);
     }
   };
 
@@ -296,7 +338,7 @@ const Quotations = () => {
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end space-x-2">
                             {q.status !== "converted" && (
-                              <Button size="sm" onClick={() => handleConvertToInvoice(q.id)}>
+                              <Button size="sm" onClick={() => openConvertDialog(q)}>
                                 <ArrowRight className="h-4 w-4 mr-2" />
                                 Convert to Invoice
                               </Button>
@@ -325,7 +367,7 @@ const Quotations = () => {
                                   Send Email
                                 </DropdownMenuItem>
                                 {q.status !== "converted" && (
-                                  <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
+                                  <DropdownMenuItem onClick={() => openConvertDialog(q)}>
                                     <ArrowRight className="h-4 w-4 mr-2" />
                                     Convert to Invoice
                                   </DropdownMenuItem>
@@ -345,6 +387,73 @@ const Quotations = () => {
               </Table>
             </CardContent>
           </Card>
+
+          {/* Convert Confirmation Dialog */}
+          <Dialog open={convertDialogOpen} onOpenChange={(open) => { setConvertDialogOpen(open); if (!open) { setSelectedQuotation(null); } }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Convert quotation to invoice</DialogTitle>
+                <DialogDescription>
+                  {selectedQuotation ? `You are converting ${selectedQuotation.quotation_number}. Choose the invoice date.` : "Choose the invoice date."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <RadioGroup
+                  value={dateOption}
+                  onValueChange={(val) => setDateOption(val as "quotation" | "today" | "custom")}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="quotation" id="date-quotation" />
+                    <Label htmlFor="date-quotation" className="cursor-pointer">
+                      Use quotation issue date ({selectedQuotation ? format(new Date(selectedQuotation.issue_date || selectedQuotation.created_at), "PPP") : "-"})
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="today" id="date-today" />
+                    <Label htmlFor="date-today" className="cursor-pointer">
+                      Use today's date ({format(new Date(), "PPP")})
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="custom" id="date-custom" />
+                    <Label htmlFor="date-custom" className="cursor-pointer">Pick a custom date</Label>
+                    {dateOption === "custom" && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="ml-2">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customDate ? format(customDate, "PPP") : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customDate}
+                            onSelect={setCustomDate}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConvertDialogOpen(false)} disabled={isConverting}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmConvert} disabled={isConverting}>
+                  {isConverting ? "Converting..." : "Convert"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </main>
       </div>
     </div>
