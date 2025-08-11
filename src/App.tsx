@@ -16,6 +16,7 @@ import Reports from "./pages/Reports";
 import ReminderSettings from "./pages/ReminderSettings";
 import InvoiceTemplates from "./pages/InvoiceTemplates";
 import NewInvoice from "./pages/NewInvoice";
+import NewQuotation from "./pages/NewQuotation";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -41,10 +42,12 @@ const App: React.FC = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-          <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
-          <Route path="/invoices/edit/:id" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
+            <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
+            <Route path="/invoices/edit/:id" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
             <Route path="/invoices/:invoice_id" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
             <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
+            <Route path="/quotations/new" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
+            <Route path="/quotations/edit/:id" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/reminders" element={<ProtectedRoute><ReminderSettings /></ProtectedRoute>} />

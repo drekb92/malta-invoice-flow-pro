@@ -280,6 +280,100 @@ export type Database = {
         }
         Relationships: []
       }
+      quotation_items: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          quantity: number | null
+          quotation_id: string | null
+          unit: string | null
+          unit_price: number
+          vat_rate: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          quantity?: number | null
+          quotation_id?: string | null
+          unit?: string | null
+          unit_price: number
+          vat_rate?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          quantity?: number | null
+          quotation_id?: string | null
+          unit?: string | null
+          unit_price?: number
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_items_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          customer_id: string | null
+          id: string
+          issue_date: string | null
+          quotation_number: string | null
+          status: string | null
+          total_amount: number | null
+          user_id: string | null
+          valid_until: string | null
+          vat_amount: number | null
+          vat_rate: number | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string
+          issue_date?: string | null
+          quotation_number?: string | null
+          status?: string | null
+          total_amount?: number | null
+          user_id?: string | null
+          valid_until?: string | null
+          vat_amount?: number | null
+          vat_rate?: number | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string
+          issue_date?: string | null
+          quotation_number?: string | null
+          status?: string | null
+          total_amount?: number | null
+          user_id?: string | null
+          valid_until?: string | null
+          vat_amount?: number | null
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       invoice_totals: {

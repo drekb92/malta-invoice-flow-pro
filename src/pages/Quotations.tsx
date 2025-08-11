@@ -27,73 +27,201 @@ import {
   Edit,
   Mail,
   ArrowRight,
+  Trash2,
+  Download,
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { format, addDays } from "date-fns";
+
+interface Quotation {
+  id: string;
+  quotation_number: string;
+  customer_id: string;
+  amount: number;
+  vat_amount: number;
+  total_amount: number;
+  issue_date: string;
+  valid_until: string;
+  status: string;
+  created_at: string;
+  customers?: {
+    name: string;
+    email?: string;
+    address?: string;
+    vat_number?: string;
+    payment_terms: string | null;
+  };
+}
 
 const Quotations = () => {
-  const quotations = [
-    {
-      id: "QUO-2024-001",
-      customer: "Potential Client A",
-      amount: "€1,850.00",
-      status: "draft",
-      validUntil: "2024-02-15",
-      issueDate: "2024-01-15",
-    },
-    {
-      id: "QUO-2024-002",
-      customer: "New Business Ltd",
-      amount: "€3,200.00",
-      status: "sent",
-      validUntil: "2024-02-20",
-      issueDate: "2024-01-20",
-    },
-    {
-      id: "QUO-2024-003",
-      customer: "Growth Company",
-      amount: "€950.00",
-      status: "accepted",
-      validUntil: "2024-02-10",
-      issueDate: "2024-01-10",
-    },
-    {
-      id: "QUO-2024-004",
-      customer: "Enterprise Corp",
-      amount: "€5,500.00",
-      status: "converted",
-      validUntil: "2024-01-25",
-      issueDate: "2023-12-25",
-    },
-  ];
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [filtered, setFiltered] = useState<Quotation[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchQuotations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("quotations")
+        .select(`*, customers ( name, email, address, vat_number, payment_terms )`)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setQuotations(data || []);
+      setFiltered(data || []);
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to load quotations", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuotations();
+  }, []);
+
+  useEffect(() => {
+    let list = quotations;
+    if (searchTerm) {
+      list = list.filter((q) =>
+        q.quotation_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        q.customers?.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    if (statusFilter !== "all") {
+      list = list.filter((q) => q.status === statusFilter);
+    }
+    setFiltered(list);
+  }, [searchTerm, statusFilter, quotations]);
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      draft: "bg-gray-100 text-gray-800",
-      sent: "bg-blue-100 text-blue-800",
-      accepted: "bg-green-100 text-green-800",
-      converted: "bg-purple-100 text-purple-800",
-      expired: "bg-red-100 text-red-800",
+      draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      sent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      accepted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      converted: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      expired: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
     };
-    return variants[status as keyof typeof variants] || variants.draft;
+    return (variants as any)[status] || variants.draft;
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from("quotations").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Deleted", description: "Quotation removed." });
+      fetchQuotations();
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete quotation", variant: "destructive" });
+    }
+  };
+
+  const generateNextInvoiceNumber = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("invoice_number")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      let next = 1;
+      if (data && data.length > 0) {
+        const last = data[0].invoice_number || "";
+        const match = last.match(/INV-(\d+)/);
+        if (match) next = parseInt(match[1]) + 1;
+      }
+      return `INV-${String(next).padStart(6, "0")}`;
+    } catch {
+      return `INV-000001`;
+    }
+  };
+
+  const handleConvertToInvoice = async (quotationId: string) => {
+    try {
+      // Load quotation + items + customer payment terms
+      const { data: qData, error: qErr } = await supabase
+        .from("quotations")
+        .select(`*, customers ( payment_terms ), quotation_items ( description, quantity, unit, unit_price, vat_rate )`)
+        .eq("id", quotationId)
+        .single();
+      if (qErr) throw qErr;
+
+      const invoiceNumber = await generateNextInvoiceNumber();
+
+      // Calculate due date from payment terms and issue_date
+      const paymentTerms = qData.customers?.payment_terms || "Net 30";
+      const daysMatch = paymentTerms.match(/\d+/);
+      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      const issueDateObj = new Date(qData.issue_date || qData.created_at);
+      const dueDate = addDays(issueDateObj, paymentDays);
+
+      // Create invoice
+      const { data: inv, error: invErr } = await supabase
+        .from("invoices")
+        .insert([{
+          invoice_number: invoiceNumber,
+          customer_id: qData.customer_id,
+          amount: qData.amount,
+          vat_amount: qData.vat_amount,
+          total_amount: qData.total_amount,
+          invoice_date: qData.issue_date,
+          due_date: dueDate.toISOString().split("T")[0],
+          status: "pending",
+          user_id: qData.user_id,
+        }])
+        .select("id")
+        .single();
+      if (invErr) throw invErr;
+
+      // Create invoice items from quotation items
+      const itemsPayload = (qData.quotation_items || []).map((it: any) => ({
+        invoice_id: inv.id,
+        description: it.description,
+        quantity: it.quantity,
+        unit: it.unit,
+        unit_price: it.unit_price,
+        vat_rate: it.vat_rate,
+      }));
+      if (itemsPayload.length > 0) {
+        const { error: itemsErr } = await supabase.from("invoice_items").insert(itemsPayload);
+        if (itemsErr) throw itemsErr;
+      }
+
+      // Mark quotation as converted
+      const { error: updErr } = await supabase
+        .from("quotations")
+        .update({ status: "converted" })
+        .eq("id", quotationId);
+      if (updErr) throw updErr;
+
+      toast({ title: "Converted", description: "Quotation converted to invoice." });
+      fetchQuotations();
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Failed to convert quotation", variant: "destructive" });
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
       <div className="md:ml-64">
         <header className="bg-card border-b border-border">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Quotations</h1>
-                <p className="text-muted-foreground">
-                  Create and manage quotations for potential customers
-                </p>
+                <p className="text-muted-foreground">Create and manage quotations for potential customers</p>
               </div>
               <div className="flex items-center space-x-3">
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Quotation
+                <Button asChild size="sm">
+                  <Link to="/quotations/new">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Quotation
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -105,25 +233,22 @@ const Quotations = () => {
           <div className="flex items-center space-x-4 mb-6">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search quotations..."
-                className="pl-10"
-              />
+              <Input placeholder="Search quotations..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filter
+                  Filter ({statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem>All Quotations</DropdownMenuItem>
-                <DropdownMenuItem>Draft</DropdownMenuItem>
-                <DropdownMenuItem>Sent</DropdownMenuItem>
-                <DropdownMenuItem>Accepted</DropdownMenuItem>
-                <DropdownMenuItem>Converted</DropdownMenuItem>
-                <DropdownMenuItem>Expired</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>All Quotations</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("sent")}>Sent</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("accepted")}>Accepted</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("converted")}>Converted</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("expired")}>Expired</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -147,57 +272,75 @@ const Quotations = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {quotations.map((quotation) => (
-                    <TableRow key={quotation.id}>
-                      <TableCell className="font-medium">{quotation.id}</TableCell>
-                      <TableCell>{quotation.customer}</TableCell>
-                      <TableCell>{quotation.amount}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusBadge(quotation.status)}>
-                          {quotation.status.charAt(0).toUpperCase() + quotation.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{quotation.issueDate}</TableCell>
-                      <TableCell>{quotation.validUntil}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          {quotation.status === "accepted" && (
-                            <Button size="sm" variant="default">
-                              <ArrowRight className="h-4 w-4 mr-2" />
-                              Convert to Invoice
-                            </Button>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Mail className="h-4 w-4 mr-2" />
-                                Send Email
-                              </DropdownMenuItem>
-                              {quotation.status === "accepted" && (
-                                <DropdownMenuItem>
-                                  <ArrowRight className="h-4 w-4 mr-2" />
-                                  Convert to Invoice
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6">Loading quotations...</TableCell>
                     </TableRow>
-                  ))}
+                  ) : filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6">{searchTerm || statusFilter !== 'all' ? 'No quotations found matching your criteria.' : 'No quotations found.'}</TableCell>
+                    </TableRow>
+                  ) : (
+                    filtered.map((q) => (
+                      <TableRow key={q.id}>
+                        <TableCell className="font-medium">{q.quotation_number}</TableCell>
+                        <TableCell>{q.customers?.name || "Unknown Customer"}</TableCell>
+                        <TableCell>€{(q.total_amount || q.amount || 0).toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusBadge(q.status)}>
+                            {q.status.charAt(0).toUpperCase() + q.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{format(new Date(q.issue_date || q.created_at), "dd/MM/yyyy")}</TableCell>
+                        <TableCell>{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : '-'}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            {q.status === "accepted" && (
+                              <Button size="sm" variant="default" onClick={() => handleConvertToInvoice(q.id)}>
+                                <ArrowRight className="h-4 w-4 mr-2" />
+                                Convert to Invoice
+                              </Button>
+                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/quotations/${q.id}`}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                  <Link to={`/quotations/edit/${q.id}`}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Send Email
+                                </DropdownMenuItem>
+                                {q.status === "accepted" && (
+                                  <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
+                                    <ArrowRight className="h-4 w-4 mr-2" />
+                                    Convert to Invoice
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleDelete(q.id)} className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -209,3 +352,4 @@ const Quotations = () => {
 };
 
 export default Quotations;
+
