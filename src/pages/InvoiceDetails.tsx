@@ -30,6 +30,9 @@ interface Invoice {
   status: string;
   created_at: string;
   invoice_date?: string;
+  discount_type?: 'amount' | 'percent';
+  discount_value?: number;
+  discount_reason?: string;
   customers?: {
     name: string;
     email?: string | null;
@@ -145,6 +148,21 @@ const InvoiceDetails = () => {
     const vat = invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
     return { net, vat, total: net + vat };
   }, [invoiceItems, invoiceTotals]);
+
+  const discountInfo = useMemo(() => {
+    if (!invoice) return { amount: 0, isPercent: false, percentValue: 0 };
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const subtotal = invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const type = (invoice.discount_type as 'amount' | 'percent') || 'amount';
+    const raw = Number(invoice.discount_value || 0);
+    if (type === 'percent') {
+      const pct = Math.min(Math.max(raw, 0), 100);
+      return { amount: round2(subtotal * (pct / 100)), isPercent: true, percentValue: pct };
+    } else {
+      const amt = Math.min(Math.max(raw, 0), subtotal);
+      return { amount: round2(amt), isPercent: false, percentValue: 0 };
+    }
+  }, [invoice, invoiceItems]);
 
   const handleDownload = async () => {
     if (!invoice) return;
@@ -346,6 +364,12 @@ const InvoiceDetails = () => {
                   <span className="text-muted-foreground">Net Amount:</span>
                   <span className="font-medium">€{(invoiceTotals?.net_amount ?? computedTotals.net).toFixed(2)}</span>
                 </div>
+                {discountInfo.amount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Discount:</span>
+                    <span className="font-medium">—€{discountInfo.amount.toFixed(2)}{discountInfo.isPercent && <> ({discountInfo.percentValue.toFixed(2)}%)</>}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">VAT Amount:</span>
                   <span className="font-medium">€{(invoiceTotals?.vat_amount ?? computedTotals.vat).toFixed(2)}</span>

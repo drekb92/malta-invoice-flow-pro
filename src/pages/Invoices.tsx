@@ -52,6 +52,7 @@ interface Invoice {
   due_date: string;
   status: string;
   created_at: string;
+  discount_value?: number;
   customers?: {
     name: string;
     email?: string;
@@ -318,7 +319,14 @@ const Invoices = () => {
                         <TableRow key={invoice.id}>
                           <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
                           <TableCell>{invoice.customers?.name || "Unknown Customer"}</TableCell>
-                          <TableCell>€{totalAmount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span>€{totalAmount.toFixed(2)}</span>
+                              {Number(invoice.discount_value || 0) > 0 && (
+                                <Badge variant="secondary">Discount</Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge className={getStatusBadge(invoice.status)}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
