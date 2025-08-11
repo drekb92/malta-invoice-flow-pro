@@ -295,8 +295,8 @@ const Quotations = () => {
                         <TableCell>{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end space-x-2">
-                            {q.status === "accepted" && (
-                              <Button size="sm" variant="default" onClick={() => handleConvertToInvoice(q.id)}>
+                            {q.status !== "converted" && (
+                              <Button size="sm" onClick={() => handleConvertToInvoice(q.id)}>
                                 <ArrowRight className="h-4 w-4 mr-2" />
                                 Convert to Invoice
                               </Button>
@@ -324,7 +324,7 @@ const Quotations = () => {
                                   <Mail className="h-4 w-4 mr-2" />
                                   Send Email
                                 </DropdownMenuItem>
-                                {q.status === "accepted" && (
+                                {q.status !== "converted" && (
                                   <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
                                     <ArrowRight className="h-4 w-4 mr-2" />
                                     Convert to Invoice
