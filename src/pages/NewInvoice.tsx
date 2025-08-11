@@ -3,6 +3,8 @@ import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Select,
   SelectContent,
@@ -58,6 +60,9 @@ const NewInvoice = () => {
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
+  const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
+  const [discountValue, setDiscountValue] = useState<number>(0);
+  const [discountReason, setDiscountReason] = useState<string>("");
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -150,6 +155,9 @@ const NewInvoice = () => {
       setSelectedCustomer(invoiceData.customer_id);
       setInvoiceDate(invoiceData.invoice_date || invoiceData.created_at.split("T")[0]);
       setStatus(invoiceData.status);
+      setDiscountType((invoiceData as any).discount_type || 'amount');
+      setDiscountValue(Number((invoiceData as any).discount_value || 0));
+      setDiscountReason((invoiceData as any).discount_reason || '');
       
       if (invoiceData.invoice_items && invoiceData.invoice_items.length > 0) {
         setItems(invoiceData.invoice_items.map((item: any) => ({
@@ -206,10 +214,45 @@ const NewInvoice = () => {
   };
 
   const calculateTotals = () => {
-    const netTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-    const vatTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price * item.vat_rate), 0);
-    const grandTotal = netTotal + vatTotal;
-    return { netTotal, vatTotal, grandTotal };
+    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+    // Subtotal per item and per VAT rate
+    const perRate = new Map<number, number>();
+    let subtotal = 0;
+    items.forEach((item) => {
+      const net = (item.quantity || 0) * (item.unit_price || 0);
+      subtotal += net;
+      const rate = item.vat_rate || 0;
+      perRate.set(rate, (perRate.get(rate) || 0) + net);
+    });
+
+    // Discount amount
+    let discountAmount = 0;
+    if (discountType === 'percent') {
+      const pct = Math.min(Math.max(Number(discountValue) || 0, 0), 100);
+      discountAmount = round2(subtotal * (pct / 100));
+    } else {
+      const amt = Math.min(Math.max(Number(discountValue) || 0, 0), subtotal);
+      discountAmount = round2(amt);
+    }
+
+    // Allocate discount pro‑rata by net across rates
+    let taxable = 0;
+    let vatTotal = 0;
+    const totalNet = subtotal;
+    perRate.forEach((rateNet, rate) => {
+      const share = totalNet > 0 ? (rateNet / totalNet) : 0;
+      const rateDiscount = round2(discountAmount * share);
+      const rateTaxable = Math.max(rateNet - rateDiscount, 0);
+      taxable += rateTaxable;
+      vatTotal += round2(rateTaxable * rate);
+    });
+
+    taxable = round2(taxable);
+    vatTotal = round2(vatTotal);
+    const grandTotal = round2(taxable + vatTotal);
+
+    return { netTotal: round2(subtotal), discountAmount, taxable, vatTotal, grandTotal };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -237,18 +280,21 @@ const NewInvoice = () => {
       const invoiceDateObj = new Date(invoiceDate);
       const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
 
-      const { netTotal, vatTotal, grandTotal } = calculateTotals();
+      const { taxable, vatTotal, grandTotal } = calculateTotals();
 
       const invoiceData = {
         invoice_number: invoiceNumber,
         customer_id: selectedCustomer,
-        amount: netTotal,
+        amount: taxable,
         vat_amount: vatTotal,
         total_amount: grandTotal,
         invoice_date: invoiceDate,
         due_date: calculatedDueDate.toISOString().split("T")[0],
         status: status,
         user_id: user?.id,
+        discount_type: discountType,
+        discount_value: discountValue,
+        discount_reason: discountReason,
       };
 
       if (isEditMode && id) {
@@ -466,22 +512,96 @@ const NewInvoice = () => {
                 <CardHeader>
                   <CardTitle>Invoice Summary</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span>€{totals.netTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">VAT Total:</span>
-                    <span>€{totals.vatTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between font-bold">
-                      <span>Grand Total:</span>
-                      <span>€{totals.grandTotal.toFixed(2)}</span>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Discount Type</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={discountType}
+                        onValueChange={(v) => v && setDiscountType(v as 'amount' | 'percent')}
+                      >
+                        <ToggleGroupItem value="amount" aria-label="Amount (€)">
+                          Amount (€)
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="percent" aria-label="Percent (%)">
+                          Percent (%)
+                        </ToggleGroupItem>
+                      </ToggleGroup>
                     </div>
-                  </div>
-                </CardContent>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="discountValue">Discount</Label>
+                        <Input
+                          id="discountValue"
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min={0}
+                          max={discountType === 'percent' ? 100 : totals.netTotal}
+                          value={discountValue}
+                          onChange={(e) => {
+                            let v = parseFloat(e.target.value);
+                            if (isNaN(v)) v = 0;
+                            if (discountType === 'percent') {
+                              v = Math.max(0, Math.min(100, v));
+                            } else {
+                              v = Math.max(0, Math.min(totals.netTotal, v));
+                            }
+                            setDiscountValue(v);
+                          }}
+                        />
+                        {discountType === 'percent' ? (
+                          <p className="text-xs text-muted-foreground mt-1">Allowed: 0–100%</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-1">Max: €{totals.netTotal.toFixed(2)}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="discountReason">Reason (optional)</Label>
+                        <Textarea
+                          id="discountReason"
+                          placeholder="Add a note for this discount"
+                          value={discountReason}
+                          onChange={(e) => setDiscountReason(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">Calculation order: Subtotal → Discount → Taxable → VAT → Total</p>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>€{totals.netTotal.toFixed(2)}</span>
+                      </div>
+                      {totals.discountAmount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Discount</span>
+                          <span>
+                            —€{totals.discountAmount.toFixed(2)}
+                            {discountType === 'percent' && (
+                              <> ({Number(discountValue).toFixed(2)}%)</>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Taxable Amount</span>
+                        <span>€{totals.taxable.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">VAT</span>
+                        <span>€{totals.vatTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-3">
+                        <div className="flex justify-between font-bold">
+                          <span>Total</span>
+                          <span>€{totals.grandTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
               </Card>
             </div>
 
