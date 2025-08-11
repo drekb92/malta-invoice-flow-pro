@@ -31,7 +31,7 @@ import {
   Download,
   Calendar as CalendarIcon,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -75,6 +75,7 @@ const Quotations = () => {
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [isConverting, setIsConverting] = useState(false);
 
+  const navigate = useNavigate();
   const fetchQuotations = async () => {
     try {
       const { data, error } = await supabase
@@ -188,6 +189,9 @@ const Quotations = () => {
             due_date: dueDate.toISOString().split("T")[0],
             status: "pending",
             user_id: (qData as any).user_id,
+            discount_type: "amount",
+            discount_value: 0,
+            discount_reason: "",
           },
         ])
         .select("id")
@@ -216,6 +220,7 @@ const Quotations = () => {
       if (updErr) throw updErr;
 
       toast({ title: "Converted", description: "Quotation converted to invoice." });
+      navigate(`/invoices/edit/${inv.id}?focus=discount`);
       fetchQuotations();
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Failed to convert quotation", variant: "destructive" });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,7 @@ const NewInvoice = () => {
   const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>("");
+  const discountInputRef = useRef<HTMLInputElement>(null);
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -196,6 +197,12 @@ const NewInvoice = () => {
     };
     loadTemplate();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('focus') === 'discount') {
+      setTimeout(() => discountInputRef.current?.focus(), 0);
+    }
+  }, [searchParams]);
 
   const addItem = () => {
     setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: 0.18, unit: "service" }]);
@@ -534,6 +541,7 @@ const NewInvoice = () => {
                         <Label htmlFor="discountValue">Discount</Label>
                         <Input
                           id="discountValue"
+                          ref={discountInputRef}
                           type="number"
                           inputMode="decimal"
                           step="0.01"
