@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -72,6 +73,7 @@ const ImportInvoices = () => {
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [viewFilter, setViewFilter] = useState<'all' | 'valid' | 'errors'>('all');
   const [allowUpdates, setAllowUpdates] = useState(false);
+  const [createMissingClients, setCreateMissingClients] = useState(true);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
@@ -84,12 +86,17 @@ const ImportInvoices = () => {
   ];
 
   const downloadTemplate = () => {
-    const csvContent = templateColumns.join(",");
+    const sampleData = [
+      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Consulting Services,40,125.00,19",
+      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Software License,1,500.00,19"
+    ];
+    
+    const csvContent = [templateColumns.join(","), ...sampleData].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "invoice_import_template.csv");
+    link.setAttribute("download", "invoices_template.csv");
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -268,11 +275,21 @@ const ImportInvoices = () => {
   };
 
   const handleImport = async () => {
+    const errorRows = validationResults.filter(result => !result.isValid);
+    if (errorRows.length > 0) {
+      toast({
+        title: "Cannot import with errors",
+        description: "Please fix all error rows before importing",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const validRows = validationResults.filter(result => result.isValid);
     if (validRows.length === 0) {
       toast({
         title: "No valid rows",
-        description: "Please fix errors before importing",
+        description: "No rows to import",
         variant: "destructive",
       });
       return;
@@ -318,12 +335,35 @@ const ImportInvoices = () => {
           }
 
           // Create or get customer
-          const customerId = await createOrUpdateCustomer({
-            name: firstRow["Client Name"] || "",
-            email: firstRow["Client Email"] || "",
-            vat_number: firstRow["Client VAT"] || "",
-            address: firstRow["Client Address"] || "",
-          });
+          let customerId;
+          if (createMissingClients) {
+            customerId = await createOrUpdateCustomer({
+              name: firstRow["Client Name"] || "",
+              email: firstRow["Client Email"] || "",
+              vat_number: firstRow["Client VAT"] || "",
+              address: firstRow["Client Address"] || "",
+            });
+          } else {
+            // Try to find existing customer only
+            let query = supabase.from('customers').select('id');
+            if (firstRow["Client Email"]) {
+              query = query.eq('email', firstRow["Client Email"]);
+            } else {
+              query = query.eq('name', firstRow["Client Name"]);
+            }
+            
+            const { data: existingCustomers } = await query;
+            if (!existingCustomers || existingCustomers.length === 0) {
+              summary.skippedInvoices++;
+              summary.details.push({
+                invoiceNumber,
+                status: 'skipped',
+                reason: 'Client not found and auto-creation disabled'
+              });
+              continue;
+            }
+            customerId = existingCustomers[0].id;
+          }
 
           // Calculate totals
           let netAmount = 0;
@@ -681,29 +721,51 @@ const ImportInvoices = () => {
               </Alert>
             ) : null}
 
-            {/* Import Options and Button */}
+            {/* Safety Switches and Import Button */}
             {validCount > 0 && (
               <div className="space-y-4 pt-4 border-t">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="allowUpdates" 
-                    checked={allowUpdates}
-                    onCheckedChange={(checked) => setAllowUpdates(!!checked)}
-                  />
-                  <Label htmlFor="allowUpdates">
-                    Allow update if invoice exists
-                  </Label>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="createMissingClients" className="text-sm font-medium">
+                      Create missing clients automatically
+                    </Label>
+                    <Switch 
+                      id="createMissingClients"
+                      checked={createMissingClients}
+                      onCheckedChange={setCreateMissingClients}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="allowUpdates" className="text-sm font-medium">
+                      Allow update if invoice exists (match by Invoice Number)
+                    </Label>
+                    <Switch 
+                      id="allowUpdates"
+                      checked={allowUpdates}
+                      onCheckedChange={setAllowUpdates}
+                    />
+                  </div>
                 </div>
 
                 <Button 
                   onClick={handleImport} 
-                  disabled={importing || validCount === 0}
+                  disabled={importing || validCount === 0 || errorCount > 0}
                   className="w-full"
                   size="lg"
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   {importing ? "Importing..." : `Import ${validCount} Valid Rows`}
                 </Button>
+                
+                {errorCount > 0 && (
+                  <Alert className="bg-red-50 border-red-200">
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    <AlertDescription className="text-red-700">
+                      Cannot import while there are error rows. Please fix all errors first.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             )}
           </CardContent>
