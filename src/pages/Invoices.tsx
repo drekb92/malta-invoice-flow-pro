@@ -31,7 +31,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +65,7 @@ interface Invoice {
 }
 
 const Invoices = () => {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -259,11 +260,19 @@ const Invoices = () => {
                 </p>
               </div>
               <div className="flex items-center space-x-3">
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/invoices/import?entity=invoices')}
+                >
                   <Upload className="h-4 w-4 mr-2" />
                   Import CSV
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/invoices/export?entity=invoices')}
+                >
                   <Download className="h-4 w-4 mr-2" />
                   Export All
                 </Button>
