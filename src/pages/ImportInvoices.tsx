@@ -45,6 +45,10 @@ interface CSVRow {
   "Quantity": string;
   "Unit Price": string;
   "VAT %": string;
+  "Net Line Total": string;
+  "VAT Line Total": string;
+  "Grand Invoice Total": string;
+  "Payment Terms": string;
 }
 
 interface ValidationResult {
@@ -82,13 +86,14 @@ const ImportInvoices = () => {
   const templateColumns = [
     "Invoice Number", "Invoice Date", "Due Date", "Status", "Client Name", 
     "Client Email", "Client VAT", "Client Address", "Item Description", 
-    "Quantity", "Unit Price", "VAT %"
+    "Quantity", "Unit Price", "VAT %", "Net Line Total", "VAT Line Total", 
+    "Grand Invoice Total", "Payment Terms"
   ];
 
   const downloadTemplate = () => {
     const sampleData = [
-      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Consulting Services,40,125.00,19",
-      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Software License,1,500.00,19"
+      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Consulting Services,40,125.00,19,5000.00,950.00,5950.00,Net 30",
+      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Software License,1,500.00,19,500.00,95.00,5950.00,Net 30"
     ];
     
     const csvContent = [templateColumns.join(","), ...sampleData].join("\n");
