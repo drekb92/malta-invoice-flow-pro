@@ -19,6 +19,7 @@ import NewInvoice from "./pages/NewInvoice";
 import NewQuotation from "./pages/NewQuotation";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import ExportInvoices from "./pages/ExportInvoices";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ const App: React.FC = () => (
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
             <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
             <Route path="/invoices/edit/:id" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
+            <Route path="/invoices/export" element={<ProtectedRoute><ExportInvoices /></ProtectedRoute>} />
             <Route path="/invoices/:invoice_id" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
             <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
             <Route path="/quotations/new" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
