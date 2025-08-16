@@ -34,8 +34,8 @@ import { useToast } from "@/hooks/use-toast";
 
 interface CSVRow {
   "Invoice Number": string;
-  "Invoice Date": string;
-  "Due Date": string;
+  "Invoice Date (YYYY-MM-DD)": string;
+  "Due Date (YYYY-MM-DD)": string;
   "Status": string;
   "Client Name": string;
   "Client Email": string;
@@ -84,7 +84,7 @@ const ImportInvoices = () => {
   const { toast } = useToast();
 
   const templateColumns = [
-    "Invoice Number", "Invoice Date", "Due Date", "Status", "Client Name", 
+    "Invoice Number", "Invoice Date (YYYY-MM-DD)", "Due Date (YYYY-MM-DD)", "Status", "Client Name", 
     "Client Email", "Client VAT", "Client Address", "Item Description", 
     "Quantity", "Unit Price", "VAT %", "Net Line Total", "VAT Line Total", 
     "Grand Invoice Total", "Payment Terms"
@@ -129,7 +129,7 @@ const ImportInvoices = () => {
     if (!row["Invoice Number"]?.trim()) {
       errors.push("Invoice Number is required");
     }
-    if (!row["Invoice Date"]?.trim()) {
+    if (!row["Invoice Date (YYYY-MM-DD)"]?.trim()) {
       errors.push("Invoice Date is required");
     }
     if (!row["Client Name"]?.trim() && !row["Client Email"]?.trim()) {
@@ -146,10 +146,10 @@ const ImportInvoices = () => {
     }
 
     // Date validation
-    if (row["Invoice Date"] && !isValidDate(row["Invoice Date"])) {
+    if (row["Invoice Date (YYYY-MM-DD)"] && !isValidDate(row["Invoice Date (YYYY-MM-DD)"])) {
       errors.push("Invoice Date must be in YYYY-MM-DD format");
     }
-    if (row["Due Date"] && !isValidDate(row["Due Date"])) {
+    if (row["Due Date (YYYY-MM-DD)"] && !isValidDate(row["Due Date (YYYY-MM-DD)"])) {
       errors.push("Due Date must be in YYYY-MM-DD format");
     }
 
@@ -408,8 +408,8 @@ const ImportInvoices = () => {
             const { error: updateError } = await supabase
               .from('invoices')
               .update({
-                invoice_date: firstRow["Invoice Date"],
-                due_date: firstRow["Due Date"] || null,
+                invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
+                due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
                 status,
                 customer_id: customerId,
                 amount: netAmount,
@@ -449,8 +449,8 @@ const ImportInvoices = () => {
               .from('invoices')
               .insert({
                 invoice_number: invoiceNumber,
-                invoice_date: firstRow["Invoice Date"],
-                due_date: firstRow["Due Date"] || null,
+                invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
+                due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
                 status,
                 customer_id: customerId,
                 amount: netAmount,
