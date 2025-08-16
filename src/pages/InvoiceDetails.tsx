@@ -456,10 +456,15 @@ const InvoiceDetails = () => {
                   unit: i.unit,
                 })),
                 totals: {
-                  netTotal: Number(invoiceTotals?.net_amount ?? computedTotals.net),
+                  netTotal: Number(invoiceTotals?.net_amount ?? computedTotals.net) - discountInfo.amount,
                   vatTotal: Number(invoiceTotals?.vat_amount ?? computedTotals.vat),
                   grandTotal: Number(invoiceTotals?.total_amount ?? computedTotals.total),
                 },
+                discount: discountInfo.amount > 0 ? {
+                  type: (invoice.discount_type as 'amount' | 'percent') || 'amount',
+                  value: Number(invoice.discount_value || 0),
+                  amount: discountInfo.amount,
+                } : undefined,
               }}
               template={(templateForPreview as any) || {
                 id: 'default',

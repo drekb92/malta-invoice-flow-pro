@@ -793,7 +793,16 @@ const NewInvoice = () => {
                   vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
                 },
                 items: items,
-                totals: totals,
+                totals: {
+                  netTotal: totals.taxable,
+                  vatTotal: totals.vatTotal,
+                  grandTotal: totals.grandTotal,
+                },
+                discount: totals.discountAmount > 0 ? {
+                  type: discountType,
+                  value: discountValue,
+                  amount: totals.discountAmount,
+                } : undefined,
               }}
               template={(templateForPreview as any) || {
                 id: 'default',
