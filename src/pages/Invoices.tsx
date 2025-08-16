@@ -53,6 +53,8 @@ interface Invoice {
   status: string;
   created_at: string;
   discount_value?: number;
+  discount_type?: string;
+  discount_reason?: string;
   customers?: {
     name: string;
     email?: string;
@@ -72,7 +74,7 @@ const Invoices = () => {
   const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
   const [exportInvoice, setExportInvoice] = useState<Invoice | null>(null);
   const [exportItems, setExportItems] = useState<any[]>([]);
-  const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number } | null>(null);
+  const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number; originalSubtotal?: number; discountAmount?: number } | null>(null);
 
   const fetchInvoices = async () => {
     try {
@@ -179,14 +181,39 @@ const Invoices = () => {
         .eq('invoice_id', invoiceId)
         .maybeSingle();
 
-      const net = totalsData?.net_amount ?? (itemsData || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
+      // Calculate original subtotal before discount
+      const originalSubtotal = (itemsData || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
+      
+      // Calculate discount information
+      const discountValue = Number(invoice.discount_value || 0);
+      const discountType = (invoice.discount_type as 'amount' | 'percent') || 'amount';
+      let discountAmount = 0;
+      
+      if (discountValue > 0) {
+        if (discountType === 'percent') {
+          discountAmount = originalSubtotal * (discountValue / 100);
+        } else {
+          discountAmount = discountValue;
+        }
+      }
+
+      // Calculate net after discount (taxable amount)
+      const netAfterDiscount = originalSubtotal - discountAmount;
+      
+      const net = totalsData?.net_amount ?? netAfterDiscount;
       const vat = totalsData?.vat_amount ?? (itemsData || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
       const total = totalsData?.total_amount ?? net + vat;
 
-      // Prepare hidden DOM state
+      // Prepare hidden DOM state with discount info
       setExportInvoice(invoice);
       setExportItems(itemsData || []);
-      setExportTotals({ net: Number(net), vat: Number(vat), total: Number(total) });
+      setExportTotals({ 
+        net: Number(net), 
+        vat: Number(vat), 
+        total: Number(total),
+        originalSubtotal,
+        discountAmount
+      });
 
       // Ensure template is ready
       const tpl = templateForPreview || (await getDefaultTemplate());
@@ -455,6 +482,11 @@ const Invoices = () => {
                     vatTotal: Number(exportTotals?.vat ?? 0),
                     grandTotal: Number(exportTotals?.total ?? 0),
                   },
+                  discount: (exportTotals?.discountAmount ?? 0) > 0 ? {
+                    type: (exportInvoice.discount_type as 'amount' | 'percent') || 'amount',
+                    value: Number(exportInvoice.discount_value || 0),
+                    amount: exportTotals?.discountAmount ?? 0,
+                  } : undefined,
                 }}
                 template={(templateForPreview as any) || {
                   id: 'default',
