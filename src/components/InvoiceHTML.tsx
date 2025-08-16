@@ -23,6 +23,11 @@ interface InvoiceHTMLProps {
       vatTotal: number;
       grandTotal: number;
     };
+    discount?: {
+      type: 'amount' | 'percent';
+      value: number;
+      amount: number;
+    };
   };
   template: InvoiceTemplate;
   id?: string;
@@ -126,8 +131,14 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
         <div className="w-64 space-y-2">
           <div className="flex justify-between py-1">
             <span>Subtotal:</span>
-            <span>€{invoiceData.totals.netTotal.toFixed(2)}</span>
+            <span>€{(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0)).toFixed(2)}</span>
           </div>
+          {invoiceData.discount && invoiceData.discount.amount > 0 && (
+            <div className="flex justify-between py-1">
+              <span>Discount{invoiceData.discount.type === 'percent' ? ` (${invoiceData.discount.value.toFixed(2)}%)` : ''}:</span>
+              <span>—€{invoiceData.discount.amount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between py-1">
             <span>VAT Total:</span>
             <span>€{invoiceData.totals.vatTotal.toFixed(2)}</span>
