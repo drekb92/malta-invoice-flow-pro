@@ -18,6 +18,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Plus,
   Search,
   Upload,
@@ -173,17 +179,45 @@ const Customers = () => {
                   Manage your customer database and payment terms
                 </p>
               </div>
-              <div className="flex items-center space-x-3">
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import CSV
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export All
-                </Button>
-                <CustomerForm onSave={fetchCustomers} />
-              </div>
+              <TooltipProvider>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate('/customers/import')}
+                        className="w-full sm:w-auto"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import Clients (CSV)
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Bulk add or update clients from a CSV file</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate('/customers/export')}
+                        className="w-full sm:w-auto"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Clients (CSV)
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Export filtered clients to a CSV file</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <CustomerForm onSave={fetchCustomers} />
+                </div>
+              </TooltipProvider>
             </div>
           </div>
         </header>
