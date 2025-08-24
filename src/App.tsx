@@ -22,6 +22,7 @@ import ResetPassword from "./pages/ResetPassword";
 import ExportInvoices from "./pages/ExportInvoices";
 import ImportInvoices from "./pages/ImportInvoices";
 import ExportCustomers from "./pages/ExportCustomers";
+import ImportCustomers from "./pages/ImportCustomers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -55,6 +56,7 @@ const App: React.FC = () => (
             <Route path="/quotations/edit/:id" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/customers/export" element={<ProtectedRoute><ExportCustomers /></ProtectedRoute>} />
+            <Route path="/customers/import" element={<ProtectedRoute><ImportCustomers /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/reminders" element={<ProtectedRoute><ReminderSettings /></ProtectedRoute>} />
             <Route path="/invoice-templates" element={<ProtectedRoute><InvoiceTemplates /></ProtectedRoute>} />

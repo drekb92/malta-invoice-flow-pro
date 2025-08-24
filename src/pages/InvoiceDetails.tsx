@@ -102,7 +102,10 @@ const InvoiceDetails = () => {
 
         if (totalsError) throw totalsError;
 
-        setInvoice(invoiceData);
+        setInvoice({
+          ...invoiceData,
+          discount_type: invoiceData.discount_type as 'amount' | 'percent' | undefined
+        });
         setInvoiceItems(itemsData || []);
         setInvoiceTotals(totalsData);
       } catch (error) {
