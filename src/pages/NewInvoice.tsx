@@ -90,30 +90,93 @@ const NewInvoice = () => {
     }
   };
 
-  // Generate invoice number
+  // Generate invoice number using RPC
   const generateInvoiceNumber = async () => {
     try {
-      const { data, error } = await supabase
-        .from("invoices")
-        .select("invoice_number")
-        .order("created_at", { ascending: false })
-        .limit(1);
+      const { data, error } = await (supabase.rpc as any)('next_invoice_number', {
+        p_business_id: user?.id, // Using user_id as business_id
+        p_prefix: 'INV-'
+      });
 
       if (error) throw error;
-
-      let nextNumber = 1;
-      if (data && data.length > 0) {
-        const lastNumber = data[0].invoice_number;
-        const match = lastNumber.match(/INV-(\d+)/);
-        if (match) {
-          nextNumber = parseInt(match[1]) + 1;
-        }
+      if (data) {
+        setInvoiceNumber(data);
       }
-
-      const invoiceNum = `INV-${String(nextNumber).padStart(6, '0')}`;
-      setInvoiceNumber(invoiceNum);
     } catch (error) {
       console.error("Error generating invoice number:", error);
+      // Fallback to old method if RPC fails
+      try {
+        const { data, error } = await supabase
+          .from("invoices")
+          .select("invoice_number")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        let nextNumber = 1;
+        if (data && data.length > 0) {
+          const lastNumber = data[0].invoice_number;
+          const match = lastNumber.match(/INV-(\d+)/);
+          if (match) {
+            nextNumber = parseInt(match[1]) + 1;
+          }
+        }
+
+        const invoiceNum = `INV-${String(nextNumber).padStart(6, '0')}`;
+        setInvoiceNumber(invoiceNum);
+      } catch (fallbackError) {
+        console.error("Fallback invoice number generation failed:", fallbackError);
+      }
+    }
+  };
+
+  // Issue invoice - assign number and change status
+  const handleIssueInvoice = async () => {
+    if (!id || !isEditMode) return;
+    
+    setLoading(true);
+    try {
+      let finalInvoiceNumber = invoiceNumber;
+      
+      // If no invoice number exists, generate one
+      if (!invoiceNumber) {
+        const { data, error } = await (supabase.rpc as any)('next_invoice_number', {
+          p_business_id: user?.id,
+          p_prefix: 'INV-'
+        });
+        
+        if (error) throw error;
+        finalInvoiceNumber = data;
+        setInvoiceNumber(data);
+      }
+
+      // Update invoice status to issued
+      const { error: updateError } = await supabase
+        .from("invoices")
+        .update({
+          invoice_number: finalInvoiceNumber,
+          status: 'issued',
+          // Add issued_at if you have this column, otherwise omit
+        })
+        .eq("id", id);
+
+      if (updateError) throw updateError;
+      
+      setStatus('issued');
+      
+      toast({
+        title: "Invoice issued",
+        description: `Invoice issued: ${finalInvoiceNumber}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to issue invoice",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -181,9 +244,8 @@ const NewInvoice = () => {
 
   useEffect(() => {
     fetchCustomers();
-    if (!isEditMode) {
-      generateInvoiceNumber();
-    }
+    // Don't auto-generate invoice numbers for new invoices
+    // They will be assigned when the invoice is first saved or issued
   }, [isEditMode]);
 
   useEffect(() => {
@@ -290,7 +352,7 @@ const NewInvoice = () => {
       const { taxable, vatTotal, grandTotal } = calculateTotals();
 
       const invoiceData = {
-        invoice_number: invoiceNumber,
+        invoice_number: invoiceNumber || null, // Allow null for auto-generation
         customer_id: selectedCustomer,
         amount: taxable,
         vat_amount: vatTotal,
@@ -411,24 +473,33 @@ const NewInvoice = () => {
       <div className="md:ml-64">
         <header className="bg-card border-b border-border">
           <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Button variant="ghost" asChild>
-                  <Link to="/invoices">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Invoices
-                  </Link>
-                </Button>
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">
-                    {isEditMode ? "Edit Invoice" : "New Invoice"}
-                  </h1>
-                  <p className="text-muted-foreground">
-                    {isEditMode ? "Update existing invoice" : "Create a new Malta VAT-compliant invoice"}
-                  </p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <Button variant="ghost" asChild>
+                    <Link to="/invoices">
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Invoices
+                    </Link>
+                  </Button>
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground">
+                      {isEditMode ? "Edit Invoice" : "New Invoice"}
+                    </h1>
+                    <p className="text-muted-foreground">
+                      {isEditMode ? "Update existing invoice" : "Create a new Malta VAT-compliant invoice"}
+                    </p>
+                  </div>
                 </div>
+                {isEditMode && status === 'draft' && !invoiceNumber && (
+                  <Button 
+                    onClick={handleIssueInvoice}
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Issue Invoice
+                  </Button>
+                )}
               </div>
-            </div>
           </div>
         </header>
 
@@ -464,10 +535,16 @@ const NewInvoice = () => {
                         id="invoiceNumber"
                         value={invoiceNumber}
                         onChange={(e) => setInvoiceNumber(e.target.value)}
-                        placeholder="INV-000001"
+                        placeholder={isEditMode ? "Auto-assigned" : "INV-000001"}
                         required
-                        readOnly={!isEditMode} // Auto-generated for new invoices
+                        readOnly={isEditMode}
+                        disabled={isEditMode && invoiceNumber && status !== 'draft'}
                       />
+                      {isEditMode && invoiceNumber && status !== 'draft' && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Invoice numbers are assigned automatically and cannot be changed. To correct an issued invoice, create a credit note.
+                        </p>
+                      )}
                     </div>
 
                     <div>
