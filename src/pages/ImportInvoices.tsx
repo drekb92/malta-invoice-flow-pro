@@ -92,8 +92,10 @@ const ImportInvoices = () => {
 
   const downloadTemplate = () => {
     const sampleData = [
-      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Consulting Services,40,125.00,19,5000.00,950.00,5950.00,Net 30",
-      "INV-2024-001,2024-01-15,2024-02-14,Pending,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Software License,1,500.00,19,500.00,95.00,5950.00,Net 30"
+      "INV-2024-001,2024-01-15,2024-02-14,Draft,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Consulting Services,40,125.00,19,5000.00,950.00,5950.00,Net 30",
+      "INV-2024-002,2024-01-16,2024-02-15,Pending,XYZ Corp,jane@xyzcorp.com,FR987654321,456 Commerce Ave\\, Paris 75001,Development Work,20,75.00,20,1500.00,300.00,1800.00,Net 15",
+      "INV-2024-003,2024-01-10,2024-02-09,Paid,Tech Solutions,support@techsol.com,GB555666777,789 Innovation St\\, London SW1A 1AA,Support Services,10,200.00,20,2000.00,400.00,2400.00,Net 30",
+      "INV-2024-004,2024-01-05,2024-02-04,Overdue,StartupLtd,contact@startup.com,NL111222333,321 Venture Rd\\, Amsterdam 1012,Training,5,300.00,21,1500.00,315.00,1815.00,Net 30"
     ];
     
     const csvContent = [templateColumns.join(","), ...sampleData].join("\n");
@@ -175,7 +177,7 @@ const ImportInvoices = () => {
 
     // Status validation
     if (row["Status"] && !isValidStatus(row["Status"])) {
-      warnings.push("Invalid status, will default to 'Pending'");
+      warnings.push("Invalid status. Valid options: Draft, Pending, Paid, Overdue, Cancelled. Will default to 'Pending'");
     }
 
     // Optional field warnings
@@ -600,8 +602,9 @@ const ImportInvoices = () => {
             <Download className="h-4 w-4 mr-2" />
             Download CSV Template
           </Button>
-          <div className="flex-1 text-sm text-muted-foreground">
-            <strong>Format requirements:</strong> Use UTF-8, comma-separated. Dates in YYYY-MM-DD. Amounts with dot decimal.
+          <div className="flex-1 text-sm text-muted-foreground space-y-1">
+            <div><strong>Format requirements:</strong> Use UTF-8, comma-separated. Dates in YYYY-MM-DD. Amounts with dot decimal.</div>
+            <div><strong>Status field:</strong> Must be one of: Draft, Pending, Paid, Overdue, Cancelled (case-sensitive). Invalid values default to 'Pending'.</div>
           </div>
         </div>
 
