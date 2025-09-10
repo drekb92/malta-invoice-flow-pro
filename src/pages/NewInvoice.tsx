@@ -244,9 +244,7 @@ const NewInvoice = () => {
 
   useEffect(() => {
     fetchCustomers();
-    // Don't auto-generate invoice numbers for new invoices
-    // They will be assigned when the invoice is first saved or issued
-  }, [isEditMode]);
+  }, []);
 
   useEffect(() => {
     const loadTemplate = async () => {
@@ -403,10 +401,27 @@ const NewInvoice = () => {
           description: "Invoice has been successfully updated.",
         });
       } else {
-        // Create new invoice
+        // Create new invoice - auto-generate invoice number
+        let finalInvoiceNumber = invoiceNumber;
+        
+        if (!invoiceNumber) {
+          const { data, error } = await (supabase.rpc as any)('next_invoice_number', {
+            p_business_id: user?.id,
+            p_prefix: 'INV-'
+          });
+          
+          if (error) throw error;
+          finalInvoiceNumber = data;
+        }
+        
+        const invoiceDataWithNumber = {
+          ...invoiceData,
+          invoice_number: finalInvoiceNumber
+        };
+        
         const { data: invoice, error: invoiceError } = await supabase
           .from("invoices")
-          .insert([invoiceData])
+          .insert([invoiceDataWithNumber])
           .select("id")
           .single();
 
@@ -535,12 +550,17 @@ const NewInvoice = () => {
                         id="invoiceNumber"
                         value={invoiceNumber}
                         onChange={(e) => setInvoiceNumber(e.target.value)}
-                        placeholder={isEditMode ? "Auto-assigned" : "INV-000001"}
+                        placeholder={isEditMode ? (invoiceNumber ? invoiceNumber : "Auto-assigned") : "Will be assigned automatically"}
                         required
-                        readOnly={isEditMode}
-                        disabled={isEditMode && invoiceNumber && status !== 'draft'}
+                        readOnly={true}
+                        disabled={false}
                       />
-                      {isEditMode && invoiceNumber && status !== 'draft' && (
+                      {!isEditMode && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Invoice numbers are assigned automatically and sequentially per EU VAT requirements
+                        </p>
+                      )}
+                      {isEditMode && invoiceNumber && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Invoice numbers are assigned automatically and cannot be changed. To correct an issued invoice, create a credit note.
                         </p>
