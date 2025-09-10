@@ -41,6 +41,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
+import { formatCurrency } from "@/lib/utils";
 
 interface Quotation {
   id: string;
@@ -332,7 +333,7 @@ const Quotations = () => {
                       <TableRow key={q.id}>
                         <TableCell className="font-medium">{q.quotation_number}</TableCell>
                         <TableCell>{q.customers?.name || "Unknown Customer"}</TableCell>
-                        <TableCell>€{(q.total_amount || q.amount || 0).toFixed(2)}</TableCell>
+                        <TableCell>{formatCurrency(q.total_amount || q.amount || 0)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusBadge(q.status)}>
                             {q.status.charAt(0).toUpperCase() + q.status.slice(1)}

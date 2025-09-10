@@ -39,6 +39,7 @@ import { format } from "date-fns";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { getDefaultTemplate } from "@/services/templateService";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { formatCurrency } from "@/lib/utils";
 
 interface Invoice {
   id: string;
@@ -357,7 +358,7 @@ const Invoices = () => {
                           <TableCell>{invoice.customers?.name || "Unknown Customer"}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span>€{totalAmount.toFixed(2)}</span>
+                              <span>{formatCurrency(totalAmount)}</span>
                               {Number(invoice.discount_value || 0) > 0 && (
                                 <Badge variant="secondary">Discount</Badge>
                               )}
