@@ -72,28 +72,28 @@ const Index = () => {
       description: "Manage your customer database and communication history",
       icon: Users,
       action: "Manage Customers",
-      onClick: () => console.log("Manage customers"),
+      onClick: () => navigate("/customers"),
     },
     {
       title: "Financial Reports",
       description: "Generate receivables and cash flow reports in EUR",
       icon: BarChart3,
       action: "View Reports",
-      onClick: () => console.log("View reports"),
+      onClick: () => navigate("/reports"),
     },
     {
       title: "Email Reminders",
       description: "Configure and send automated payment reminder emails",
       icon: Mail,
       action: "Setup Reminders",
-      onClick: () => console.log("Setup reminders"),
+      onClick: () => navigate("/reminders"),
     },
     {
       title: "Export Data",
       description: "Download invoices and reports for archiving (6-year Malta requirement)",
       icon: Download,
       action: "Export",
-      onClick: () => console.log("Export data"),
+      onClick: () => navigate("/invoices/export"),
     },
   ];
 
