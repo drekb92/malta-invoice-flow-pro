@@ -16,6 +16,7 @@ import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format } from "date-fns";
+import { formatNumber } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Customer {
@@ -315,16 +316,16 @@ const NewQuotation = () => {
                 <CardContent className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal:</span>
-                    <span>€{totals.net.toFixed(2)}</span>
+                    <span>€{formatNumber(totals.net, 2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">VAT Total:</span>
-                    <span>€{totals.vat.toFixed(2)}</span>
+                    <span>€{formatNumber(totals.vat, 2)}</span>
                   </div>
                   <div className="border-t pt-3">
                     <div className="flex justify-between font-bold">
                       <span>Grand Total:</span>
-                      <span>€{totals.total.toFixed(2)}</span>
+                      <span>€{formatNumber(totals.total, 2)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -370,7 +371,7 @@ const NewQuotation = () => {
                             <SelectItem value="0.18">18% (Standard)</SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground mt-1">VAT: €{(item.quantity * item.unit_price * item.vat_rate).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}</p>
                       </div>
                       <div className="flex items-end">
                         <Button type="button" variant="destructive" size="sm" onClick={() => removeItem(index)} disabled={items.length === 1}>

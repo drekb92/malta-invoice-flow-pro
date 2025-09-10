@@ -16,6 +16,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { formatNumber } from "@/lib/utils";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { getDefaultTemplate } from "@/services/templateService";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
@@ -183,7 +184,7 @@ const InvoiceDetails = () => {
     if (!invoice) return;
     const email = invoice.customers?.email || "";
     const subject = `Payment Reminder: Invoice ${invoice.invoice_number}`;
-    const body = `Dear ${invoice.customers?.name || "Customer"},%0D%0A%0D%0AThis is a friendly reminder that invoice ${invoice.invoice_number} for €${computedTotals.total.toFixed(2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.%0D%0A%0D%0AThank you.`;
+    const body = `Dear ${invoice.customers?.name || "Customer"},%0D%0A%0D%0AThis is a friendly reminder that invoice ${invoice.invoice_number} for €${formatNumber(computedTotals.total, 2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.%0D%0A%0D%0AThank you.`;
     if (email) {
       window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${body}`;
     } else {
@@ -193,7 +194,7 @@ const InvoiceDetails = () => {
 
   const handleWhatsAppReminder = () => {
     if (!invoice) return;
-    const message = `Payment Reminder: Invoice ${invoice.invoice_number} of €${computedTotals.total.toFixed(2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.`;
+    const message = `Payment Reminder: Invoice ${invoice.invoice_number} of €${formatNumber(computedTotals.total, 2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.`;
     const phoneRaw = invoice.customers?.phone || "";
     const phone = phoneRaw.replace(/\D/g, "");
     const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -344,9 +345,9 @@ const InvoiceDetails = () => {
                           <TableCell className="font-medium">{item.description}</TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell>{item.unit || "-"}</TableCell>
-                          <TableCell>€{item.unit_price.toFixed(2)}</TableCell>
-                          <TableCell>{(item.vat_rate * 100).toFixed(0)}%</TableCell>
-                          <TableCell className="text-right">€{lineTotal.toFixed(2)}</TableCell>
+                          <TableCell>€{formatNumber(item.unit_price, 2)}</TableCell>
+                          <TableCell>{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
+                          <TableCell className="text-right">€{formatNumber(lineTotal, 2)}</TableCell>
                         </TableRow>
                       );
                     })
@@ -365,22 +366,22 @@ const InvoiceDetails = () => {
               <div className="space-y-2 max-w-sm ml-auto">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Net Amount:</span>
-                  <span className="font-medium">€{(invoiceTotals?.net_amount ?? computedTotals.net).toFixed(2)}</span>
+                  <span className="font-medium">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
                 </div>
                 {discountInfo.amount > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Discount:</span>
-                    <span className="font-medium">—€{discountInfo.amount.toFixed(2)}{discountInfo.isPercent && <> ({discountInfo.percentValue.toFixed(2)}%)</>}</span>
+                    <span className="font-medium">—€{formatNumber(discountInfo.amount, 2)}{discountInfo.isPercent && <> ({formatNumber(discountInfo.percentValue, 2)}%)</>}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">VAT Amount:</span>
-                  <span className="font-medium">€{(invoiceTotals?.vat_amount ?? computedTotals.vat).toFixed(2)}</span>
+                  <span className="font-medium">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
                 </div>
                 <div className="border-t pt-2">
                   <div className="flex justify-between">
                     <span className="text-lg font-semibold">Total Amount:</span>
-                    <span className="text-lg font-bold">€{(invoiceTotals?.total_amount ?? computedTotals.total).toFixed(2)}</span>
+                    <span className="text-lg font-bold">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
                   </div>
                 </div>
               </div>

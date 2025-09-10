@@ -1,4 +1,5 @@
 import { InvoiceTemplate } from "@/services/templateService";
+import { formatNumber } from "@/lib/utils";
 
 interface InvoiceHTMLProps {
   invoiceData: {
@@ -115,10 +116,10 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
               <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                 <td className="px-4 py-3 border">{item.description}</td>
                 <td className="px-4 py-3 border text-center">{item.quantity}</td>
-                <td className="px-4 py-3 border text-right">€{item.unit_price.toFixed(2)}</td>
-                <td className="px-4 py-3 border text-center">{(item.vat_rate * 100).toFixed(0)}%</td>
+                <td className="px-4 py-3 border text-right">€{formatNumber(item.unit_price, 2)}</td>
+                <td className="px-4 py-3 border text-center">{formatNumber(item.vat_rate * 100, 0)}%</td>
                 <td className="px-4 py-3 border text-right">
-                  €{(item.quantity * item.unit_price).toFixed(2)}
+                  €{formatNumber(item.quantity * item.unit_price, 2)}
                 </td>
               </tr>
             ))}
@@ -131,17 +132,17 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
         <div className="w-64 space-y-2">
           <div className="flex justify-between py-1">
             <span>Subtotal:</span>
-            <span>€{(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0)).toFixed(2)}</span>
+            <span>€{formatNumber(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0), 2)}</span>
           </div>
           {invoiceData.discount && invoiceData.discount.amount > 0 && (
             <div className="flex justify-between py-1">
-              <span>Discount{invoiceData.discount.type === 'percent' ? ` (${invoiceData.discount.value.toFixed(2)}%)` : ''}:</span>
-              <span>—€{invoiceData.discount.amount.toFixed(2)}</span>
+              <span>Discount{invoiceData.discount.type === 'percent' ? ` (${formatNumber(invoiceData.discount.value, 2)}%)` : ''}:</span>
+              <span>—€{formatNumber(invoiceData.discount.amount, 2)}</span>
             </div>
           )}
           <div className="flex justify-between py-1">
             <span>VAT Total:</span>
-            <span>€{invoiceData.totals.vatTotal.toFixed(2)}</span>
+            <span>€{formatNumber(invoiceData.totals.vatTotal, 2)}</span>
           </div>
           <div 
             className="flex justify-between py-2 font-bold text-lg border-t-2"
@@ -151,7 +152,7 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
             }}
           >
             <span>Total:</span>
-            <span>€{invoiceData.totals.grandTotal.toFixed(2)}</span>
+            <span>€{formatNumber(invoiceData.totals.grandTotal, 2)}</span>
           </div>
         </div>
       </div>

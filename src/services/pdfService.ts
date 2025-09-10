@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { InvoiceTemplate } from './templateService';
+import { formatNumber } from '@/lib/utils';
 
 export interface InvoiceData {
   invoiceNumber: string;
@@ -188,12 +189,12 @@ export class PDFGenerator {
       currentX += colWidths[0];
       this.pdf.text(item.quantity.toString(), currentX, this.currentY + 5);
       currentX += colWidths[1];
-      this.pdf.text(`€${item.unit_price.toFixed(2)}`, currentX, this.currentY + 5);
+      this.pdf.text(`€${formatNumber(item.unit_price, 2)}`, currentX, this.currentY + 5);
       currentX += colWidths[2];
-      this.pdf.text(`${(item.vat_rate * 100).toFixed(0)}%`, currentX, this.currentY + 5);
+      this.pdf.text(`${formatNumber(item.vat_rate * 100, 0)}%`, currentX, this.currentY + 5);
       currentX += colWidths[3];
       const itemTotal = item.quantity * item.unit_price;
-      this.pdf.text(`€${itemTotal.toFixed(2)}`, currentX, this.currentY + 5);
+      this.pdf.text(`€${formatNumber(itemTotal, 2)}`, currentX, this.currentY + 5);
       
       this.currentY += rowHeight;
     });
@@ -212,11 +213,11 @@ export class PDFGenerator {
     // Subtotal
     this.pdf.setFontSize(10);
     this.pdf.text('Subtotal:', labelX, this.currentY);
-    this.pdf.text(`€${invoiceData.totals.netTotal.toFixed(2)}`, totalsX, this.currentY);
+    this.pdf.text(`€${formatNumber(invoiceData.totals.netTotal, 2)}`, totalsX, this.currentY);
     
     this.currentY += 6;
     this.pdf.text('VAT Total:', labelX, this.currentY);
-    this.pdf.text(`€${invoiceData.totals.vatTotal.toFixed(2)}`, totalsX, this.currentY);
+    this.pdf.text(`€${formatNumber(invoiceData.totals.vatTotal, 2)}`, totalsX, this.currentY);
     
     this.currentY += 8;
     
@@ -228,7 +229,7 @@ export class PDFGenerator {
     this.pdf.setFontSize(12);
     this.pdf.setFont('helvetica', 'bold');
     this.pdf.text('Total:', labelX, this.currentY);
-    this.pdf.text(`€${invoiceData.totals.grandTotal.toFixed(2)}`, totalsX, this.currentY);
+    this.pdf.text(`€${formatNumber(invoiceData.totals.grandTotal, 2)}`, totalsX, this.currentY);
   }
 
   private addFooter() {

@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
+import { formatNumber } from "@/lib/utils";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { getDefaultTemplate } from "@/services/templateService";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
@@ -659,7 +660,7 @@ const NewInvoice = () => {
                         {discountType === 'percent' ? (
                           <p className="text-xs text-muted-foreground mt-1">Allowed: 0–100%</p>
                         ) : (
-                          <p className="text-xs text-muted-foreground mt-1">Max: €{totals.netTotal.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Max: €{formatNumber(totals.netTotal, 2)}</p>
                         )}
                       </div>
                       <div>
@@ -678,31 +679,31 @@ const NewInvoice = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Subtotal</span>
-                        <span>€{totals.netTotal.toFixed(2)}</span>
+                        <span>€{formatNumber(totals.netTotal, 2)}</span>
                       </div>
                       {totals.discountAmount > 0 && (
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Discount</span>
                           <span>
-                            —€{totals.discountAmount.toFixed(2)}
+                            —€{formatNumber(totals.discountAmount, 2)}
                             {discountType === 'percent' && (
-                              <> ({Number(discountValue).toFixed(2)}%)</>
+                              <> ({formatNumber(Number(discountValue), 2)}%)</>
                             )}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Taxable Amount</span>
-                        <span>€{totals.taxable.toFixed(2)}</span>
+                        <span>€{formatNumber(totals.taxable, 2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">VAT</span>
-                        <span>€{totals.vatTotal.toFixed(2)}</span>
+                        <span>€{formatNumber(totals.vatTotal, 2)}</span>
                       </div>
                       <div className="border-t pt-3">
                         <div className="flex justify-between font-bold">
                           <span>Total</span>
-                          <span>€{totals.grandTotal.toFixed(2)}</span>
+                          <span>€{formatNumber(totals.grandTotal, 2)}</span>
                         </div>
                       </div>
                     </div>
@@ -775,7 +776,7 @@ const NewInvoice = () => {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground mt-1">
-                          VAT: €{(item.quantity * item.unit_price * item.vat_rate).toFixed(2)}
+                          VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}
                         </p>
                       </div>
                       

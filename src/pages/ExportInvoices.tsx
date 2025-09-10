@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { CalendarIcon, Download } from "lucide-react";
 import { format } from "date-fns";
+import { formatNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -530,7 +531,7 @@ const ExportInvoices = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            ${invoice.total_amount?.toFixed(2) || "0.00"}
+                            ${invoice.total_amount ? formatNumber(invoice.total_amount, 2) : "0.00"}
                           </TableCell>
                         </TableRow>
                       ))
