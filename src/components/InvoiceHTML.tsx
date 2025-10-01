@@ -1,6 +1,7 @@
 import { InvoiceTemplate } from "@/services/templateService";
 import { formatNumber } from "@/lib/utils";
 
+
 interface InvoiceHTMLProps {
   invoiceData: {
     invoiceNumber: string;
@@ -32,15 +33,21 @@ interface InvoiceHTMLProps {
   };
   template: InvoiceTemplate;
   id?: string;
+  variant?: 'default' | 'template';
 }
 
-export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview" }: InvoiceHTMLProps) => {
+export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview", variant = 'default' }: InvoiceHTMLProps) => {
   const fontSizeValue = parseInt(template.font_size);
+  
+  // For template variant, use minimal styling to allow parent container to control layout
+  const containerClassName = variant === 'template' 
+    ? "bg-white"
+    : "bg-white p-8 max-w-4xl mx-auto print:p-0 print:shadow-none shadow-lg";
   
   return (
     <div 
       id={id}
-      className="bg-white p-8 max-w-4xl mx-auto print:p-0 print:shadow-none shadow-lg"
+      className={containerClassName}
       style={{
         fontFamily: template.font_family,
         fontSize: `${fontSizeValue}px`,

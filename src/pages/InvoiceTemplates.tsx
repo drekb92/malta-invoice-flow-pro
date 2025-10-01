@@ -653,7 +653,7 @@ const InvoiceTemplates = () => {
                     }}
                   >
                     <div id="invoice-inner">
-                      <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} />
+                      <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} variant="template" />
                     </div>
                   </section>
                 </CardContent>
