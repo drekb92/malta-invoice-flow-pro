@@ -334,15 +334,46 @@ const InvoiceTemplates = () => {
                   variant="outline" 
                   size="sm"
                   onClick={async () => {
-                    const file = (sampleInvoiceData as any).invoiceNumber || 'invoice-preview';
                     try {
-                      await downloadPdfFromFunction(file, templateForPreview.font_family);
-                      toast({ title: 'Downloaded', description: 'Template preview saved as PDF.' });
-                    } catch (error: any) {
+                      const element = document.getElementById("invoice-html-preview");
+                      if (!element) throw new Error("Preview not found");
+
+                      const html = element.outerHTML;
+
+                      const response = await fetch(
+                        "https://cmysusctooyobrlnwtgt.supabase.co/functions/v1/generate-invoice-pdf",
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteXN1c2N0b295b2JybG53dGd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTcyODMsImV4cCI6MjA2ODQzMzI4M30.n1-GUBd_JnFfXqdNk0ZNIuDxIFFn90mpcRjd-EliPIs",
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteXN1c2N0b295b2JybG53dGd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTcyODMsImV4cCI6MjA2ODQzMzI4M30.n1-GUBd_JnFfXqdNk0ZNIuDxIFFn90mpcRjd-EliPIs",
+                          },
+                          body: JSON.stringify({
+                            html,
+                            filename: (sampleInvoiceData as any).invoiceNumber || "invoice-preview"
+                          })
+                        }
+                      );
+
+                      if (!response.ok) throw new Error("Failed to generate PDF");
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `${(sampleInvoiceData as any).invoiceNumber || "invoice-preview"}.pdf`;
+                      link.click();
+                      
+                      toast({ 
+                        title: 'Downloaded', 
+                        description: 'Template preview saved as PDF.' 
+                      });
+                    } catch (error) {
+                      console.error("Export failed:", error);
                       toast({
-                        title: 'Export failed',
-                        description: error?.message || 'Could not generate PDF from preview.',
-                        variant: 'destructive',
+                        title: "Export failed",
+                        description: "Could not generate PDF from preview.",
+                        variant: "destructive",
                       });
                     }
                   }}
@@ -622,7 +653,7 @@ const InvoiceTemplates = () => {
                         font-family: var(--font);
                         box-sizing: border-box; position: relative;
                       }
-                      #invoice-inner{
+                      #invoice-html-preview{
                         padding-top: var(--m-top);
                         padding-right: var(--m-right);
                         padding-bottom: var(--m-bottom);
@@ -652,7 +683,7 @@ const InvoiceTemplates = () => {
                       fontFamily: 'var(--font)'
                     }}
                   >
-                    <div id="invoice-inner">
+                    <div id="invoice-html-preview">
                       <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} variant="template" />
                     </div>
                   </section>
