@@ -39,7 +39,24 @@ interface InvoiceHTMLProps {
 export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview", variant = 'default' }: InvoiceHTMLProps) => {
   const fontSizeValue = parseInt(template.font_size);
   
-  // For template variant, use minimal styling to allow parent container to control layout
+  // A4 canvas styling for template variant
+  const containerStyle = variant === 'template' 
+    ? {
+        width: '21cm',
+        minHeight: '29.7cm',
+        backgroundColor: 'white',
+        padding: '1.5cm',
+        boxSizing: 'border-box' as const,
+        fontFamily: template.font_family,
+        fontSize: `${fontSizeValue}px`,
+        color: template.accent_color,
+      }
+    : {
+        fontFamily: template.font_family,
+        fontSize: `${fontSizeValue}px`,
+        color: template.accent_color,
+      };
+  
   const containerClassName = variant === 'template' 
     ? "bg-white"
     : "bg-white p-8 max-w-4xl mx-auto print:p-0 print:shadow-none shadow-lg";
@@ -48,11 +65,7 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
     <div 
       id={id}
       className={containerClassName}
-      style={{
-        fontFamily: template.font_family,
-        fontSize: `${fontSizeValue}px`,
-        color: template.accent_color,
-      }}
+      style={containerStyle}
     >
       {/* Header */}
       <div className="flex justify-between items-start mb-8">

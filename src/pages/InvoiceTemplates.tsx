@@ -600,62 +600,18 @@ const InvoiceTemplates = () => {
                     <link href={getGoogleFontHref(templateForPreview.font_family || 'Inter')} rel="stylesheet" />
                   </div>
 
-                  {/* Styles to ensure A4 layout and font binding for export */}
+                  {/* Styles for print support */}
                     <style>{`
                       @page { size: A4; margin: 0; }
-
-                      /* A4 canvas + template variables */
-                      #invoice-preview-root{
-                        --font: '${templateForPreview.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-                        --color-primary: ${templateForPreview.primary_color || '#111827'};
-                        --color-accent: ${templateForPreview.accent_color || '#2563EB'};
-                        --th-bg: ${(templateForPreview as any)?.line_item_header_bg || '#F3F4F6'};
-                        --th-text: ${(templateForPreview as any)?.line_item_header_text || '#111827'};
-
-                        /* margins (cm) */
-                        --m-top: ${typeof (templateForPreview as any).margin_top === 'number' ? `${(templateForPreview as any).margin_top}cm` : '1.2cm'};
-                        --m-right: ${typeof (templateForPreview as any).margin_right === 'number' ? `${(templateForPreview as any).margin_right}cm` : '1.2cm'};
-                        --m-bottom: ${typeof (templateForPreview as any).margin_bottom === 'number' ? `${(templateForPreview as any).margin_bottom}cm` : '1.2cm'};
-                        --m-left: ${typeof (templateForPreview as any).margin_left === 'number' ? `${(templateForPreview as any).margin_left}cm` : '1.2cm'};
-
-                        width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
-                        font-family: var(--font);
-                        box-sizing: border-box; position: relative;
+                      @media print {
+                        tr, td, th { page-break-inside: avoid; }
+                        .avoid-break { page-break-inside: avoid; }
                       }
-                      #invoice-inner{
-                        padding-top: var(--m-top);
-                        padding-right: var(--m-right);
-                        padding-bottom: var(--m-bottom);
-                        padding-left: var(--m-left);
-                      }
-                      table.items{ width:100%; border-collapse:collapse; font-size:10pt; }
-                      table.items th{
-                        background: var(--th-bg); color: var(--th-text);
-                        padding: 8pt; text-align:left; border-bottom: 1px solid #E5E7EB;
-                      }
-                      table.items td{ padding: 8pt; border-bottom: 1px solid #E5E7EB; }
-                      .totals{ width:45%; margin-left:auto; font-size:10pt; margin-top:8pt; }
-                      .totals .row{ display:grid; grid-template-columns:1fr auto; padding:4pt 0; }
-                      .totals .row.total{ font-weight:700; border-top:1px solid #E5E7EB; padding-top:8pt; }
-
-                      /* Hide toolbars/controls during export if needed */
-                      .exporting .toolbar { display:none !important; }
                     `}</style>
 
-                  <section
-                    id="invoice-preview-root"
-                    style={{
-                      width: '21cm',
-                      minHeight: '29.7cm',
-                      margin: '0 auto',
-                      backgroundColor: '#ffffff',
-                      fontFamily: 'var(--font)'
-                    }}
-                  >
-                    <div id="invoice-inner">
-                      <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} variant="template" />
-                    </div>
-                  </section>
+                  <div id="invoice-html-preview" style={{ margin: '0 auto' }}>
+                    <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} variant="template" />
+                  </div>
                 </CardContent>
               </Card>
             </div>
