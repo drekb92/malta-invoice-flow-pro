@@ -337,20 +337,11 @@ const InvoiceTemplates = () => {
                   size="sm"
                   onClick={async () => {
                     try {
-                      const filename = `Invoice-${sampleInvoiceData.invoiceNumber}`;
-                      const result = await exportInvoicePdfAction({
-                        filename,
-                        elementId: 'invoice-preview-root'
+                      await downloadPdfFromFunction("invoice-template-preview");
+                      toast({ 
+                        title: 'Downloaded', 
+                        description: 'Template preview saved as PDF.' 
                       });
-                      
-                      if (result.ok) {
-                        toast({ 
-                          title: 'Downloaded', 
-                          description: 'Template preview saved as PDF.' 
-                        });
-                      } else {
-                        throw new Error(result.error || 'Export failed');
-                      }
                     } catch (error: any) {
                       console.error("Export failed:", error);
                       toast({
@@ -369,8 +360,7 @@ const InvoiceTemplates = () => {
                   size="sm"
                   onClick={async () => {
                     try {
-                      const filename = `Invoice-${sampleInvoiceData.invoiceNumber}`;
-                      await generatePDF('invoice-preview-root', filename, {
+                      await generatePDF('invoice-preview-root', 'invoice-template-preview', {
                         format: 'A4',
                         orientation: 'portrait',
                         margin: 15,
