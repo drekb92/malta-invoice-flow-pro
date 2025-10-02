@@ -47,15 +47,20 @@ export const generatePDF = async (
       return img.complete ? Promise.resolve() : new Promise(res => img.onload = res);
     }));
 
+    // Use bounding box, not scroll sizes
+    const rect = element.getBoundingClientRect();
+    const pxWidth = Math.ceil(rect.width);
+    const pxHeight = Math.ceil(rect.height);
+
     // Configure html2canvas options for better quality
     const canvas = await html2canvas(element, {
       scale: 2, // Higher resolution
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,          // safer with crossorigin images
       backgroundColor: '#ffffff',
       logging: false,
-      width: element.scrollWidth,
-      height: element.scrollHeight
+      width: pxWidth,
+      height: pxHeight
     });
 
     // Restore original display
