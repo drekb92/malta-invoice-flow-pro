@@ -1,5 +1,5 @@
 import { InvoiceTemplate } from "@/services/templateService";
-import { formatNumber } from "@/lib/utils";
+import { formatDate, money, percent, mul } from "@/lib/invoiceUtils";
 
 
 interface InvoiceHTMLProps {
@@ -93,8 +93,8 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
           </h1>
           <div className="space-y-1 text-sm">
             <div><strong>Invoice #:</strong> {invoiceData.invoiceNumber}</div>
-            <div><strong>Date:</strong> {invoiceData.invoiceDate}</div>
-            <div><strong>Due Date:</strong> {invoiceData.dueDate}</div>
+            <div><strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}</div>
+            <div><strong>Due Date:</strong> {formatDate(invoiceData.dueDate)}</div>
           </div>
         </div>
       </div>
@@ -135,11 +135,11 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
             {invoiceData.items.map((item, index) => (
               <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                 <td className="px-4 py-3 border">{item.description}</td>
-                <td className="px-4 py-3 border text-center">{item.quantity}</td>
-                <td className="px-4 py-3 border text-right">€{formatNumber(item.unit_price, 2)}</td>
-                <td className="px-4 py-3 border text-center">{formatNumber(item.vat_rate * 100, 0)}%</td>
+                <td className="px-4 py-3 border text-center">{item.quantity} {item.unit || ''}</td>
+                <td className="px-4 py-3 border text-right">{money(item.unit_price)}</td>
+                <td className="px-4 py-3 border text-center">{percent(item.vat_rate)}</td>
                 <td className="px-4 py-3 border text-right">
-                  €{formatNumber(item.quantity * item.unit_price, 2)}
+                  {money(mul(item.quantity, item.unit_price))}
                 </td>
               </tr>
             ))}
@@ -152,17 +152,17 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
         <div className="w-64 space-y-2">
           <div className="flex justify-between py-1">
             <span>Subtotal:</span>
-            <span>€{formatNumber(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0), 2)}</span>
+            <span>{money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}</span>
           </div>
           {invoiceData.discount && invoiceData.discount.amount > 0 && (
             <div className="flex justify-between py-1">
-              <span>Discount{invoiceData.discount.type === 'percent' ? ` (${formatNumber(invoiceData.discount.value, 2)}%)` : ''}:</span>
-              <span>—€{formatNumber(invoiceData.discount.amount, 2)}</span>
+              <span>Discount{invoiceData.discount.type === 'percent' ? ` (${percent(invoiceData.discount.value / 100)})` : ''}:</span>
+              <span>—{money(invoiceData.discount.amount)}</span>
             </div>
           )}
           <div className="flex justify-between py-1">
             <span>VAT Total:</span>
-            <span>€{formatNumber(invoiceData.totals.vatTotal, 2)}</span>
+            <span>{money(invoiceData.totals.vatTotal)}</span>
           </div>
           <div 
             className="flex justify-between py-2 font-bold text-lg border-t-2"
@@ -172,7 +172,7 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview"
             }}
           >
             <span>Total:</span>
-            <span>€{formatNumber(invoiceData.totals.grandTotal, 2)}</span>
+            <span>{money(invoiceData.totals.grandTotal)}</span>
           </div>
         </div>
       </div>
