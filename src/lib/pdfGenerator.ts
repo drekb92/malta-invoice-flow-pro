@@ -34,6 +34,12 @@ export const generatePDF = async (
     const originalDisplay = element.style.display;
     element.style.display = 'block';
 
+    // Wait for fonts to load before capture
+    // @ts-ignore
+    if (document?.fonts?.ready) {
+      await (document as any).fonts.ready;
+    }
+
     // Configure html2canvas options for better quality
     const canvas = await html2canvas(element, {
       scale: 2, // Higher resolution
