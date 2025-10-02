@@ -122,14 +122,27 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content",
 
       {/* Items Table */}
       <div className="mb-8">
-        <table className="w-full border-collapse">
+        <table style={{ 
+          width: '100%', 
+          borderCollapse: 'collapse', 
+          tableLayout: 'fixed',
+          marginTop: '1cm',
+          fontSize: '10pt'
+        }}>
+          <colgroup>
+            <col style={{ width: '46%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '16%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '16%' }} />
+          </colgroup>
           <thead>
-            <tr style={{ backgroundColor: `var(--th-bg, ${template.primary_color})` }}>
-              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-left border">Description</th>
-              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-center border w-20">Qty</th>
-              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-right border w-24">Price</th>
-              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-center border w-20">VAT %</th>
-              <th style={{ color: 'var(--th-text, #ffffff)' }} className="px-4 py-3 text-right border w-24">Total</th>
+            <tr style={{ backgroundColor: template.primary_color }}>
+              <th style={{ color: '#fff', padding: '12pt 10pt', textAlign: 'left', fontWeight: 600, border: '1px solid #e5e7eb' }}>Description</th>
+              <th style={{ color: '#fff', padding: '12pt 10pt', textAlign: 'right', fontWeight: 600, border: '1px solid #e5e7eb' }}>Qty</th>
+              <th style={{ color: '#fff', padding: '12pt 10pt', textAlign: 'right', fontWeight: 600, border: '1px solid #e5e7eb' }}>Unit Price</th>
+              <th style={{ color: '#fff', padding: '12pt 10pt', textAlign: 'right', fontWeight: 600, border: '1px solid #e5e7eb' }}>VAT %</th>
+              <th style={{ color: '#fff', padding: '12pt 10pt', textAlign: 'right', fontWeight: 600, border: '1px solid #e5e7eb' }}>Total</th>
             </tr>
           </thead>
           <tbody>
