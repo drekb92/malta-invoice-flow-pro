@@ -19,7 +19,8 @@ import { format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { getDefaultTemplate } from "@/services/templateService";
-import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import type { InvoiceData } from "@/services/pdfService";
 
 interface Invoice {
   id: string;
@@ -171,8 +172,30 @@ const InvoiceDetails = () => {
   const handleDownload = async () => {
     if (!invoice) return;
     try {
-      const family = (templateForPreview as any)?.font_family || 'Inter';
-      await downloadPdfFromFunction(invoice.invoice_number || 'invoice-preview', family);
+      const invoiceData: InvoiceData = {
+        invoiceNumber: invoice.invoice_number,
+        invoiceDate: invoice.invoice_date || invoice.created_at,
+        dueDate: invoice.due_date,
+        customer: {
+          name: invoice.customers?.name || '',
+          email: invoice.customers?.email || undefined,
+          address: invoice.customers?.address || undefined,
+          vat_number: invoice.customers?.vat_number || undefined,
+        },
+        items: invoiceItems.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate || 0,
+          unit: item.unit || 'unit',
+        })),
+        totals: {
+          netTotal: computedTotals.net,
+          vatTotal: computedTotals.vat,
+          grandTotal: computedTotals.total,
+        },
+      };
+      await generateInvoicePDFWithTemplate(invoiceData, `Invoice-${invoice.invoice_number}`);
       toast({ title: 'PDF downloaded', description: `Invoice ${invoice.invoice_number} saved.` });
     } catch (e) {
       console.error(e);

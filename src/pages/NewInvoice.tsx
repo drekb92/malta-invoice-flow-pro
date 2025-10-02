@@ -22,7 +22,8 @@ import { format, addDays } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { getDefaultTemplate } from "@/services/templateService";
-import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import type { InvoiceData } from "@/services/pdfService";
 
 interface Customer {
   id: string;
@@ -465,8 +466,47 @@ const NewInvoice = () => {
   const handleDownloadPDF = async () => {
     setLoading(true);
     try {
-      const family = (templateForPreview as any)?.font_family || 'Inter';
-      await downloadPdfFromFunction(invoiceNumber || 'invoice-preview', family);
+      if (!selectedCustomer) {
+        throw new Error("Please select a customer");
+      }
+
+      const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+      if (!selectedCustomerData) {
+        throw new Error("Customer not found");
+      }
+
+      const { taxable, vatTotal, grandTotal } = calculateTotals();
+
+      const paymentTerms = selectedCustomerData.payment_terms || "Net 30";
+      const daysMatch = paymentTerms.match(/\d+/);
+      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      const calculatedDueDate = addDays(new Date(invoiceDate), paymentDays);
+
+      const invoiceData: InvoiceData = {
+        invoiceNumber: invoiceNumber || 'DRAFT',
+        invoiceDate: invoiceDate,
+        dueDate: calculatedDueDate.toISOString().split("T")[0],
+        customer: {
+          name: selectedCustomerData.name,
+          email: selectedCustomerData.email || undefined,
+          address: selectedCustomerData.address || undefined,
+          vat_number: selectedCustomerData.vat_number || undefined,
+        },
+        items: items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+          unit: item.unit,
+        })),
+        totals: {
+          netTotal: taxable,
+          vatTotal: vatTotal,
+          grandTotal: grandTotal,
+        },
+      };
+
+      await generateInvoicePDFWithTemplate(invoiceData, `Invoice-${invoiceData.invoiceNumber}`);
       toast({ title: 'Success', description: 'Invoice downloaded successfully' });
     } catch (error: any) {
       console.error('Error downloading PDF:', error);
