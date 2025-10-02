@@ -21,6 +21,7 @@ import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { getDefaultTemplate } from "@/services/templateService";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
+import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 
 interface Invoice {
   id: string;
@@ -172,6 +173,26 @@ const InvoiceDetails = () => {
   const handleDownload = async () => {
     if (!invoice) return;
     try {
+      const filename = `Invoice-${invoice.invoice_number}`;
+      const result = await exportInvoicePdfAction({
+        filename,
+        elementId: 'invoice-preview-root'
+      });
+      
+      if (result.ok) {
+        toast({ title: 'PDF downloaded', description: `Invoice ${invoice.invoice_number} saved.` });
+      } else {
+        throw new Error(result.error || 'Export failed');
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'PDF error', description: 'Failed to generate invoice PDF.', variant: 'destructive' });
+    }
+  };
+
+  const handleLegacyDownload = async () => {
+    if (!invoice) return;
+    try {
       const invoiceData: InvoiceData = {
         invoiceNumber: invoice.invoice_number,
         invoiceDate: invoice.invoice_date || invoice.created_at,
@@ -196,7 +217,7 @@ const InvoiceDetails = () => {
         },
       };
       await generateInvoicePDFWithTemplate(invoiceData, `Invoice-${invoice.invoice_number}`);
-      toast({ title: 'PDF downloaded', description: `Invoice ${invoice.invoice_number} saved.` });
+      toast({ title: 'PDF downloaded', description: `Invoice ${invoice.invoice_number} saved (legacy).` });
     } catch (e) {
       console.error(e);
       toast({ title: 'PDF error', description: 'Failed to generate invoice PDF.', variant: 'destructive' });
@@ -285,7 +306,10 @@ const InvoiceDetails = () => {
                 <Button onClick={handleDownload} aria-label="Download invoice PDF" title="Download invoice PDF">
                   <Download className="h-4 w-4" />
                   <span className="sr-only">Download</span>
-                  <span className="hidden sm:inline">Download</span>
+                  <span className="hidden sm:inline">Download PDF</span>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleLegacyDownload} aria-label="Legacy download" title="Legacy download">
+                  <span className="hidden sm:inline">Legacy Download</span>
                 </Button>
                 <Button variant="secondary" onClick={handleEmailReminder} aria-label="Send email reminder" title="Send email reminder">
                   <Mail className="h-4 w-4" />

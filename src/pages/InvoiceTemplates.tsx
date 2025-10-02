@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
+import { generatePDF } from "@/lib/pdfGenerator";
 
 interface InvoiceTemplate {
   id: string;
@@ -335,72 +337,20 @@ const InvoiceTemplates = () => {
                   size="sm"
                   onClick={async () => {
                     try {
-                      const element = document.getElementById("invoice-pdf-content");
-                      if (!element) throw new Error("Invoice preview not found");
-
-                      // Construct full HTML document with Google Fonts from page head
-                      const fontFamily = templateForPreview.font_family || 'Inter';
-                      const fontUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontFamily)}:wght@400;600;700&display=swap`;
-                      
-                      const fullHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="${fontUrl}" rel="stylesheet">
-  <style>
-    html, body { 
-      font-family: '${fontFamily}', Arial, sans-serif; 
-      margin: 0;
-      padding: 0;
-    }
-    @page { 
-      size: A4; 
-      margin: 0; 
-    }
-    @media print {
-      tr, td, th { page-break-inside: avoid; }
-      .avoid-break { page-break-inside: avoid; }
-    }
-  </style>
-</head>
-<body>
-  ${element.outerHTML}
-</body>
-</html>`;
-
                       const filename = `Invoice-${sampleInvoiceData.invoiceNumber}`;
-                      
-                      const response = await fetch(
-                        "https://cmysusctooyobrlnwtgt.supabase.co/functions/v1/generate-invoice-pdf",
-                        {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteXN1c2N0b295b2JybG53dGd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTcyODMsImV4cCI6MjA2ODQzMzI4M30.n1-GUBd_JnFfXqdNk0ZNIuDxIFFn90mpcRjd-EliPIs",
-                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteXN1c2N0b295b2JybG53dGd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTcyODMsImV4cCI6MjA2ODQzMzI4M30.n1-GUBd_JnFfXqdNk0ZNIuDxIFFn90mpcRjd-EliPIs",
-                          },
-                          body: JSON.stringify({
-                            html: fullHtml,
-                            filename: filename
-                          })
-                        }
-                      );
-
-                      if (!response.ok) throw new Error("Failed to generate PDF");
-                      
-                      const blob = await response.blob();
-                      const url = window.URL.createObjectURL(blob);
-                      const link = document.createElement("a");
-                      link.href = url;
-                      link.download = `${filename}.pdf`;
-                      link.click();
-                      window.URL.revokeObjectURL(url);
-                      
-                      toast({ 
-                        title: 'Downloaded', 
-                        description: 'Template preview saved as PDF.' 
+                      const result = await exportInvoicePdfAction({
+                        filename,
+                        elementId: 'invoice-pdf-content'
                       });
+                      
+                      if (result.ok) {
+                        toast({ 
+                          title: 'Downloaded', 
+                          description: 'Template preview saved as PDF.' 
+                        });
+                      } else {
+                        throw new Error(result.error || 'Export failed');
+                      }
                     } catch (error: any) {
                       console.error("Export failed:", error);
                       toast({
@@ -413,6 +363,34 @@ const InvoiceTemplates = () => {
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   Download PDF
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const filename = `Invoice-${sampleInvoiceData.invoiceNumber}`;
+                      await generatePDF('invoice-pdf-content', filename, {
+                        format: 'A4',
+                        orientation: 'portrait',
+                        margin: 15,
+                        quality: 0.95
+                      });
+                      toast({ 
+                        title: 'Downloaded', 
+                        description: 'Template preview saved as PDF (legacy).' 
+                      });
+                    } catch (error: any) {
+                      console.error("Export failed:", error);
+                      toast({
+                        title: 'Export failed',
+                        description: error?.message || 'Could not generate PDF from preview.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                >
+                  Legacy Download
                 </Button>
                 <Button size="sm">
                   <Plus className="h-4 w-4 mr-2" />
