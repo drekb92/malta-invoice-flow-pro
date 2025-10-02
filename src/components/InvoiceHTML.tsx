@@ -68,6 +68,9 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content",
       className={containerClassName}
       style={containerStyle}
     >
+      {/* Top spacer for breathing room */}
+      <div style={{ height: '4mm' }}></div>
+
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div className="flex items-center">
