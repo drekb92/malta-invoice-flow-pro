@@ -340,7 +340,7 @@ const InvoiceTemplates = () => {
                       const filename = `Invoice-${sampleInvoiceData.invoiceNumber}`;
                       const result = await exportInvoicePdfAction({
                         filename,
-                        elementId: 'invoice-pdf-content'
+                        elementId: 'invoice-preview-root'
                       });
                       
                       if (result.ok) {
@@ -370,7 +370,7 @@ const InvoiceTemplates = () => {
                   onClick={async () => {
                     try {
                       const filename = `Invoice-${sampleInvoiceData.invoiceNumber}`;
-                      await generatePDF('invoice-pdf-content', filename, {
+                      await generatePDF('invoice-preview-root', filename, {
                         format: 'A4',
                         orientation: 'portrait',
                         margin: 15,
@@ -654,10 +654,10 @@ const InvoiceTemplates = () => {
                   <div style={{ margin: '0 auto' }}>
                     <div id="invoice-html-preview" className="invoice-page" style={{ width: '210mm', minHeight: '297mm', background: '#fff' }}>
                       <InvoiceHTML 
-                        id="invoice-pdf-content"
+                        id="invoice-preview-root"
+                        variant="template"
                         invoiceData={sampleInvoiceData as any} 
-                        template={templateForPreview as any} 
-                        variant="template" 
+                        template={templateForPreview as any}
                       />
                     </div>
                   </div>
