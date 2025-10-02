@@ -39,6 +39,26 @@ interface InvoiceHTMLProps {
 export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default' }: InvoiceHTMLProps) => {
   const fontSizeValue = parseInt(template.font_size);
   
+  // Ensure logo URL is absolute
+  const getAbsoluteLogoUrl = (url?: string): string | undefined => {
+    if (!url) return undefined;
+    
+    // If already absolute, return as-is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // If relative, convert to absolute using Supabase storage
+    if (url.startsWith('/')) {
+      return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos${url}`;
+    }
+    
+    // If it's just a filename, prepend the full storage path
+    return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${url}`;
+  };
+  
+  const absoluteLogoUrl = getAbsoluteLogoUrl(template.logo_url);
+  
   // A4 canvas styling for template variant with inner padding
   const containerStyle = variant === 'template' 
     ? {
@@ -74,10 +94,11 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content",
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div className="flex items-center">
-          {template.logo_url && (
+          {absoluteLogoUrl && (
             <img 
-              src={template.logo_url} 
-              alt="Company Logo" 
+              src={absoluteLogoUrl} 
+              alt="Company Logo"
+              crossOrigin="anonymous"
               style={{
                 marginLeft: `${template.logo_x_offset}px`,
                 marginTop: `${template.logo_y_offset}px`,
