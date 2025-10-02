@@ -78,9 +78,10 @@ export const generatePDF = async (
     // Convert canvas to image data
     const imgData = canvas.toDataURL('image/png', quality);
     
-    // Center the content on the page
+    // Center the content on the page (both horizontally and vertically)
+    const leftoverH = availableHeight - scaledHeight;
     const x = (pdfWidth - scaledWidth) / 2;
-    const y = margin;
+    const y = margin + Math.max(0, leftoverH / 2);
     
     // Add image to PDF
     pdf.addImage(imgData, 'PNG', x, y, scaledWidth, scaledHeight);
