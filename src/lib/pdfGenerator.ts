@@ -40,6 +40,13 @@ export const generatePDF = async (
       await (document as any).fonts.ready;
     }
 
+    // Fix images (logos) & transforms
+    const imgs = Array.from(element.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => {
+      img.setAttribute('crossorigin','anonymous'); // avoid taint
+      return img.complete ? Promise.resolve() : new Promise(res => img.onload = res);
+    }));
+
     // Configure html2canvas options for better quality
     const canvas = await html2canvas(element, {
       scale: 2, // Higher resolution
