@@ -10,9 +10,24 @@
     <!-- Google Font for Invoice Templates -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-      html, body { font-family: 'Inter', Arial, sans-serif; }
+      /* Reset browser defaults */
+      html, body { 
+        margin: 0; 
+        padding: 0; 
+        font-family: 'Inter', Arial, sans-serif; 
+      }
+
+      /* Hard print margins for A4 PDF rendering */
+      @page { 
+        size: A4; 
+        margin: 15mm 15mm 18mm 15mm; /* top, right, bottom, left */
+      }
+
+      /* Keep table rows intact across pages */
       @media print {
         tr, td, th { page-break-inside: avoid; }
+        thead { display: table-header-group; }
+        tfoot { display: table-footer-group; }
         .avoid-break { page-break-inside: avoid; }
       }
     </style>
