@@ -33,8 +33,13 @@ export async function exportInvoicePdfAction(
           <meta charset="utf-8"/>
           <style>
             @page { size: A4; margin: 15mm; }
+            html, body { margin: 0; padding: 0; }
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .invoice-page { width:210mm; min-height:297mm; }
+            .invoice-page { width: 210mm; min-height: 297mm; }
+            img { max-width: 100%; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #e5e7eb; padding: 8px; }
+            th { background: #f5f5f5; font-weight: 600; }
           </style>
         </head>
         <body>
