@@ -490,6 +490,7 @@ const InvoiceDetails = () => {
           <div id="invoice-inner">
             {invoice && (
               <InvoiceHTML
+                id="invoice-preview-root"
                 invoiceData={{
                   invoiceNumber: invoice.invoice_number,
                   invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), 'yyyy-MM-dd'),

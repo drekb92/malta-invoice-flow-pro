@@ -653,7 +653,12 @@ const InvoiceTemplates = () => {
 
                   <div style={{ margin: '0 auto' }}>
                     <div id="invoice-html-preview" className="invoice-page" style={{ width: '210mm', minHeight: '297mm', background: '#fff' }}>
-                      <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} variant="template" />
+                      <InvoiceHTML 
+                        id="invoice-pdf-content"
+                        invoiceData={sampleInvoiceData as any} 
+                        template={templateForPreview as any} 
+                        variant="template" 
+                      />
                     </div>
                   </div>
                 </CardContent>

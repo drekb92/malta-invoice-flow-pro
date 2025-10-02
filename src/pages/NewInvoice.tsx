@@ -912,6 +912,7 @@ const NewInvoice = () => {
         <div id="invoice-inner">
           {selectedCustomer && (
             <InvoiceHTML 
+              id="invoice-preview-root"
               invoiceData={{
                 invoiceNumber: invoiceNumber,
                 invoiceDate: invoiceDate,
