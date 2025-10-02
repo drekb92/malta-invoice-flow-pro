@@ -36,7 +36,7 @@ interface InvoiceHTMLProps {
   variant?: 'default' | 'template';
 }
 
-export const InvoiceHTML = ({ invoiceData, template, id = "invoice-html-preview", variant = 'default' }: InvoiceHTMLProps) => {
+export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default' }: InvoiceHTMLProps) => {
   const fontSizeValue = parseInt(template.font_size);
   
   // A4 canvas styling for template variant

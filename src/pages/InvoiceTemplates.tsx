@@ -334,11 +334,75 @@ const InvoiceTemplates = () => {
                   variant="outline" 
                   size="sm"
                   onClick={async () => {
-                    const file = (sampleInvoiceData as any).invoiceNumber || 'invoice-preview';
                     try {
-                      await downloadPdfFromFunction(file, templateForPreview.font_family);
-                      toast({ title: 'Downloaded', description: 'Template preview saved as PDF.' });
+                      const element = document.getElementById("invoice-pdf-content");
+                      if (!element) throw new Error("Invoice preview not found");
+
+                      // Construct full HTML document with Google Fonts from page head
+                      const fontFamily = templateForPreview.font_family || 'Inter';
+                      const fontUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontFamily)}:wght@400;600;700&display=swap`;
+                      
+                      const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="${fontUrl}" rel="stylesheet">
+  <style>
+    html, body { 
+      font-family: '${fontFamily}', Arial, sans-serif; 
+      margin: 0;
+      padding: 0;
+    }
+    @page { 
+      size: A4; 
+      margin: 0; 
+    }
+    @media print {
+      tr, td, th { page-break-inside: avoid; }
+      .avoid-break { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  ${element.outerHTML}
+</body>
+</html>`;
+
+                      const filename = `Invoice-${sampleInvoiceData.invoiceNumber}`;
+                      
+                      const response = await fetch(
+                        "https://cmysusctooyobrlnwtgt.supabase.co/functions/v1/generate-invoice-pdf",
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteXN1c2N0b295b2JybG53dGd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTcyODMsImV4cCI6MjA2ODQzMzI4M30.n1-GUBd_JnFfXqdNk0ZNIuDxIFFn90mpcRjd-EliPIs",
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteXN1c2N0b295b2JybG53dGd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NTcyODMsImV4cCI6MjA2ODQzMzI4M30.n1-GUBd_JnFfXqdNk0ZNIuDxIFFn90mpcRjd-EliPIs",
+                          },
+                          body: JSON.stringify({
+                            html: fullHtml,
+                            filename: filename
+                          })
+                        }
+                      );
+
+                      if (!response.ok) throw new Error("Failed to generate PDF");
+                      
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = `${filename}.pdf`;
+                      link.click();
+                      window.URL.revokeObjectURL(url);
+                      
+                      toast({ 
+                        title: 'Downloaded', 
+                        description: 'Template preview saved as PDF.' 
+                      });
                     } catch (error: any) {
+                      console.error("Export failed:", error);
                       toast({
                         title: 'Export failed',
                         description: error?.message || 'Could not generate PDF from preview.',
@@ -609,7 +673,7 @@ const InvoiceTemplates = () => {
                       }
                     `}</style>
 
-                  <div id="invoice-html-preview" style={{ margin: '0 auto' }}>
+                  <div style={{ margin: '0 auto' }}>
                     <InvoiceHTML invoiceData={sampleInvoiceData as any} template={templateForPreview as any} variant="template" />
                   </div>
                 </CardContent>
