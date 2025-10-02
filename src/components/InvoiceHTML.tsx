@@ -191,10 +191,24 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content",
         </div>
       </div>
 
+      {/* Spacer before footer */}
+      <div style={{ height: '20mm' }}></div>
+
       {/* Footer */}
-      <div className="text-center text-sm text-gray-600 mt-12 pt-8 border-t">
-        <p>Thank you for your business!</p>
-        <p>Payment terms apply as agreed.</p>
+      <div style={{ 
+        position: 'absolute', 
+        bottom: 0, 
+        left: 0, 
+        right: 0,
+        textAlign: 'center',
+        fontSize: '9pt',
+        color: '#6b7280',
+        borderTop: '1px solid #e5e7eb',
+        paddingTop: '10pt',
+        paddingBottom: '10pt'
+      }}>
+        <p style={{ margin: 0 }}>Thank you for your business!</p>
+        <p style={{ margin: '4pt 0 0 0', fontSize: '8pt' }}>Payment due within 30 days. All amounts in EUR.</p>
       </div>
     </div>
   );
