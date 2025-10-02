@@ -39,7 +39,7 @@ interface InvoiceHTMLProps {
 export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default' }: InvoiceHTMLProps) => {
   const fontSizeValue = parseInt(template.font_size);
   
-  // A4 canvas styling for template variant
+  // A4 canvas styling for template variant with inner padding
   const containerStyle = variant === 'template' 
     ? {
         width: '21cm',
@@ -50,6 +50,7 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content",
         fontFamily: template.font_family,
         fontSize: `${fontSizeValue}px`,
         color: template.accent_color,
+        position: 'relative' as const,
       }
     : {
         fontFamily: template.font_family,
