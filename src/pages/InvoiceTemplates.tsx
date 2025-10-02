@@ -344,11 +344,22 @@ const InvoiceTemplates = () => {
                       });
                     } catch (error: any) {
                       console.error("Export failed:", error);
-                      toast({
-                        title: 'Export failed',
-                        description: error?.message || 'Could not generate PDF from preview.',
-                        variant: 'destructive',
-                      });
+                      
+                      // Check if it's a rate limit error
+                      const errorMsg = error?.message || '';
+                      if (errorMsg.includes('Parallel conversions limit') || errorMsg.includes('403')) {
+                        toast({
+                          title: 'PDF service busy',
+                          description: 'Please wait a moment and try again, or use the Legacy Download button.',
+                          variant: 'destructive',
+                        });
+                      } else {
+                        toast({
+                          title: 'Export failed',
+                          description: errorMsg || 'Could not generate PDF from preview.',
+                          variant: 'destructive',
+                        });
+                      }
                     }
                   }}
                 >

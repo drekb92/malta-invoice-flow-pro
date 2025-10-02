@@ -149,7 +149,19 @@ export async function downloadPdfFromFunction(filename: string, selectedFontFami
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`PDF service failed: ${text}`);
+    let errorMessage = text;
+    
+    // Try to parse JSON error response
+    try {
+      const errorJson = JSON.parse(text);
+      if (errorJson.error) {
+        errorMessage = errorJson.error;
+      }
+    } catch {
+      // If not JSON, use the raw text
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const blob = await res.blob();
