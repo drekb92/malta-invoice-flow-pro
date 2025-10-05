@@ -39,6 +39,11 @@ interface InvoiceTemplate {
   font_size: string;
   logo_x_offset: number;
   logo_y_offset: number;
+  layout?: 'default' | 'cleanMinimal';
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_iban?: string;
+  bank_swift?: string;
   created_at?: string;
 }
 
@@ -183,6 +188,11 @@ const InvoiceTemplates = () => {
           logo_url: currentSettings.logo_url,
           logo_x_offset: currentSettings.logo_x_offset,
           logo_y_offset: currentSettings.logo_y_offset,
+          layout: currentSettings.layout,
+          bank_name: currentSettings.bank_name,
+          bank_account_name: currentSettings.bank_account_name,
+          bank_iban: currentSettings.bank_iban,
+          bank_swift: currentSettings.bank_swift,
         })
         .eq('id', currentSettings.id);
 
@@ -515,9 +525,69 @@ const InvoiceTemplates = () => {
                          </div>
                        </div>
 
-                       <Separator />
+                        <Separator />
 
-                       {/* Colors */}
+                        {/* Template Layout */}
+                        <div className="space-y-2">
+                          <Label className="text-sm">Template Layout</Label>
+                          <Select 
+                            value={currentSettings.layout || 'default'} 
+                            onValueChange={(value) => updateSetting('layout', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <Separator />
+
+                        {/* Bank Details */}
+                        <div className="space-y-4">
+                          <Label className="text-sm font-medium">Bank Details</Label>
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Bank Name</Label>
+                              <Input
+                                value={currentSettings.bank_name || ''}
+                                onChange={(e) => updateSetting('bank_name', e.target.value)}
+                                placeholder="Your Bank"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Account Name</Label>
+                              <Input
+                                value={currentSettings.bank_account_name || ''}
+                                onChange={(e) => updateSetting('bank_account_name', e.target.value)}
+                                placeholder="Your Company Ltd"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">IBAN</Label>
+                              <Input
+                                value={currentSettings.bank_iban || ''}
+                                onChange={(e) => updateSetting('bank_iban', e.target.value)}
+                                placeholder="MT00VALL220123456789000000000"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">SWIFT/BIC</Label>
+                              <Input
+                                value={currentSettings.bank_swift || ''}
+                                onChange={(e) => updateSetting('bank_swift', e.target.value)}
+                                placeholder="VALLMTMT"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Colors */}
                        <div className="space-y-4">
                          <Label className="flex items-center gap-2">
                            <Palette className="h-4 w-4" />
@@ -659,6 +729,7 @@ const InvoiceTemplates = () => {
                         variant="template"
                         invoiceData={sampleInvoiceData as any} 
                         template={templateForPreview as any}
+                        layout={currentSettings.layout || 'default'}
                       />
                     </div>
                   </div>

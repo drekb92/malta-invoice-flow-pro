@@ -1,8 +1,9 @@
 import { InvoiceTemplate } from "@/services/templateService";
 import { formatDate, money, percent, mul } from "@/lib/invoiceUtils";
+import { InvoiceCleanMinimal } from "@/components/templates/InvoiceCleanMinimal";
 
 
-interface InvoiceHTMLProps {
+export interface InvoiceHTMLProps {
   invoiceData: {
     invoiceNumber: string;
     invoiceDate: string;
@@ -34,9 +35,34 @@ interface InvoiceHTMLProps {
   template: InvoiceTemplate;
   id?: string;
   variant?: 'default' | 'template';
+  layout?: 'default' | 'cleanMinimal';
 }
 
-export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default' }: InvoiceHTMLProps) => {
+export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default', layout = 'default' }: InvoiceHTMLProps) => {
+  // If clean minimal layout is selected, render that component instead
+  if (layout === 'cleanMinimal') {
+    return (
+      <InvoiceCleanMinimal 
+        invoiceData={{
+          invoice_number: invoiceData.invoiceNumber,
+          invoice_date: invoiceData.invoiceDate,
+          due_date: invoiceData.dueDate,
+          customer_name: invoiceData.customer.name,
+          customer_email: invoiceData.customer.email,
+          customer_address: invoiceData.customer.address,
+          items: invoiceData.items,
+          subtotal: invoiceData.totals.netTotal,
+          vat_amount: invoiceData.totals.vatTotal,
+          total_amount: invoiceData.totals.grandTotal,
+          discount_amount: invoiceData.discount?.amount,
+        }}
+        template={template}
+        id={id}
+        variant={variant}
+      />
+    );
+  }
+
   const fontSizeValue = parseInt(template.font_size);
   
   // Ensure logo URL is absolute
