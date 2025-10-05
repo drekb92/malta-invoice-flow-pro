@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_note_counters: {
+        Row: {
+          business_id: string
+          id: string
+          last_seq: number
+          prefix: string
+          year: number
+        }
+        Insert: {
+          business_id: string
+          id?: string
+          last_seq?: number
+          prefix?: string
+          year: number
+        }
+        Update: {
+          business_id?: string
+          id?: string
+          last_seq?: number
+          prefix?: string
+          year?: number
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -62,6 +86,30 @@ export type Database = {
           user_id?: string | null
           vat_number?: string | null
           vat_status?: string | null
+        }
+        Relationships: []
+      }
+      invoice_counters: {
+        Row: {
+          business_id: string
+          id: string
+          last_seq: number
+          prefix: string
+          year: number
+        }
+        Insert: {
+          business_id: string
+          id?: string
+          last_seq?: number
+          prefix?: string
+          year: number
+        }
+        Update: {
+          business_id?: string
+          id?: string
+          last_seq?: number
+          prefix?: string
+          year?: number
         }
         Relationships: []
       }
@@ -116,6 +164,10 @@ export type Database = {
       invoice_templates: {
         Row: {
           accent_color: string | null
+          bank_account_name: string | null
+          bank_iban: string | null
+          bank_name: string | null
+          bank_swift: string | null
           created_at: string | null
           font_family: string | null
           font_size: string | null
@@ -130,6 +182,10 @@ export type Database = {
         }
         Insert: {
           accent_color?: string | null
+          bank_account_name?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          bank_swift?: string | null
           created_at?: string | null
           font_family?: string | null
           font_size?: string | null
@@ -144,6 +200,10 @@ export type Database = {
         }
         Update: {
           accent_color?: string | null
+          bank_account_name?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          bank_swift?: string | null
           created_at?: string | null
           font_family?: string | null
           font_size?: string | null
@@ -409,7 +469,18 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      lpad_int: {
+        Args: { n: number; pad: number }
+        Returns: string
+      }
+      next_credit_note_number: {
+        Args: { p_business_id: string; p_prefix?: string }
+        Returns: string
+      }
+      next_invoice_number: {
+        Args: { p_business_id: string; p_prefix?: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
