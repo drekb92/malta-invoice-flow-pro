@@ -11,6 +11,10 @@ export interface InvoiceTemplate {
   font_size: string;
   logo_x_offset: number;
   logo_y_offset: number;
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_iban?: string;
+  bank_swift?: string;
 }
 
 export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
@@ -33,6 +37,10 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
         font_size: '14px',
         logo_x_offset: 0,
         logo_y_offset: 0,
+        bank_name: undefined,
+        bank_account_name: undefined,
+        bank_iban: undefined,
+        bank_swift: undefined,
       };
     }
 
@@ -50,6 +58,10 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
       font_size: '14px',
       logo_x_offset: 0,
       logo_y_offset: 0,
+      bank_name: undefined,
+      bank_account_name: undefined,
+      bank_iban: undefined,
+      bank_swift: undefined,
     };
   }
 };
