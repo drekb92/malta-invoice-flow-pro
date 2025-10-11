@@ -954,6 +954,7 @@ const NewInvoice = () => {
                 logo_x_offset: 0,
                 logo_y_offset: 0,
               } as any}
+              layout={(templateForPreview as any)?.layout || 'default'}
             />
           )}
         </div>

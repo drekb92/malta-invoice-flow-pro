@@ -173,6 +173,7 @@ export type Database = {
           font_size: string | null
           id: string
           is_default: boolean | null
+          layout: string | null
           logo_url: string | null
           logo_x_offset: number | null
           logo_y_offset: number | null
@@ -191,6 +192,7 @@ export type Database = {
           font_size?: string | null
           id?: string
           is_default?: boolean | null
+          layout?: string | null
           logo_url?: string | null
           logo_x_offset?: number | null
           logo_y_offset?: number | null
@@ -209,6 +211,7 @@ export type Database = {
           font_size?: string | null
           id?: string
           is_default?: boolean | null
+          layout?: string | null
           logo_url?: string | null
           logo_x_offset?: number | null
           logo_y_offset?: number | null

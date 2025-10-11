@@ -15,6 +15,7 @@ export interface InvoiceTemplate {
   bank_account_name?: string;
   bank_iban?: string;
   bank_swift?: string;
+  layout?: 'default' | 'cleanMinimal';
 }
 
 export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
@@ -41,10 +42,15 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
         bank_account_name: undefined,
         bank_iban: undefined,
         bank_swift: undefined,
+        layout: 'default',
       };
     }
 
-    return data;
+    // Cast layout to proper type
+    return {
+      ...data,
+      layout: (data.layout === 'cleanMinimal' ? 'cleanMinimal' : 'default') as 'default' | 'cleanMinimal'
+    };
   } catch (error) {
     console.error('Error fetching default template:', error);
     // Return fallback template
@@ -62,6 +68,7 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
       bank_account_name: undefined,
       bank_iban: undefined,
       bank_swift: undefined,
+      layout: 'default',
     };
   }
 };

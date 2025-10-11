@@ -530,6 +530,7 @@ const InvoiceDetails = () => {
                   logo_x_offset: 0,
                   logo_y_offset: 0,
                 } as any}
+                layout={templateForPreview?.layout || 'default'}
               />
             )}
           </div>

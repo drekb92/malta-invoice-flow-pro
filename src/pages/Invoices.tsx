@@ -533,11 +533,12 @@ const Invoices = () => {
                   font_size: '14px',
                   logo_x_offset: 0,
                   logo_y_offset: 0,
-                } as any}
-              />
-            )}
-          </div>
-        </section>
+                  } as any}
+                layout={(templateForPreview as any)?.layout || 'default'}
+                />
+              )}
+            </div>
+          </section>
 
       </div>
     </div>

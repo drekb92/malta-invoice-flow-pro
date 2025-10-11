@@ -68,8 +68,13 @@ const InvoiceTemplates = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setTemplates(data);
-        const defaultTemplate = data.find(t => t.is_default) || data[0];
+        // Cast layout to proper type
+        const typedData = data.map(t => ({
+          ...t,
+          layout: (t.layout === 'cleanMinimal' ? 'cleanMinimal' : 'default') as 'default' | 'cleanMinimal'
+        }));
+        setTemplates(typedData);
+        const defaultTemplate = typedData.find(t => t.is_default) || typedData[0];
         setSelectedTemplate(defaultTemplate);
         setCurrentSettings(defaultTemplate);
       } else {
@@ -115,9 +120,13 @@ const InvoiceTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates([data]);
-      setSelectedTemplate(data);
-      setCurrentSettings(data);
+      const typedData = {
+        ...data,
+        layout: 'default' as 'default' | 'cleanMinimal'
+      };
+      setTemplates([typedData]);
+      setSelectedTemplate(typedData);
+      setCurrentSettings(typedData);
     } catch (error) {
       console.error('Error creating default template:', error);
     }
