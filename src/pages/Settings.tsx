@@ -60,6 +60,11 @@ interface InvoiceSettings {
   notes: string;
 }
 
+interface BankingPreferences {
+  includeBankingOnInvoices: boolean;
+  bankingDisplayFormat: string;
+}
+
 interface NotificationSettings {
   emailNotifications: boolean;
   invoiceCreated: boolean;
@@ -105,6 +110,11 @@ const Settings = () => {
     swiftCode: "",
     iban: "",
     branch: "",
+  });
+
+  const [bankingPreferences, setBankingPreferences] = useState<BankingPreferences>({
+    includeBankingOnInvoices: true,
+    bankingDisplayFormat: "full",
   });
 
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>({
@@ -154,7 +164,27 @@ const Settings = () => {
     }
   };
 
+  // IBAN validation helper
+  const validateIBAN = (iban: string): boolean => {
+    // Remove spaces and convert to uppercase
+    const cleanIBAN = iban.replace(/\s/g, '').toUpperCase();
+    
+    // Basic IBAN format check (2 letters + 2 digits + up to 30 alphanumeric)
+    const ibanRegex = /^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$/;
+    return ibanRegex.test(cleanIBAN);
+  };
+
   const handleSaveBanking = async () => {
+    // Validate IBAN if provided
+    if (bankingSettings.iban && !validateIBAN(bankingSettings.iban)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid IBAN format",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       // TODO: Implement save to Supabase
@@ -469,32 +499,144 @@ const Settings = () => {
 
             {/* Banking Tab */}
             <TabsContent value="banking">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Banking Details
-                  </CardTitle>
-                  <CardDescription>
-                    Configure your bank account information for invoices
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Banking tab content placeholder */}
-                  <div className="text-muted-foreground">
-                    Banking settings form will be implemented here
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-end">
-                    <Button onClick={handleSaveBanking} disabled={isLoading}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {isLoading ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                {/* Primary Bank Account Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Primary Bank Account
+                    </CardTitle>
+                    <CardDescription>
+                      Your bank account details that will appear on invoices
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="bank_name">
+                          Bank Name
+                        </Label>
+                        <Input
+                          id="bank_name"
+                          placeholder="e.g., Bank of Valletta"
+                          value={bankingSettings.bankName}
+                          onChange={(e) => setBankingSettings({ ...bankingSettings, bankName: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bank_account_name">
+                          Account Holder Name
+                        </Label>
+                        <Input
+                          id="bank_account_name"
+                          placeholder="Your Company Ltd"
+                          value={bankingSettings.accountName}
+                          onChange={(e) => setBankingSettings({ ...bankingSettings, accountName: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bank_iban">
+                          IBAN
+                        </Label>
+                        <Input
+                          id="bank_iban"
+                          placeholder="MT84MALT011000012345MTLCAST001S"
+                          value={bankingSettings.iban}
+                          onChange={(e) => setBankingSettings({ ...bankingSettings, iban: e.target.value })}
+                          className={bankingSettings.iban && !validateIBAN(bankingSettings.iban) ? "border-destructive" : ""}
+                        />
+                        {bankingSettings.iban && !validateIBAN(bankingSettings.iban) && (
+                          <p className="text-xs text-destructive">Invalid IBAN format</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bank_swift">
+                          SWIFT/BIC Code
+                        </Label>
+                        <Input
+                          id="bank_swift"
+                          placeholder="VALLMTMT"
+                          value={bankingSettings.swiftCode}
+                          onChange={(e) => setBankingSettings({ ...bankingSettings, swiftCode: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Banking Preferences Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <SettingsIcon className="h-5 w-5" />
+                      Banking Preferences
+                    </CardTitle>
+                    <CardDescription>
+                      Control how banking information appears on your invoices
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="include_banking">
+                            Show bank details on invoices
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Display your bank account information on generated invoices
+                          </p>
+                        </div>
+                        <Switch
+                          id="include_banking"
+                          checked={bankingPreferences.includeBankingOnInvoices}
+                          onCheckedChange={(checked) => 
+                            setBankingPreferences({ ...bankingPreferences, includeBankingOnInvoices: checked })
+                          }
+                        />
+                      </div>
+
+                      {bankingPreferences.includeBankingOnInvoices && (
+                        <div className="space-y-2">
+                          <Label htmlFor="banking_format">
+                            Display Format
+                          </Label>
+                          <Select
+                            value={bankingPreferences.bankingDisplayFormat}
+                            onValueChange={(value) => 
+                              setBankingPreferences({ ...bankingPreferences, bankingDisplayFormat: value })
+                            }
+                          >
+                            <SelectTrigger id="banking_format">
+                              <SelectValue placeholder="Select format" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="full">Full details (Bank, IBAN, SWIFT)</SelectItem>
+                              <SelectItem value="iban">IBAN only</SelectItem>
+                              <SelectItem value="custom">Custom (editable in template)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Choose how much banking information to display on invoices
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-end">
+                      <Button onClick={handleSaveBanking} disabled={isLoading}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isLoading ? "Saving..." : "Save Banking Details"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Invoice Settings Tab */}
