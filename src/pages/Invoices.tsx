@@ -36,7 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { InvoiceHTML } from "@/components/InvoiceHTML";
+import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import type { InvoiceData } from "@/services/pdfService";
@@ -487,9 +487,9 @@ const Invoices = () => {
         <div style={{ display: 'none' }}>
           {exportInvoice && template && (
             <InvoiceErrorBoundary>
-              <InvoiceHTML
+              <UnifiedInvoiceLayout
                 id="invoice-preview-root"
-                debug={true}
+                variant="pdf"
                 invoiceData={{
                   invoiceNumber: exportInvoice.invoice_number,
                   invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),
@@ -518,9 +518,13 @@ const Invoices = () => {
                     amount: exportTotals?.discountAmount ?? 0,
                   } : undefined,
                 }}
-                template={template}
-                variant="template"
-                layout={template?.layout || 'default'}
+                templateSettings={{
+                  primaryColor: template.primary_color,
+                  accentColor: template.accent_color,
+                  fontFamily: template.font_family,
+                  fontSize: template.font_size,
+                  layout: template?.layout || 'default'
+                }}
               />
             </InvoiceErrorBoundary>
           )}

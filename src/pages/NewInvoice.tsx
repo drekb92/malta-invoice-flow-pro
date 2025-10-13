@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
 import { formatNumber } from "@/lib/utils";
-import { InvoiceHTML } from "@/components/InvoiceHTML";
+import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
@@ -906,42 +906,46 @@ const NewInvoice = () => {
               Error rendering invoice preview. Please check template settings.
             </div>
           }>
-            <InvoiceHTML 
+            <UnifiedInvoiceLayout
               id="invoice-preview-root"
-              debug={true}
+              variant="pdf"
               invoiceData={{
-              invoiceNumber: invoiceNumber,
-              invoiceDate: invoiceDate,
-              dueDate: (() => {
-                const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-                const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
-                const daysMatch = paymentTerms.match(/\d+/);
-                const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
-                const invoiceDateObj = new Date(invoiceDate);
-                const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
-                return calculatedDueDate.toISOString().split("T")[0];
-              })(),
-              customer: {
-                name: customers.find(c => c.id === selectedCustomer)?.name || '',
-                email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
-                address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
-                vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
-              },
-              items: items,
-              totals: {
-                netTotal: totals.taxable,
-                vatTotal: totals.vatTotal,
-                grandTotal: totals.grandTotal,
-              },
-              discount: totals.discountAmount > 0 ? {
-                type: discountType,
-                value: discountValue,
-                amount: totals.discountAmount,
-              } : undefined,
-            }}
-              template={templateForPreview}
-              variant="template"
-              layout={templateForPreview?.layout || 'default'}
+                invoiceNumber: invoiceNumber,
+                invoiceDate: invoiceDate,
+                dueDate: (() => {
+                  const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+                  const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+                  const daysMatch = paymentTerms.match(/\d+/);
+                  const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+                  const invoiceDateObj = new Date(invoiceDate);
+                  const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
+                  return calculatedDueDate.toISOString().split("T")[0];
+                })(),
+                customer: {
+                  name: customers.find(c => c.id === selectedCustomer)?.name || '',
+                  email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
+                  address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
+                  vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
+                },
+                items: items,
+                totals: {
+                  netTotal: totals.taxable,
+                  vatTotal: totals.vatTotal,
+                  grandTotal: totals.grandTotal,
+                },
+                discount: totals.discountAmount > 0 ? {
+                  type: discountType,
+                  value: discountValue,
+                  amount: totals.discountAmount,
+                } : undefined,
+              }}
+              templateSettings={{
+                primaryColor: templateForPreview.primary_color,
+                accentColor: templateForPreview.accent_color,
+                fontFamily: templateForPreview.font_family,
+                fontSize: templateForPreview.font_size,
+                layout: templateForPreview?.layout || 'default'
+              }}
             />
           </InvoiceErrorBoundary>
         )}

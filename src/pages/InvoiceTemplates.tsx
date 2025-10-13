@@ -26,7 +26,7 @@ import {
   InfoIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { InvoiceHTML } from "@/components/InvoiceHTML";
+import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import { generatePDF } from "@/lib/pdfGenerator";
@@ -641,12 +641,17 @@ const InvoiceTemplates = () => {
 
                   <div style={{ margin: '0 auto' }}>
                     <div id="invoice-html-preview" className="invoice-page" style={{ width: '210mm', minHeight: '297mm', background: '#fff' }}>
-                      <InvoiceHTML 
+                      <UnifiedInvoiceLayout
                         id="invoice-preview-root"
-                        variant="template"
-                        invoiceData={sampleInvoiceData as any} 
-                        template={templateForPreview as any}
-                        layout={currentSettings.layout || 'default'}
+                        variant="pdf"
+                        invoiceData={sampleInvoiceData as any}
+                        templateSettings={{
+                          primaryColor: templateForPreview.primary_color,
+                          accentColor: templateForPreview.accent_color,
+                          fontFamily: templateForPreview.font_family,
+                          fontSize: templateForPreview.font_size,
+                          layout: currentSettings.layout || 'default'
+                        }}
                       />
                     </div>
                   </div>
