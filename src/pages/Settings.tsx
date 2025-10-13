@@ -12,6 +12,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { InfoIcon, CheckCircle2, AlertCircle } from "lucide-react";
 import { 
   Settings as SettingsIcon, 
   Save, 
@@ -108,6 +111,9 @@ const Settings = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   
   // State management for all settings categories
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
@@ -334,13 +340,31 @@ const Settings = () => {
       <div className="md:ml-64">
         <header className="bg-card border-b border-border">
           <div className="px-6 py-4">
-            <div className="flex items-center gap-3">
-              <SettingsIcon className="h-6 w-6 text-primary" />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-                <p className="text-sm text-muted-foreground">
-                  Manage your company information, banking, and application preferences
-                </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <SettingsIcon className="h-6 w-6 text-primary" />
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Manage your company information, banking, and application preferences
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {hasUnsavedChanges && (
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm">Unsaved changes</span>
+                  </div>
+                )}
+                {lastSaved && !hasUnsavedChanges && (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm">
+                      Saved {lastSaved.toLocaleTimeString()}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -419,7 +443,11 @@ const Settings = () => {
                           placeholder="info@company.com"
                           value={companySettings.email}
                           onChange={(e) => setCompanySettings({ ...companySettings, email: e.target.value })}
+                          className={validationErrors.company_email ? "border-destructive" : ""}
                         />
+                        {validationErrors.company_email && (
+                          <p className="text-xs text-destructive">{validationErrors.company_email}</p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -432,19 +460,41 @@ const Settings = () => {
                           placeholder="+356 1234 5678"
                           value={companySettings.phone}
                           onChange={(e) => setCompanySettings({ ...companySettings, phone: e.target.value })}
+                          className={validationErrors.company_phone ? "border-destructive" : ""}
                         />
+                        {validationErrors.company_phone ? (
+                          <p className="text-xs text-destructive">{validationErrors.company_phone}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Format: +356 1234 5678</p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="company_vat_number">
+                        <Label htmlFor="company_vat_number" className="flex items-center gap-2">
                           VAT Number
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs">Malta VAT format: MT12345678 (MT followed by 8 digits)</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </Label>
                         <Input
                           id="company_vat_number"
                           placeholder="MT12345678"
                           value={companySettings.taxId}
                           onChange={(e) => setCompanySettings({ ...companySettings, taxId: e.target.value })}
+                          className={validationErrors.company_vat ? "border-destructive" : ""}
                         />
+                        {validationErrors.company_vat ? (
+                          <p className="text-xs text-destructive">{validationErrors.company_vat}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Optional - Leave blank if exempt</p>
+                        )}
                       </div>
 
                       <div className="space-y-2 md:col-span-2">
@@ -609,18 +659,30 @@ const Settings = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="bank_iban">
+                        <Label htmlFor="bank_iban" className="flex items-center gap-2">
                           IBAN
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs">International Bank Account Number for receiving payments</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </Label>
                         <Input
                           id="bank_iban"
                           placeholder="MT84MALT011000012345MTLCAST001S"
                           value={bankingSettings.iban}
                           onChange={(e) => setBankingSettings({ ...bankingSettings, iban: e.target.value })}
-                          className={bankingSettings.iban && !validateIBAN(bankingSettings.iban) ? "border-destructive" : ""}
+                          className={validationErrors.bank_iban ? "border-destructive" : ""}
                         />
-                        {bankingSettings.iban && !validateIBAN(bankingSettings.iban) && (
-                          <p className="text-xs text-destructive">Invalid IBAN format</p>
+                        {validationErrors.bank_iban ? (
+                          <p className="text-xs text-destructive">{validationErrors.bank_iban}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Format: 2 letters, 2 digits, up to 30 alphanumeric</p>
                         )}
                       </div>
 
