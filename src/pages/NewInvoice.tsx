@@ -24,6 +24,7 @@ import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
+import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 
 interface Customer {
   id: string;
@@ -900,9 +901,15 @@ const NewInvoice = () => {
       {/* Hidden A4 DOM used for 1:1 export */}
       <div style={{ display: 'none' }}>
         {selectedCustomer && templateForPreview && !templateLoading && (
-          <InvoiceHTML
-            id="invoice-preview-root"
-            invoiceData={{
+          <InvoiceErrorBoundary fallback={
+            <div className="p-4 bg-red-50 text-red-800">
+              Error rendering invoice preview. Please check template settings.
+            </div>
+          }>
+            <InvoiceHTML 
+              id="invoice-preview-root"
+              debug={true}
+              invoiceData={{
               invoiceNumber: invoiceNumber,
               invoiceDate: invoiceDate,
               dueDate: (() => {
@@ -932,10 +939,11 @@ const NewInvoice = () => {
                 amount: totals.discountAmount,
               } : undefined,
             }}
-            template={templateForPreview}
-            variant="template"
-            layout={templateForPreview?.layout || 'default'}
-          />
+              template={templateForPreview}
+              variant="template"
+              layout={templateForPreview?.layout || 'default'}
+            />
+          </InvoiceErrorBoundary>
         )}
       </div>
     </div>

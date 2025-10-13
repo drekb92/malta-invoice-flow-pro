@@ -24,11 +24,13 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
       setIsLoading(true);
       setError(null);
       
+      console.log('[useInvoiceTemplate] Loading template...');
       const loadedTemplate = await getDefaultTemplate();
+      console.log('[useInvoiceTemplate] Template loaded:', loadedTemplate);
       
       // Validate template has required fields
       if (!loadedTemplate.primary_color || !loadedTemplate.accent_color) {
-        console.warn('Template missing required color fields, using defaults');
+        console.warn('[useInvoiceTemplate] Template missing required color fields, using defaults');
       }
       
       // Ensure consistent font family format
@@ -41,11 +43,12 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         layout: loadedTemplate.layout || 'default',
       } as InvoiceTemplate;
       
+      console.log('[useInvoiceTemplate] Normalized template:', normalizedTemplate);
       setTemplate(normalizedTemplate);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load template';
       setError(errorMessage);
-      console.error('Template loading error:', err);
+      console.error('[useInvoiceTemplate] Template loading error:', err);
       
       // Set fallback template to prevent complete failure
       const fallbackTemplate: InvoiceTemplate = {
@@ -61,6 +64,7 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         layout: 'default',
       };
       
+      console.log('[useInvoiceTemplate] Using fallback template');
       setTemplate(fallbackTemplate);
       
       toast({

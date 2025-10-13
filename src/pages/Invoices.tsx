@@ -41,6 +41,7 @@ import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import type { InvoiceData } from "@/services/pdfService";
 import { formatCurrency } from "@/lib/utils";
+import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 
 interface Invoice {
   id: string;
@@ -162,10 +163,25 @@ const Invoices = () => {
 
   const handleDownloadPDF = async (invoiceId: string) => {
     try {
+      console.log('[Invoices] Starting PDF download for invoice:', invoiceId);
+      
       const invoice = invoices.find(inv => inv.id === invoiceId);
       if (!invoice) {
         throw new Error('Invoice not found');
       }
+
+      // Validate template is loaded
+      if (!template) {
+        console.error('[Invoices] Template not loaded, cannot generate PDF');
+        throw new Error('Template not loaded. Please refresh the page.');
+      }
+      
+      console.log('[Invoices] Using template:', {
+        id: template.id,
+        name: template.name,
+        layout: template.layout,
+        hasLogo: !!template.logo_url,
+      });
 
       // Fetch items and totals
       const { data: itemsData, error: itemsError } = await supabase
@@ -200,6 +216,7 @@ const Invoices = () => {
       const total = totalsData?.total_amount ?? net + vat;
 
       // Set state for hidden DOM
+      console.log('[Invoices] Setting export state for DOM rendering');
       setExportInvoice(invoice);
       setExportItems(itemsData || []);
       setExportTotals({ 
@@ -214,6 +231,7 @@ const Invoices = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Use edge function for PDF generation
+      console.log('[Invoices] Calling edge function for PDF generation');
       const filename = `Invoice-${invoice.invoice_number}`;
       const result = await exportInvoicePdfAction({
         filename,
@@ -221,11 +239,13 @@ const Invoices = () => {
       });
       
       if (result.ok) {
+        console.log('[Invoices] PDF generated successfully');
         toast({ title: 'Success', description: 'PDF downloaded successfully' });
       } else {
         throw new Error(result.error || 'Export failed');
       }
     } catch (error) {
+      console.error('[Invoices] PDF download error:', error);
       toast({
         title: 'Error',
         description: `Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -466,40 +486,43 @@ const Invoices = () => {
         {/* Hidden A4 DOM used for 1:1 export */}
         <div style={{ display: 'none' }}>
           {exportInvoice && template && (
-            <InvoiceHTML
-              id="invoice-preview-root"
-              invoiceData={{
-                invoiceNumber: exportInvoice.invoice_number,
-                invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),
-                dueDate: exportInvoice.due_date,
-                customer: {
-                  name: exportInvoice.customers?.name || 'Unknown Customer',
-                  email: exportInvoice.customers?.email || undefined,
-                  address: exportInvoice.customers?.address || undefined,
-                  vat_number: exportInvoice.customers?.vat_number || undefined,
-                },
-                items: exportItems.map((i: any) => ({
-                  description: i.description,
-                  quantity: i.quantity,
-                  unit_price: i.unit_price,
-                  vat_rate: i.vat_rate,
-                  unit: i.unit,
-                })),
-                totals: {
-                  netTotal: Number(exportTotals?.net ?? 0),
-                  vatTotal: Number(exportTotals?.vat ?? 0),
-                  grandTotal: Number(exportTotals?.total ?? 0),
-                },
-                discount: (exportTotals?.discountAmount ?? 0) > 0 ? {
-                  type: (exportInvoice.discount_type as 'amount' | 'percent') || 'amount',
-                  value: Number(exportInvoice.discount_value || 0),
-                  amount: exportTotals?.discountAmount ?? 0,
-                } : undefined,
-              }}
-              template={template}
-              variant="template"
-              layout={template?.layout || 'default'}
-            />
+            <InvoiceErrorBoundary>
+              <InvoiceHTML
+                id="invoice-preview-root"
+                debug={true}
+                invoiceData={{
+                  invoiceNumber: exportInvoice.invoice_number,
+                  invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),
+                  dueDate: exportInvoice.due_date,
+                  customer: {
+                    name: exportInvoice.customers?.name || 'Unknown Customer',
+                    email: exportInvoice.customers?.email || undefined,
+                    address: exportInvoice.customers?.address || undefined,
+                    vat_number: exportInvoice.customers?.vat_number || undefined,
+                  },
+                  items: exportItems.map((i: any) => ({
+                    description: i.description,
+                    quantity: i.quantity,
+                    unit_price: i.unit_price,
+                    vat_rate: i.vat_rate,
+                    unit: i.unit,
+                  })),
+                  totals: {
+                    netTotal: Number(exportTotals?.net ?? 0),
+                    vatTotal: Number(exportTotals?.vat ?? 0),
+                    grandTotal: Number(exportTotals?.total ?? 0),
+                  },
+                  discount: (exportTotals?.discountAmount ?? 0) > 0 ? {
+                    type: (exportInvoice.discount_type as 'amount' | 'percent') || 'amount',
+                    value: Number(exportInvoice.discount_value || 0),
+                    amount: exportTotals?.discountAmount ?? 0,
+                  } : undefined,
+                }}
+                template={template}
+                variant="template"
+                layout={template?.layout || 'default'}
+              />
+            </InvoiceErrorBoundary>
           )}
         </div>
 

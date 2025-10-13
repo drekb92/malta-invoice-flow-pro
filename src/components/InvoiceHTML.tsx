@@ -36,9 +36,20 @@ export interface InvoiceHTMLProps {
   id?: string;
   variant?: 'default' | 'template';
   layout?: 'default' | 'cleanMinimal';
+  debug?: boolean;
 }
 
-export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default', layout = 'default' }: InvoiceHTMLProps) => {
+export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default', layout = 'default', debug = false }: InvoiceHTMLProps) => {
+  if (debug) {
+    console.log('[InvoiceHTML] Rendering with:', {
+      template: { ...template, logo_url: template.logo_url ? 'set' : 'none' },
+      layout,
+      variant,
+      invoiceNumber: invoiceData.invoiceNumber,
+      customer: invoiceData.customer.name,
+    });
+  }
+  
   // If clean minimal layout is selected, render that component instead
   if (layout === 'cleanMinimal') {
     return (
