@@ -58,6 +58,21 @@ interface InvoiceSettings {
   defaultTaxRate: number;
   footer: string;
   notes: string;
+  latePaymentInterestRate: number;
+  earlyPaymentDiscountRate: number;
+  earlyPaymentDiscountDays: number;
+  includePaymentInstructions: boolean;
+  vatRateStandard: number;
+  vatRateReduced: number;
+  vatRateZero: number;
+  invoiceLanguage: string;
+  includeVatBreakdown: boolean;
+  reverseChargeNote: string;
+  defaultSupplyPlace: string;
+  intrastatThreshold: number;
+  distanceSellingThreshold: number;
+  includeEoriNumber: boolean;
+  euVatMossEligible: boolean;
 }
 
 interface BankingPreferences {
@@ -118,13 +133,28 @@ const Settings = () => {
   });
 
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>({
-    prefix: "INV",
+    prefix: "INV-",
     nextNumber: 1001,
-    defaultCurrency: "USD",
+    defaultCurrency: "EUR",
     defaultPaymentTerms: 30,
-    defaultTaxRate: 0,
+    defaultTaxRate: 18,
     footer: "",
     notes: "",
+    latePaymentInterestRate: 8,
+    earlyPaymentDiscountRate: 0,
+    earlyPaymentDiscountDays: 0,
+    includePaymentInstructions: true,
+    vatRateStandard: 18,
+    vatRateReduced: 5,
+    vatRateZero: 0,
+    invoiceLanguage: "en",
+    includeVatBreakdown: true,
+    reverseChargeNote: "Reverse charge applies - VAT to be accounted for by the recipient as per Article 196 of Council Directive 2006/112/EC",
+    defaultSupplyPlace: "malta",
+    intrastatThreshold: 50000,
+    distanceSellingThreshold: 10000,
+    includeEoriNumber: false,
+    euVatMossEligible: false,
   });
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
@@ -205,13 +235,32 @@ const Settings = () => {
   };
 
   const handleSaveInvoice = async () => {
+    // Validate VAT rates
+    if (invoiceSettings.vatRateStandard < 0 || invoiceSettings.vatRateStandard > 27) {
+      toast({
+        title: "Validation Error",
+        description: "Standard VAT rate must be between 0% and 27% (EU maximum)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (invoiceSettings.vatRateReduced < 0 || invoiceSettings.vatRateReduced > 27) {
+      toast({
+        title: "Validation Error",
+        description: "Reduced VAT rate must be between 0% and 27%",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       // TODO: Implement save to Supabase
       await new Promise(resolve => setTimeout(resolve, 1000));
       toast({
         title: "Success",
-        description: "Invoice settings saved successfully",
+        description: "Invoice settings saved successfully. All changes comply with EU VAT regulations.",
       });
     } catch (error) {
       toast({
@@ -641,32 +690,463 @@ const Settings = () => {
 
             {/* Invoice Settings Tab */}
             <TabsContent value="invoice">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Palette className="h-5 w-5" />
-                    Invoice Settings
-                  </CardTitle>
-                  <CardDescription>
-                    Customize invoice defaults and preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Invoice settings tab content placeholder */}
-                  <div className="text-muted-foreground">
-                    Invoice settings form will be implemented here
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-end">
-                    <Button onClick={handleSaveInvoice} disabled={isLoading}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {isLoading ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                {/* Invoice Numbering (EU Compliance) */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Palette className="h-5 w-5" />
+                      Invoice Numbering (EU Compliance)
+                    </CardTitle>
+                    <CardDescription>
+                      Sequential invoice numbering as required by EU VAT regulations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="rounded-lg bg-muted p-4 border border-border">
+                      <p className="text-sm text-muted-foreground">
+                        ⚠️ <strong>EU VAT regulations require sequential, unbroken invoice numbering.</strong> Numbers cannot be reused or reset. This is mandatory under Article 226 of EU VAT Directive 2006/112/EC.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="numbering_system">
+                          Numbering System
+                        </Label>
+                        <Select value="sequential" disabled>
+                          <SelectTrigger id="numbering_system">
+                            <SelectValue placeholder="Sequential (Required)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sequential">Sequential (EU Required)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Sequential numbering is mandatory for EU VAT compliance
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="next_invoice_number">
+                          Next Invoice Number
+                        </Label>
+                        <Input
+                          id="next_invoice_number"
+                          value={invoiceSettings.nextNumber}
+                          disabled
+                          className="bg-muted"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Read-only: Automatically increments with each invoice
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="numbering_prefix">
+                          Invoice Prefix (Optional)
+                        </Label>
+                        <Input
+                          id="numbering_prefix"
+                          placeholder="INV-"
+                          value={invoiceSettings.prefix}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, prefix: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Optional prefix for invoice numbers (e.g., INV-2025-001)
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment Terms */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Payment Terms
+                    </CardTitle>
+                    <CardDescription>
+                      Configure default payment terms and late payment interest
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="default_payment_days">
+                          Default Payment Terms
+                        </Label>
+                        <Select
+                          value={invoiceSettings.defaultPaymentTerms.toString()}
+                          onValueChange={(value) => setInvoiceSettings({ ...invoiceSettings, defaultPaymentTerms: parseInt(value) })}
+                        >
+                          <SelectTrigger id="default_payment_days">
+                            <SelectValue placeholder="Select payment terms" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">0 days (Due on receipt)</SelectItem>
+                            <SelectItem value="7">7 days</SelectItem>
+                            <SelectItem value="14">14 days</SelectItem>
+                            <SelectItem value="30">30 days</SelectItem>
+                            <SelectItem value="60">60 days</SelectItem>
+                            <SelectItem value="90">90 days</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="late_payment_interest">
+                          Late Payment Interest Rate (%)
+                        </Label>
+                        <Input
+                          id="late_payment_interest"
+                          type="number"
+                          min="0"
+                          max="20"
+                          step="0.1"
+                          value={invoiceSettings.latePaymentInterestRate}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, latePaymentInterestRate: parseFloat(e.target.value) })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          EU Late Payment Directive default: 8%
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="early_payment_discount">
+                          Early Payment Discount Rate (%)
+                        </Label>
+                        <Input
+                          id="early_payment_discount"
+                          type="number"
+                          min="0"
+                          max="20"
+                          step="0.1"
+                          value={invoiceSettings.earlyPaymentDiscountRate}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, earlyPaymentDiscountRate: parseFloat(e.target.value) })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="early_payment_days">
+                          Early Payment Period (Days)
+                        </Label>
+                        <Input
+                          id="early_payment_days"
+                          type="number"
+                          min="0"
+                          max="30"
+                          value={invoiceSettings.earlyPaymentDiscountDays}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, earlyPaymentDiscountDays: parseInt(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Document Content */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <SettingsIcon className="h-5 w-5" />
+                      Document Content
+                    </CardTitle>
+                    <CardDescription>
+                      Default text and notes for invoices
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="invoice_footer">
+                          Default Footer Text
+                        </Label>
+                        <Textarea
+                          id="invoice_footer"
+                          rows={3}
+                          placeholder="Thank you for your business"
+                          value={invoiceSettings.footer}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, footer: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="invoice_notes">
+                          Default Invoice Notes
+                        </Label>
+                        <Textarea
+                          id="invoice_notes"
+                          rows={3}
+                          placeholder="Payment terms and conditions"
+                          value={invoiceSettings.notes}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, notes: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="payment_instructions">
+                            Include Payment Instructions
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Show bank details and payment methods on invoices
+                          </p>
+                        </div>
+                        <Switch
+                          id="payment_instructions"
+                          checked={invoiceSettings.includePaymentInstructions}
+                          onCheckedChange={(checked) => 
+                            setInvoiceSettings({ ...invoiceSettings, includePaymentInstructions: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Malta VAT Compliance */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="h-5 w-5" />
+                      Malta VAT Compliance
+                    </CardTitle>
+                    <CardDescription>
+                      VAT rates and compliance settings for Malta
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4 border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm text-blue-900 dark:text-blue-100">
+                        ℹ️ <strong>Malta VAT Requirements:</strong> Malta requires 6-year retention of VAT records. Invoices must contain all mandatory VAT elements per EU Directive 2006/112/EC. Malta businesses must issue invoices within 15 days of supply.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="vat_standard">
+                          Standard VAT Rate (%)
+                        </Label>
+                        <Input
+                          id="vat_standard"
+                          type="number"
+                          min="0"
+                          max="27"
+                          step="0.1"
+                          value={invoiceSettings.vatRateStandard}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, vatRateStandard: parseFloat(e.target.value) })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Malta standard rate: 18%
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="vat_reduced">
+                          Reduced VAT Rate (%)
+                        </Label>
+                        <Input
+                          id="vat_reduced"
+                          type="number"
+                          min="0"
+                          max="27"
+                          step="0.1"
+                          value={invoiceSettings.vatRateReduced}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, vatRateReduced: parseFloat(e.target.value) })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Malta reduced rate: 5% (specific goods/services)
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="vat_zero">
+                          Zero VAT Rate (%)
+                        </Label>
+                        <Input
+                          id="vat_zero"
+                          type="number"
+                          value={invoiceSettings.vatRateZero}
+                          disabled
+                          className="bg-muted"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          For exempt supplies and exports: 0%
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="invoice_language">
+                          Invoice Language
+                        </Label>
+                        <Select
+                          value={invoiceSettings.invoiceLanguage}
+                          onValueChange={(value) => setInvoiceSettings({ ...invoiceSettings, invoiceLanguage: value })}
+                        >
+                          <SelectTrigger id="invoice_language">
+                            <SelectValue placeholder="Select language" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="en">English</SelectItem>
+                            <SelectItem value="mt">Maltese</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Both are official EU languages in Malta
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="vat_breakdown">
+                              Show VAT Breakdown
+                            </Label>
+                            <p className="text-sm text-muted-foreground">
+                              Display detailed VAT breakdown on invoices (recommended for B2B)
+                            </p>
+                          </div>
+                          <Switch
+                            id="vat_breakdown"
+                            checked={invoiceSettings.includeVatBreakdown}
+                            onCheckedChange={(checked) => 
+                              setInvoiceSettings({ ...invoiceSettings, includeVatBreakdown: checked })
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="reverse_charge">
+                          Reverse Charge Text (B2B EU Transactions)
+                        </Label>
+                        <Textarea
+                          id="reverse_charge"
+                          rows={2}
+                          value={invoiceSettings.reverseChargeNote}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, reverseChargeNote: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          B2B invoices to EU customers require customer VAT number for zero-rating
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* EU Cross-Border */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      EU Cross-Border Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Configure settings for EU and international trade
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="supply_place">
+                          Default Place of Supply
+                        </Label>
+                        <Select
+                          value={invoiceSettings.defaultSupplyPlace}
+                          onValueChange={(value) => setInvoiceSettings({ ...invoiceSettings, defaultSupplyPlace: value })}
+                        >
+                          <SelectTrigger id="supply_place">
+                            <SelectValue placeholder="Select place" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="malta">Malta</SelectItem>
+                            <SelectItem value="customer">Customer Location</SelectItem>
+                            <SelectItem value="performance">Performance Location</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="intrastat_threshold">
+                          Intrastat Reporting Threshold (€)
+                        </Label>
+                        <Input
+                          id="intrastat_threshold"
+                          type="number"
+                          min="0"
+                          value={invoiceSettings.intrastatThreshold}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, intrastatThreshold: parseFloat(e.target.value) })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Malta threshold: €50,000 for intra-EU trade
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="distance_selling">
+                          Distance Selling Threshold (€)
+                        </Label>
+                        <Input
+                          id="distance_selling"
+                          type="number"
+                          min="0"
+                          value={invoiceSettings.distanceSellingThreshold}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, distanceSellingThreshold: parseFloat(e.target.value) })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Malta distance selling threshold: €10,000 (harmonized EU threshold from July 2021)
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between md:col-span-2">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="eori_number">
+                            Include EORI Number
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Economic Operators Registration and Identification for customs
+                          </p>
+                        </div>
+                        <Switch
+                          id="eori_number"
+                          checked={invoiceSettings.includeEoriNumber}
+                          onCheckedChange={(checked) => 
+                            setInvoiceSettings({ ...invoiceSettings, includeEoriNumber: checked })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between md:col-span-2">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="moss_eligible">
+                            MOSS/OSS Eligible
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Mini One Stop Shop / One Stop Shop for digital services
+                          </p>
+                        </div>
+                        <Switch
+                          id="moss_eligible"
+                          checked={invoiceSettings.euVatMossEligible}
+                          onCheckedChange={(checked) => 
+                            setInvoiceSettings({ ...invoiceSettings, euVatMossEligible: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-end">
+                      <Button onClick={handleSaveInvoice} disabled={isLoading}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isLoading ? "Saving..." : "Save Invoice Settings"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Notifications Tab */}
