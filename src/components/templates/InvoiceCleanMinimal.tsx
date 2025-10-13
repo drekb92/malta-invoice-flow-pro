@@ -10,6 +10,7 @@ interface InvoiceHTMLProps {
     customer_name: string;
     customer_email: string;
     customer_address?: string;
+    customer_vat_number?: string;
     items: Array<{
       description: string;
       quantity: number;
@@ -96,6 +97,9 @@ export function InvoiceCleanMinimal({
         )}
         {invoiceData.customer_address && (
           <div className="text-sm text-gray-600 whitespace-pre-line">{invoiceData.customer_address}</div>
+        )}
+        {invoiceData.customer_vat_number && (
+          <div className="text-sm text-gray-600"><span className="font-medium">VAT:</span> {invoiceData.customer_vat_number}</div>
         )}
       </div>
 
