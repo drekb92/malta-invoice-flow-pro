@@ -82,11 +82,14 @@ interface BankingPreferences {
 
 interface NotificationSettings {
   emailNotifications: boolean;
-  invoiceCreated: boolean;
-  invoicePaid: boolean;
-  invoiceOverdue: boolean;
-  paymentReceived: boolean;
-  reminderDays: number;
+  emailReminders: boolean;
+  paymentNotifications: boolean;
+  overdueAlerts: boolean;
+  weeklyReports: boolean;
+  customerCommunications: boolean;
+  firstReminderDays: number;
+  secondReminderDays: number;
+  finalNoticeDays: number;
 }
 
 interface PreferenceSettings {
@@ -159,11 +162,14 @@ const Settings = () => {
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     emailNotifications: true,
-    invoiceCreated: true,
-    invoicePaid: true,
-    invoiceOverdue: true,
-    paymentReceived: true,
-    reminderDays: 7,
+    emailReminders: true,
+    paymentNotifications: true,
+    overdueAlerts: true,
+    weeklyReports: false,
+    customerCommunications: false,
+    firstReminderDays: 7,
+    secondReminderDays: 14,
+    finalNoticeDays: 21,
   });
 
   const [preferenceSettings, setPreferenceSettings] = useState<PreferenceSettings>({
@@ -1151,32 +1157,215 @@ const Settings = () => {
 
             {/* Notifications Tab */}
             <TabsContent value="notifications">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="h-5 w-5" />
-                    Notification Preferences
-                  </CardTitle>
-                  <CardDescription>
-                    Control how and when you receive notifications
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Notifications tab content placeholder */}
-                  <div className="text-muted-foreground">
-                    Notification settings form will be implemented here
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-end">
-                    <Button onClick={handleSaveNotifications} disabled={isLoading}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {isLoading ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                {/* Email Notifications Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Bell className="h-5 w-5" />
+                      Email Notifications
+                    </CardTitle>
+                    <CardDescription>
+                      Choose which email notifications you want to receive
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="email_reminders">
+                            Payment Reminders
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Send email reminders for overdue invoices
+                          </p>
+                        </div>
+                        <Switch
+                          id="email_reminders"
+                          checked={notificationSettings.emailReminders}
+                          onCheckedChange={(checked) => 
+                            setNotificationSettings({ ...notificationSettings, emailReminders: checked })
+                          }
+                        />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="payment_notifications">
+                            Payment Received
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Get notified when payments are received
+                          </p>
+                        </div>
+                        <Switch
+                          id="payment_notifications"
+                          checked={notificationSettings.paymentNotifications}
+                          onCheckedChange={(checked) => 
+                            setNotificationSettings({ ...notificationSettings, paymentNotifications: checked })
+                          }
+                        />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="overdue_alerts">
+                            Overdue Alerts
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Daily alerts for overdue invoices
+                          </p>
+                        </div>
+                        <Switch
+                          id="overdue_alerts"
+                          checked={notificationSettings.overdueAlerts}
+                          onCheckedChange={(checked) => 
+                            setNotificationSettings({ ...notificationSettings, overdueAlerts: checked })
+                          }
+                        />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="weekly_reports">
+                            Weekly Reports
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Weekly summary of invoices and payments
+                          </p>
+                        </div>
+                        <Switch
+                          id="weekly_reports"
+                          checked={notificationSettings.weeklyReports}
+                          onCheckedChange={(checked) => 
+                            setNotificationSettings({ ...notificationSettings, weeklyReports: checked })
+                          }
+                        />
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="customer_communications">
+                            Customer Updates
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Notifications when customers view/download invoices
+                          </p>
+                        </div>
+                        <Switch
+                          id="customer_communications"
+                          checked={notificationSettings.customerCommunications}
+                          onCheckedChange={(checked) => 
+                            setNotificationSettings({ ...notificationSettings, customerCommunications: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Reminder Schedule Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Mail className="h-5 w-5" />
+                      Reminder Schedule
+                    </CardTitle>
+                    <CardDescription>
+                      Configure when payment reminders are sent for overdue invoices
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="first_reminder">
+                          First Reminder
+                        </Label>
+                        <Select
+                          value={notificationSettings.firstReminderDays.toString()}
+                          onValueChange={(value) => 
+                            setNotificationSettings({ ...notificationSettings, firstReminderDays: parseInt(value) })
+                          }
+                        >
+                          <SelectTrigger id="first_reminder">
+                            <SelectValue placeholder="Select days" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="3">3 days after due date</SelectItem>
+                            <SelectItem value="7">7 days after due date</SelectItem>
+                            <SelectItem value="14">14 days after due date</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="second_reminder">
+                          Second Reminder
+                        </Label>
+                        <Select
+                          value={notificationSettings.secondReminderDays.toString()}
+                          onValueChange={(value) => 
+                            setNotificationSettings({ ...notificationSettings, secondReminderDays: parseInt(value) })
+                          }
+                        >
+                          <SelectTrigger id="second_reminder">
+                            <SelectValue placeholder="Select days" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="7">7 days after 1st reminder</SelectItem>
+                            <SelectItem value="14">14 days after 1st reminder</SelectItem>
+                            <SelectItem value="21">21 days after 1st reminder</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="final_notice">
+                          Final Notice
+                        </Label>
+                        <Select
+                          value={notificationSettings.finalNoticeDays.toString()}
+                          onValueChange={(value) => 
+                            setNotificationSettings({ ...notificationSettings, finalNoticeDays: parseInt(value) })
+                          }
+                        >
+                          <SelectTrigger id="final_notice">
+                            <SelectValue placeholder="Select days" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="14">14 days after 2nd reminder</SelectItem>
+                            <SelectItem value="21">21 days after 2nd reminder</SelectItem>
+                            <SelectItem value="30">30 days after 2nd reminder</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-muted p-4 border border-border">
+                      <p className="text-sm text-muted-foreground">
+                        💡 <strong>Tip:</strong> Automated reminders help maintain healthy cash flow. Customers will receive polite reminders at the intervals you specify above.
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-end">
+                      <Button onClick={handleSaveNotifications} disabled={isLoading}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isLoading ? "Saving..." : "Save Notification Settings"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Preferences Tab */}
