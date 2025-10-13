@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
-import { getDefaultTemplate } from "@/services/templateService";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
 
@@ -61,7 +61,6 @@ const NewInvoice = () => {
   ]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
   const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>("");
@@ -72,6 +71,9 @@ const NewInvoice = () => {
   const { id } = useParams();
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // Load template using unified hook
+  const { template: templateForPreview, isLoading: templateLoading } = useInvoiceTemplate();
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -246,18 +248,6 @@ const NewInvoice = () => {
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
-
-  useEffect(() => {
-    const loadTemplate = async () => {
-      try {
-        const t = await getDefaultTemplate();
-        setTemplateForPreview(t as any);
-      } catch (e) {
-        // Fallback handled by consumer
-      }
-    };
-    loadTemplate();
   }, []);
 
   useEffect(() => {
@@ -909,8 +899,8 @@ const NewInvoice = () => {
 
       {/* Hidden A4 DOM used for 1:1 export */}
       <div style={{ display: 'none' }}>
-        {selectedCustomer && templateForPreview && (
-          <InvoiceHTML 
+        {selectedCustomer && templateForPreview && !templateLoading && (
+          <InvoiceHTML
             id="invoice-preview-root"
             invoiceData={{
               invoiceNumber: invoiceNumber,
