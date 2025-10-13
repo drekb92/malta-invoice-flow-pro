@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Settings as SettingsIcon, 
   Save, 
@@ -106,6 +107,7 @@ interface PreferenceSettings {
 const Settings = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
   // State management for all settings categories
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
@@ -345,7 +347,15 @@ const Settings = () => {
         </header>
 
         <main className="p-6">
-          <Tabs defaultValue="company" className="w-full">
+          {isInitialLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading settings...</p>
+              </div>
+            </div>
+          ) : (
+            <Tabs defaultValue="company" className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-6">
               <TabsTrigger value="company" className="gap-2">
                 <Building className="h-4 w-4" />
@@ -1618,6 +1628,7 @@ const Settings = () => {
               </div>
             </TabsContent>
           </Tabs>
+          )}
         </main>
       </div>
     </div>

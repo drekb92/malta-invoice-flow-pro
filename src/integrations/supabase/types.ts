@@ -14,6 +14,123 @@ export type Database = {
   }
   public: {
     Tables: {
+      banking_details: {
+        Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_iban: string | null
+          bank_name: string | null
+          bank_routing_number: string | null
+          bank_swift_code: string | null
+          created_at: string | null
+          display_format: string | null
+          id: string
+          include_on_invoices: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          bank_routing_number?: string | null
+          bank_swift_code?: string | null
+          created_at?: string | null
+          display_format?: string | null
+          id?: string
+          include_on_invoices?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          bank_routing_number?: string | null
+          bank_swift_code?: string | null
+          created_at?: string | null
+          display_format?: string | null
+          id?: string
+          include_on_invoices?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      company_settings: {
+        Row: {
+          company_address: string | null
+          company_city: string | null
+          company_country: string | null
+          company_email: string | null
+          company_logo: string | null
+          company_name: string | null
+          company_phone: string | null
+          company_registration_number: string | null
+          company_state: string | null
+          company_vat_number: string | null
+          company_website: string | null
+          company_zip_code: string | null
+          created_at: string | null
+          currency_code: string | null
+          default_payment_terms: number | null
+          id: string
+          invoice_prefix: string | null
+          quotation_prefix: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          company_address?: string | null
+          company_city?: string | null
+          company_country?: string | null
+          company_email?: string | null
+          company_logo?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          company_registration_number?: string | null
+          company_state?: string | null
+          company_vat_number?: string | null
+          company_website?: string | null
+          company_zip_code?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          default_payment_terms?: number | null
+          id?: string
+          invoice_prefix?: string | null
+          quotation_prefix?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          company_address?: string | null
+          company_city?: string | null
+          company_country?: string | null
+          company_email?: string | null
+          company_logo?: string | null
+          company_name?: string | null
+          company_phone?: string | null
+          company_registration_number?: string | null
+          company_state?: string | null
+          company_vat_number?: string | null
+          company_website?: string | null
+          company_zip_code?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          default_payment_terms?: number | null
+          id?: string
+          invoice_prefix?: string | null
+          quotation_prefix?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_note_counters: {
         Row: {
           business_id: string
@@ -160,6 +277,87 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      invoice_settings: {
+        Row: {
+          created_at: string | null
+          default_invoice_notes: string | null
+          default_payment_days: number | null
+          default_supply_place: string | null
+          distance_selling_threshold: number | null
+          early_payment_discount_days: number | null
+          early_payment_discount_rate: number | null
+          eu_vat_moss_eligible: boolean | null
+          id: string
+          include_eori_number: boolean | null
+          include_payment_instructions: boolean | null
+          include_vat_breakdown: boolean | null
+          intrastat_threshold: number | null
+          invoice_footer_text: string | null
+          invoice_language: string | null
+          late_payment_interest_rate: number | null
+          next_invoice_number: number | null
+          numbering_prefix: string | null
+          reverse_charge_note: string | null
+          updated_at: string | null
+          user_id: string
+          vat_rate_reduced: number | null
+          vat_rate_standard: number | null
+          vat_rate_zero: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_invoice_notes?: string | null
+          default_payment_days?: number | null
+          default_supply_place?: string | null
+          distance_selling_threshold?: number | null
+          early_payment_discount_days?: number | null
+          early_payment_discount_rate?: number | null
+          eu_vat_moss_eligible?: boolean | null
+          id?: string
+          include_eori_number?: boolean | null
+          include_payment_instructions?: boolean | null
+          include_vat_breakdown?: boolean | null
+          intrastat_threshold?: number | null
+          invoice_footer_text?: string | null
+          invoice_language?: string | null
+          late_payment_interest_rate?: number | null
+          next_invoice_number?: number | null
+          numbering_prefix?: string | null
+          reverse_charge_note?: string | null
+          updated_at?: string | null
+          user_id: string
+          vat_rate_reduced?: number | null
+          vat_rate_standard?: number | null
+          vat_rate_zero?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          default_invoice_notes?: string | null
+          default_payment_days?: number | null
+          default_supply_place?: string | null
+          distance_selling_threshold?: number | null
+          early_payment_discount_days?: number | null
+          early_payment_discount_rate?: number | null
+          eu_vat_moss_eligible?: boolean | null
+          id?: string
+          include_eori_number?: boolean | null
+          include_payment_instructions?: boolean | null
+          include_vat_breakdown?: boolean | null
+          intrastat_threshold?: number | null
+          invoice_footer_text?: string | null
+          invoice_language?: string | null
+          late_payment_interest_rate?: number | null
+          next_invoice_number?: number | null
+          numbering_prefix?: string | null
+          reverse_charge_note?: string | null
+          updated_at?: string | null
+          user_id?: string
+          vat_rate_reduced?: number | null
+          vat_rate_standard?: number | null
+          vat_rate_zero?: number | null
+        }
+        Relationships: []
       }
       invoice_templates: {
         Row: {
@@ -445,6 +643,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string | null
+          currency_position: string | null
+          currency_symbol_display: string | null
+          customer_communications: boolean | null
+          date_format: string | null
+          default_view: string | null
+          email_reminders: boolean | null
+          final_notice_days: number | null
+          first_reminder_days: number | null
+          id: string
+          items_per_page: number | null
+          language: string | null
+          overdue_alerts: boolean | null
+          payment_notifications: boolean | null
+          second_reminder_days: number | null
+          theme: string | null
+          time_format: string | null
+          updated_at: string | null
+          user_id: string
+          weekly_reports: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency_position?: string | null
+          currency_symbol_display?: string | null
+          customer_communications?: boolean | null
+          date_format?: string | null
+          default_view?: string | null
+          email_reminders?: boolean | null
+          final_notice_days?: number | null
+          first_reminder_days?: number | null
+          id?: string
+          items_per_page?: number | null
+          language?: string | null
+          overdue_alerts?: boolean | null
+          payment_notifications?: boolean | null
+          second_reminder_days?: number | null
+          theme?: string | null
+          time_format?: string | null
+          updated_at?: string | null
+          user_id: string
+          weekly_reports?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          currency_position?: string | null
+          currency_symbol_display?: string | null
+          customer_communications?: boolean | null
+          date_format?: string | null
+          default_view?: string | null
+          email_reminders?: boolean | null
+          final_notice_days?: number | null
+          first_reminder_days?: number | null
+          id?: string
+          items_per_page?: number | null
+          language?: string | null
+          overdue_alerts?: boolean | null
+          payment_notifications?: boolean | null
+          second_reminder_days?: number | null
+          theme?: string | null
+          time_format?: string | null
+          updated_at?: string | null
+          user_id?: string
+          weekly_reports?: boolean | null
+        }
+        Relationships: []
       }
     }
     Views: {
