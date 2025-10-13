@@ -97,7 +97,10 @@ interface PreferenceSettings {
   language: string;
   dateFormat: string;
   timeFormat: string;
-  numberFormat: string;
+  currencySymbolDisplay: string;
+  currencyPosition: string;
+  itemsPerPage: number;
+  defaultView: string;
 }
 
 const Settings = () => {
@@ -175,9 +178,12 @@ const Settings = () => {
   const [preferenceSettings, setPreferenceSettings] = useState<PreferenceSettings>({
     theme: "system",
     language: "en",
-    dateFormat: "MM/DD/YYYY",
-    timeFormat: "12h",
-    numberFormat: "1,234.56",
+    dateFormat: "DD/MM/YYYY",
+    timeFormat: "24h",
+    currencySymbolDisplay: "symbol",
+    currencyPosition: "before",
+    itemsPerPage: 25,
+    defaultView: "table",
   });
 
   const handleSaveCompany = async () => {
@@ -1370,32 +1376,246 @@ const Settings = () => {
 
             {/* Preferences Tab */}
             <TabsContent value="preferences">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    Application Preferences
-                  </CardTitle>
-                  <CardDescription>
-                    Customize your application experience
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Preferences tab content placeholder */}
-                  <div className="text-muted-foreground">
-                    Preferences form will be implemented here
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-end">
-                    <Button onClick={handleSavePreferences} disabled={isLoading}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {isLoading ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                {/* Display Settings Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Palette className="h-5 w-5" />
+                      Display Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Customize the appearance and language of the application
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="theme">
+                          Theme
+                        </Label>
+                        <Select
+                          value={preferenceSettings.theme}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, theme: value })}
+                        >
+                          <SelectTrigger id="theme">
+                            <SelectValue placeholder="Select theme" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="light">Light</SelectItem>
+                            <SelectItem value="dark">Dark</SelectItem>
+                            <SelectItem value="system">System</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Choose your preferred color scheme
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="language">
+                          Language
+                        </Label>
+                        <Select
+                          value={preferenceSettings.language}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, language: value })}
+                        >
+                          <SelectTrigger id="language">
+                            <SelectValue placeholder="Select language" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="en">English</SelectItem>
+                            <SelectItem value="mt">Maltese (Coming Soon)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Select your preferred language
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="date_format">
+                          Date Format
+                        </Label>
+                        <Select
+                          value={preferenceSettings.dateFormat}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, dateFormat: value })}
+                        >
+                          <SelectTrigger id="date_format">
+                            <SelectValue placeholder="Select format" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (31/12/2025)</SelectItem>
+                            <SelectItem value="MM/DD/YYYY">MM/DD/YYYY (12/31/2025)</SelectItem>
+                            <SelectItem value="YYYY-MM-DD">YYYY-MM-DD (2025-12-31)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          How dates should be displayed
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="time_format">
+                          Time Format
+                        </Label>
+                        <Select
+                          value={preferenceSettings.timeFormat}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, timeFormat: value })}
+                        >
+                          <SelectTrigger id="time_format">
+                            <SelectValue placeholder="Select format" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="24h">24-hour (14:30)</SelectItem>
+                            <SelectItem value="12h">12-hour (2:30 PM)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          How times should be displayed
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Currency Display Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      Currency Display
+                    </CardTitle>
+                    <CardDescription>
+                      Customize how currency values are formatted and displayed
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="currency_symbol">
+                          Currency Display
+                        </Label>
+                        <Select
+                          value={preferenceSettings.currencySymbolDisplay}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, currencySymbolDisplay: value })}
+                        >
+                          <SelectTrigger id="currency_symbol">
+                            <SelectValue placeholder="Select format" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="symbol">Symbol (€)</SelectItem>
+                            <SelectItem value="code">Code (EUR)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Show currency as symbol or code
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="currency_position">
+                          Currency Position
+                        </Label>
+                        <Select
+                          value={preferenceSettings.currencyPosition}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, currencyPosition: value })}
+                        >
+                          <SelectTrigger id="currency_position">
+                            <SelectValue placeholder="Select position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="before">Before amount (€100.00)</SelectItem>
+                            <SelectItem value="after">After amount (100.00€)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Where to place the currency symbol
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-muted p-4 border border-border">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Preview:</strong>{" "}
+                        {preferenceSettings.currencyPosition === "before" 
+                          ? `${preferenceSettings.currencySymbolDisplay === "symbol" ? "€" : "EUR"} 1,234.56`
+                          : `1,234.56 ${preferenceSettings.currencySymbolDisplay === "symbol" ? "€" : "EUR"}`
+                        }
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Data Display Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <SettingsIcon className="h-5 w-5" />
+                      Data Display
+                    </CardTitle>
+                    <CardDescription>
+                      Control how data is displayed in lists and tables
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="items_per_page">
+                          Items per Page
+                        </Label>
+                        <Select
+                          value={preferenceSettings.itemsPerPage.toString()}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, itemsPerPage: parseInt(value) })}
+                        >
+                          <SelectTrigger id="items_per_page">
+                            <SelectValue placeholder="Select number" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="10">10 items</SelectItem>
+                            <SelectItem value="25">25 items</SelectItem>
+                            <SelectItem value="50">50 items</SelectItem>
+                            <SelectItem value="100">100 items</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Number of items to show per page in lists
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="default_view">
+                          Default List View
+                        </Label>
+                        <Select
+                          value={preferenceSettings.defaultView}
+                          onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, defaultView: value })}
+                        >
+                          <SelectTrigger id="default_view">
+                            <SelectValue placeholder="Select view" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="table">Table View</SelectItem>
+                            <SelectItem value="cards">Cards View</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Preferred layout for viewing lists
+                        </p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-end">
+                      <Button onClick={handleSavePreferences} disabled={isLoading}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isLoading ? "Saving..." : "Save Preferences"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </main>
