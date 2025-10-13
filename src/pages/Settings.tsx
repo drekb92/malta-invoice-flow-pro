@@ -194,16 +194,214 @@ const Settings = () => {
     defaultView: "table",
   });
 
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!user?.id) return;
+      
+      try {
+        // Load company settings
+        const { data: companyData } = await supabase
+          .from('company_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (companyData) {
+          setCompanySettings({
+            name: companyData.company_name || "",
+            email: companyData.company_email || "",
+            phone: companyData.company_phone || "",
+            website: companyData.company_website || "",
+            address: companyData.company_address || "",
+            city: companyData.company_city || "",
+            state: companyData.company_state || "",
+            zipCode: companyData.company_zip_code || "",
+            country: companyData.company_country || "",
+            taxId: companyData.company_vat_number || "",
+            registrationNumber: companyData.company_registration_number || "",
+            logo: companyData.company_logo || "",
+          });
+        }
+
+        // Load banking settings
+        const { data: bankingData } = await supabase
+          .from('banking_details')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (bankingData) {
+          setBankingSettings({
+            bankName: bankingData.bank_name || "",
+            accountName: bankingData.bank_account_name || "",
+            accountNumber: bankingData.bank_account_number || "",
+            routingNumber: bankingData.bank_routing_number || "",
+            swiftCode: bankingData.bank_swift_code || "",
+            iban: bankingData.bank_iban || "",
+            branch: bankingData.bank_branch || "",
+          });
+          setBankingPreferences({
+            includeBankingOnInvoices: bankingData.include_on_invoices ?? true,
+            bankingDisplayFormat: bankingData.display_format || "full",
+          });
+        }
+
+        // Load invoice settings
+        const { data: invoiceData } = await supabase
+          .from('invoice_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (invoiceData) {
+          setInvoiceSettings({
+            prefix: invoiceData.numbering_prefix || "INV-",
+            nextNumber: invoiceData.next_invoice_number || 1001,
+            defaultCurrency: "EUR",
+            defaultPaymentTerms: invoiceData.default_payment_days || 30,
+            defaultTaxRate: invoiceData.vat_rate_standard || 18,
+            footer: invoiceData.invoice_footer_text || "",
+            notes: invoiceData.default_invoice_notes || "",
+            latePaymentInterestRate: invoiceData.late_payment_interest_rate || 8,
+            earlyPaymentDiscountRate: invoiceData.early_payment_discount_rate || 0,
+            earlyPaymentDiscountDays: invoiceData.early_payment_discount_days || 0,
+            includePaymentInstructions: invoiceData.include_payment_instructions ?? true,
+            vatRateStandard: invoiceData.vat_rate_standard || 18,
+            vatRateReduced: invoiceData.vat_rate_reduced || 5,
+            vatRateZero: invoiceData.vat_rate_zero || 0,
+            invoiceLanguage: invoiceData.invoice_language || "en",
+            includeVatBreakdown: invoiceData.include_vat_breakdown ?? true,
+            reverseChargeNote: invoiceData.reverse_charge_note || "",
+            defaultSupplyPlace: invoiceData.default_supply_place || "malta",
+            intrastatThreshold: invoiceData.intrastat_threshold || 50000,
+            distanceSellingThreshold: invoiceData.distance_selling_threshold || 10000,
+            includeEoriNumber: invoiceData.include_eori_number ?? false,
+            euVatMossEligible: invoiceData.eu_vat_moss_eligible ?? false,
+          });
+        }
+
+        // Load user preferences
+        const { data: prefsData } = await supabase
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (prefsData) {
+          setNotificationSettings({
+            emailNotifications: prefsData.email_reminders ?? true,
+            emailReminders: prefsData.email_reminders ?? true,
+            paymentNotifications: prefsData.payment_notifications ?? true,
+            overdueAlerts: prefsData.overdue_alerts ?? true,
+            weeklyReports: prefsData.weekly_reports ?? false,
+            customerCommunications: prefsData.customer_communications ?? false,
+            firstReminderDays: prefsData.first_reminder_days || 7,
+            secondReminderDays: prefsData.second_reminder_days || 14,
+            finalNoticeDays: prefsData.final_notice_days || 21,
+          });
+
+          setPreferenceSettings({
+            theme: prefsData.theme || "system",
+            language: prefsData.language || "en",
+            dateFormat: prefsData.date_format || "DD/MM/YYYY",
+            timeFormat: prefsData.time_format || "24h",
+            currencySymbolDisplay: prefsData.currency_symbol_display || "symbol",
+            currencyPosition: prefsData.currency_position || "before",
+            itemsPerPage: prefsData.items_per_page || 25,
+            defaultView: prefsData.default_view || "table",
+          });
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load settings",
+          variant: "destructive",
+        });
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, [user?.id]);
+
+  // Validation helpers
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Malta phone format: +356 followed by 8 digits
+    const phoneRegex = /^\+356\s?\d{4}\s?\d{4}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const validateMaltaVAT = (vat: string): boolean => {
+    // Malta VAT: MT followed by 8 digits
+    const vatRegex = /^MT\d{8}$/;
+    return vatRegex.test(vat.replace(/\s/g, ''));
+  };
+
   const handleSaveCompany = async () => {
+    // Validate fields
+    const errors: Record<string, string> = {};
+    
+    if (companySettings.email && !validateEmail(companySettings.email)) {
+      errors.company_email = "Please enter a valid email address";
+    }
+    
+    if (companySettings.phone && !validatePhone(companySettings.phone)) {
+      errors.company_phone = "Please use Malta format: +356 1234 5678";
+    }
+    
+    if (companySettings.taxId && companySettings.taxId.startsWith('MT') && !validateMaltaVAT(companySettings.taxId)) {
+      errors.company_vat = "Malta VAT format: MT followed by 8 digits";
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors({});
     setIsLoading(true);
+    
     try {
-      // TODO: Implement save to Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!user?.id) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('company_settings')
+        .upsert({
+          user_id: user.id,
+          company_name: companySettings.name,
+          company_email: companySettings.email,
+          company_phone: companySettings.phone,
+          company_website: companySettings.website,
+          company_address: companySettings.address,
+          company_city: companySettings.city,
+          company_state: companySettings.state,
+          company_zip_code: companySettings.zipCode,
+          company_country: companySettings.country,
+          company_vat_number: companySettings.taxId,
+          company_registration_number: companySettings.registrationNumber,
+          company_logo: companySettings.logo,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
       toast({
         title: "Success",
         description: "Company settings saved successfully",
       });
     } catch (error) {
+      console.error('Error saving company settings:', error);
       toast({
         title: "Error",
         description: "Failed to save company settings",
@@ -227,6 +425,7 @@ const Settings = () => {
   const handleSaveBanking = async () => {
     // Validate IBAN if provided
     if (bankingSettings.iban && !validateIBAN(bankingSettings.iban)) {
+      setValidationErrors({ banking_iban: "Please enter a valid IBAN format" });
       toast({
         title: "Validation Error",
         description: "Please enter a valid IBAN format",
@@ -235,15 +434,39 @@ const Settings = () => {
       return;
     }
 
+    setValidationErrors({});
     setIsLoading(true);
+    
     try {
-      // TODO: Implement save to Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!user?.id) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('banking_details')
+        .upsert({
+          user_id: user.id,
+          bank_name: bankingSettings.bankName,
+          bank_account_name: bankingSettings.accountName,
+          bank_account_number: bankingSettings.accountNumber,
+          bank_routing_number: bankingSettings.routingNumber,
+          bank_swift_code: bankingSettings.swiftCode,
+          bank_iban: bankingSettings.iban,
+          bank_branch: bankingSettings.branch,
+          include_on_invoices: bankingPreferences.includeBankingOnInvoices,
+          display_format: bankingPreferences.bankingDisplayFormat,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
       toast({
         title: "Success",
         description: "Banking settings saved successfully",
       });
     } catch (error) {
+      console.error('Error saving banking settings:', error);
       toast({
         title: "Error",
         description: "Failed to save banking settings",
@@ -275,14 +498,48 @@ const Settings = () => {
     }
 
     setIsLoading(true);
+    
     try {
-      // TODO: Implement save to Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!user?.id) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('invoice_settings')
+        .upsert({
+          user_id: user.id,
+          numbering_prefix: invoiceSettings.prefix,
+          next_invoice_number: invoiceSettings.nextNumber,
+          default_payment_days: invoiceSettings.defaultPaymentTerms,
+          late_payment_interest_rate: invoiceSettings.latePaymentInterestRate,
+          vat_rate_standard: invoiceSettings.vatRateStandard,
+          vat_rate_reduced: invoiceSettings.vatRateReduced,
+          vat_rate_zero: invoiceSettings.vatRateZero,
+          invoice_language: invoiceSettings.invoiceLanguage,
+          include_vat_breakdown: invoiceSettings.includeVatBreakdown,
+          invoice_footer_text: invoiceSettings.footer,
+          default_invoice_notes: invoiceSettings.notes,
+          include_payment_instructions: invoiceSettings.includePaymentInstructions,
+          early_payment_discount_rate: invoiceSettings.earlyPaymentDiscountRate,
+          early_payment_discount_days: invoiceSettings.earlyPaymentDiscountDays,
+          reverse_charge_note: invoiceSettings.reverseChargeNote,
+          default_supply_place: invoiceSettings.defaultSupplyPlace,
+          intrastat_threshold: invoiceSettings.intrastatThreshold,
+          distance_selling_threshold: invoiceSettings.distanceSellingThreshold,
+          include_eori_number: invoiceSettings.includeEoriNumber,
+          eu_vat_moss_eligible: invoiceSettings.euVatMossEligible,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
       toast({
         title: "Success",
         description: "Invoice settings saved successfully. All changes comply with EU VAT regulations.",
       });
     } catch (error) {
+      console.error('Error saving invoice settings:', error);
       toast({
         title: "Error",
         description: "Failed to save invoice settings",
@@ -295,14 +552,36 @@ const Settings = () => {
 
   const handleSaveNotifications = async () => {
     setIsLoading(true);
+    
     try {
-      // TODO: Implement save to Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!user?.id) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user.id,
+          email_reminders: notificationSettings.emailReminders,
+          payment_notifications: notificationSettings.paymentNotifications,
+          overdue_alerts: notificationSettings.overdueAlerts,
+          weekly_reports: notificationSettings.weeklyReports,
+          customer_communications: notificationSettings.customerCommunications,
+          first_reminder_days: notificationSettings.firstReminderDays,
+          second_reminder_days: notificationSettings.secondReminderDays,
+          final_notice_days: notificationSettings.finalNoticeDays,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
       toast({
         title: "Success",
         description: "Notification settings saved successfully",
       });
     } catch (error) {
+      console.error('Error saving notification settings:', error);
       toast({
         title: "Error",
         description: "Failed to save notification settings",
@@ -315,14 +594,36 @@ const Settings = () => {
 
   const handleSavePreferences = async () => {
     setIsLoading(true);
+    
     try {
-      // TODO: Implement save to Supabase
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!user?.id) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user.id,
+          theme: preferenceSettings.theme,
+          language: preferenceSettings.language,
+          date_format: preferenceSettings.dateFormat,
+          time_format: preferenceSettings.timeFormat,
+          currency_symbol_display: preferenceSettings.currencySymbolDisplay,
+          currency_position: preferenceSettings.currencyPosition,
+          items_per_page: preferenceSettings.itemsPerPage,
+          default_view: preferenceSettings.defaultView,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
       toast({
         title: "Success",
         description: "Preferences saved successfully",
       });
     } catch (error) {
+      console.error('Error saving preferences:', error);
       toast({
         title: "Error",
         description: "Failed to save preferences",
