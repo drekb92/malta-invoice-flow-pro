@@ -27,6 +27,8 @@ import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import { generatePDF } from "@/lib/pdfGenerator";
+import { useInvoiceTemplate, validateTemplateInvoiceData, normalizeInvoiceData } from "@/hooks/useInvoiceTemplate";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface InvoiceTemplate {
   id: string;
@@ -50,12 +52,14 @@ interface InvoiceTemplate {
 const InvoiceTemplates = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { refreshTemplate } = useInvoiceTemplate();
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplate | null>(null);
   const [currentSettings, setCurrentSettings] = useState<Partial<InvoiceTemplate>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Load templates from Supabase
   const loadTemplates = useCallback(async () => {
@@ -213,6 +217,9 @@ const InvoiceTemplates = () => {
       ));
       setSelectedTemplate({ ...selectedTemplate, ...currentSettings } as InvoiceTemplate);
 
+      // Refresh the global template hook to sync across all pages
+      await refreshTemplate();
+
       toast({
         title: "Template saved",
         description: "Template settings have been saved successfully.",
@@ -295,9 +302,15 @@ const InvoiceTemplates = () => {
     logo_url: currentSettings.logo_url,
     logo_x_offset: currentSettings.logo_x_offset || 0,
     logo_y_offset: currentSettings.logo_y_offset || 0,
+    layout: currentSettings.layout || 'default',
+    bank_name: currentSettings.bank_name,
+    bank_account_name: currentSettings.bank_account_name,
+    bank_iban: currentSettings.bank_iban,
+    bank_swift: currentSettings.bank_swift,
   };
 
-  const sampleInvoiceData = {
+  // Normalize sample data for consistent rendering
+  const rawSampleData = {
     invoiceNumber: 'INV-2024-001',
     invoiceDate: '2024-01-15',
     dueDate: '2024-02-14',
@@ -309,7 +322,7 @@ const InvoiceTemplates = () => {
     },
     items: [
       { description: 'Professional Services', quantity: 10, unit_price: 50, vat_rate: 0.18, unit: 'hours' },
-      { description: 'Consultation Fee', quantity: 1, unit_price: 150, vat_rate: 0.18 },
+      { description: 'Consultation Fee', quantity: 1, unit_price: 150, vat_rate: 0.18, unit: 'service' },
     ],
     totals: {
       netTotal: 650.00,
@@ -317,6 +330,16 @@ const InvoiceTemplates = () => {
       grandTotal: 767.00,
     },
   };
+
+  const sampleInvoiceData = normalizeInvoiceData(rawSampleData);
+
+  // Validate template and invoice data before rendering
+  useEffect(() => {
+    if (templateForPreview && sampleInvoiceData) {
+      const validation = validateTemplateInvoiceData(templateForPreview as any, sampleInvoiceData);
+      setValidationErrors(validation.errors);
+    }
+  }, [templateForPreview, currentSettings]);
 
   const getGoogleFontHref = (family: string) => {
     const familyParam = encodeURIComponent(family.trim());
@@ -715,6 +738,20 @@ const InvoiceTemplates = () => {
                   <CardTitle>Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {/* Validation Errors */}
+                  {validationErrors.length > 0 && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertDescription>
+                        <strong>Template Validation Issues:</strong>
+                        <ul className="list-disc list-inside mt-2">
+                          {validationErrors.map((error, idx) => (
+                            <li key={idx}>{error}</li>
+                          ))}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Hidden font injector for Google Fonts */}
                   <div id="font-injector" style={{ display: 'none' }}>
                     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -723,13 +760,13 @@ const InvoiceTemplates = () => {
                   </div>
 
                   {/* Styles for print support */}
-                    <style>{`
-                      @page { size: A4; margin: 0; }
-                      @media print {
-                        tr, td, th { page-break-inside: avoid; }
-                        .avoid-break { page-break-inside: avoid; }
-                      }
-                    `}</style>
+                  <style>{`
+                    @page { size: A4; margin: 0; }
+                    @media print {
+                      tr, td, th { page-break-inside: avoid; }
+                      .avoid-break { page-break-inside: avoid; }
+                    }
+                  `}</style>
 
                   <div style={{ margin: '0 auto' }}>
                     <div id="invoice-html-preview" className="invoice-page" style={{ width: '210mm', minHeight: '297mm', background: '#fff' }}>
