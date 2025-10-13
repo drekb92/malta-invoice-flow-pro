@@ -38,7 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { getDefaultTemplate } from "@/services/templateService";
-import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import type { InvoiceData } from "@/services/pdfService";
 import { formatCurrency } from "@/lib/utils";
 
@@ -171,23 +171,21 @@ const Invoices = () => {
         throw new Error('Invoice not found');
       }
 
-      // Fetch items and totals to render exact DOM
-      const { data: itemsData, error: itemsError } = await (supabase as any)
+      // Fetch items and totals
+      const { data: itemsData, error: itemsError } = await supabase
         .from('invoice_items')
         .select('*')
         .eq('invoice_id', invoiceId);
       if (itemsError) throw itemsError;
 
-      const { data: totalsData } = await (supabase as any)
+      const { data: totalsData } = await supabase
         .from('invoice_totals')
         .select('net_amount, vat_amount, total_amount')
         .eq('invoice_id', invoiceId)
         .maybeSingle();
 
-      // Calculate original subtotal before discount
-      const originalSubtotal = (itemsData || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0);
-      
-      // Calculate discount information
+      // Calculate discount
+      const originalSubtotal = (itemsData || []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
       const discountValue = Number(invoice.discount_value || 0);
       const discountType = (invoice.discount_type as 'amount' | 'percent') || 'amount';
       let discountAmount = 0;
@@ -200,14 +198,12 @@ const Invoices = () => {
         }
       }
 
-      // Calculate net after discount (taxable amount)
       const netAfterDiscount = originalSubtotal - discountAmount;
-      
       const net = totalsData?.net_amount ?? netAfterDiscount;
-      const vat = totalsData?.vat_amount ?? (itemsData || []).reduce((s: number, i: any) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
+      const vat = totalsData?.vat_amount ?? (itemsData || []).reduce((s, i) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
       const total = totalsData?.total_amount ?? net + vat;
 
-      // Prepare hidden DOM state with discount info
+      // Set state for hidden DOM
       setExportInvoice(invoice);
       setExportItems(itemsData || []);
       setExportTotals({ 
@@ -218,40 +214,25 @@ const Invoices = () => {
         discountAmount
       });
 
-      // Ensure template is ready
+      // Ensure template is loaded
       const tpl = templateForPreview || (await getDefaultTemplate());
       setTemplateForPreview(tpl as any);
 
-      // Wait for DOM to paint
-      await new Promise(requestAnimationFrame);
+      // Wait for DOM to render
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      const invoiceData: InvoiceData = {
-        invoiceNumber: invoice.invoice_number,
-        invoiceDate: invoice.invoice_date || invoice.created_at,
-        dueDate: invoice.due_date,
-        customer: {
-          name: invoice.customers?.name || '',
-          email: invoice.customers?.email || undefined,
-          address: invoice.customers?.address || undefined,
-          vat_number: invoice.customers?.vat_number || undefined,
-        },
-        items: (itemsData || []).map((item: any) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate || 0,
-          unit: item.unit || 'unit',
-        })),
-        totals: {
-          netTotal: Number(net),
-          vatTotal: Number(vat),
-          grandTotal: Number(total),
-        },
-      };
-
-      await generateInvoicePDFWithTemplate(invoiceData, `Invoice-${invoice.invoice_number}`);
-
-      toast({ title: 'Success', description: 'PDF downloaded successfully' });
+      // Use edge function for PDF generation
+      const filename = `Invoice-${invoice.invoice_number}`;
+      const result = await exportInvoicePdfAction({
+        filename,
+        elementId: 'invoice-preview-root'
+      });
+      
+      if (result.ok) {
+        toast({ title: 'Success', description: 'PDF downloaded successfully' });
+      } else {
+        throw new Error(result.error || 'Export failed');
+      }
     } catch (error) {
       toast({
         title: 'Error',

@@ -38,7 +38,7 @@ export function InvoiceCleanMinimal({
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/${url}`;
+    return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${url}`;
   };
 
   const containerClass = variant === 'template' 
