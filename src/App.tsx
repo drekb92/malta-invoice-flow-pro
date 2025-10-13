@@ -15,6 +15,7 @@ import Customers from "./pages/Customers";
 import Reports from "./pages/Reports";
 import ReminderSettings from "./pages/ReminderSettings";
 import InvoiceTemplates from "./pages/InvoiceTemplates";
+import Settings from "./pages/Settings";
 import NewInvoice from "./pages/NewInvoice";
 import NewQuotation from "./pages/NewQuotation";
 import Auth from "./pages/Auth";
@@ -60,6 +61,7 @@ const App: React.FC = () => (
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/reminders" element={<ProtectedRoute><ReminderSettings /></ProtectedRoute>} />
             <Route path="/invoice-templates" element={<ProtectedRoute><InvoiceTemplates /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

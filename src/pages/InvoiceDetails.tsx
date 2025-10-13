@@ -18,10 +18,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
-import { getDefaultTemplate } from "@/services/templateService";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
+import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 
 interface Invoice {
   id: string;
@@ -66,8 +67,10 @@ const InvoiceDetails = () => {
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [invoiceTotals, setInvoiceTotals] = useState<InvoiceTotals | null>(null);
   const [loading, setLoading] = useState(true);
-  const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
   const { toast } = useToast();
+  
+  // Load template using unified hook
+  const { template, isLoading: templateLoading } = useInvoiceTemplate();
 
   useEffect(() => {
     if (!invoice_id) return;
@@ -125,13 +128,6 @@ const InvoiceDetails = () => {
     fetchInvoiceDetails();
   }, [invoice_id, toast]);
 
-  useEffect(() => {
-    const loadTemplate = async () => {
-      try { const t = await getDefaultTemplate(); setTemplateForPreview(t as any); } catch {}
-    };
-    loadTemplate();
-  }, []);
-
   const getStatusBadge = (status: string) => {
     const variants = {
       paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -172,6 +168,26 @@ const InvoiceDetails = () => {
 
   const handleDownload = async () => {
     if (!invoice) return;
+    
+    console.log('[InvoiceDetails] Starting PDF download');
+    
+    // Validate template is loaded
+    if (!template) {
+      console.error('[InvoiceDetails] Template not loaded');
+      toast({
+        title: 'Template not ready',
+        description: 'Please wait for template to load and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    console.log('[InvoiceDetails] Using template:', {
+      id: template.id,
+      name: template.name,
+      layout: template.layout,
+    });
+    
     try {
       const filename = `Invoice-${invoice.invoice_number}`;
       const result = await exportInvoicePdfAction({
@@ -180,12 +196,13 @@ const InvoiceDetails = () => {
       });
       
       if (result.ok) {
+        console.log('[InvoiceDetails] PDF generated successfully');
         toast({ title: 'PDF downloaded', description: `Invoice ${invoice.invoice_number} saved.` });
       } else {
         throw new Error(result.error || 'Export failed');
       }
     } catch (e) {
-      console.error(e);
+      console.error('[InvoiceDetails] PDF generation error:', e);
       toast({ title: 'PDF error', description: 'Failed to generate invoice PDF.', variant: 'destructive' });
     }
   };
@@ -442,7 +459,7 @@ const InvoiceDetails = () => {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent((templateForPreview as any)?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(template?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
           rel="stylesheet"
         />
       </div>
@@ -451,17 +468,17 @@ const InvoiceDetails = () => {
       <style>{`
         @page { size: A4; margin: 0; }
         #invoice-preview-root{
-          --font: '${(templateForPreview as any)?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-          --color-primary: ${(templateForPreview as any)?.primary_color || '#111827'};
-          --color-accent: ${(templateForPreview as any)?.accent_color || '#2563EB'};
-          --th-bg: ${(templateForPreview as any)?.line_item_header_bg || '#F3F4F6'};
-          --th-text: ${(templateForPreview as any)?.line_item_header_text || '#111827'};
+          --font: '${template?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+          --color-primary: ${template?.primary_color || '#111827'};
+          --color-accent: ${template?.accent_color || '#2563EB'};
+          --th-bg: ${(template as any)?.line_item_header_bg || '#F3F4F6'};
+          --th-text: ${(template as any)?.line_item_header_text || '#111827'};
 
           /* margins (cm) */
-          --m-top: ${typeof (templateForPreview as any)?.margin_top === 'number' ? `${(templateForPreview as any).margin_top}cm` : '1.2cm'};
-          --m-right: ${typeof (templateForPreview as any)?.margin_right === 'number' ? `${(templateForPreview as any).margin_right}cm` : '1.2cm'};
-          --m-bottom: ${typeof (templateForPreview as any)?.margin_bottom === 'number' ? `${(templateForPreview as any).margin_bottom}cm` : '1.2cm'};
-          --m-left: ${typeof (templateForPreview as any)?.margin_left === 'number' ? `${(templateForPreview as any).margin_left}cm` : '1.2cm'};
+          --m-top: ${typeof (template as any)?.margin_top === 'number' ? `${(template as any).margin_top}cm` : '1.2cm'};
+          --m-right: ${typeof (template as any)?.margin_right === 'number' ? `${(template as any).margin_right}cm` : '1.2cm'};
+          --m-bottom: ${typeof (template as any)?.margin_bottom === 'number' ? `${(template as any).margin_bottom}cm` : '1.2cm'};
+          --m-left: ${typeof (template as any)?.margin_left === 'number' ? `${(template as any).margin_left}cm` : '1.2cm'};
 
           width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
           font-family: var(--font);
@@ -486,41 +503,44 @@ const InvoiceDetails = () => {
 
       {/* Hidden A4 DOM used for 1:1 export */}
       <div style={{ display: 'none' }}>
-        {invoice && templateForPreview && (
-          <InvoiceHTML
-            id="invoice-preview-root"
-            invoiceData={{
-              invoiceNumber: invoice.invoice_number,
-              invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), 'yyyy-MM-dd'),
-              dueDate: invoice.due_date,
-              customer: {
-                name: invoice.customers?.name || 'Unknown Customer',
-                email: invoice.customers?.email || undefined,
-                address: invoice.customers?.address || undefined,
-                vat_number: invoice.customers?.vat_number || undefined,
-              },
-              items: invoiceItems.map((i) => ({
-                description: i.description,
-                quantity: i.quantity,
-                unit_price: i.unit_price,
-                vat_rate: i.vat_rate,
-                unit: i.unit,
-              })),
-              totals: {
-                netTotal: Number(invoiceTotals?.net_amount ?? computedTotals.net) - discountInfo.amount,
-                vatTotal: Number(invoiceTotals?.vat_amount ?? computedTotals.vat),
-                grandTotal: Number(invoiceTotals?.total_amount ?? computedTotals.total),
-              },
-              discount: discountInfo.amount > 0 ? {
-                type: (invoice.discount_type as 'amount' | 'percent') || 'amount',
-                value: Number(invoice.discount_value || 0),
-                amount: discountInfo.amount,
-              } : undefined,
-            }}
-            template={templateForPreview}
-            variant="template"
-            layout={templateForPreview?.layout || 'default'}
-          />
+        {invoice && template && !templateLoading && (
+          <InvoiceErrorBoundary>
+            <InvoiceHTML
+              id="invoice-preview-root"
+              debug={true}
+              invoiceData={{
+                invoiceNumber: invoice.invoice_number,
+                invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), 'yyyy-MM-dd'),
+                dueDate: invoice.due_date,
+                customer: {
+                  name: invoice.customers?.name || 'Unknown Customer',
+                  email: invoice.customers?.email || undefined,
+                  address: invoice.customers?.address || undefined,
+                  vat_number: invoice.customers?.vat_number || undefined,
+                },
+                items: invoiceItems.map((i) => ({
+                  description: i.description,
+                  quantity: i.quantity,
+                  unit_price: i.unit_price,
+                  vat_rate: i.vat_rate,
+                  unit: i.unit,
+                })),
+                totals: {
+                  netTotal: Number(invoiceTotals?.net_amount ?? computedTotals.net) - discountInfo.amount,
+                  vatTotal: Number(invoiceTotals?.vat_amount ?? computedTotals.vat),
+                  grandTotal: Number(invoiceTotals?.total_amount ?? computedTotals.total),
+                },
+                discount: discountInfo.amount > 0 ? {
+                  type: (invoice.discount_type as 'amount' | 'percent') || 'amount',
+                  value: Number(invoice.discount_value || 0),
+                  amount: discountInfo.amount,
+                } : undefined,
+              }}
+              template={template}
+              variant="template"
+              layout={template?.layout || 'default'}
+            />
+          </InvoiceErrorBoundary>
         )}
       </div>
 
