@@ -3,6 +3,13 @@ import { formatDate, money, percent, mul } from "@/lib/invoiceUtils";
 import { InvoiceCleanMinimal } from "@/components/templates/InvoiceCleanMinimal";
 import { normalizeInvoiceData, validateTemplateInvoiceData } from "@/hooks/useInvoiceTemplate";
 
+export interface BankDetails {
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_iban?: string;
+  bank_swift_code?: string;
+}
+
 export interface InvoiceHTMLProps {
   invoiceData: {
     invoiceNumber: string;
@@ -33,6 +40,7 @@ export interface InvoiceHTMLProps {
     };
   };
   template: InvoiceTemplate;
+  bankDetails?: BankDetails;
   id?: string;
   variant?: 'default' | 'template';
   layout?: 'default' | 'cleanMinimal';
@@ -45,9 +53,10 @@ export interface InvoiceHTMLProps {
  */
 export const InvoiceHTMLEnhanced = ({ 
   invoiceData, 
-  template, 
+  template,
+  bankDetails,
   id = "invoice-pdf-content", 
-  variant = 'default', 
+  variant = 'default',
   layout = 'default',
   debug = false
 }: InvoiceHTMLProps) => {
@@ -98,6 +107,7 @@ export const InvoiceHTMLEnhanced = ({
           discount_amount: normalizedData.discount?.amount,
         }}
         template={template}
+        bankDetails={bankDetails}
         id={id}
         variant={variant}
       />
