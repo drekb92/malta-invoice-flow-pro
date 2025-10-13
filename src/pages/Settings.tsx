@@ -280,32 +280,191 @@ const Settings = () => {
 
             {/* Company Tab */}
             <TabsContent value="company">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building className="h-5 w-5" />
-                    Company Information
-                  </CardTitle>
-                  <CardDescription>
-                    Manage your business details and contact information
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Company tab content placeholder */}
-                  <div className="text-muted-foreground">
-                    Company settings form will be implemented here
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-end">
-                    <Button onClick={handleSaveCompany} disabled={isLoading}>
-                      <Save className="mr-2 h-4 w-4" />
-                      {isLoading ? "Saving..." : "Save Changes"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                {/* Company Information Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building className="h-5 w-5" />
+                      Company Information
+                    </CardTitle>
+                    <CardDescription>
+                      Your business details and contact information
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="company_name" className="flex items-center gap-2">
+                          <Building className="h-4 w-4" />
+                          Company Name
+                        </Label>
+                        <Input
+                          id="company_name"
+                          placeholder="Your Company Ltd"
+                          value={companySettings.name}
+                          onChange={(e) => setCompanySettings({ ...companySettings, name: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company_email" className="flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          Business Email
+                        </Label>
+                        <Input
+                          id="company_email"
+                          type="email"
+                          placeholder="info@company.com"
+                          value={companySettings.email}
+                          onChange={(e) => setCompanySettings({ ...companySettings, email: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company_phone" className="flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          Phone Number
+                        </Label>
+                        <Input
+                          id="company_phone"
+                          placeholder="+356 1234 5678"
+                          value={companySettings.phone}
+                          onChange={(e) => setCompanySettings({ ...companySettings, phone: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company_vat_number">
+                          VAT Number
+                        </Label>
+                        <Input
+                          id="company_vat_number"
+                          placeholder="MT12345678"
+                          value={companySettings.taxId}
+                          onChange={(e) => setCompanySettings({ ...companySettings, taxId: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="company_address" className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4" />
+                          Business Address
+                        </Label>
+                        <Textarea
+                          id="company_address"
+                          placeholder="Street Address, City, Country"
+                          rows={3}
+                          value={companySettings.address}
+                          onChange={(e) => setCompanySettings({ ...companySettings, address: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company_registration">
+                          Registration Number
+                        </Label>
+                        <Input
+                          id="company_registration"
+                          placeholder="C12345"
+                          value={companySettings.registrationNumber}
+                          onChange={(e) => setCompanySettings({ ...companySettings, registrationNumber: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Business Settings Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <SettingsIcon className="h-5 w-5" />
+                      Business Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Configure default settings for invoices and quotations
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="currency_code">
+                          Default Currency
+                        </Label>
+                        <Select
+                          value={invoiceSettings.defaultCurrency}
+                          onValueChange={(value) => setInvoiceSettings({ ...invoiceSettings, defaultCurrency: value })}
+                        >
+                          <SelectTrigger id="currency_code">
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="EUR">EUR (€)</SelectItem>
+                            <SelectItem value="USD">USD ($)</SelectItem>
+                            <SelectItem value="GBP">GBP (£)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="default_payment_terms">
+                          Default Payment Terms
+                        </Label>
+                        <Select
+                          value={invoiceSettings.defaultPaymentTerms.toString()}
+                          onValueChange={(value) => setInvoiceSettings({ ...invoiceSettings, defaultPaymentTerms: parseInt(value) })}
+                        >
+                          <SelectTrigger id="default_payment_terms">
+                            <SelectValue placeholder="Select payment terms" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">Due on receipt</SelectItem>
+                            <SelectItem value="7">Net 7 days</SelectItem>
+                            <SelectItem value="14">Net 14 days</SelectItem>
+                            <SelectItem value="30">Net 30 days</SelectItem>
+                            <SelectItem value="60">Net 60 days</SelectItem>
+                            <SelectItem value="90">Net 90 days</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="invoice_prefix">
+                          Invoice Prefix
+                        </Label>
+                        <Input
+                          id="invoice_prefix"
+                          placeholder="INV-"
+                          value={invoiceSettings.prefix}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, prefix: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="quotation_prefix">
+                          Quotation Prefix
+                        </Label>
+                        <Input
+                          id="quotation_prefix"
+                          placeholder="QUO-"
+                          value={companySettings.name}
+                          onChange={(e) => setCompanySettings({ ...companySettings, name: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-end">
+                      <Button onClick={handleSaveCompany} disabled={isLoading}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isLoading ? "Saving..." : "Save Changes"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Banking Tab */}
