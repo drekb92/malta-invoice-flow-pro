@@ -37,7 +37,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
-import { getDefaultTemplate } from "@/services/templateService";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import type { InvoiceData } from "@/services/pdfService";
 import { formatCurrency } from "@/lib/utils";
@@ -74,7 +74,10 @@ const Invoices = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const [templateForPreview, setTemplateForPreview] = useState<any | null>(null);
+  
+  // Load template using unified hook
+  const { template } = useInvoiceTemplate();
+  
   const [exportInvoice, setExportInvoice] = useState<Invoice | null>(null);
   const [exportItems, setExportItems] = useState<any[]>([]);
   const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number; originalSubtotal?: number; discountAmount?: number } | null>(null);
@@ -112,13 +115,6 @@ const Invoices = () => {
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
-
-  useEffect(() => {
-    const loadTemplate = async () => {
-      try { const t = await getDefaultTemplate(); setTemplateForPreview(t as any); } catch {}
-    };
-    loadTemplate();
   }, []);
 
   useEffect(() => {
@@ -213,10 +209,6 @@ const Invoices = () => {
         originalSubtotal,
         discountAmount
       });
-
-      // Ensure template is loaded
-      const tpl = templateForPreview || (await getDefaultTemplate());
-      setTemplateForPreview(tpl as any);
 
       // Wait for DOM to render
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -429,7 +421,7 @@ const Invoices = () => {
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
           <link
-            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent((templateForPreview as any)?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(template?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
             rel="stylesheet"
           />
         </div>
@@ -438,17 +430,17 @@ const Invoices = () => {
         <style>{`
           @page { size: A4; margin: 0; }
           #invoice-preview-root{
-            --font: '${(templateForPreview as any)?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-            --color-primary: ${(templateForPreview as any)?.primary_color || '#111827'};
-            --color-accent: ${(templateForPreview as any)?.accent_color || '#2563EB'};
-            --th-bg: ${(templateForPreview as any)?.line_item_header_bg || '#F3F4F6'};
-            --th-text: ${(templateForPreview as any)?.line_item_header_text || '#111827'};
+            --font: '${template?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            --color-primary: ${template?.primary_color || '#111827'};
+            --color-accent: ${template?.accent_color || '#2563EB'};
+            --th-bg: ${(template as any)?.line_item_header_bg || '#F3F4F6'};
+            --th-text: ${(template as any)?.line_item_header_text || '#111827'};
 
             /* margins (cm) */
-            --m-top: ${typeof (templateForPreview as any)?.margin_top === 'number' ? `${(templateForPreview as any).margin_top}cm` : '1.2cm'};
-            --m-right: ${typeof (templateForPreview as any)?.margin_right === 'number' ? `${(templateForPreview as any).margin_right}cm` : '1.2cm'};
-            --m-bottom: ${typeof (templateForPreview as any)?.margin_bottom === 'number' ? `${(templateForPreview as any).margin_bottom}cm` : '1.2cm'};
-            --m-left: ${typeof (templateForPreview as any)?.margin_left === 'number' ? `${(templateForPreview as any).margin_left}cm` : '1.2cm'};
+            --m-top: ${typeof (template as any)?.margin_top === 'number' ? `${(template as any).margin_top}cm` : '1.2cm'};
+            --m-right: ${typeof (template as any)?.margin_right === 'number' ? `${(template as any).margin_right}cm` : '1.2cm'};
+            --m-bottom: ${typeof (template as any)?.margin_bottom === 'number' ? `${(template as any).margin_bottom}cm` : '1.2cm'};
+            --m-left: ${typeof (template as any)?.margin_left === 'number' ? `${(template as any).margin_left}cm` : '1.2cm'};
 
             width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
             font-family: var(--font);
@@ -473,7 +465,7 @@ const Invoices = () => {
 
         {/* Hidden A4 DOM used for 1:1 export */}
         <div style={{ display: 'none' }}>
-          {exportInvoice && templateForPreview && (
+          {exportInvoice && template && (
             <InvoiceHTML
               id="invoice-preview-root"
               invoiceData={{
@@ -504,9 +496,9 @@ const Invoices = () => {
                   amount: exportTotals?.discountAmount ?? 0,
                 } : undefined,
               }}
-              template={templateForPreview}
+              template={template}
               variant="template"
-              layout={templateForPreview?.layout || 'default'}
+              layout={template?.layout || 'default'}
             />
           )}
         </div>
