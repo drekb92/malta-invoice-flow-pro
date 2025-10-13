@@ -2,6 +2,13 @@ import { formatDate, money, percent, mul } from '@/lib/invoiceUtils';
 import { InvoiceTemplate } from '@/services/templateService';
 import { Separator } from '@/components/ui/separator';
 
+interface BankDetails {
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_iban?: string;
+  bank_swift_code?: string;
+}
+
 interface InvoiceHTMLProps {
   invoiceData: {
     invoice_number: string;
@@ -23,13 +30,15 @@ interface InvoiceHTMLProps {
     discount_amount?: number;
   };
   template: InvoiceTemplate;
+  bankDetails?: BankDetails;
   id?: string;
   variant?: 'default' | 'template';
 }
 
 export function InvoiceCleanMinimal({ 
   invoiceData, 
-  template, 
+  template,
+  bankDetails,
   id = "invoice-pdf-content", 
   variant = 'default' 
 }: InvoiceHTMLProps) {
@@ -135,21 +144,21 @@ export function InvoiceCleanMinimal({
       {/* Bottom Section: Bank Details and Totals */}
       <div className="flex justify-between items-start mt-16">
         {/* Bank Details */}
-        {(template.bank_name || template.bank_iban) && (
+        {bankDetails && (bankDetails.bank_name || bankDetails.bank_iban) && (
           <div className="w-1/2">
             <div className="text-xs text-gray-500 uppercase tracking-wider mb-3">Bank Details</div>
             <div className="space-y-1 text-sm text-gray-700">
-              {template.bank_name && (
-                <div><span className="text-gray-500">Bank:</span> {template.bank_name}</div>
+              {bankDetails.bank_name && (
+                <div><span className="text-gray-500">Bank:</span> {bankDetails.bank_name}</div>
               )}
-              {template.bank_account_name && (
-                <div><span className="text-gray-500">Account:</span> {template.bank_account_name}</div>
+              {bankDetails.bank_account_name && (
+                <div><span className="text-gray-500">Account:</span> {bankDetails.bank_account_name}</div>
               )}
-              {template.bank_iban && (
-                <div><span className="text-gray-500">IBAN:</span> {template.bank_iban}</div>
+              {bankDetails.bank_iban && (
+                <div><span className="text-gray-500">IBAN:</span> {bankDetails.bank_iban}</div>
               )}
-              {template.bank_swift && (
-                <div><span className="text-gray-500">SWIFT:</span> {template.bank_swift}</div>
+              {bankDetails.bank_swift_code && (
+                <div><span className="text-gray-500">SWIFT:</span> {bankDetails.bank_swift_code}</div>
               )}
             </div>
           </div>

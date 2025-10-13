@@ -3,6 +3,13 @@ import { formatDate, money, percent, mul } from "@/lib/invoiceUtils";
 import { InvoiceCleanMinimal } from "@/components/templates/InvoiceCleanMinimal";
 
 
+export interface BankDetails {
+  bank_name?: string;
+  bank_account_name?: string;
+  bank_iban?: string;
+  bank_swift_code?: string;
+}
+
 export interface InvoiceHTMLProps {
   invoiceData: {
     invoiceNumber: string;
@@ -33,13 +40,14 @@ export interface InvoiceHTMLProps {
     };
   };
   template: InvoiceTemplate;
+  bankDetails?: BankDetails;
   id?: string;
   variant?: 'default' | 'template';
   layout?: 'default' | 'cleanMinimal';
   debug?: boolean;
 }
 
-export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content", variant = 'default', layout = 'default', debug = false }: InvoiceHTMLProps) => {
+export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-pdf-content", variant = 'default', layout = 'default', debug = false }: InvoiceHTMLProps) => {
   if (debug) {
     console.log('[InvoiceHTML] Rendering with:', {
       template: { ...template, logo_url: template.logo_url ? 'set' : 'none' },
@@ -47,6 +55,7 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content",
       variant,
       invoiceNumber: invoiceData.invoiceNumber,
       customer: invoiceData.customer.name,
+      bankDetails: bankDetails ? 'provided' : 'none',
     });
   }
   
@@ -69,6 +78,7 @@ export const InvoiceHTML = ({ invoiceData, template, id = "invoice-pdf-content",
           discount_amount: invoiceData.discount?.amount,
         }}
         template={template}
+        bankDetails={bankDetails}
         id={id}
         variant={variant}
       />

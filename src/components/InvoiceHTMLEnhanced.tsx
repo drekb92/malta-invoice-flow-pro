@@ -295,7 +295,7 @@ export const InvoiceHTMLEnhanced = ({
       </div>
 
       {/* Bank Details (if available) */}
-      {(template.bank_name || template.bank_iban) && (
+      {bankDetails && (bankDetails.bank_name || bankDetails.bank_iban) && (
         <div className="mb-8">
           <h3 
             className="text-md font-semibold mb-3"
@@ -304,17 +304,17 @@ export const InvoiceHTMLEnhanced = ({
             Banking Details:
           </h3>
           <div className="space-y-1 text-sm">
-            {template.bank_name && (
-              <div><strong>Bank:</strong> {template.bank_name}</div>
+            {bankDetails.bank_name && (
+              <div><strong>Bank:</strong> {bankDetails.bank_name}</div>
             )}
-            {template.bank_account_name && (
-              <div><strong>Account Name:</strong> {template.bank_account_name}</div>
+            {bankDetails.bank_account_name && (
+              <div><strong>Account Name:</strong> {bankDetails.bank_account_name}</div>
             )}
-            {template.bank_iban && (
-              <div><strong>IBAN:</strong> {template.bank_iban}</div>
+            {bankDetails.bank_iban && (
+              <div><strong>IBAN:</strong> {bankDetails.bank_iban}</div>
             )}
-            {template.bank_swift && (
-              <div><strong>SWIFT/BIC:</strong> {template.bank_swift}</div>
+            {bankDetails.bank_swift_code && (
+              <div><strong>SWIFT/BIC:</strong> {bankDetails.bank_swift_code}</div>
             )}
           </div>
         </div>
