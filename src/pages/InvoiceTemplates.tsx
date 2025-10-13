@@ -22,7 +22,9 @@ import {
   Type,
   Image,
   Settings2,
+  ExternalLink,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
@@ -42,10 +44,6 @@ interface InvoiceTemplate {
   logo_x_offset: number;
   logo_y_offset: number;
   layout?: 'default' | 'cleanMinimal';
-  bank_name?: string;
-  bank_account_name?: string;
-  bank_iban?: string;
-  bank_swift?: string;
   created_at?: string;
 }
 
@@ -202,10 +200,6 @@ const InvoiceTemplates = () => {
           logo_x_offset: currentSettings.logo_x_offset,
           logo_y_offset: currentSettings.logo_y_offset,
           layout: currentSettings.layout,
-          bank_name: currentSettings.bank_name,
-          bank_account_name: currentSettings.bank_account_name,
-          bank_iban: currentSettings.bank_iban,
-          bank_swift: currentSettings.bank_swift,
         })
         .eq('id', currentSettings.id);
 
@@ -303,10 +297,6 @@ const InvoiceTemplates = () => {
     logo_x_offset: currentSettings.logo_x_offset || 0,
     logo_y_offset: currentSettings.logo_y_offset || 0,
     layout: currentSettings.layout || 'default',
-    bank_name: currentSettings.bank_name,
-    bank_account_name: currentSettings.bank_account_name,
-    bank_iban: currentSettings.bank_iban,
-    bank_swift: currentSettings.bank_swift,
   };
 
   // Normalize sample data for consistent rendering
@@ -576,48 +566,28 @@ const InvoiceTemplates = () => {
                           </Select>
                         </div>
 
-                        <Separator />
+                         <Separator />
 
-                        {/* Bank Details */}
-                        <div className="space-y-4">
-                          <Label className="text-sm font-medium">Bank Details</Label>
-                          <div className="space-y-3">
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Bank Name</Label>
-                              <Input
-                                value={currentSettings.bank_name || ''}
-                                onChange={(e) => updateSetting('bank_name', e.target.value)}
-                                placeholder="Your Bank"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">Account Name</Label>
-                              <Input
-                                value={currentSettings.bank_account_name || ''}
-                                onChange={(e) => updateSetting('bank_account_name', e.target.value)}
-                                placeholder="Your Company Ltd"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">IBAN</Label>
-                              <Input
-                                value={currentSettings.bank_iban || ''}
-                                onChange={(e) => updateSetting('bank_iban', e.target.value)}
-                                placeholder="MT00VALL220123456789000000000"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">SWIFT/BIC</Label>
-                              <Input
-                                value={currentSettings.bank_swift || ''}
-                                onChange={(e) => updateSetting('bank_swift', e.target.value)}
-                                placeholder="VALLMTMT"
-                              />
-                            </div>
-                          </div>
-                        </div>
+                         {/* Bank Details - Moved to Settings */}
+                         <div className="space-y-3 rounded-lg bg-muted p-4 border border-border">
+                           <div className="flex items-start gap-2">
+                             <Settings2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                             <div className="flex-1">
+                               <Label className="text-sm font-medium">Bank Details</Label>
+                               <p className="text-xs text-muted-foreground mt-1">
+                                 Bank account information is now managed in Settings
+                               </p>
+                             </div>
+                           </div>
+                           <Link to="/settings">
+                             <Button variant="outline" size="sm" className="w-full">
+                               <ExternalLink className="h-4 w-4 mr-2" />
+                               Go to Settings → Banking
+                             </Button>
+                           </Link>
+                         </div>
 
-                        <Separator />
+                         <Separator />
 
                         {/* Colors */}
                        <div className="space-y-4">
