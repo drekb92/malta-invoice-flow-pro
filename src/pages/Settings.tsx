@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon, CheckCircle2, AlertCircle } from "lucide-react";
+import { InfoIcon, CheckCircle2, AlertCircle, Upload, Image as ImageIcon, X } from "lucide-react";
 import { 
   Settings as SettingsIcon, 
   Save, 
@@ -343,6 +343,90 @@ const Settings = () => {
     // Malta VAT: MT followed by 8 digits
     const vatRegex = /^MT\d{8}$/;
     return vatRegex.test(vat.replace(/\s/g, ''));
+  };
+
+  // Handle logo upload
+  const handleLogoUpload = async (file: File) => {
+    if (!user?.id) return;
+
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      setValidationErrors(prev => ({
+        ...prev,
+        logo: 'Please upload a PNG or JPG file'
+      }));
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setValidationErrors(prev => ({
+        ...prev,
+        logo: 'File size must be less than 5MB'
+      }));
+      return;
+    }
+
+    setIsLoading(true);
+    setValidationErrors(prev => ({ ...prev, logo: '' }));
+
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('logos')
+        .getPublicUrl(fileName);
+
+      // Update company settings with logo URL
+      setCompanySettings(prev => ({
+        ...prev,
+        logo: data.publicUrl
+      }));
+
+      setHasUnsavedChanges(true);
+
+      toast({
+        title: "Logo uploaded",
+        description: "Logo has been uploaded successfully. Click Save to persist.",
+      });
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      setValidationErrors(prev => ({
+        ...prev,
+        logo: 'Failed to upload logo. Please try again.'
+      }));
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload logo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle logo removal
+  const handleRemoveLogo = () => {
+    setCompanySettings(prev => ({
+      ...prev,
+      logo: ''
+    }));
+    setHasUnsavedChanges(true);
   };
 
   const handleSaveCompany = async () => {
@@ -719,6 +803,104 @@ const Settings = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {/* Logo Upload Section */}
+                    <div className="space-y-4 mb-6 p-4 border border-border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4" />
+                          Company Logo
+                        </Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <InfoIcon className="h-4 w-4 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs">Upload your company logo to appear on invoices and documents. Supports PNG, JPG (max 5MB).</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+
+                      {companySettings.logo ? (
+                        <div className="flex items-start gap-4">
+                          <div className="relative">
+                            <img 
+                              src={companySettings.logo} 
+                              alt="Company Logo" 
+                              className="h-24 w-auto object-contain border border-border rounded"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/png,image/jpeg,image/jpg';
+                                input.onchange = (e: any) => {
+                                  const file = e.target?.files?.[0];
+                                  if (file) handleLogoUpload(file);
+                                };
+                                input.click();
+                              }}
+                              disabled={isLoading}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Change Logo
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRemoveLogo}
+                              disabled={isLoading}
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Remove Logo
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/png,image/jpeg,image/jpg';
+                            input.onchange = (e: any) => {
+                              const file = e.target?.files?.[0];
+                              if (file) handleLogoUpload(file);
+                            };
+                            input.click();
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const file = e.dataTransfer.files[0];
+                            if (file) handleLogoUpload(file);
+                          }}
+                          onDragOver={(e) => e.preventDefault()}
+                        >
+                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground mb-1">
+                            {isLoading ? 'Uploading...' : 'Click to upload or drag and drop'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            PNG, JPG up to 5MB
+                          </p>
+                        </div>
+                      )}
+
+                      {validationErrors.logo && (
+                        <p className="text-sm text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4" />
+                          {validationErrors.logo}
+                        </p>
+                      )}
+                    </div>
+
+                    <Separator className="my-6" />
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="company_name" className="flex items-center gap-2">

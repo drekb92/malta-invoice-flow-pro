@@ -23,6 +23,7 @@ import {
   Image,
   Settings2,
   ExternalLink,
+  InfoIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { InvoiceHTML } from "@/components/InvoiceHTML";
@@ -36,13 +37,10 @@ interface InvoiceTemplate {
   id: string;
   name: string;
   is_default: boolean;
-  logo_url?: string;
   primary_color: string;
   accent_color: string;
   font_family: string;
   font_size: string;
-  logo_x_offset: number;
-  logo_y_offset: number;
   layout?: 'default' | 'cleanMinimal';
   created_at?: string;
 }
@@ -56,7 +54,6 @@ const InvoiceTemplates = () => {
   const [currentSettings, setCurrentSettings] = useState<Partial<InvoiceTemplate>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Load templates from Supabase
@@ -109,8 +106,6 @@ const InvoiceTemplates = () => {
         accent_color: '#1F2D3D',
         font_family: 'Inter',
         font_size: '14px',
-        logo_x_offset: 0,
-        logo_y_offset: 0,
         user_id: user.id,
       };
 
@@ -146,42 +141,6 @@ const InvoiceTemplates = () => {
     }));
   };
 
-  // Handle file upload
-  const handleFileUpload = async (file: File) => {
-    if (!selectedTemplate) return;
-
-    setIsUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${selectedTemplate.id}-${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('logos')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('logos')
-        .getPublicUrl(fileName);
-
-      updateSetting('logo_url', data.publicUrl);
-      
-      toast({
-        title: "Logo uploaded",
-        description: "Logo has been successfully uploaded.",
-      });
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload logo. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   // Save template
   const handleSave = async () => {
@@ -196,9 +155,6 @@ const InvoiceTemplates = () => {
           accent_color: currentSettings.accent_color,
           font_family: currentSettings.font_family,
           font_size: currentSettings.font_size,
-          logo_url: currentSettings.logo_url,
-          logo_x_offset: currentSettings.logo_x_offset,
-          logo_y_offset: currentSettings.logo_y_offset,
           layout: currentSettings.layout,
         })
         .eq('id', currentSettings.id);
@@ -293,9 +249,6 @@ const InvoiceTemplates = () => {
     accent_color: currentSettings.accent_color || '#1F2D3D',
     font_family: currentSettings.font_family || 'Inter',
     font_size: currentSettings.font_size || '14px',
-    logo_url: currentSettings.logo_url,
-    logo_x_offset: currentSettings.logo_x_offset || 0,
-    logo_y_offset: currentSettings.logo_y_offset || 0,
     layout: currentSettings.layout || 'default',
   };
 
@@ -472,80 +425,28 @@ const InvoiceTemplates = () => {
 
                        <Separator />
 
-                       {/* Logo Upload */}
-                       <div className="space-y-2">
-                         <Label className="flex items-center gap-2">
-                           <Image className="h-4 w-4" />
-                           Company Logo
-                         </Label>
-                         <div 
-                           className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-                           onDrop={(e) => {
-                             e.preventDefault();
-                             const file = e.dataTransfer.files[0];
-                             if (file && (file.type === 'image/png' || file.type === 'image/jpeg')) {
-                               handleFileUpload(file);
-                             }
-                           }}
-                           onDragOver={(e) => e.preventDefault()}
-                           onClick={() => {
-                             const input = document.createElement('input');
-                             input.type = 'file';
-                             input.accept = 'image/png,image/jpeg';
-                             input.onchange = (e) => {
-                               const file = (e.target as HTMLInputElement).files?.[0];
-                               if (file) handleFileUpload(file);
-                             };
-                             input.click();
-                           }}
-                         >
-                           {isUploading ? (
-                             <div className="text-center">
-                               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                               <p className="text-sm text-muted-foreground">Uploading...</p>
-                             </div>
-                           ) : currentSettings.logo_url ? (
-                             <div className="text-center">
-                               <img 
-                                 src={currentSettings.logo_url} 
-                                 alt="Logo" 
-                                 className="h-16 w-auto mx-auto mb-2 rounded"
-                               />
-                               <p className="text-sm text-muted-foreground">Click to change logo</p>
-                             </div>
-                           ) : (
-                             <>
-                               <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                               <p className="text-sm text-muted-foreground">
-                                 Click to upload or drag and drop
-                               </p>
-                               <p className="text-xs text-muted-foreground">PNG, JPG up to 2MB</p>
-                             </>
-                           )}
-                         </div>
-                       </div>
+                        <Separator />
 
-                       {/* Logo Position */}
-                       <div className="grid grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                           <Label className="text-sm">Logo X Offset (px)</Label>
-                           <Input
-                             type="number"
-                             value={currentSettings.logo_x_offset || 0}
-                             onChange={(e) => updateSetting('logo_x_offset', parseInt(e.target.value) || 0)}
-                             placeholder="0"
-                           />
-                         </div>
-                         <div className="space-y-2">
-                           <Label className="text-sm">Logo Y Offset (px)</Label>
-                           <Input
-                             type="number"
-                             value={currentSettings.logo_y_offset || 0}
-                             onChange={(e) => updateSetting('logo_y_offset', parseInt(e.target.value) || 0)}
-                             placeholder="0"
-                           />
-                         </div>
-                       </div>
+                        {/* Logo Management Note */}
+                        <Alert>
+                          <InfoIcon className="h-4 w-4" />
+                          <AlertDescription>
+                            <p className="font-medium mb-1">Logo Management Moved</p>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Company logos are now managed in Settings → Company Information.
+                            </p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              asChild
+                            >
+                              <Link to="/settings">
+                                <ExternalLink className="h-3 w-3 mr-2" />
+                                Go to Settings
+                              </Link>
+                            </Button>
+                          </AlertDescription>
+                        </Alert>
 
                         <Separator />
 
