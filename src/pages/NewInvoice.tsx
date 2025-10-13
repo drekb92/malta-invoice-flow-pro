@@ -908,57 +908,46 @@ const NewInvoice = () => {
       `}</style>
 
       {/* Hidden A4 DOM used for 1:1 export */}
-      <section id="invoice-preview-root" style={{ display: 'none', width: '21cm', minHeight: '29.7cm', background: '#fff' }}>
-        <div id="invoice-inner">
-          {selectedCustomer && (
-            <InvoiceHTML 
-              id="invoice-preview-root"
-              invoiceData={{
-                invoiceNumber: invoiceNumber,
-                invoiceDate: invoiceDate,
-                dueDate: (() => {
-                  const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-                  const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
-                  const daysMatch = paymentTerms.match(/\d+/);
-                  const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
-                  const invoiceDateObj = new Date(invoiceDate);
-                  const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
-                  return calculatedDueDate.toISOString().split("T")[0];
-                })(),
-                customer: {
-                  name: customers.find(c => c.id === selectedCustomer)?.name || '',
-                  email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
-                  address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
-                  vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
-                },
-                items: items,
-                totals: {
-                  netTotal: totals.taxable,
-                  vatTotal: totals.vatTotal,
-                  grandTotal: totals.grandTotal,
-                },
-                discount: totals.discountAmount > 0 ? {
-                  type: discountType,
-                  value: discountValue,
-                  amount: totals.discountAmount,
-                } : undefined,
-              }}
-              template={(templateForPreview as any) || {
-                id: 'default',
-                name: 'Default Template',
-                is_default: true,
-                primary_color: '#26A65B',
-                accent_color: '#1F2D3D',
-                font_family: 'Inter',
-                font_size: '14px',
-                logo_x_offset: 0,
-                logo_y_offset: 0,
-              } as any}
-              layout={(templateForPreview as any)?.layout || 'default'}
-            />
-          )}
-        </div>
-      </section>
+      <div style={{ display: 'none' }}>
+        {selectedCustomer && templateForPreview && (
+          <InvoiceHTML 
+            id="invoice-preview-root"
+            invoiceData={{
+              invoiceNumber: invoiceNumber,
+              invoiceDate: invoiceDate,
+              dueDate: (() => {
+                const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+                const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+                const daysMatch = paymentTerms.match(/\d+/);
+                const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+                const invoiceDateObj = new Date(invoiceDate);
+                const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
+                return calculatedDueDate.toISOString().split("T")[0];
+              })(),
+              customer: {
+                name: customers.find(c => c.id === selectedCustomer)?.name || '',
+                email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
+                address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
+                vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
+              },
+              items: items,
+              totals: {
+                netTotal: totals.taxable,
+                vatTotal: totals.vatTotal,
+                grandTotal: totals.grandTotal,
+              },
+              discount: totals.discountAmount > 0 ? {
+                type: discountType,
+                value: discountValue,
+                amount: totals.discountAmount,
+              } : undefined,
+            }}
+            template={templateForPreview}
+            variant="template"
+            layout={templateForPreview?.layout || 'default'}
+          />
+        )}
+      </div>
     </div>
   );
 };

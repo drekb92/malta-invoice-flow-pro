@@ -491,54 +491,44 @@ const Invoices = () => {
         `}</style>
 
         {/* Hidden A4 DOM used for 1:1 export */}
-        <section id="invoice-preview-root" style={{ display: 'none', width: '21cm', minHeight: '29.7cm', background: '#fff' }}>
-          <div id="invoice-inner">
-            {exportInvoice && (
-              <InvoiceHTML
-                invoiceData={{
-                  invoiceNumber: exportInvoice.invoice_number,
-                  invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),
-                  dueDate: exportInvoice.due_date,
-                  customer: {
-                    name: exportInvoice.customers?.name || 'Unknown Customer',
-                    email: exportInvoice.customers?.email || undefined,
-                    address: exportInvoice.customers?.address || undefined,
-                    vat_number: exportInvoice.customers?.vat_number || undefined,
-                  },
-                  items: exportItems.map((i: any) => ({
-                    description: i.description,
-                    quantity: i.quantity,
-                    unit_price: i.unit_price,
-                    vat_rate: i.vat_rate,
-                    unit: i.unit,
-                  })),
-                  totals: {
-                    netTotal: Number(exportTotals?.net ?? 0),
-                    vatTotal: Number(exportTotals?.vat ?? 0),
-                    grandTotal: Number(exportTotals?.total ?? 0),
-                  },
-                  discount: (exportTotals?.discountAmount ?? 0) > 0 ? {
-                    type: (exportInvoice.discount_type as 'amount' | 'percent') || 'amount',
-                    value: Number(exportInvoice.discount_value || 0),
-                    amount: exportTotals?.discountAmount ?? 0,
-                  } : undefined,
-                }}
-                template={(templateForPreview as any) || {
-                  id: 'default',
-                  name: 'Default Template',
-                  is_default: true,
-                  primary_color: '#26A65B',
-                  accent_color: '#1F2D3D',
-                  font_family: 'Inter',
-                  font_size: '14px',
-                  logo_x_offset: 0,
-                  logo_y_offset: 0,
-                  } as any}
-                layout={(templateForPreview as any)?.layout || 'default'}
-                />
-              )}
-            </div>
-          </section>
+        <div style={{ display: 'none' }}>
+          {exportInvoice && templateForPreview && (
+            <InvoiceHTML
+              id="invoice-preview-root"
+              invoiceData={{
+                invoiceNumber: exportInvoice.invoice_number,
+                invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),
+                dueDate: exportInvoice.due_date,
+                customer: {
+                  name: exportInvoice.customers?.name || 'Unknown Customer',
+                  email: exportInvoice.customers?.email || undefined,
+                  address: exportInvoice.customers?.address || undefined,
+                  vat_number: exportInvoice.customers?.vat_number || undefined,
+                },
+                items: exportItems.map((i: any) => ({
+                  description: i.description,
+                  quantity: i.quantity,
+                  unit_price: i.unit_price,
+                  vat_rate: i.vat_rate,
+                  unit: i.unit,
+                })),
+                totals: {
+                  netTotal: Number(exportTotals?.net ?? 0),
+                  vatTotal: Number(exportTotals?.vat ?? 0),
+                  grandTotal: Number(exportTotals?.total ?? 0),
+                },
+                discount: (exportTotals?.discountAmount ?? 0) > 0 ? {
+                  type: (exportInvoice.discount_type as 'amount' | 'percent') || 'amount',
+                  value: Number(exportInvoice.discount_value || 0),
+                  amount: exportTotals?.discountAmount ?? 0,
+                } : undefined,
+              }}
+              template={templateForPreview}
+              variant="template"
+              layout={templateForPreview?.layout || 'default'}
+            />
+          )}
+        </div>
 
       </div>
     </div>

@@ -485,56 +485,43 @@ const InvoiceDetails = () => {
       `}</style>
 
       {/* Hidden A4 DOM used for 1:1 export */}
-      <div id="invoice-html-preview" className="invoice-page" style={{ display: 'none', width: '210mm', minHeight: '297mm', background: '#fff' }}>
-        <section id="invoice-preview-root" style={{ width: '21cm', minHeight: '29.7cm', background: '#fff' }}>
-          <div id="invoice-inner">
-            {invoice && (
-              <InvoiceHTML
-                id="invoice-preview-root"
-                invoiceData={{
-                  invoiceNumber: invoice.invoice_number,
-                  invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), 'yyyy-MM-dd'),
-                  dueDate: invoice.due_date,
-                  customer: {
-                    name: invoice.customers?.name || 'Unknown Customer',
-                    email: invoice.customers?.email || undefined,
-                    address: invoice.customers?.address || undefined,
-                    vat_number: invoice.customers?.vat_number || undefined,
-                  },
-                  items: invoiceItems.map((i) => ({
-                    description: i.description,
-                    quantity: i.quantity,
-                    unit_price: i.unit_price,
-                    vat_rate: i.vat_rate,
-                    unit: i.unit,
-                  })),
-                  totals: {
-                    netTotal: Number(invoiceTotals?.net_amount ?? computedTotals.net) - discountInfo.amount,
-                    vatTotal: Number(invoiceTotals?.vat_amount ?? computedTotals.vat),
-                    grandTotal: Number(invoiceTotals?.total_amount ?? computedTotals.total),
-                  },
-                  discount: discountInfo.amount > 0 ? {
-                    type: (invoice.discount_type as 'amount' | 'percent') || 'amount',
-                    value: Number(invoice.discount_value || 0),
-                    amount: discountInfo.amount,
-                  } : undefined,
-                }}
-                template={(templateForPreview as any) || {
-                  id: 'default',
-                  name: 'Default Template',
-                  is_default: true,
-                  primary_color: '#26A65B',
-                  accent_color: '#1F2D3D',
-                  font_family: 'Inter',
-                  font_size: '14px',
-                  logo_x_offset: 0,
-                  logo_y_offset: 0,
-                } as any}
-                layout={templateForPreview?.layout || 'default'}
-              />
-            )}
-          </div>
-        </section>
+      <div style={{ display: 'none' }}>
+        {invoice && templateForPreview && (
+          <InvoiceHTML
+            id="invoice-preview-root"
+            invoiceData={{
+              invoiceNumber: invoice.invoice_number,
+              invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), 'yyyy-MM-dd'),
+              dueDate: invoice.due_date,
+              customer: {
+                name: invoice.customers?.name || 'Unknown Customer',
+                email: invoice.customers?.email || undefined,
+                address: invoice.customers?.address || undefined,
+                vat_number: invoice.customers?.vat_number || undefined,
+              },
+              items: invoiceItems.map((i) => ({
+                description: i.description,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                vat_rate: i.vat_rate,
+                unit: i.unit,
+              })),
+              totals: {
+                netTotal: Number(invoiceTotals?.net_amount ?? computedTotals.net) - discountInfo.amount,
+                vatTotal: Number(invoiceTotals?.vat_amount ?? computedTotals.vat),
+                grandTotal: Number(invoiceTotals?.total_amount ?? computedTotals.total),
+              },
+              discount: discountInfo.amount > 0 ? {
+                type: (invoice.discount_type as 'amount' | 'percent') || 'amount',
+                value: Number(invoice.discount_value || 0),
+                amount: discountInfo.amount,
+              } : undefined,
+            }}
+            template={templateForPreview}
+            variant="template"
+            layout={templateForPreview?.layout || 'default'}
+          />
+        )}
       </div>
 
     </div>
