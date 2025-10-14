@@ -104,6 +104,14 @@ export const UnifiedInvoiceLayout = ({
   const bankingPosition = templateSettings?.bankingPosition || 'after-totals';
   const bankingVisibility = templateSettings?.bankingVisibility !== false;
   const bankingStyle = templateSettings?.bankingStyle || 'default';
+  const tableStyle = templateSettings?.tableStyle || 'default';
+  const totalsStyle = templateSettings?.totalsStyle || 'default';
+  
+  // Margins for PDF variant
+  const marginTop = templateSettings?.marginTop || 20;
+  const marginRight = templateSettings?.marginRight || 20;
+  const marginBottom = templateSettings?.marginBottom || 20;
+  const marginLeft = templateSettings?.marginLeft || 20;
 
   // Get absolute logo URL
   const getAbsoluteLogoUrl = (url?: string): string | undefined => {
@@ -125,7 +133,10 @@ export const UnifiedInvoiceLayout = ({
         width: '21cm',
         minHeight: '29.7cm',
         backgroundColor: 'white',
-        padding: '1.5cm',
+        paddingTop: `${marginTop}mm`,
+        paddingRight: `${marginRight}mm`,
+        paddingBottom: `${marginBottom}mm`,
+        paddingLeft: `${marginLeft}mm`,
         boxSizing: 'border-box',
         fontFamily,
         fontSize,
@@ -688,58 +699,61 @@ export const UnifiedInvoiceLayout = ({
             <col style={{ width: '16%' }} />
           </colgroup>
           <thead>
-            <tr style={{ backgroundColor: primaryColor }}>
+            <tr style={{ 
+              backgroundColor: tableStyle === 'minimal' ? 'transparent' : primaryColor,
+              borderBottom: tableStyle === 'minimal' ? `2px solid ${primaryColor}` : 'none',
+            }}>
               <th
                 style={{
-                  color: '#fff',
+                  color: tableStyle === 'minimal' ? accentColor : '#fff',
                   padding: '12pt 10pt',
                   textAlign: 'left',
                   fontWeight: 600,
-                  border: '1px solid #e5e7eb',
+                  border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
                 Description
               </th>
               <th
                 style={{
-                  color: '#fff',
+                  color: tableStyle === 'minimal' ? accentColor : '#fff',
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
-                  border: '1px solid #e5e7eb',
+                  border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
                 Qty
               </th>
               <th
                 style={{
-                  color: '#fff',
+                  color: tableStyle === 'minimal' ? accentColor : '#fff',
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
-                  border: '1px solid #e5e7eb',
+                  border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
                 Unit Price
               </th>
               <th
                 style={{
-                  color: '#fff',
+                  color: tableStyle === 'minimal' ? accentColor : '#fff',
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
-                  border: '1px solid #e5e7eb',
+                  border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
                 VAT %
               </th>
               <th
                 style={{
-                  color: '#fff',
+                  color: tableStyle === 'minimal' ? accentColor : '#fff',
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
-                  border: '1px solid #e5e7eb',
+                  border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
                 Total
@@ -751,16 +765,21 @@ export const UnifiedInvoiceLayout = ({
               <tr
                 key={index}
                 style={{
-                  backgroundColor: index % 2 === 0 ? '#f9fafb' : 'white',
+                  backgroundColor: tableStyle === 'striped' && index % 2 === 0 ? '#f9fafb' : 'white',
                 }}
               >
-                <td style={{ padding: '12px 16px', border: '1px solid #e5e7eb' }}>
+                <td style={{ 
+                  padding: '12px 16px', 
+                  border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
+                  borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
+                }}>
                   {item.description}
                 </td>
                 <td
                   style={{
                     padding: '12px 16px',
-                    border: '1px solid #e5e7eb',
+                    border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
+                    borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
                     textAlign: 'center',
                   }}
                 >
@@ -769,7 +788,8 @@ export const UnifiedInvoiceLayout = ({
                 <td
                   style={{
                     padding: '12px 16px',
-                    border: '1px solid #e5e7eb',
+                    border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
+                    borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
                     textAlign: 'right',
                   }}
                 >
@@ -778,7 +798,8 @@ export const UnifiedInvoiceLayout = ({
                 <td
                   style={{
                     padding: '12px 16px',
-                    border: '1px solid #e5e7eb',
+                    border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
+                    borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
                     textAlign: 'center',
                   }}
                 >
@@ -787,7 +808,8 @@ export const UnifiedInvoiceLayout = ({
                 <td
                   style={{
                     padding: '12px 16px',
-                    border: '1px solid #e5e7eb',
+                    border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
+                    borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
                     textAlign: 'right',
                   }}
                 >
@@ -801,7 +823,15 @@ export const UnifiedInvoiceLayout = ({
 
       {/* Totals */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2rem' }}>
-        <div style={{ width: '256px' }}>
+        <div 
+          style={{ 
+            width: '300px',
+            padding: totalsStyle === 'boxed' ? '1rem' : '0',
+            backgroundColor: totalsStyle === 'boxed' ? '#f9fafb' : 'transparent',
+            border: totalsStyle === 'boxed' ? '1px solid #e5e7eb' : 'none',
+            borderRadius: totalsStyle === 'boxed' ? '8px' : '0',
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -850,7 +880,12 @@ export const UnifiedInvoiceLayout = ({
               fontWeight: 'bold',
               fontSize: '18px',
               borderTop: `2px solid ${primaryColor}`,
-              color: primaryColor,
+              color: totalsStyle === 'highlighted' ? primaryColor : '#374151',
+              backgroundColor: totalsStyle === 'highlighted' ? `${primaryColor}10` : 'transparent',
+              marginTop: totalsStyle === 'highlighted' ? '0.5rem' : '0',
+              paddingLeft: totalsStyle === 'highlighted' ? '1rem' : '0',
+              paddingRight: totalsStyle === 'highlighted' ? '1rem' : '0',
+              borderRadius: totalsStyle === 'highlighted' ? '4px' : '0',
             }}
           >
             <span>Total:</span>
