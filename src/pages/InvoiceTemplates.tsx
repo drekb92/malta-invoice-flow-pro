@@ -943,6 +943,10 @@ const fontFamilies = [
                         totalsStyle: currentSettings.totals_style || 'default',
                         bankingVisibility: currentSettings.banking_visibility !== false,
                         bankingStyle: currentSettings.banking_style || 'default',
+                        marginTop: currentSettings.margin_top || 20,
+                        marginRight: currentSettings.margin_right || 20,
+                        marginBottom: currentSettings.margin_bottom || 20,
+                        marginLeft: currentSettings.margin_left || 20,
                       }}
                       debug={false}
                     />
@@ -952,6 +956,86 @@ const fontFamilies = [
             </div>
           </div>
         </main>
+      </div>
+
+      {/* Hidden Font Injector for Google Font based on template */}
+      <div style={{ display: 'none' }}>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(currentSettings.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+          rel="stylesheet"
+        />
+      </div>
+
+      {/* A4 canvas + template CSS variables */}
+      <style>{`
+        @page { size: A4; margin: 0; }
+        #invoice-preview-root{
+          --font: '${currentSettings.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+          --color-primary: ${currentSettings.primary_color || '#111827'};
+          --color-accent: ${currentSettings.accent_color || '#2563EB'};
+
+          /* margins (mm) */
+          --m-top: ${typeof currentSettings.margin_top === 'number' ? `${currentSettings.margin_top}mm` : '20mm'};
+          --m-right: ${typeof currentSettings.margin_right === 'number' ? `${currentSettings.margin_right}mm` : '20mm'};
+          --m-bottom: ${typeof currentSettings.margin_bottom === 'number' ? `${currentSettings.margin_bottom}mm` : '20mm'};
+          --m-left: ${typeof currentSettings.margin_left === 'number' ? `${currentSettings.margin_left}mm` : '20mm'};
+
+          width: 210mm; min-height: 297mm; background:#fff; color: var(--color-primary);
+          font-family: var(--font);
+          box-sizing: border-box; position: relative;
+        }
+        #invoice-inner{
+          padding-top: var(--m-top);
+          padding-right: var(--m-right);
+          padding-bottom: var(--m-bottom);
+          padding-left: var(--m-left);
+        }
+      `}</style>
+
+      {/* Hidden A4 DOM used for 1:1 export for PDF testing */}
+      <div style={{ display: 'none' }}>
+        <UnifiedInvoiceLayout
+          id="invoice-preview-root"
+          variant="pdf"
+          invoiceData={sampleInvoiceData}
+          companySettings={companySettings ? {
+            name: companySettings.company_name || '',
+            address: companySettings.company_address || '',
+            city: companySettings.company_city || '',
+            zipCode: companySettings.company_zip_code || '',
+            country: companySettings.company_country || '',
+            phone: companySettings.company_phone || '',
+            email: companySettings.company_email || '',
+            taxId: companySettings.company_vat_number || '',
+            registrationNumber: companySettings.company_registration_number || '',
+            logo: companySettings.company_logo || '',
+          } : undefined}
+          bankingSettings={bankingSettings ? {
+            bankName: bankingSettings.bank_name || '',
+            accountName: bankingSettings.bank_account_name || '',
+            iban: bankingSettings.bank_iban || '',
+            swiftCode: bankingSettings.bank_swift_code || '',
+          } : undefined}
+          templateSettings={{
+            primaryColor: templateForPreview.primary_color,
+            accentColor: templateForPreview.accent_color,
+            fontFamily: templateForPreview.font_family,
+            fontSize: templateForPreview.font_size,
+            layout: currentSettings.layout || 'default',
+            headerLayout: currentSettings.header_layout || 'default',
+            tableStyle: currentSettings.table_style || 'default',
+            totalsStyle: currentSettings.totals_style || 'default',
+            bankingVisibility: currentSettings.banking_visibility !== false,
+            bankingStyle: currentSettings.banking_style || 'default',
+            marginTop: currentSettings.margin_top || 20,
+            marginRight: currentSettings.margin_right || 20,
+            marginBottom: currentSettings.margin_bottom || 20,
+            marginLeft: currentSettings.margin_left || 20,
+          }}
+          debug={false}
+        />
       </div>
     </div>
   );
