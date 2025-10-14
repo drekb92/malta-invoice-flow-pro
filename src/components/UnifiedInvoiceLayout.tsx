@@ -513,57 +513,23 @@ export const UnifiedInvoiceLayout = ({
           marginBottom: '2rem',
         }}
       >
-        {/* Left side: Logo and Company Info (if position is 'left') */}
-        {companyPosition === 'left' && (
-          <div>
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Company Logo"
-                crossOrigin="anonymous"
-                style={{
-                  maxHeight: '60px',
-                  width: 'auto',
-                  objectFit: 'contain',
-                }}
-              />
-            )}
-            {companySettings && (
-              <div style={{ marginTop: '1rem', fontSize: '12px', color: '#6b7280' }}>
-                {companySettings.name && <div style={{ fontWeight: 600 }}>{companySettings.name}</div>}
-                {companySettings.address && <div>{companySettings.address}</div>}
-                {companySettings.city && (
-                  <div>
-                    {companySettings.city}
-                    {companySettings.state && `, ${companySettings.state}`}{' '}
-                    {companySettings.zipCode}
-                  </div>
-                )}
-                {companySettings.email && <div>{companySettings.email}</div>}
-                {companySettings.phone && <div>{companySettings.phone}</div>}
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Right side: Company Info (if position is 'top-right') or Invoice meta */}
-        <div style={{ textAlign: 'right', maxWidth: companyPosition === 'right' || companyPosition === 'top-right' ? '50%' : 'auto' }}>
-          {(companyPosition === 'right' || companyPosition === 'top-right') && companySettings && (
-            <div style={{ marginBottom: '1.5rem', fontSize: '12px', color: '#6b7280', textAlign: 'right' }}>
-              {logoUrl && (
-                <img
-                  src={logoUrl}
-                  alt="Company Logo"
-                  crossOrigin="anonymous"
-                  style={{
-                    maxHeight: '60px',
-                    width: 'auto',
-                    objectFit: 'contain',
-                    marginLeft: 'auto',
-                    marginBottom: '0.75rem',
-                  }}
-                />
-              )}
+        {/* Left side: Logo (always left) */}
+        <div>
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt="Company Logo"
+              crossOrigin="anonymous"
+              style={{
+                maxHeight: '60px',
+                width: 'auto',
+                objectFit: 'contain',
+              }}
+            />
+          )}
+          {/* Company Info on left (only if position is 'left') */}
+          {companyPosition === 'left' && companySettings && (
+            <div style={{ marginTop: '1rem', fontSize: '12px', color: '#6b7280' }}>
               {companySettings.name && <div style={{ fontWeight: 600 }}>{companySettings.name}</div>}
               {companySettings.address && <div>{companySettings.address}</div>}
               {companySettings.city && (
@@ -575,9 +541,50 @@ export const UnifiedInvoiceLayout = ({
               )}
               {companySettings.email && <div>{companySettings.email}</div>}
               {companySettings.phone && <div>{companySettings.phone}</div>}
+              {companySettings.taxId && (
+                <div>
+                  <strong>VAT:</strong> {companySettings.taxId}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {/* Right side: Company Info + Invoice Meta (if company position is 'right' or 'top-right') */}
+        <div style={{ textAlign: 'right', maxWidth: '50%' }}>
+          {/* Company Info at top-right */}
+          {(companyPosition === 'right' || companyPosition === 'top-right') && companySettings && (
+            <div style={{ marginBottom: '1.5rem', fontSize: '11px', color: '#6b7280' }}>
+              {companySettings.name && (
+                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>
+                  {companySettings.name}
+                </div>
+              )}
+              {companySettings.address && <div>{companySettings.address}</div>}
+              {companySettings.city && (
+                <div>
+                  {companySettings.city}
+                  {companySettings.state && `, ${companySettings.state}`}{' '}
+                  {companySettings.zipCode}
+                </div>
+              )}
+              {companySettings.country && <div>{companySettings.country}</div>}
+              {companySettings.email && <div>{companySettings.email}</div>}
+              {companySettings.phone && <div>{companySettings.phone}</div>}
+              {companySettings.taxId && (
+                <div>
+                  <strong>VAT:</strong> {companySettings.taxId}
+                </div>
+              )}
+              {companySettings.registrationNumber && (
+                <div>
+                  <strong>Reg:</strong> {companySettings.registrationNumber}
+                </div>
+              )}
             </div>
           )}
           
+          {/* Invoice Meta Information */}
           <h1
             style={{
               fontSize: '32px',
@@ -588,11 +595,11 @@ export const UnifiedInvoiceLayout = ({
           >
             INVOICE
           </h1>
-          <div style={{ fontSize: '14px', color: '#374151' }}>
-            <div>
+          <div style={{ fontSize: '13px', color: '#374151' }}>
+            <div style={{ marginBottom: '4px' }}>
               <strong>Invoice #:</strong> {invoiceData.invoiceNumber}
             </div>
-            <div>
+            <div style={{ marginBottom: '4px' }}>
               <strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}
             </div>
             <div>
