@@ -308,7 +308,11 @@ const InvoiceTemplates = () => {
     await handleSave();
     
     try {
-      await downloadPdfFromFunction("invoice-template-test");
+      // Pass font_family to ensure proper font loading in PDF
+      await downloadPdfFromFunction(
+        "invoice-template-test",
+        currentSettings.font_family || 'Inter'
+      );
       toast({ 
         title: 'Test PDF generated', 
         description: 'Template PDF with sample data has been downloaded.' 

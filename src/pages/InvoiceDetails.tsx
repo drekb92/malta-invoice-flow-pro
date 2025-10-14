@@ -23,7 +23,7 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
-import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 
 interface Invoice {
@@ -202,24 +202,26 @@ const InvoiceDetails = () => {
       id: template.id,
       name: template.name,
       layout: template.layout,
+      font_family: template.font_family,
     });
     
     try {
+      // Use downloadPdfFromFunction with font_family for consistent font loading
       const filename = `Invoice-${invoice.invoice_number}`;
-      const result = await exportInvoicePdfAction({
-        filename,
-        elementId: 'invoice-preview-root'
-      });
+      await downloadPdfFromFunction(filename, template.font_family);
       
-      if (result.ok) {
-        console.log('[InvoiceDetails] PDF generated successfully');
-        toast({ title: 'PDF downloaded', description: `Invoice ${invoice.invoice_number} saved.` });
-      } else {
-        throw new Error(result.error || 'Export failed');
-      }
+      console.log('[InvoiceDetails] PDF generated successfully');
+      toast({ 
+        title: 'PDF downloaded', 
+        description: `Invoice ${invoice.invoice_number} saved.` 
+      });
     } catch (e) {
       console.error('[InvoiceDetails] PDF generation error:', e);
-      toast({ title: 'PDF error', description: 'Failed to generate invoice PDF.', variant: 'destructive' });
+      toast({ 
+        title: 'PDF error', 
+        description: 'Failed to generate invoice PDF.', 
+        variant: 'destructive' 
+      });
     }
   };
 
