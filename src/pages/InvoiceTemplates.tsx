@@ -313,45 +313,25 @@ const InvoiceTemplates = () => {
 
       await refreshTemplate();
 
-      // Run validation and show results
+      // Validate after save and show results
       const validation = validateTemplateData();
       
-      if (validation.errors.length > 0) {
+      if (validation.warnings.length > 0) {
+        // Show warning toast with list of missing items
         toast({
-          title: "Template saved with errors",
-          description: (
-            <div>
-              <p>Critical issues found:</p>
-              <ul className="list-disc list-inside mt-1 text-sm">
-                {validation.errors.map((error, i) => (
-                  <li key={i}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          ),
-          variant: "destructive",
-        });
-      } else if (validation.warnings.length > 0) {
-        toast({
-          title: "Template saved",
-          description: (
-            <div>
-              <p>⚠️ Setup incomplete - some details missing:</p>
-              <ul className="list-disc list-inside mt-1 text-sm">
-                {validation.warnings.map((warning, i) => (
-                  <li key={i}>{warning}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-xs">Visit <a href="/settings" className="underline">Settings</a> to complete.</p>
-            </div>
-          ),
+          title: "Template saved with warnings",
+          description: `Your template was saved, but some settings are incomplete: ${validation.warnings.join(", ")}. Complete these in Settings for best results.`,
+          variant: "default", // Not destructive since it's just warnings
+          duration: 6000, // Longer duration for more text
         });
       } else {
+        // Show success toast
         toast({
-          title: "Template saved",
-          description: "✅ All template and company settings are complete!",
+          title: "Template saved successfully",
+          description: "All template settings are complete and ready to use.",
         });
       }
+
     } catch (error) {
       console.error('Error saving template:', error);
       toast({
