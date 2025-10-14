@@ -366,8 +366,10 @@ export type Database = {
           bank_iban: string | null
           bank_name: string | null
           bank_swift: string | null
+          banking_position: string | null
           banking_style: string | null
           banking_visibility: boolean | null
+          company_position: string | null
           created_at: string | null
           font_family: string | null
           font_size: string | null
@@ -394,8 +396,10 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_swift?: string | null
+          banking_position?: string | null
           banking_style?: string | null
           banking_visibility?: boolean | null
+          company_position?: string | null
           created_at?: string | null
           font_family?: string | null
           font_size?: string | null
@@ -422,8 +426,10 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_swift?: string | null
+          banking_position?: string | null
           banking_style?: string | null
           banking_visibility?: boolean | null
+          company_position?: string | null
           created_at?: string | null
           font_family?: string | null
           font_size?: string | null
