@@ -119,7 +119,6 @@ const InvoiceTemplates = () => {
   const [currentSettings, setCurrentSettings] = useState<Partial<InvoiceTemplate>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
   
   // Use hooks to load company and banking settings
@@ -456,13 +455,6 @@ const fontFamilies = [
   };
 
   const sampleInvoiceData = normalizeInvoiceData(rawSampleData);
-
-  useEffect(() => {
-    if (templateForPreview && sampleInvoiceData) {
-      const validation = validateTemplateInvoiceData(templateForPreview as any, sampleInvoiceData);
-      setValidationErrors(validation.errors);
-    }
-  }, [templateForPreview, currentSettings]);
 
   const getGoogleFontHref = (family: string) => {
     const familyParam = encodeURIComponent(family.trim());
@@ -963,19 +955,6 @@ const fontFamilies = [
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {validationErrors.length > 0 && (
-                    <Alert className="mb-4" variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        <ul className="list-disc list-inside text-sm">
-                          {validationErrors.map((error, i) => (
-                            <li key={i}>{error}</li>
-                          ))}
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
                   <div className={`${getPreviewDimensions()} bg-white rounded-lg shadow-lg overflow-auto`}
                        style={{ 
                          maxHeight: previewMode === 'print' ? '297mm' : '800px',
@@ -984,8 +963,6 @@ const fontFamilies = [
                     <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || 'Inter')} />
                     
                     <UnifiedInvoiceLayout
-                      templateId={selectedTemplate?.id}
-                      debug={false}
                       invoiceData={sampleInvoiceData}
                       companySettings={companySettings ? {
                         name: companySettings.company_name || '',
@@ -1070,8 +1047,6 @@ const fontFamilies = [
         <UnifiedInvoiceLayout
           id="invoice-preview-root"
           variant="pdf"
-          templateId={selectedTemplate?.id}
-          debug={false}
           invoiceData={sampleInvoiceData}
           companySettings={companySettings ? {
             name: companySettings.company_name || '',
