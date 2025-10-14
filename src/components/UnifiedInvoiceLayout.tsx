@@ -31,11 +31,11 @@ export interface TemplateSettings {
   fontFamily?: string;
   fontSize?: string;
   layout?: 'default' | 'cleanMinimal' | 'compact';
-  headerLayout?: string;
-  tableStyle?: string;
-  totalsStyle?: string;
+  headerLayout?: 'default' | 'centered' | 'split';
+  tableStyle?: 'default' | 'striped' | 'bordered' | 'minimal';
+  totalsStyle?: 'default' | 'boxed' | 'highlighted';
   bankingVisibility?: boolean;
-  bankingStyle?: string;
+  bankingStyle?: 'default' | 'boxed' | 'minimal';
   companyPosition?: 'left' | 'right' | 'top-right'; // Company details position
   bankingPosition?: 'after-totals' | 'bottom' | 'footer'; // Banking details position
   marginTop?: number;
