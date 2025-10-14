@@ -83,6 +83,7 @@ export interface UnifiedInvoiceLayoutProps {
   variant?: 'preview' | 'pdf' | 'print';
   id?: string;
   debug?: boolean; // Add debug mode to show data source
+  templateId?: string; // Template ID for debugging
 }
 
 export const UnifiedInvoiceLayout = ({
@@ -93,6 +94,7 @@ export const UnifiedInvoiceLayout = ({
   variant = 'preview',
   id = 'unified-invoice',
   debug = false,
+  templateId,
 }: UnifiedInvoiceLayoutProps) => {
   // Default template settings
   const primaryColor = templateSettings?.primaryColor || '#26A65B';
@@ -126,6 +128,165 @@ export const UnifiedInvoiceLayout = ({
   };
 
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
+
+  // Validation helpers for debug mode
+  const validateCompanySettings = () => {
+    if (!companySettings) return { valid: false, missing: ['All company settings'] };
+    const missing: string[] = [];
+    if (!companySettings.name) missing.push('name');
+    if (!companySettings.email) missing.push('email');
+    if (!companySettings.address) missing.push('address');
+    if (!companySettings.logo) missing.push('logo');
+    return { valid: missing.length === 0, missing };
+  };
+
+  const validateBankingSettings = () => {
+    if (!bankingSettings) return { valid: false, missing: ['All banking settings'] };
+    const missing: string[] = [];
+    if (!bankingSettings.bankName) missing.push('bankName');
+    if (!bankingSettings.accountName) missing.push('accountName');
+    if (!bankingSettings.iban && !bankingSettings.accountNumber) missing.push('iban/accountNumber');
+    return { valid: missing.length === 0, missing };
+  };
+
+  const validateInvoiceData = () => {
+    const missing: string[] = [];
+    if (!invoiceData.invoiceNumber) missing.push('invoiceNumber');
+    if (!invoiceData.customer?.name) missing.push('customer.name');
+    if (!invoiceData.items || invoiceData.items.length === 0) missing.push('items');
+    return { valid: missing.length === 0, missing };
+  };
+
+  // Debug panel component
+  const renderDebugPanel = () => {
+    if (!debug) return null;
+
+    const companyValidation = validateCompanySettings();
+    const bankingValidation = validateBankingSettings();
+    const invoiceValidation = validateInvoiceData();
+
+    return (
+      <div style={{
+        position: variant === 'pdf' ? 'relative' : 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+        border: '2px solid #f59e0b',
+        borderRadius: '4px',
+        padding: '12px 16px',
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        zIndex: 1000,
+        marginBottom: variant === 'pdf' ? '1rem' : '0',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      }}>
+        <div style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 'bold', color: '#92400e' }}>
+          🔍 DEBUG MODE - Invoice Template Rendering
+        </div>
+        
+        {/* Template Info */}
+        <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #fbbf24' }}>
+          <strong style={{ color: '#92400e' }}>Template:</strong>
+          <div style={{ marginLeft: '8px', color: '#78350f' }}>
+            {templateId ? `ID: ${templateId}` : 'ID: Not provided'}
+          </div>
+          <div style={{ marginLeft: '8px', color: '#78350f' }}>
+            Layout: <strong>{layout}</strong> | Variant: <strong>{variant}</strong>
+          </div>
+        </div>
+
+        {/* Design Settings */}
+        <div style={{ marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #fbbf24' }}>
+          <strong style={{ color: '#92400e' }}>Design Settings:</strong>
+          <div style={{ marginLeft: '8px', color: '#78350f' }}>
+            Colors: <span style={{ background: primaryColor, padding: '2px 6px', borderRadius: '3px', color: 'white' }}>{primaryColor}</span>
+            {' / '}
+            <span style={{ background: accentColor, padding: '2px 6px', borderRadius: '3px', color: 'white' }}>{accentColor}</span>
+          </div>
+          <div style={{ marginLeft: '8px', color: '#78350f' }}>
+            Font: <strong>{fontFamily}</strong> ({fontSize}) | Table: {tableStyle} | Totals: {totalsStyle}
+          </div>
+          <div style={{ marginLeft: '8px', color: '#78350f' }}>
+            Margins: {marginTop}mm / {marginRight}mm / {marginBottom}mm / {marginLeft}mm
+          </div>
+          <div style={{ marginLeft: '8px', color: '#78350f' }}>
+            Company Position: {companyPosition} | Banking: {bankingPosition} ({bankingVisibility ? 'visible' : 'hidden'})
+          </div>
+        </div>
+
+        {/* Data Validation */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+          {/* Company Settings */}
+          <div style={{ 
+            padding: '6px', 
+            background: companyValidation.valid ? '#d1fae5' : '#fee2e2',
+            borderRadius: '4px',
+            border: `1px solid ${companyValidation.valid ? '#10b981' : '#ef4444'}`
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '4px', color: companyValidation.valid ? '#065f46' : '#991b1b' }}>
+              {companyValidation.valid ? '✓' : '⚠'} Company
+            </div>
+            {companyValidation.valid ? (
+              <div style={{ color: '#065f46' }}>
+                {companySettings?.name || 'N/A'}
+              </div>
+            ) : (
+              <div style={{ color: '#991b1b', fontSize: '10px' }}>
+                Missing: {companyValidation.missing.join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Banking Settings */}
+          <div style={{ 
+            padding: '6px', 
+            background: bankingValidation.valid ? '#d1fae5' : '#fee2e2',
+            borderRadius: '4px',
+            border: `1px solid ${bankingValidation.valid ? '#10b981' : '#ef4444'}`
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '4px', color: bankingValidation.valid ? '#065f46' : '#991b1b' }}>
+              {bankingValidation.valid ? '✓' : '⚠'} Banking
+            </div>
+            {bankingValidation.valid ? (
+              <div style={{ color: '#065f46' }}>
+                {bankingSettings?.bankName || 'N/A'}
+              </div>
+            ) : (
+              <div style={{ color: '#991b1b', fontSize: '10px' }}>
+                Missing: {bankingValidation.missing.join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Invoice Data */}
+          <div style={{ 
+            padding: '6px', 
+            background: invoiceValidation.valid ? '#d1fae5' : '#fee2e2',
+            borderRadius: '4px',
+            border: `1px solid ${invoiceValidation.valid ? '#10b981' : '#ef4444'}`
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '4px', color: invoiceValidation.valid ? '#065f46' : '#991b1b' }}>
+              {invoiceValidation.valid ? '✓' : '⚠'} Invoice
+            </div>
+            {invoiceValidation.valid ? (
+              <div style={{ color: '#065f46' }}>
+                {invoiceData.invoiceNumber}
+              </div>
+            ) : (
+              <div style={{ color: '#991b1b', fontSize: '10px' }}>
+                Missing: {invoiceValidation.missing.join(', ')}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ marginTop: '8px', fontSize: '10px', color: '#92400e', fontStyle: 'italic' }}>
+          This debug panel helps validate that preview and PDF use identical data sources.
+        </div>
+      </div>
+    );
+  };
 
   // CSS variables for consistent styling
   const cssVariables = {
@@ -191,26 +352,8 @@ export const UnifiedInvoiceLayout = ({
         className={containerClassName}
         style={containerStyle}
       >
-        {/* Debug Mode Banner */}
-        {debug && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            background: '#fef3c7',
-            border: '2px solid #f59e0b',
-            padding: '8px 12px',
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            zIndex: 1000,
-          }}>
-            <strong>DEBUG MODE:</strong> Company: {companySettings?.name || 'Missing'} | 
-            Banking: {bankingSettings?.bankName || 'Missing'} | 
-            Layout: {layout} | 
-            Variant: {variant}
-          </div>
-        )}
+        {/* Enhanced Debug Panel */}
+        {renderDebugPanel()}
 
         {/* Header Section */}
         <div className="flex justify-between items-start mb-16">
@@ -519,26 +662,8 @@ export const UnifiedInvoiceLayout = ({
   // Default layout
   return (
     <div id={id} className={containerClassName} style={containerStyle}>
-      {/* Debug Mode Banner */}
-      {debug && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          background: '#fef3c7',
-          border: '2px solid #f59e0b',
-          padding: '8px 12px',
-          fontSize: '11px',
-          fontFamily: 'monospace',
-          zIndex: 1000,
-        }}>
-          <strong>DEBUG MODE:</strong> Company: {companySettings?.name || 'Missing'} | 
-          Banking: {bankingSettings?.bankName || 'Missing'} | 
-          Layout: {layout} | 
-          Variant: {variant}
-        </div>
-      )}
+      {/* Enhanced Debug Panel */}
+      {renderDebugPanel()}
 
       {/* Top spacer */}
       {variant === 'pdf' && <div style={{ height: '4mm' }} />}

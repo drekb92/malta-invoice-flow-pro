@@ -490,6 +490,8 @@ const Invoices = () => {
               <UnifiedInvoiceLayout
                 id="invoice-preview-root"
                 variant="pdf"
+                templateId={template.id}
+                debug={false}
                 invoiceData={{
                   invoiceNumber: exportInvoice.invoice_number,
                   invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),

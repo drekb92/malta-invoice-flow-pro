@@ -918,6 +918,8 @@ const fontFamilies = [
                     <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || 'Inter')} />
                     
                     <UnifiedInvoiceLayout
+                      templateId={selectedTemplate?.id}
+                      debug={true}
                       invoiceData={sampleInvoiceData}
                       companySettings={companySettings ? {
                         name: companySettings.company_name || '',
@@ -952,7 +954,6 @@ const fontFamilies = [
                         marginBottom: currentSettings.margin_bottom || 20,
                         marginLeft: currentSettings.margin_left || 20,
                       }}
-                      debug={false}
                     />
                   </div>
                 </CardContent>
@@ -1003,6 +1004,8 @@ const fontFamilies = [
         <UnifiedInvoiceLayout
           id="invoice-preview-root"
           variant="pdf"
+          templateId={selectedTemplate?.id}
+          debug={false}
           invoiceData={sampleInvoiceData}
           companySettings={companySettings ? {
             name: companySettings.company_name || '',
@@ -1038,7 +1041,6 @@ const fontFamilies = [
             marginBottom: currentSettings.margin_bottom || 20,
             marginLeft: currentSettings.margin_left || 20,
           }}
-          debug={false}
         />
       </div>
     </div>
