@@ -359,6 +359,14 @@ const InvoiceTemplates = () => {
     }
   };
 
+const fontFamilies = [
+    { value: 'Inter', label: 'Inter' },
+    { value: 'Roboto', label: 'Roboto' },
+    { value: 'Lato', label: 'Lato' },
+    { value: 'Open Sans', label: 'Open Sans' },
+    { value: 'Poppins', label: 'Poppins' },
+  ];
+
   const fontSizes = [
     { value: "12", label: "12px" },
     { value: "14", label: "14px" },
@@ -552,6 +560,19 @@ const InvoiceTemplates = () => {
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* Design Controls Card */}
+                  <Card>
+                    <CardContent className="pt-6 space-y-6">
+                      {/* Info Message */}
+                      <Alert>
+                        <Settings2 className="h-4 w-4" />
+                        <AlertDescription>
+                          Company logo and banking details are managed in{" "}
+                          <a href="/settings" className="underline font-medium">Settings</a>.
+                          Template controls below affect visual design only.
+                        </AlertDescription>
+                      </Alert>
 
                       {/* Design Presets */}
                       <div className="space-y-3">
@@ -856,103 +877,75 @@ const InvoiceTemplates = () => {
                           {selectedTemplate?.is_default ? 'Default Template' : 'Set as Default'}
                         </Button>
                       </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
 
-            {/* Live Canvas Preview */}
+            {/* Live Preview */}
             <div className="lg:col-span-2">
               <Card className="h-full">
                 <CardHeader>
-                  <CardTitle>Live Preview</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5" />
+                    Live Preview
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {/* Settings Warnings */}
-                  {(!companySettings?.company_name || !bankingSettings) && (
-                    <Alert className="mb-4">
+                  {validationErrors.length > 0 && (
+                    <Alert className="mb-4" variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        <strong>Incomplete Settings:</strong>
-                        <ul className="list-disc list-inside mt-2 text-sm">
-                          {!companySettings?.company_name && (
-                            <li>Company name missing - please complete Settings &gt; Company</li>
-                          )}
-                          {!bankingSettings && (
-                            <li>Banking details missing - please complete Settings &gt; Banking</li>
-                          )}
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {validationErrors.length > 0 && (
-                    <Alert variant="destructive" className="mb-4">
-                      <AlertDescription>
-                        <strong>Template Validation Issues:</strong>
-                        <ul className="list-disc list-inside mt-2">
-                          {validationErrors.map((error, idx) => (
-                            <li key={idx}>{error}</li>
+                        <ul className="list-disc list-inside text-sm">
+                          {validationErrors.map((error, i) => (
+                            <li key={i}>{error}</li>
                           ))}
                         </ul>
                       </AlertDescription>
                     </Alert>
                   )}
 
-                  <div id="font-injector" style={{ display: 'none' }}>
-                    <link rel="preconnect" href="https://fonts.googleapis.com" />
-                    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                    <link href={getGoogleFontHref(templateForPreview.font_family || 'Inter')} rel="stylesheet" />
-                  </div>
-
-                  <style>{`
-                    @page { size: A4; margin: 0; }
-                    @media print {
-                      tr, td, th { page-break-inside: avoid; }
-                      .avoid-break { page-break-inside: avoid; }
-                    }
-                  `}</style>
-
-                  <div style={{ margin: '0 auto' }}>
-                    <div id="invoice-html-preview" className="invoice-page" style={{ width: '210mm', minHeight: '297mm', background: '#fff' }}>
-                      <UnifiedInvoiceLayout
-                        id="invoice-preview-root"
-                        variant="pdf"
-                        invoiceData={sampleInvoiceData as any}
-                        companySettings={companySettings ? {
-                          name: companySettings.company_name,
-                          email: companySettings.company_email,
-                          phone: companySettings.company_phone,
-                          address: companySettings.company_address,
-                          city: companySettings.company_city,
-                          state: companySettings.company_state,
-                          zipCode: companySettings.company_zip_code,
-                          country: companySettings.company_country,
-                          taxId: companySettings.company_vat_number,
-                          registrationNumber: companySettings.company_registration_number,
-                          logo: companySettings.company_logo,
-                        } : undefined}
-                        bankingSettings={bankingSettings ? {
-                          bankName: bankingSettings.bank_name,
-                          accountName: bankingSettings.bank_account_name,
-                          iban: bankingSettings.bank_iban,
-                          swiftCode: bankingSettings.bank_swift_code,
-                        } : undefined}
-                        templateSettings={{
-                          primaryColor: templateForPreview.primary_color,
-                          accentColor: templateForPreview.accent_color,
-                          fontFamily: templateForPreview.font_family,
-                          fontSize: templateForPreview.font_size,
-                          layout: currentSettings.layout || 'default',
-                          headerLayout: currentSettings.header_layout || 'default',
-                          tableStyle: currentSettings.table_style || 'default',
-                          totalsStyle: currentSettings.totals_style || 'default',
-                          bankingVisibility: currentSettings.banking_visibility !== false,
-                          bankingStyle: currentSettings.banking_style || 'default',
-                        }}
-                      />
-                    </div>
+                  <div className={`${getPreviewDimensions()} bg-white rounded-lg shadow-lg overflow-auto`}
+                       style={{ 
+                         maxHeight: previewMode === 'print' ? '297mm' : '800px',
+                         fontFamily: currentSettings.font_family || 'Inter'
+                       }}>
+                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || 'Inter')} />
+                    
+                    <UnifiedInvoiceLayout
+                      invoiceData={sampleInvoiceData}
+                      companySettings={companySettings ? {
+                        name: companySettings.company_name || '',
+                        address: companySettings.company_address || '',
+                        city: companySettings.company_city || '',
+                        zipCode: companySettings.company_zip_code || '',
+                        country: companySettings.company_country || '',
+                        phone: companySettings.company_phone || '',
+                        email: companySettings.company_email || '',
+                        taxId: companySettings.company_vat_number || '',
+                        logo: companySettings.company_logo || '',
+                      } : undefined}
+                      bankingSettings={bankingSettings ? {
+                        bankName: bankingSettings.bank_name || '',
+                        accountName: bankingSettings.bank_account_name || '',
+                        iban: bankingSettings.bank_iban || '',
+                        swiftCode: bankingSettings.bank_swift_code || '',
+                      } : undefined}
+                      templateSettings={{
+                        primaryColor: templateForPreview.primary_color,
+                        accentColor: templateForPreview.accent_color,
+                        fontFamily: templateForPreview.font_family,
+                        fontSize: templateForPreview.font_size,
+                        layout: currentSettings.layout || 'default',
+                        headerLayout: currentSettings.header_layout || 'default',
+                        tableStyle: currentSettings.table_style || 'default',
+                        totalsStyle: currentSettings.totals_style || 'default',
+                        bankingVisibility: currentSettings.banking_visibility !== false,
+                        bankingStyle: currentSettings.banking_style || 'default',
+                      }}
+                      debug={false}
+                    />
                   </div>
                 </CardContent>
               </Card>
