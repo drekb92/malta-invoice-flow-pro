@@ -33,7 +33,7 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         console.warn('[useInvoiceTemplate] Template missing required color fields, using defaults');
       }
       
-      // Ensure consistent font family format
+      // Ensure consistent font family format and all template fields have defaults
       const normalizedTemplate = {
         ...loadedTemplate,
         font_family: loadedTemplate.font_family || 'Inter',
@@ -41,6 +41,15 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         primary_color: loadedTemplate.primary_color || '#26A65B',
         accent_color: loadedTemplate.accent_color || '#1F2D3D',
         layout: loadedTemplate.layout || 'default',
+        header_layout: loadedTemplate.header_layout || 'default',
+        table_style: loadedTemplate.table_style || 'default',
+        totals_style: loadedTemplate.totals_style || 'default',
+        banking_visibility: loadedTemplate.banking_visibility !== false,
+        banking_style: loadedTemplate.banking_style || 'default',
+        margin_top: loadedTemplate.margin_top ?? 20,
+        margin_right: loadedTemplate.margin_right ?? 20,
+        margin_bottom: loadedTemplate.margin_bottom ?? 20,
+        margin_left: loadedTemplate.margin_left ?? 20,
       } as InvoiceTemplate;
       
       console.log('[useInvoiceTemplate] Normalized template:', normalizedTemplate);
