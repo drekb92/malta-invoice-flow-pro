@@ -513,99 +513,132 @@ export const UnifiedInvoiceLayout = ({
           marginBottom: '2rem',
         }}
       >
-        {/* Left side: Logo (always left) */}
-        <div>
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Company Logo"
-              crossOrigin="anonymous"
-              style={{
-                maxHeight: '60px',
-                width: 'auto',
-                objectFit: 'contain',
-              }}
-            />
-          )}
-          {/* Company Info on left (only if position is 'left') */}
-          {companyPosition === 'left' && companySettings && (
-            <div style={{ marginTop: '1rem', fontSize: '12px', color: '#6b7280' }}>
-              {companySettings.name && <div style={{ fontWeight: 600 }}>{companySettings.name}</div>}
-              {companySettings.address && <div>{companySettings.address}</div>}
-              {companySettings.city && (
-                <div>
-                  {companySettings.city}
-                  {companySettings.state && `, ${companySettings.state}`}{' '}
-                  {companySettings.zipCode}
-                </div>
-              )}
-              {companySettings.email && <div>{companySettings.email}</div>}
-              {companySettings.phone && <div>{companySettings.phone}</div>}
-              {companySettings.taxId && (
-                <div>
-                  <strong>VAT:</strong> {companySettings.taxId}
-                </div>
-              )}
-            </div>
-          )}
+        {/* Left side: Company Logo + Company Info (if position is 'left') */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div>
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt="Company Logo"
+                crossOrigin="anonymous"
+                style={{
+                  maxHeight: '64px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  marginBottom: companyPosition === 'left' && companySettings ? '1rem' : '0',
+                }}
+              />
+            )}
+            {/* Company Info below logo on left side */}
+            {companyPosition === 'left' && companySettings && (
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                {companySettings.name && (
+                  <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                    {companySettings.name}
+                  </div>
+                )}
+                {companySettings.address && (
+                  <div style={{ whiteSpace: 'pre-line', marginBottom: '4px' }}>
+                    {companySettings.address}
+                  </div>
+                )}
+                {companySettings.city && (
+                  <div style={{ marginBottom: '4px' }}>
+                    {companySettings.city}
+                    {companySettings.state && `, ${companySettings.state}`}{' '}
+                    {companySettings.zipCode}
+                  </div>
+                )}
+                {companySettings.phone && (
+                  <div style={{ marginBottom: '4px' }}>
+                    <strong>Tel:</strong> {companySettings.phone}
+                  </div>
+                )}
+                {companySettings.email && (
+                  <div style={{ marginBottom: '4px' }}>
+                    <strong>Email:</strong> {companySettings.email}
+                  </div>
+                )}
+                {companySettings.taxId && (
+                  <div>
+                    <strong>VAT:</strong> {companySettings.taxId}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         
-        {/* Right side: Company Info + Invoice Meta (if company position is 'right' or 'top-right') */}
-        <div style={{ textAlign: 'right', maxWidth: '50%' }}>
-          {/* Company Info at top-right */}
-          {(companyPosition === 'right' || companyPosition === 'top-right') && companySettings && (
-            <div style={{ marginBottom: '1.5rem', fontSize: '11px', color: '#6b7280' }}>
+        {/* Right side: Invoice Details + Company Info (if position is 'right' or 'top-right') */}
+        <div style={{ textAlign: 'right' }}>
+          {/* Invoice Meta Information */}
+          <div style={{ marginBottom: '1rem' }}>
+            <h1
+              style={{
+                fontSize: '32px',
+                fontWeight: 'bold',
+                marginBottom: '0.5rem',
+                color: primaryColor,
+              }}
+            >
+              INVOICE
+            </h1>
+            <div style={{ fontSize: '13px', color: '#374151' }}>
+              <div style={{ marginBottom: '4px' }}>
+                <strong>Invoice #:</strong> {invoiceData.invoiceNumber}
+              </div>
+              <div style={{ marginBottom: '4px' }}>
+                <strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}
+              </div>
+              <div>
+                <strong>Due Date:</strong> {formatDate(invoiceData.dueDate)}
+              </div>
+            </div>
+          </div>
+          
+          {/* Company Details - Below invoice meta with border separator */}
+          {companySettings && (companyPosition === 'right' || companyPosition === 'top-right') && (
+            <div
+              style={{
+                fontSize: '12px',
+                paddingTop: '1rem',
+                borderTop: '1px solid #e5e7eb',
+              }}
+            >
               {companySettings.name && (
-                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>
                   {companySettings.name}
                 </div>
               )}
-              {companySettings.address && <div>{companySettings.address}</div>}
+              {companySettings.address && (
+                <div style={{ whiteSpace: 'pre-line', marginBottom: '4px', color: '#6b7280' }}>
+                  {companySettings.address}
+                </div>
+              )}
               {companySettings.city && (
-                <div>
+                <div style={{ marginBottom: '4px', color: '#6b7280' }}>
                   {companySettings.city}
                   {companySettings.state && `, ${companySettings.state}`}{' '}
                   {companySettings.zipCode}
                 </div>
               )}
-              {companySettings.country && <div>{companySettings.country}</div>}
-              {companySettings.email && <div>{companySettings.email}</div>}
-              {companySettings.phone && <div>{companySettings.phone}</div>}
-              {companySettings.taxId && (
-                <div>
-                  <strong>VAT:</strong> {companySettings.taxId}
+              {companySettings.phone && (
+                <div style={{ marginBottom: '4px', color: '#6b7280' }}>
+                  <strong>Tel:</strong> {companySettings.phone}
                 </div>
               )}
-              {companySettings.registrationNumber && (
-                <div>
-                  <strong>Reg:</strong> {companySettings.registrationNumber}
+              {companySettings.email && (
+                <div style={{ marginBottom: '4px', color: '#6b7280' }}>
+                  <strong>Email:</strong> {companySettings.email}
+                </div>
+              )}
+              {companySettings.taxId && (
+                <div style={{ color: '#6b7280' }}>
+                  <strong>VAT:</strong> {companySettings.taxId}
                 </div>
               )}
             </div>
           )}
-          
-          {/* Invoice Meta Information */}
-          <h1
-            style={{
-              fontSize: '32px',
-              fontWeight: 'bold',
-              marginBottom: '0.5rem',
-              color: primaryColor,
-            }}
-          >
-            INVOICE
-          </h1>
-          <div style={{ fontSize: '13px', color: '#374151' }}>
-            <div style={{ marginBottom: '4px' }}>
-              <strong>Invoice #:</strong> {invoiceData.invoiceNumber}
-            </div>
-            <div style={{ marginBottom: '4px' }}>
-              <strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}
-            </div>
-            <div>
-              <strong>Due Date:</strong> {formatDate(invoiceData.dueDate)}
-            </div>
-          </div>
         </div>
       </div>
 
