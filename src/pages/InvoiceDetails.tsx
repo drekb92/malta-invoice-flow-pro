@@ -19,6 +19,8 @@ import { format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
@@ -71,6 +73,10 @@ const InvoiceDetails = () => {
   
   // Load template using unified hook
   const { template, isLoading: templateLoading } = useInvoiceTemplate();
+  
+  // Load company and banking settings
+  const { settings: companySettings } = useCompanySettings();
+  const { settings: bankingSettings } = useBankingSettings();
 
   useEffect(() => {
     if (!invoice_id) return;
@@ -543,6 +549,25 @@ const InvoiceDetails = () => {
                 fontSize: template.font_size,
                 layout: template?.layout || 'default'
               }}
+              companySettings={companySettings ? {
+                name: companySettings.company_name,
+                email: companySettings.company_email,
+                phone: companySettings.company_phone,
+                address: companySettings.company_address,
+                city: companySettings.company_city,
+                state: companySettings.company_state,
+                zipCode: companySettings.company_zip_code,
+                country: companySettings.company_country,
+                taxId: companySettings.company_vat_number,
+                registrationNumber: companySettings.company_registration_number,
+                logo: companySettings.company_logo,
+              } : undefined}
+              bankingSettings={bankingSettings ? {
+                bankName: bankingSettings.bank_name,
+                accountName: bankingSettings.bank_account_name,
+                iban: bankingSettings.bank_iban,
+                swiftCode: bankingSettings.bank_swift_code,
+              } : undefined}
             />
           </InvoiceErrorBoundary>
         )}

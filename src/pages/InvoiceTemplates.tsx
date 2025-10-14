@@ -24,7 +24,10 @@ import {
   DollarSign,
   CreditCard,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { generatePDF } from "@/lib/pdfGenerator";
@@ -110,23 +113,10 @@ const InvoiceTemplates = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [companySettings, setCompanySettings] = useState<any>(null);
-  const [bankingSettings, setBankingSettings] = useState<any>(null);
-
-  // Load company and banking settings for preview
-  const loadSettingsForPreview = useCallback(async () => {
-    try {
-      const [companyRes, bankingRes] = await Promise.all([
-        supabase.from('company_settings').select('*').eq('user_id', user?.id).single(),
-        supabase.from('banking_details').select('*').eq('user_id', user?.id).single(),
-      ]);
-
-      if (companyRes.data) setCompanySettings(companyRes.data);
-      if (bankingRes.data) setBankingSettings(bankingRes.data);
-    } catch (error) {
-      console.error('Error loading settings for preview:', error);
-    }
-  }, [user]);
+  
+  // Use hooks to load company and banking settings
+  const { settings: companySettings, isLoading: loadingCompany } = useCompanySettings();
+  const { settings: bankingSettings, isLoading: loadingBanking } = useBankingSettings();
 
   // Load templates from Supabase
   const loadTemplates = useCallback(async () => {
@@ -223,11 +213,10 @@ const InvoiceTemplates = () => {
     }
   };
 
-  // Load templates and settings on component mount
+  // Load templates on component mount
   useEffect(() => {
     loadTemplates();
-    loadSettingsForPreview();
-  }, [loadTemplates, loadSettingsForPreview]);
+  }, [loadTemplates]);
 
   const updateSetting = (key: keyof InvoiceTemplate, value: any) => {
     setCurrentSettings(prev => ({
@@ -838,6 +827,24 @@ const InvoiceTemplates = () => {
                   <CardTitle>Live Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {/* Settings Warnings */}
+                  {(!companySettings?.company_name || !bankingSettings) && (
+                    <Alert className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Incomplete Settings:</strong>
+                        <ul className="list-disc list-inside mt-2 text-sm">
+                          {!companySettings?.company_name && (
+                            <li>Company name missing - please complete Settings &gt; Company</li>
+                          )}
+                          {!bankingSettings && (
+                            <li>Banking details missing - please complete Settings &gt; Banking</li>
+                          )}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {validationErrors.length > 0 && (
                     <Alert variant="destructive" className="mb-4">
                       <AlertDescription>
@@ -871,8 +878,25 @@ const InvoiceTemplates = () => {
                         id="invoice-preview-root"
                         variant="pdf"
                         invoiceData={sampleInvoiceData as any}
-                        companySettings={companySettings}
-                        bankingSettings={bankingSettings}
+                        companySettings={companySettings ? {
+                          name: companySettings.company_name,
+                          email: companySettings.company_email,
+                          phone: companySettings.company_phone,
+                          address: companySettings.company_address,
+                          city: companySettings.company_city,
+                          state: companySettings.company_state,
+                          zipCode: companySettings.company_zip_code,
+                          country: companySettings.company_country,
+                          taxId: companySettings.company_vat_number,
+                          registrationNumber: companySettings.company_registration_number,
+                          logo: companySettings.company_logo,
+                        } : undefined}
+                        bankingSettings={bankingSettings ? {
+                          bankName: bankingSettings.bank_name,
+                          accountName: bankingSettings.bank_account_name,
+                          iban: bankingSettings.bank_iban,
+                          swiftCode: bankingSettings.bank_swift_code,
+                        } : undefined}
                         templateSettings={{
                           primaryColor: templateForPreview.primary_color,
                           accentColor: templateForPreview.accent_color,

@@ -38,6 +38,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import type { InvoiceData } from "@/services/pdfService";
 import { formatCurrency } from "@/lib/utils";
@@ -79,6 +81,10 @@ const Invoices = () => {
   // Load template using unified hook
   const { template } = useInvoiceTemplate();
   
+  // Load company and banking settings
+  const { settings: companySettings } = useCompanySettings();
+  const { settings: bankingSettings } = useBankingSettings();
+
   const [exportInvoice, setExportInvoice] = useState<Invoice | null>(null);
   const [exportItems, setExportItems] = useState<any[]>([]);
   const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number; originalSubtotal?: number; discountAmount?: number } | null>(null);
@@ -524,6 +530,25 @@ const Invoices = () => {
                   fontSize: template.font_size,
                   layout: template?.layout || 'default'
                 }}
+                companySettings={companySettings ? {
+                  name: companySettings.company_name,
+                  email: companySettings.company_email,
+                  phone: companySettings.company_phone,
+                  address: companySettings.company_address,
+                  city: companySettings.company_city,
+                  state: companySettings.company_state,
+                  zipCode: companySettings.company_zip_code,
+                  country: companySettings.company_country,
+                  taxId: companySettings.company_vat_number,
+                  registrationNumber: companySettings.company_registration_number,
+                  logo: companySettings.company_logo,
+                } : undefined}
+                bankingSettings={bankingSettings ? {
+                  bankName: bankingSettings.bank_name,
+                  accountName: bankingSettings.bank_account_name,
+                  iban: bankingSettings.bank_iban,
+                  swiftCode: bankingSettings.bank_swift_code,
+                } : undefined}
               />
             </InvoiceErrorBoundary>
           )}

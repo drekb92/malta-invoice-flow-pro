@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { useToast } from './use-toast';
 
 export interface CompanySettings {
+  id: string;
+  user_id: string;
   company_name?: string;
   company_email?: string;
   company_phone?: string;
-  company_website?: string;
   company_address?: string;
   company_city?: string;
   company_state?: string;
@@ -15,108 +17,196 @@ export interface CompanySettings {
   company_vat_number?: string;
   company_registration_number?: string;
   company_logo?: string;
-  currency_code?: string;
-  default_payment_terms?: number;
-  invoice_prefix?: string;
-  quotation_prefix?: string;
+  company_website?: string;
+  invoice_prefix: string;
+  quotation_prefix: string;
+  default_payment_terms: number;
+  currency_code: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface BankingDetails {
-  bank_name?: string;
-  bank_account_name?: string;
-  bank_iban?: string;
-  bank_swift_code?: string;
-  include_on_invoices?: boolean;
-  display_format?: string;
+interface UseCompanySettingsReturn {
+  settings: CompanySettings | null;
+  isLoading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  isValid: boolean;
+  validationErrors: string[];
 }
 
-export interface InvoiceSettings {
-  numbering_prefix?: string;
-  next_invoice_number?: number;
-  default_payment_days?: number;
-  late_payment_interest_rate?: number;
-  vat_rate_standard?: number;
-  vat_rate_reduced?: number;
-  invoice_language?: string;
-  include_vat_breakdown?: boolean;
-  invoice_footer_text?: string;
-  default_invoice_notes?: string;
-}
-
-export interface AllSettings {
-  company: CompanySettings | null;
-  banking: BankingDetails | null;
-  invoice: InvoiceSettings | null;
-}
-
-export const useCompanySettings = () => {
+/**
+ * Hook to load and manage company settings from the database
+ * Provides consistent access to company information across components
+ */
+export const useCompanySettings = (userId?: string): UseCompanySettingsReturn => {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<AllSettings>({
-    company: null,
-    banking: null,
-    invoice: null,
-  });
+  const { toast } = useToast();
+  const effectiveUserId = userId || user?.id;
+  
+  const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const validateSettings = useCallback((settings: CompanySettings | null): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    if (!settings) {
+      return { isValid: false, errors: ['Company settings not loaded'] };
+    }
+
+    // Required fields for invoices
+    if (!settings.company_name || settings.company_name.trim() === '') {
+      errors.push('Company name is required');
+    }
+
+    // Validate email format if provided
+    if (settings.company_email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(settings.company_email)) {
+        errors.push('Invalid company email format');
+      }
+    }
+
+    // Validate VAT number format if provided (basic check)
+    if (settings.company_vat_number) {
+      const vatRegex = /^[A-Z]{2}[\dA-Z]+$/;
+      if (!vatRegex.test(settings.company_vat_number.replace(/\s/g, ''))) {
+        errors.push('Invalid VAT number format (should start with country code)');
+      }
+    }
+
+    // Warn if address is incomplete
+    if (settings.company_address && (!settings.company_city || !settings.company_country)) {
+      errors.push('Address is incomplete (missing city or country)');
+    }
+
+    return { isValid: errors.length === 0, errors };
+  }, []);
 
   const loadSettings = useCallback(async () => {
-    if (!user?.id) {
+    if (!effectiveUserId) {
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
     try {
-      // Load company settings
-      const { data: companyData, error: companyError } = await supabase
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
         .from('company_settings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .maybeSingle();
 
-      if (companyError && companyError.code !== 'PGRST116') throw companyError;
+      if (fetchError) {
+        throw fetchError;
+      }
 
-      // Load banking details
-      const { data: bankingData, error: bankingError } = await supabase
-        .from('banking_details')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      if (data) {
+        setSettings(data as CompanySettings);
+      } else {
+        // No company settings yet - create default entry
+        const defaultSettings = {
+          user_id: effectiveUserId,
+          invoice_prefix: 'INV-',
+          quotation_prefix: 'QUO-',
+          default_payment_terms: 30,
+          currency_code: 'EUR',
+        };
 
-      if (bankingError && bankingError.code !== 'PGRST116') throw bankingError;
+        const { data: newData, error: insertError } = await supabase
+          .from('company_settings')
+          .insert([defaultSettings])
+          .select()
+          .single();
 
-      // Load invoice settings
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from('invoice_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (invoiceError && invoiceError.code !== 'PGRST116') throw invoiceError;
-
-      setSettings({
-        company: companyData,
-        banking: bankingData,
-        invoice: invoiceData,
-      });
+        if (insertError) throw insertError;
+        setSettings(newData as CompanySettings);
+      }
     } catch (err) {
-      console.error('Error loading company settings:', err);
-      setError(err instanceof Error ? err : new Error('Failed to load settings'));
+      console.error('[useCompanySettings] Error loading settings:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load company settings';
+      setError(errorMessage);
+      
+      toast({
+        title: 'Company Settings Error',
+        description: 'Unable to load company information. Please check Settings.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [effectiveUserId, toast]);
 
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
+  const refresh = useCallback(async () => {
+    await loadSettings();
+  }, [loadSettings]);
+
+  const validation = validateSettings(settings);
+
   return {
     settings,
     isLoading,
     error,
-    refreshSettings: loadSettings,
+    refresh,
+    isValid: validation.isValid,
+    validationErrors: validation.errors,
   };
+};
+
+/**
+ * Format company address for display on invoices
+ */
+export const formatCompanyAddress = (settings: CompanySettings | null): string[] => {
+  if (!settings) return [];
+
+  const lines: string[] = [];
+
+  if (settings.company_address) {
+    lines.push(settings.company_address);
+  }
+
+  const cityLine = [
+    settings.company_city,
+    settings.company_state,
+    settings.company_zip_code,
+  ].filter(Boolean).join(', ');
+
+  if (cityLine) {
+    lines.push(cityLine);
+  }
+
+  if (settings.company_country) {
+    lines.push(settings.company_country);
+  }
+
+  return lines;
+};
+
+/**
+ * Get company logo URL (handles both relative and absolute URLs)
+ */
+export const getCompanyLogoUrl = (settings: CompanySettings | null): string | undefined => {
+  if (!settings?.company_logo) return undefined;
+
+  const logo = settings.company_logo;
+
+  // If already absolute URL, return as-is
+  if (logo.startsWith('http://') || logo.startsWith('https://')) {
+    return logo;
+  }
+
+  // If relative to storage bucket, construct full URL
+  if (logo.startsWith('/')) {
+    return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos${logo}`;
+  }
+
+  // If just filename, prepend bucket path
+  return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${logo}`;
 };
