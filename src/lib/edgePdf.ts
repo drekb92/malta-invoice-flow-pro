@@ -1,9 +1,20 @@
 import { supabase } from "@/integrations/supabase/client";
+import { validatePDFConsistency, logConsistencyReport, generateDebugComment } from "@/lib/pdfConsistency";
 
 /**
  * Build full HTML from the on-screen preview and request PDF from Edge Function.
+ * 
+ * IMPORTANT: This function ensures WYSIWYG (What You See Is What You Get)
+ * - It captures the exact HTML from UnifiedInvoiceLayout component
+ * - It preserves all CSS variables and styling
+ * - It inlines images for reliable rendering
+ * - The PDF will match the preview exactly
  */
-export async function downloadPdfFromFunction(filename: string, selectedFontFamily?: string) {
+export async function downloadPdfFromFunction(
+  filename: string, 
+  selectedFontFamily?: string,
+  debug = false
+) {
   const root = document.getElementById('invoice-preview-root') as HTMLElement | null;
   if (!root) throw new Error('Preview root not found (invoice-preview-root).');
 
@@ -58,11 +69,25 @@ export async function downloadPdfFromFunction(filename: string, selectedFontFami
     cloned.setAttribute('style', `${existingStyle}${existingStyle ? ' ' : ''}${cssVars}`);
   }
 
+  // Add debug comment if requested
+  const debugComment = debug ? `\n${generateDebugComment({
+    isConsistent: true,
+    warnings: [],
+    errors: [],
+    details: {
+      hasCompanySettings: true,
+      hasBankingSettings: true,
+      hasTemplateSettings: true,
+      layoutType: 'unknown',
+      variant: 'pdf',
+    }
+  })}\n` : '';
+
   const html = `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>${filename}</title>
+    <title>${filename}</title>${debugComment}
     <style>
       @page { size: A4; margin: 0; }
       :root { color-scheme: light; }

@@ -76,6 +76,7 @@ export interface UnifiedInvoiceLayoutProps {
   templateSettings?: TemplateSettings;
   variant?: 'preview' | 'pdf' | 'print';
   id?: string;
+  debug?: boolean; // Add debug mode to show data source
 }
 
 export const UnifiedInvoiceLayout = ({
@@ -84,7 +85,8 @@ export const UnifiedInvoiceLayout = ({
   bankingSettings,
   templateSettings,
   variant = 'preview',
-  id = 'unified-invoice'
+  id = 'unified-invoice',
+  debug = false,
 }: UnifiedInvoiceLayoutProps) => {
   // Default template settings
   const primaryColor = templateSettings?.primaryColor || '#26A65B';
@@ -142,6 +144,27 @@ export const UnifiedInvoiceLayout = ({
         className={containerClassName}
         style={containerStyle}
       >
+        {/* Debug Mode Banner */}
+        {debug && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            background: '#fef3c7',
+            border: '2px solid #f59e0b',
+            padding: '8px 12px',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            zIndex: 1000,
+          }}>
+            <strong>DEBUG MODE:</strong> Company: {companySettings?.name || 'Missing'} | 
+            Banking: {bankingSettings?.bankName || 'Missing'} | 
+            Layout: {layout} | 
+            Variant: {variant}
+          </div>
+        )}
+
         {/* Header Section */}
         <div className="flex justify-between items-start mb-16">
           {/* Logo */}
@@ -449,6 +472,27 @@ export const UnifiedInvoiceLayout = ({
   // Default layout
   return (
     <div id={id} className={containerClassName} style={containerStyle}>
+      {/* Debug Mode Banner */}
+      {debug && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          background: '#fef3c7',
+          border: '2px solid #f59e0b',
+          padding: '8px 12px',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          zIndex: 1000,
+        }}>
+          <strong>DEBUG MODE:</strong> Company: {companySettings?.name || 'Missing'} | 
+          Banking: {bankingSettings?.bankName || 'Missing'} | 
+          Layout: {layout} | 
+          Variant: {variant}
+        </div>
+      )}
+
       {/* Top spacer */}
       {variant === 'pdf' && <div style={{ height: '4mm' }} />}
 

@@ -175,7 +175,17 @@ const InvoiceDetails = () => {
   const handleDownload = async () => {
     if (!invoice) return;
     
-    console.log('[InvoiceDetails] Starting PDF download');
+    console.log('[InvoiceDetails] Starting PDF download - using UnifiedInvoiceLayout for consistency');
+    
+    // Validate settings
+    if (!companySettings?.company_name) {
+      toast({
+        title: 'Company Settings Required',
+        description: 'Please complete your company information in Settings.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     // Validate template is loaded
     if (!template) {

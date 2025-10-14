@@ -25,6 +25,7 @@ import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import type { InvoiceData } from "@/services/pdfService";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 
@@ -463,53 +464,37 @@ const NewInvoice = () => {
   const handleDownloadPDF = async () => {
     setLoading(true);
     try {
+      // IMPORTANT: PDF generation now captures from UnifiedInvoiceLayout preview
+      // This ensures the PDF matches exactly what the user sees
+      
       if (!selectedCustomer) {
         throw new Error("Please select a customer");
       }
 
-      const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-      if (!selectedCustomerData) {
-        throw new Error("Customer not found");
+      if (!companySettings?.company_name) {
+        toast({
+          title: 'Company Settings Required',
+          description: 'Please complete your company information in Settings before downloading PDFs.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
       }
 
-      const { taxable, vatTotal, grandTotal } = calculateTotals();
-
-      const paymentTerms = selectedCustomerData.payment_terms || "Net 30";
-      const daysMatch = paymentTerms.match(/\d+/);
-      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
-      const calculatedDueDate = addDays(new Date(invoiceDate), paymentDays);
-
-      const invoiceData: InvoiceData = {
-        invoiceNumber: invoiceNumber || 'DRAFT',
-        invoiceDate: invoiceDate,
-        dueDate: calculatedDueDate.toISOString().split("T")[0],
-        customer: {
-          name: selectedCustomerData.name,
-          email: selectedCustomerData.email || undefined,
-          address: selectedCustomerData.address || undefined,
-          vat_number: selectedCustomerData.vat_number || undefined,
-        },
-        items: items.map(item => ({
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate,
-          unit: item.unit,
-        })),
-        totals: {
-          netTotal: taxable,
-          vatTotal: vatTotal,
-          grandTotal: grandTotal,
-        },
-      };
-
-      await generateInvoicePDFWithTemplate(invoiceData, `Invoice-${invoiceData.invoiceNumber}`);
-      toast({ title: 'Success', description: 'Invoice downloaded successfully' });
+      // Use edge function to generate PDF from the preview element
+      // This captures the exact UnifiedInvoiceLayout HTML
+      const filename = `Invoice-${invoiceNumber || 'DRAFT'}`;
+      await downloadPdfFromFunction(filename, templateForPreview?.font_family);
+      
+      toast({ 
+        title: 'Success', 
+        description: 'Invoice PDF downloaded successfully' 
+      });
     } catch (error: any) {
       console.error('Error downloading PDF:', error);
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to download invoice',
+        description: error?.message || 'Failed to download invoice PDF',
         variant: 'destructive',
       });
     } finally {

@@ -435,6 +435,38 @@ const InvoiceTemplates = () => {
                   }}
                 >
                   <Eye className="h-4 w-4 mr-2" />
+                  Preview PDF
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await downloadPdfFromFunction("invoice-template-download");
+                      toast({ 
+                        title: 'Downloaded', 
+                        description: 'Template downloaded as PDF.' 
+                      });
+                    } catch (error: any) {
+                      console.error("Export failed:", error);
+                      const errorMsg = error?.message || '';
+                      if (errorMsg.includes('Parallel conversions limit') || errorMsg.includes('403')) {
+                        toast({
+                          title: 'PDF service busy',
+                          description: 'Please wait a moment and try again, or use the Legacy Download button.',
+                          variant: 'destructive',
+                        });
+                      } else {
+                        toast({
+                          title: 'Export failed',
+                          description: errorMsg || 'Could not generate PDF from preview.',
+                          variant: 'destructive',
+                        });
+                      }
+                    }
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
                   Download PDF
                 </Button>
                 <Button 

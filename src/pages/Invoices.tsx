@@ -40,6 +40,7 @@ import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
 import type { InvoiceData } from "@/services/pdfService";
 import { formatCurrency } from "@/lib/utils";
@@ -171,6 +172,9 @@ const Invoices = () => {
     try {
       console.log('[Invoices] Starting PDF download for invoice:', invoiceId);
       
+      // IMPORTANT: PDF generation now uses UnifiedInvoiceLayout for consistency
+      // The preview element contains the exact HTML that will be converted to PDF
+      
       const invoice = invoices.find(inv => inv.id === invoiceId);
       if (!invoice) {
         throw new Error('Invoice not found');
@@ -186,6 +190,23 @@ const Invoices = () => {
         id: template.id,
         name: template.name,
         layout: template.layout,
+      });
+      
+      // Validate consistency between preview and PDF
+      import('@/lib/pdfConsistency').then(({ validatePDFConsistency, logConsistencyReport }) => {
+        const report = validatePDFConsistency(
+          companySettings,
+          bankingSettings,
+          {
+            primaryColor: template.primary_color,
+            accentColor: template.accent_color,
+            fontFamily: template.font_family,
+            fontSize: template.font_size,
+            layout: template.layout,
+          },
+          { invoiceNumber: invoice.invoice_number, customer: invoice.customers, items: [] }
+        );
+        logConsistencyReport(report, 'Invoice PDF Download');
       });
 
       // Fetch items and totals
@@ -235,20 +256,15 @@ const Invoices = () => {
       // Wait for DOM to render
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Use edge function for PDF generation
+      // Use edge function for PDF generation - captures UnifiedInvoiceLayout HTML
       console.log('[Invoices] Calling edge function for PDF generation');
       const filename = `Invoice-${invoice.invoice_number}`;
-      const result = await exportInvoicePdfAction({
-        filename,
-        elementId: 'invoice-preview-root'
-      });
       
-      if (result.ok) {
-        console.log('[Invoices] PDF generated successfully');
-        toast({ title: 'Success', description: 'PDF downloaded successfully' });
-      } else {
-        throw new Error(result.error || 'Export failed');
-      }
+      // Use downloadPdfFromFunction for consistency (same as templates)
+      await downloadPdfFromFunction(filename, template.font_family);
+      
+      console.log('[Invoices] PDF generated successfully');
+      toast({ title: 'Success', description: 'PDF downloaded successfully' });
     } catch (error) {
       console.error('[Invoices] PDF download error:', error);
       toast({
