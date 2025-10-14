@@ -940,7 +940,11 @@ const NewInvoice = () => {
                 tableStyle: templateForPreview?.table_style || 'default',
                 totalsStyle: templateForPreview?.totals_style || 'default',
                 bankingVisibility: templateForPreview?.banking_visibility !== false,
-                bankingStyle: templateForPreview?.banking_style || 'default'
+                bankingStyle: templateForPreview?.banking_style || 'default',
+                marginTop: templateForPreview?.margin_top || 20,
+                marginRight: templateForPreview?.margin_right || 20,
+                marginBottom: templateForPreview?.margin_bottom || 20,
+                marginLeft: templateForPreview?.margin_left || 20
               }}
               companySettings={companySettings ? {
                 name: companySettings.company_name,

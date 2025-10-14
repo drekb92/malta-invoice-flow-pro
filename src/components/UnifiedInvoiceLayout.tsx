@@ -36,6 +36,10 @@ export interface TemplateSettings {
   totalsStyle?: string;
   bankingVisibility?: boolean;
   bankingStyle?: string;
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
 }
 
 export interface InvoiceItem {
