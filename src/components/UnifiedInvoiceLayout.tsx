@@ -127,28 +127,54 @@ export const UnifiedInvoiceLayout = ({
 
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
-  // Container styling based on variant
+  // CSS variables for consistent styling
+  const cssVariables = {
+    '--invoice-font-family': `'${fontFamily}', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`,
+    '--invoice-font-size': fontSize,
+    '--invoice-primary-color': primaryColor,
+    '--invoice-accent-color': accentColor,
+    '--invoice-margin-top': `${marginTop}mm`,
+    '--invoice-margin-right': `${marginRight}mm`,
+    '--invoice-margin-bottom': `${marginBottom}mm`,
+    '--invoice-margin-left': `${marginLeft}mm`,
+  } as React.CSSProperties;
+
+  // Container styling based on variant using CSS variables
   const containerStyle: React.CSSProperties = variant === 'pdf'
     ? {
+        ...cssVariables,
         width: '21cm',
         minHeight: '29.7cm',
         backgroundColor: 'white',
-        paddingTop: `${marginTop}mm`,
-        paddingRight: `${marginRight}mm`,
-        paddingBottom: `${marginBottom}mm`,
-        paddingLeft: `${marginLeft}mm`,
+        paddingTop: 'var(--invoice-margin-top)',
+        paddingRight: 'var(--invoice-margin-right)',
+        paddingBottom: 'var(--invoice-margin-bottom)',
+        paddingLeft: 'var(--invoice-margin-left)',
         boxSizing: 'border-box',
-        fontFamily,
-        fontSize,
-        color: accentColor,
+        fontFamily: 'var(--invoice-font-family)',
+        fontSize: 'var(--invoice-font-size)',
+        color: 'var(--invoice-accent-color)',
         position: 'relative',
       }
-    : {
-        fontFamily,
-        fontSize,
-        color: accentColor,
+    : variant === 'print'
+    ? {
+        ...cssVariables,
+        width: '21cm',
+        minHeight: '29.7cm',
         backgroundColor: 'white',
-        padding: variant === 'print' ? '1.5cm' : '2rem',
+        padding: '1.5cm',
+        boxSizing: 'border-box',
+        fontFamily: 'var(--invoice-font-family)',
+        fontSize: 'var(--invoice-font-size)',
+        color: 'var(--invoice-accent-color)',
+      }
+    : {
+        ...cssVariables,
+        fontFamily: 'var(--invoice-font-family)',
+        fontSize: 'var(--invoice-font-size)',
+        color: 'var(--invoice-accent-color)',
+        backgroundColor: 'white',
+        padding: '2rem',
       };
 
   const containerClassName = variant === 'pdf'
