@@ -170,9 +170,6 @@ const Invoices = () => {
     try {
       console.log('[Invoices] Starting PDF download for invoice:', invoiceId);
       
-      // IMPORTANT: PDF generation now captures from UnifiedInvoiceLayout preview
-      // This ensures the PDF matches exactly what the user sees
-      
       const invoice = invoices.find(inv => inv.id === invoiceId);
       if (!invoice) {
         throw new Error('Invoice not found');
@@ -180,7 +177,7 @@ const Invoices = () => {
 
       // Validate template is loaded
       if (!template) {
-        console.error('[Invoices] Template not loaded, cannot generate PDF');
+        console.error('[Invoices] Template not loaded');
         throw new Error('Template not loaded. Please refresh the page.');
       }
 
@@ -193,12 +190,6 @@ const Invoices = () => {
         });
         return;
       }
-      
-      console.log('[Invoices] Using template:', {
-        id: template.id,
-        name: template.name,
-        layout: template.layout,
-      });
 
       // Fetch items
       const { data: itemsData, error: itemsError } = await supabase
@@ -232,8 +223,7 @@ const Invoices = () => {
       const vat = totalsData?.vat_amount ?? (itemsData || []).reduce((s, i) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
       const total = totalsData?.total_amount ?? net + vat;
 
-      // Set state for hidden DOM rendering
-      console.log('[Invoices] Setting export state for DOM rendering');
+      // Set export state with invoice data
       setExportInvoice(invoice);
       setExportItems(itemsData || []);
       setExportTotals({ 
@@ -244,18 +234,15 @@ const Invoices = () => {
         discountAmount
       });
 
-      // Wait for DOM to render
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for DOM update
+      await new Promise(requestAnimationFrame);
 
-      // Use edge function to generate PDF from the preview element
-      // This captures the exact UnifiedInvoiceLayout HTML
-      const filename = `Invoice-${invoice.invoice_number}`;
-      await downloadPdfFromFunction(filename, template.font_family);
+      // Use edge PDF generation
+      await downloadPdfFromFunction(`Invoice-${invoice.invoice_number}`, template.font_family);
       
-      console.log('[Invoices] PDF generated successfully');
       toast({ 
         title: 'Success', 
-        description: 'Invoice PDF downloaded successfully' 
+        description: 'PDF downloaded successfully' 
       });
     } catch (error) {
       console.error('[Invoices] PDF download error:', error);
