@@ -44,7 +44,7 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         header_layout: loadedTemplate.header_layout || 'default',
         table_style: loadedTemplate.table_style || 'default',
         totals_style: loadedTemplate.totals_style || 'default',
-        banking_visibility: loadedTemplate.banking_visibility !== false,
+        banking_visibility: loadedTemplate.banking_visibility !== undefined ? loadedTemplate.banking_visibility : true,
         banking_style: loadedTemplate.banking_style || 'default',
         margin_top: loadedTemplate.margin_top ?? 20,
         margin_right: loadedTemplate.margin_right ?? 20,
