@@ -935,7 +935,12 @@ const NewInvoice = () => {
                 accentColor: templateForPreview.accent_color,
                 fontFamily: templateForPreview.font_family,
                 fontSize: templateForPreview.font_size,
-                layout: templateForPreview?.layout || 'default'
+                layout: templateForPreview?.layout || 'default',
+                headerLayout: templateForPreview?.header_layout || 'default',
+                tableStyle: templateForPreview?.table_style || 'default',
+                totalsStyle: templateForPreview?.totals_style || 'default',
+                bankingVisibility: templateForPreview?.banking_visibility !== false,
+                bankingStyle: templateForPreview?.banking_style || 'default'
               }}
               companySettings={companySettings ? {
                 name: companySettings.company_name,
