@@ -12,7 +12,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  Plus,
   Save,
   Eye,
   Star,
@@ -25,6 +24,8 @@ import {
   CreditCard,
   Sparkles,
   AlertCircle,
+  RotateCcw,
+  FileDown,
 } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
@@ -33,6 +34,12 @@ import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { generatePDF } from "@/lib/pdfGenerator";
 import { useInvoiceTemplate, validateTemplateInvoiceData, normalizeInvoiceData } from "@/hooks/useInvoiceTemplate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TemplateControlSection } from "@/components/templates/TemplateControlSection";
+import { TemplateManagementPanel } from "@/components/templates/TemplateManagementPanel";
+import { PreviewModeSelector, PreviewMode } from "@/components/templates/PreviewModeSelector";
+import { FontPreviewSelect } from "@/components/templates/FontPreviewSelect";
+import { MarginControl } from "@/components/templates/MarginControl";
+import { Badge } from "@/components/ui/badge";
 
 interface InvoiceTemplate {
   id: string;
@@ -113,10 +120,11 @@ const InvoiceTemplates = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
   
   // Use hooks to load company and banking settings
-  const { settings: companySettings, isLoading: loadingCompany } = useCompanySettings();
-  const { settings: bankingSettings, isLoading: loadingBanking } = useBankingSettings();
+  const { settings: companySettings, isLoading: loadingCompany, isValid: companyValid, validationErrors: companyErrors } = useCompanySettings();
+  const { settings: bankingSettings, isLoading: loadingBanking, isValid: bankingValid, validationErrors: bankingErrors } = useBankingSettings();
 
   // Load templates from Supabase
   const loadTemplates = useCallback(async () => {
@@ -225,6 +233,15 @@ const InvoiceTemplates = () => {
     }));
   };
 
+  const resetToDefault = () => {
+    if (!selectedTemplate) return;
+    setCurrentSettings(selectedTemplate);
+    toast({
+      title: "Settings reset",
+      description: "Changes have been reset to the saved template.",
+    });
+  };
+
   const applyPreset = (preset: typeof designPresets[0]) => {
     setCurrentSettings(prev => ({
       ...prev,
@@ -287,6 +304,25 @@ const InvoiceTemplates = () => {
     }
   };
 
+  const handleSaveAndTest = async () => {
+    await handleSave();
+    
+    try {
+      await downloadPdfFromFunction("invoice-template-test");
+      toast({ 
+        title: 'Test PDF generated', 
+        description: 'Template PDF with sample data has been downloaded.' 
+      });
+    } catch (error: any) {
+      console.error("Test failed:", error);
+      toast({
+        title: 'Test failed',
+        description: error?.message || 'Could not generate test PDF.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Set as default
   const handleSetDefault = async () => {
     if (!selectedTemplate) return;
@@ -322,15 +358,6 @@ const InvoiceTemplates = () => {
       });
     }
   };
-
-  const fontFamilies = [
-    { value: "Inter", label: "Inter" },
-    { value: "Roboto", label: "Roboto" },
-    { value: "Open Sans", label: "Open Sans" },
-    { value: "Montserrat", label: "Montserrat" },
-    { value: "Lato", label: "Lato" },
-    { value: "Poppins", label: "Poppins" },
-  ];
 
   const fontSizes = [
     { value: "12", label: "12px" },
@@ -390,115 +417,51 @@ const InvoiceTemplates = () => {
     return `https://fonts.googleapis.com/css2?family=${familyParam}:wght@400;600;700&display=swap`;
   };
 
+  const getPreviewDimensions = () => {
+    switch (previewMode) {
+      case 'mobile':
+        return 'max-w-sm mx-auto';
+      case 'print':
+        return 'w-[210mm] mx-auto'; // A4 width
+      case 'desktop':
+      default:
+        return 'max-w-4xl mx-auto';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
       
       <div className="md:ml-64">
-        <header className="bg-card border-b border-border">
+        <header className="bg-card border-b border-border sticky top-0 z-10">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Invoice Templates</h1>
-                <p className="text-muted-foreground">
-                  Customize your invoice design and styling
+                <h1 className="text-2xl font-bold text-foreground">Invoice Template Designer</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Design beautiful invoices with live preview
                 </p>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center gap-2">
+                <PreviewModeSelector mode={previewMode} onModeChange={setPreviewMode} />
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={async () => {
-                    try {
-                      await downloadPdfFromFunction("invoice-template-preview");
-                      toast({ 
-                        title: 'Downloaded', 
-                        description: 'Template preview saved as PDF.' 
-                      });
-                    } catch (error: any) {
-                      console.error("Export failed:", error);
-                      const errorMsg = error?.message || '';
-                      if (errorMsg.includes('Parallel conversions limit') || errorMsg.includes('403')) {
-                        toast({
-                          title: 'PDF service busy',
-                          description: 'Please wait a moment and try again, or use the Legacy Download button.',
-                          variant: 'destructive',
-                        });
-                      } else {
-                        toast({
-                          title: 'Export failed',
-                          description: errorMsg || 'Could not generate PDF from preview.',
-                          variant: 'destructive',
-                        });
-                      }
-                    }
-                  }}
+                  onClick={resetToDefault}
+                  disabled={!selectedTemplate}
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Preview PDF
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={async () => {
-                    try {
-                      await downloadPdfFromFunction("invoice-template-download");
-                      toast({ 
-                        title: 'Downloaded', 
-                        description: 'Template downloaded as PDF.' 
-                      });
-                    } catch (error: any) {
-                      console.error("Export failed:", error);
-                      const errorMsg = error?.message || '';
-                      if (errorMsg.includes('Parallel conversions limit') || errorMsg.includes('403')) {
-                        toast({
-                          title: 'PDF service busy',
-                          description: 'Please wait a moment and try again, or use the Legacy Download button.',
-                          variant: 'destructive',
-                        });
-                      } else {
-                        toast({
-                          title: 'Export failed',
-                          description: errorMsg || 'Could not generate PDF from preview.',
-                          variant: 'destructive',
-                        });
-                      }
-                    }
-                  }}
+                  onClick={handleSaveAndTest}
+                  disabled={isSaving || !selectedTemplate}
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      await generatePDF('invoice-preview-root', 'invoice-template-preview', {
-                        format: 'A4',
-                        orientation: 'portrait',
-                        margin: 15,
-                        quality: 0.95
-                      });
-                      toast({ 
-                        title: 'Downloaded', 
-                        description: 'Template preview saved as PDF (legacy).' 
-                      });
-                    } catch (error: any) {
-                      console.error("Export failed:", error);
-                      toast({
-                        title: 'Export failed',
-                        description: error?.message || 'Could not generate PDF from preview.',
-                        variant: 'destructive',
-                      });
-                    }
-                  }}
-                >
-                  Legacy Download
-                </Button>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Template
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Save & Test
                 </Button>
               </div>
             </div>
@@ -506,42 +469,89 @@ const InvoiceTemplates = () => {
         </header>
 
         <main className="p-6">
+          {/* Validation Warnings */}
+          {(!companyValid || !bankingValid) && (
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Action Required:</strong>
+                <ul className="list-disc list-inside mt-2 text-sm space-y-1">
+                  {companyErrors.map((error, i) => (
+                    <li key={`company-${i}`}>{error} - <a href="/settings" className="underline">Go to Settings</a></li>
+                  ))}
+                  {bankingErrors.map((error, i) => (
+                    <li key={`banking-${i}`}>{error} - <a href="/settings" className="underline">Go to Settings</a></li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Design Controls */}
             <div className="lg:col-span-1 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings2 className="h-5 w-5" />
-                    Design Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {isLoading ? (
-                    <div className="text-center py-8">Loading templates...</div>
-                  ) : (
-                    <>
-                      {/* Template Tabs */}
-                      {templates.length > 0 && selectedTemplate && (
-                        <Tabs value={selectedTemplate.id} onValueChange={(value) => {
-                          const template = templates.find(t => t.id === value);
-                          if (template) {
+              {isLoading ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <div className="text-muted-foreground">Loading templates...</div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {/* Template Management */}
+                  {user && (
+                    <Card>
+                      <CardContent className="pt-6">
+                        <TemplateManagementPanel
+                          templates={templates}
+                          selectedTemplate={selectedTemplate}
+                          currentSettings={currentSettings}
+                          userId={user.id}
+                          onTemplateCreated={loadTemplates}
+                          onTemplateDeleted={loadTemplates}
+                          onTemplateSelected={(template) => {
                             setSelectedTemplate(template);
                             setCurrentSettings(template);
-                          }
-                        }}>
-                          <TabsList className="grid w-full grid-cols-2">
-                            {templates.map((template) => (
-                              <TabsTrigger key={template.id} value={template.id} className="text-xs">
-                                {template.name}
-                                {template.is_default && <Star className="h-3 w-3 ml-1 fill-current" />}
-                              </TabsTrigger>
-                            ))}
-                          </TabsList>
-                        </Tabs>
-                      )}
+                          }}
+                        />
+                      </CardContent>
+                    </Card>
+                  )}
 
-                      <Separator />
+                  {/* Template Selector */}
+                  {templates.length > 0 && selectedTemplate && (
+                    <Card>
+                      <CardContent className="pt-6 space-y-3">
+                        <Label className="text-sm font-medium">Active Template</Label>
+                        <Select 
+                          value={selectedTemplate.id} 
+                          onValueChange={(value) => {
+                            const template = templates.find(t => t.id === value);
+                            if (template) {
+                              setSelectedTemplate(template);
+                              setCurrentSettings(template);
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {templates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                <div className="flex items-center gap-2">
+                                  {template.name}
+                                  {template.is_default && (
+                                    <Badge variant="secondary" className="text-xs">Default</Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
+                  )}
 
                       {/* Design Presets */}
                       <div className="space-y-3">
