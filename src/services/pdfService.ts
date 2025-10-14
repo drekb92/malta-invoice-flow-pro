@@ -65,25 +65,8 @@ export class PDFGenerator {
   }
 
   private addLogo() {
-    if (this.template.logo_url) {
-      try {
-        // Note: In a real implementation, you'd need to convert the image to base64
-        // For now, we'll add a placeholder
-        const logoX = this.margin + this.template.logo_x_offset;
-        const logoY = this.margin + this.template.logo_y_offset;
-        
-        // Add logo placeholder
-        this.pdf.setFillColor(240, 240, 240);
-        this.pdf.rect(logoX, logoY, 40, 20, 'F');
-        this.pdf.setTextColor(100, 100, 100);
-        this.pdf.setFontSize(8);
-        this.pdf.text('LOGO', logoX + 17, logoY + 12);
-        
-        this.currentY = Math.max(this.currentY, logoY + 25);
-      } catch (error) {
-        console.error('Error adding logo:', error);
-      }
-    }
+    // Logo is now managed via company_settings, not template
+    // This method is deprecated and will be removed
   }
 
   private addHeader(invoiceData: InvoiceData) {

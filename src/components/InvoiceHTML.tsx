@@ -50,7 +50,7 @@ export interface InvoiceHTMLProps {
 export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-pdf-content", variant = 'default', layout = 'default', debug = false }: InvoiceHTMLProps) => {
   if (debug) {
     console.log('[InvoiceHTML] Rendering with:', {
-      template: { ...template, logo_url: template.logo_url ? 'set' : 'none' },
+      template: { id: template.id, name: template.name },
       layout,
       variant,
       invoiceNumber: invoiceData.invoiceNumber,
@@ -87,28 +87,10 @@ export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-
 
   const fontSizeValue = parseInt(template.font_size);
   
-  // Ensure logo URL is absolute
-  const getAbsoluteLogoUrl = (url?: string): string | undefined => {
-    if (!url) return undefined;
-    
-    // If already absolute, return as-is
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    
-    // If relative, convert to absolute using Supabase storage
-    if (url.startsWith('/')) {
-      return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos${url}`;
-    }
-    
-    // If it's just a filename, prepend the full storage path
-    return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${url}`;
-  };
-  
-  const absoluteLogoUrl = getAbsoluteLogoUrl(template.logo_url);
+  // Logo is now managed via company_settings, not template
   
   // A4 canvas styling for template variant with inner padding
-  const containerStyle = variant === 'template' 
+  const containerStyle = variant === 'template'
     ? {
         width: '21cm',
         minHeight: '29.7cm',
@@ -142,20 +124,7 @@ export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div className="flex items-center">
-          {absoluteLogoUrl && (
-            <img 
-              src={absoluteLogoUrl} 
-              alt="Company Logo"
-              crossOrigin="anonymous"
-              style={{
-                marginLeft: `${template.logo_x_offset}px`,
-                marginTop: `${template.logo_y_offset}px`,
-                maxHeight: '2cm',
-                width: 'auto',
-                objectFit: 'contain',
-              }}
-            />
-          )}
+          {/* Logo display removed - now managed in company_settings */}
         </div>
         <div className="text-right">
           <h1 

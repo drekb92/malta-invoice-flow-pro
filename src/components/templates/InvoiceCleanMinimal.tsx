@@ -66,21 +66,7 @@ export function InvoiceCleanMinimal({
     >
       {/* Header Section */}
       <div className="flex justify-between items-start mb-16">
-        {/* Logo */}
-        {template.logo_url && (
-          <div 
-            style={{
-              marginLeft: `${template.logo_x_offset}px`,
-              marginTop: `${template.logo_y_offset}px`,
-            }}
-          >
-            <img 
-              src={getAbsoluteLogoUrl(template.logo_url)} 
-              alt="Company Logo" 
-              className="h-16 object-contain"
-            />
-          </div>
-        )}
+        {/* Logo removed - now managed in company_settings */}
         
         {/* Invoice Title and Meta */}
         <div className="text-right">

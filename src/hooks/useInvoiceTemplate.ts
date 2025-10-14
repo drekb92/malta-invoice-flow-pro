@@ -59,9 +59,16 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         accent_color: '#1F2D3D',
         font_family: 'Inter',
         font_size: '14px',
-        logo_x_offset: 0,
-        logo_y_offset: 0,
         layout: 'default',
+        header_layout: 'default',
+        table_style: 'default',
+        totals_style: 'default',
+        banking_visibility: true,
+        banking_style: 'default',
+        margin_top: 20,
+        margin_right: 20,
+        margin_bottom: 20,
+        margin_left: 20,
       };
       
       console.log('[useInvoiceTemplate] Using fallback template');

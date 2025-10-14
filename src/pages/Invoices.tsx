@@ -180,7 +180,6 @@ const Invoices = () => {
         id: template.id,
         name: template.name,
         layout: template.layout,
-        hasLogo: !!template.logo_url,
       });
 
       // Fetch items and totals

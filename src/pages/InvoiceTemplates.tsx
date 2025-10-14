@@ -139,14 +139,14 @@ const InvoiceTemplates = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const typedData = data.map(t => ({
+        const typedData: InvoiceTemplate[] = data.map(t => ({
           ...t,
           layout: (t.layout === 'cleanMinimal' ? 'cleanMinimal' : t.layout === 'compact' ? 'compact' : 'default') as 'default' | 'cleanMinimal' | 'compact',
-          header_layout: t.header_layout || 'default',
-          table_style: t.table_style || 'default',
-          totals_style: t.totals_style || 'default',
+          header_layout: (t.header_layout || 'default') as 'default' | 'centered' | 'split',
+          table_style: (t.table_style || 'default') as 'default' | 'striped' | 'bordered' | 'minimal',
+          totals_style: (t.totals_style || 'default') as 'default' | 'boxed' | 'highlighted',
           banking_visibility: t.banking_visibility !== undefined ? t.banking_visibility : true,
-          banking_style: t.banking_style || 'default',
+          banking_style: (t.banking_style || 'default') as 'default' | 'boxed' | 'minimal',
           margin_top: t.margin_top || 20,
           margin_right: t.margin_right || 20,
           margin_bottom: t.margin_bottom || 20,

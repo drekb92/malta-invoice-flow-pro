@@ -30,7 +30,12 @@ export interface TemplateSettings {
   accentColor?: string;
   fontFamily?: string;
   fontSize?: string;
-  layout?: 'default' | 'cleanMinimal';
+  layout?: 'default' | 'cleanMinimal' | 'compact';
+  headerLayout?: string;
+  tableStyle?: string;
+  totalsStyle?: string;
+  bankingVisibility?: boolean;
+  bankingStyle?: string;
 }
 
 export interface InvoiceItem {

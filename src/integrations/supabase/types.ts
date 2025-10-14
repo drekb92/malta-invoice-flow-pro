@@ -366,17 +366,26 @@ export type Database = {
           bank_iban: string | null
           bank_name: string | null
           bank_swift: string | null
+          banking_style: string | null
+          banking_visibility: boolean | null
           created_at: string | null
           font_family: string | null
           font_size: string | null
+          header_layout: string | null
           id: string
           is_default: boolean | null
           layout: string | null
           logo_url: string | null
           logo_x_offset: number | null
           logo_y_offset: number | null
+          margin_bottom: number | null
+          margin_left: number | null
+          margin_right: number | null
+          margin_top: number | null
           name: string
           primary_color: string | null
+          table_style: string | null
+          totals_style: string | null
           user_id: string | null
         }
         Insert: {
@@ -385,17 +394,26 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_swift?: string | null
+          banking_style?: string | null
+          banking_visibility?: boolean | null
           created_at?: string | null
           font_family?: string | null
           font_size?: string | null
+          header_layout?: string | null
           id?: string
           is_default?: boolean | null
           layout?: string | null
           logo_url?: string | null
           logo_x_offset?: number | null
           logo_y_offset?: number | null
+          margin_bottom?: number | null
+          margin_left?: number | null
+          margin_right?: number | null
+          margin_top?: number | null
           name: string
           primary_color?: string | null
+          table_style?: string | null
+          totals_style?: string | null
           user_id?: string | null
         }
         Update: {
@@ -404,17 +422,26 @@ export type Database = {
           bank_iban?: string | null
           bank_name?: string | null
           bank_swift?: string | null
+          banking_style?: string | null
+          banking_visibility?: boolean | null
           created_at?: string | null
           font_family?: string | null
           font_size?: string | null
+          header_layout?: string | null
           id?: string
           is_default?: boolean | null
           layout?: string | null
           logo_url?: string | null
           logo_x_offset?: number | null
           logo_y_offset?: number | null
+          margin_bottom?: number | null
+          margin_left?: number | null
+          margin_right?: number | null
+          margin_top?: number | null
           name?: string
           primary_color?: string | null
+          table_style?: string | null
+          totals_style?: string | null
           user_id?: string | null
         }
         Relationships: []
