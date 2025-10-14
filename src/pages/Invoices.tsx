@@ -41,8 +41,6 @@ import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
-import { exportInvoicePdfAction } from "@/services/edgePdfExportAction";
-import type { InvoiceData } from "@/services/pdfService";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 
@@ -172,8 +170,8 @@ const Invoices = () => {
     try {
       console.log('[Invoices] Starting PDF download for invoice:', invoiceId);
       
-      // IMPORTANT: PDF generation now uses UnifiedInvoiceLayout for consistency
-      // The preview element contains the exact HTML that will be converted to PDF
+      // IMPORTANT: PDF generation now captures from UnifiedInvoiceLayout preview
+      // This ensures the PDF matches exactly what the user sees
       
       const invoice = invoices.find(inv => inv.id === invoiceId);
       if (!invoice) {
@@ -185,31 +183,24 @@ const Invoices = () => {
         console.error('[Invoices] Template not loaded, cannot generate PDF');
         throw new Error('Template not loaded. Please refresh the page.');
       }
+
+      // Validate company settings
+      if (!companySettings?.company_name) {
+        toast({
+          title: 'Company Settings Required',
+          description: 'Please complete your company information in Settings before downloading PDFs.',
+          variant: 'destructive',
+        });
+        return;
+      }
       
       console.log('[Invoices] Using template:', {
         id: template.id,
         name: template.name,
         layout: template.layout,
       });
-      
-      // Validate consistency between preview and PDF
-      import('@/lib/pdfConsistency').then(({ validatePDFConsistency, logConsistencyReport }) => {
-        const report = validatePDFConsistency(
-          companySettings,
-          bankingSettings,
-          {
-            primaryColor: template.primary_color,
-            accentColor: template.accent_color,
-            fontFamily: template.font_family,
-            fontSize: template.font_size,
-            layout: template.layout,
-          },
-          { invoiceNumber: invoice.invoice_number, customer: invoice.customers, items: [] }
-        );
-        logConsistencyReport(report, 'Invoice PDF Download');
-      });
 
-      // Fetch items and totals
+      // Fetch items
       const { data: itemsData, error: itemsError } = await supabase
         .from('invoice_items')
         .select('*')
@@ -241,7 +232,7 @@ const Invoices = () => {
       const vat = totalsData?.vat_amount ?? (itemsData || []).reduce((s, i) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
       const total = totalsData?.total_amount ?? net + vat;
 
-      // Set state for hidden DOM
+      // Set state for hidden DOM rendering
       console.log('[Invoices] Setting export state for DOM rendering');
       setExportInvoice(invoice);
       setExportItems(itemsData || []);
@@ -256,15 +247,16 @@ const Invoices = () => {
       // Wait for DOM to render
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Use edge function for PDF generation - captures UnifiedInvoiceLayout HTML
-      console.log('[Invoices] Calling edge function for PDF generation');
+      // Use edge function to generate PDF from the preview element
+      // This captures the exact UnifiedInvoiceLayout HTML
       const filename = `Invoice-${invoice.invoice_number}`;
-      
-      // Use downloadPdfFromFunction for consistency (same as templates)
       await downloadPdfFromFunction(filename, template.font_family);
       
       console.log('[Invoices] PDF generated successfully');
-      toast({ title: 'Success', description: 'PDF downloaded successfully' });
+      toast({ 
+        title: 'Success', 
+        description: 'Invoice PDF downloaded successfully' 
+      });
     } catch (error) {
       console.error('[Invoices] PDF download error:', error);
       toast({
