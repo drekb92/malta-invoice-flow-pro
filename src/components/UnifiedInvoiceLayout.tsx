@@ -36,6 +36,8 @@ export interface TemplateSettings {
   totalsStyle?: string;
   bankingVisibility?: boolean;
   bankingStyle?: string;
+  companyPosition?: 'left' | 'right' | 'top-right'; // Company details position
+  bankingPosition?: 'after-totals' | 'bottom' | 'footer'; // Banking details position
   marginTop?: number;
   marginRight?: number;
   marginBottom?: number;
@@ -98,6 +100,8 @@ export const UnifiedInvoiceLayout = ({
   const fontFamily = templateSettings?.fontFamily || 'Inter';
   const fontSize = templateSettings?.fontSize || '14px';
   const layout = templateSettings?.layout || 'default';
+  const companyPosition = templateSettings?.companyPosition || 'left';
+  const bankingPosition = templateSettings?.bankingPosition || 'after-totals';
 
   // Get absolute logo URL
   const getAbsoluteLogoUrl = (url?: string): string | undefined => {
@@ -509,21 +513,57 @@ export const UnifiedInvoiceLayout = ({
           marginBottom: '2rem',
         }}
       >
-        <div>
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Company Logo"
-              crossOrigin="anonymous"
-              style={{
-                maxHeight: '60px',
-                width: 'auto',
-                objectFit: 'contain',
-              }}
-            />
-          )}
-          {companySettings && (
-            <div style={{ marginTop: '1rem', fontSize: '12px', color: '#6b7280' }}>
+        {/* Left side: Logo and Company Info (if position is 'left') */}
+        {companyPosition === 'left' && (
+          <div>
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt="Company Logo"
+                crossOrigin="anonymous"
+                style={{
+                  maxHeight: '60px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                }}
+              />
+            )}
+            {companySettings && (
+              <div style={{ marginTop: '1rem', fontSize: '12px', color: '#6b7280' }}>
+                {companySettings.name && <div style={{ fontWeight: 600 }}>{companySettings.name}</div>}
+                {companySettings.address && <div>{companySettings.address}</div>}
+                {companySettings.city && (
+                  <div>
+                    {companySettings.city}
+                    {companySettings.state && `, ${companySettings.state}`}{' '}
+                    {companySettings.zipCode}
+                  </div>
+                )}
+                {companySettings.email && <div>{companySettings.email}</div>}
+                {companySettings.phone && <div>{companySettings.phone}</div>}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Right side: Company Info (if position is 'top-right') or Invoice meta */}
+        <div style={{ textAlign: 'right', maxWidth: companyPosition === 'right' || companyPosition === 'top-right' ? '50%' : 'auto' }}>
+          {(companyPosition === 'right' || companyPosition === 'top-right') && companySettings && (
+            <div style={{ marginBottom: '1.5rem', fontSize: '12px', color: '#6b7280', textAlign: 'right' }}>
+              {logoUrl && (
+                <img
+                  src={logoUrl}
+                  alt="Company Logo"
+                  crossOrigin="anonymous"
+                  style={{
+                    maxHeight: '60px',
+                    width: 'auto',
+                    objectFit: 'contain',
+                    marginLeft: 'auto',
+                    marginBottom: '0.75rem',
+                  }}
+                />
+              )}
               {companySettings.name && <div style={{ fontWeight: 600 }}>{companySettings.name}</div>}
               {companySettings.address && <div>{companySettings.address}</div>}
               {companySettings.city && (
@@ -537,8 +577,7 @@ export const UnifiedInvoiceLayout = ({
               {companySettings.phone && <div>{companySettings.phone}</div>}
             </div>
           )}
-        </div>
-        <div style={{ textAlign: 'right' }}>
+          
           <h1
             style={{
               fontSize: '32px',
@@ -778,11 +817,105 @@ export const UnifiedInvoiceLayout = ({
         </div>
       </div>
 
-      {/* Banking Section */}
-      {bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && (
+      {/* Banking Section - Position based on setting */}
+      {bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && bankingPosition === 'after-totals' && (
         <div
           style={{
             marginTop: '3rem',
+            padding: '1rem',
+            backgroundColor: '#f9fafb',
+            borderRadius: '4px',
+          }}
+        >
+          <h3
+            style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              marginBottom: '0.5rem',
+              color: accentColor,
+            }}
+          >
+            Bank Details
+          </h3>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            {bankingSettings.bankName && (
+              <div>
+                <strong>Bank:</strong> {bankingSettings.bankName}
+              </div>
+            )}
+            {bankingSettings.accountName && (
+              <div>
+                <strong>Account Name:</strong> {bankingSettings.accountName}
+              </div>
+            )}
+            {bankingSettings.iban && (
+              <div>
+                <strong>IBAN:</strong> {bankingSettings.iban}
+              </div>
+            )}
+            {bankingSettings.swiftCode && (
+              <div>
+                <strong>SWIFT:</strong> {bankingSettings.swiftCode}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Banking at Bottom - Fixed position */}
+      {bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && bankingPosition === 'bottom' && variant === 'pdf' && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '50pt',
+            left: '1.5cm',
+            right: '1.5cm',
+            padding: '1rem',
+            backgroundColor: '#f9fafb',
+            borderRadius: '4px',
+            fontSize: '10pt',
+          }}
+        >
+          <h3
+            style={{
+              fontSize: '11pt',
+              fontWeight: 600,
+              marginBottom: '0.5rem',
+              color: accentColor,
+            }}
+          >
+            Bank Details
+          </h3>
+          <div style={{ fontSize: '9pt', color: '#6b7280', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+            {bankingSettings.bankName && (
+              <div>
+                <strong>Bank:</strong> {bankingSettings.bankName}
+              </div>
+            )}
+            {bankingSettings.accountName && (
+              <div>
+                <strong>Account:</strong> {bankingSettings.accountName}
+              </div>
+            )}
+            {bankingSettings.iban && (
+              <div>
+                <strong>IBAN:</strong> {bankingSettings.iban}
+              </div>
+            )}
+            {bankingSettings.swiftCode && (
+              <div>
+                <strong>SWIFT:</strong> {bankingSettings.swiftCode}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Banking at Bottom - Non-PDF variant */}
+      {bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && bankingPosition === 'bottom' && variant !== 'pdf' && (
+        <div
+          style={{
+            marginTop: '4rem',
             padding: '1rem',
             backgroundColor: '#f9fafb',
             borderRadius: '4px',

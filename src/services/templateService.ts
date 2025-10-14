@@ -14,6 +14,8 @@ export interface InvoiceTemplate {
   totals_style?: 'default' | 'boxed' | 'highlighted';
   banking_visibility?: boolean;
   banking_style?: 'default' | 'boxed' | 'minimal';
+  company_position?: 'left' | 'right' | 'top-right';
+  banking_position?: 'after-totals' | 'bottom' | 'footer';
   margin_top?: number;
   margin_right?: number;
   margin_bottom?: number;
@@ -44,6 +46,8 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
         totals_style: 'default',
         banking_visibility: true,
         banking_style: 'default',
+        company_position: 'left',
+        banking_position: 'after-totals',
         margin_top: 20,
         margin_right: 20,
         margin_bottom: 20,
@@ -60,6 +64,8 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
       totals_style: (data.totals_style || 'default') as 'default' | 'boxed' | 'highlighted',
       banking_visibility: data.banking_visibility !== undefined ? data.banking_visibility : true,
       banking_style: (data.banking_style || 'default') as 'default' | 'boxed' | 'minimal',
+      company_position: (data.company_position || 'left') as 'left' | 'right' | 'top-right',
+      banking_position: (data.banking_position || 'after-totals') as 'after-totals' | 'bottom' | 'footer',
       margin_top: data.margin_top || 20,
       margin_right: data.margin_right || 20,
       margin_bottom: data.margin_bottom || 20,
@@ -82,6 +88,8 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
       totals_style: 'default',
       banking_visibility: true,
       banking_style: 'default',
+      company_position: 'left',
+      banking_position: 'after-totals',
       margin_top: 20,
       margin_right: 20,
       margin_bottom: 20,

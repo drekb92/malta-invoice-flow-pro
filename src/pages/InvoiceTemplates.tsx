@@ -711,6 +711,26 @@ const fontFamilies = [
 
                       <Separator />
 
+                      {/* Company Position */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Company Details Position</Label>
+                        <Select 
+                          value={currentSettings.company_position || 'left'} 
+                          onValueChange={(value) => updateSetting('company_position', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="left">Left (with Logo)</SelectItem>
+                            <SelectItem value="right">Top Right</SelectItem>
+                            <SelectItem value="top-right">Top Right (with Logo)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <Separator />
+
                       {/* Header Layout */}
                       <div className="space-y-3">
                         <Label className="text-sm font-medium">Header Layout</Label>
