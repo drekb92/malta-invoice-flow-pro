@@ -544,7 +544,16 @@ const Invoices = () => {
                   accentColor: template.accent_color,
                   fontFamily: template.font_family,
                   fontSize: template.font_size,
-                  layout: template?.layout || 'default'
+                  layout: template?.layout || 'default',
+                  headerLayout: template?.header_layout || 'default',
+                  tableStyle: template?.table_style || 'default',
+                  totalsStyle: template?.totals_style || 'default',
+                  bankingVisibility: template?.banking_visibility !== false,
+                  bankingStyle: template?.banking_style || 'default',
+                  marginTop: template?.margin_top || 20,
+                  marginRight: template?.margin_right || 20,
+                  marginBottom: template?.margin_bottom || 20,
+                  marginLeft: template?.margin_left || 20
                 }}
                 companySettings={companySettings ? {
                   name: companySettings.company_name,
