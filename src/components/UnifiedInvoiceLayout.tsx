@@ -859,63 +859,71 @@ export const UnifiedInvoiceLayout = ({
         </div>
       </div>
 
-      {/* Banking Section - Position based on setting and visibility */}
-      {bankingVisibility && bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && bankingPosition === 'after-totals' && (
-        <div
-          style={{
-            marginTop: '3rem',
-            padding: bankingStyle === 'minimal' ? '0.5rem' : '1rem',
-            backgroundColor: bankingStyle === 'boxed' ? '#f9fafb' : 'transparent',
-            borderRadius: bankingStyle === 'boxed' ? '4px' : '0',
-            border: bankingStyle === 'boxed' ? '1px solid #e5e7eb' : 'none',
-          }}
-        >
+      {/* Banking Details - Bottom Section (after totals) */}
+      {bankingVisibility && bankingSettings && bankingPosition === 'after-totals' && (
+        <div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
           <h3
             style={{
-              fontSize: bankingStyle === 'minimal' ? '12px' : '14px',
+              fontSize: '15px',
               fontWeight: 600,
-              marginBottom: '0.5rem',
+              marginBottom: '0.75rem',
               color: accentColor,
             }}
           >
-            Bank Details
+            Banking Details
           </h3>
-          <div style={{ fontSize: bankingStyle === 'minimal' ? '11px' : '12px', color: '#6b7280' }}>
-            {bankingSettings.bankName && (
-              <div style={{ marginBottom: '4px' }}>
-                <strong>Bank:</strong> {bankingSettings.bankName}
-              </div>
-            )}
-            {bankingSettings.accountName && (
-              <div style={{ marginBottom: '4px' }}>
-                <strong>Account Name:</strong> {bankingSettings.accountName}
-              </div>
-            )}
-            {bankingSettings.iban && (
-              <div style={{ marginBottom: '4px' }}>
-                <strong>IBAN:</strong> {bankingSettings.iban}
-              </div>
-            )}
-            {bankingSettings.swiftCode && (
-              <div>
-                <strong>SWIFT:</strong> {bankingSettings.swiftCode}
-              </div>
-            )}
+          <div
+            style={{
+              border: bankingStyle === 'boxed' ? '1px solid #e5e7eb' : 'none',
+              borderRadius: bankingStyle === 'boxed' ? '8px' : '0',
+              padding: bankingStyle === 'boxed' ? '1rem' : '0',
+              backgroundColor: bankingStyle === 'boxed' ? '#f9fafb' : 'transparent',
+            }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: variant === 'pdf' ? '1fr 1fr' : 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '1rem',
+                fontSize: bankingStyle === 'minimal' ? '12px' : '13px',
+              }}
+            >
+              {bankingSettings.bankName && (
+                <div>
+                  <strong>Bank:</strong> {bankingSettings.bankName}
+                </div>
+              )}
+              {bankingSettings.accountName && (
+                <div>
+                  <strong>Account Name:</strong> {bankingSettings.accountName}
+                </div>
+              )}
+              {bankingSettings.iban && (
+                <div>
+                  <strong>IBAN:</strong> {bankingSettings.iban}
+                </div>
+              )}
+              {bankingSettings.swiftCode && (
+                <div>
+                  <strong>SWIFT:</strong> {bankingSettings.swiftCode}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Banking at Bottom - Fixed position (PDF variant) */}
-      {bankingVisibility && bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && bankingPosition === 'bottom' && variant === 'pdf' && (
+      {bankingVisibility && bankingSettings && bankingPosition === 'bottom' && variant === 'pdf' && (
         <div
           style={{
             position: 'absolute',
             bottom: '50pt',
             left: '1.5cm',
             right: '1.5cm',
-            padding: bankingStyle === 'minimal' ? '0.5rem' : '1rem',
+            padding: bankingStyle === 'boxed' ? '1rem' : '0.5rem',
             backgroundColor: bankingStyle === 'boxed' ? '#f9fafb' : 'transparent',
-            borderRadius: bankingStyle === 'boxed' ? '4px' : '0',
+            borderRadius: bankingStyle === 'boxed' ? '8px' : '0',
             border: bankingStyle === 'boxed' ? '1px solid #e5e7eb' : 'none',
             fontSize: '10pt',
           }}
@@ -928,9 +936,9 @@ export const UnifiedInvoiceLayout = ({
               color: accentColor,
             }}
           >
-            Bank Details
+            Banking Details
           </h3>
-          <div style={{ fontSize: '9pt', color: '#6b7280', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '9pt', color: '#374151', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             {bankingSettings.bankName && (
               <div>
                 <strong>Bank:</strong> {bankingSettings.bankName}
@@ -956,47 +964,55 @@ export const UnifiedInvoiceLayout = ({
       )}
 
       {/* Banking at Bottom - Non-PDF variant */}
-      {bankingVisibility && bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && bankingPosition === 'bottom' && variant !== 'pdf' && (
-        <div
-          style={{
-            marginTop: '4rem',
-            padding: bankingStyle === 'minimal' ? '0.5rem' : '1rem',
-            backgroundColor: bankingStyle === 'boxed' ? '#f9fafb' : 'transparent',
-            borderRadius: bankingStyle === 'boxed' ? '4px' : '0',
-            border: bankingStyle === 'boxed' ? '1px solid #e5e7eb' : 'none',
-          }}
-        >
+      {bankingVisibility && bankingSettings && bankingPosition === 'bottom' && variant !== 'pdf' && (
+        <div style={{ marginTop: '4rem' }}>
           <h3
             style={{
-              fontSize: bankingStyle === 'minimal' ? '12px' : '14px',
+              fontSize: bankingStyle === 'minimal' ? '13px' : '15px',
               fontWeight: 600,
-              marginBottom: '0.5rem',
+              marginBottom: '0.75rem',
               color: accentColor,
             }}
           >
-            Bank Details
+            Banking Details
           </h3>
-          <div style={{ fontSize: bankingStyle === 'minimal' ? '11px' : '12px', color: '#6b7280' }}>
-            {bankingSettings.bankName && (
-              <div style={{ marginBottom: '4px' }}>
-                <strong>Bank:</strong> {bankingSettings.bankName}
-              </div>
-            )}
-            {bankingSettings.accountName && (
-              <div style={{ marginBottom: '4px' }}>
-                <strong>Account Name:</strong> {bankingSettings.accountName}
-              </div>
-            )}
-            {bankingSettings.iban && (
-              <div style={{ marginBottom: '4px' }}>
-                <strong>IBAN:</strong> {bankingSettings.iban}
-              </div>
-            )}
-            {bankingSettings.swiftCode && (
-              <div>
-                <strong>SWIFT:</strong> {bankingSettings.swiftCode}
-              </div>
-            )}
+          <div
+            style={{
+              border: bankingStyle === 'boxed' ? '1px solid #e5e7eb' : 'none',
+              borderRadius: bankingStyle === 'boxed' ? '8px' : '0',
+              padding: bankingStyle === 'boxed' ? '1rem' : '0',
+              backgroundColor: bankingStyle === 'boxed' ? '#f9fafb' : 'transparent',
+            }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '1rem',
+                fontSize: bankingStyle === 'minimal' ? '12px' : '13px',
+              }}
+            >
+              {bankingSettings.bankName && (
+                <div>
+                  <strong>Bank:</strong> {bankingSettings.bankName}
+                </div>
+              )}
+              {bankingSettings.accountName && (
+                <div>
+                  <strong>Account Name:</strong> {bankingSettings.accountName}
+                </div>
+              )}
+              {bankingSettings.iban && (
+                <div>
+                  <strong>IBAN:</strong> {bankingSettings.iban}
+                </div>
+              )}
+              {bankingSettings.swiftCode && (
+                <div>
+                  <strong>SWIFT:</strong> {bankingSettings.swiftCode}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
