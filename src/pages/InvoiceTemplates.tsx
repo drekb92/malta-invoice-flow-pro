@@ -253,6 +253,31 @@ const InvoiceTemplates = () => {
     });
   };
 
+  // Validation function for template data
+  const validateTemplateData = () => {
+    const warnings: string[] = [];
+    const errors: string[] = [];
+
+    // Company validation
+    if (!companySettings?.company_name) warnings.push("Company name not set");
+    if (!companySettings?.company_logo) warnings.push("Company logo not uploaded");
+    if (!companySettings?.company_address) warnings.push("Company address missing");
+    if (!companySettings?.company_vat_number) warnings.push("VAT number not set");
+    
+    // Banking validation (only if banking visibility is enabled)
+    if (currentSettings.banking_visibility !== false) {
+      if (!bankingSettings?.bank_name) warnings.push("Bank name not set");
+      if (!bankingSettings?.bank_account_name) warnings.push("Bank account name missing");
+      if (!bankingSettings?.bank_iban) warnings.push("IBAN not provided");
+    }
+    
+    // Template validation
+    if (!currentSettings.primary_color) errors.push("Primary color required");
+    if (!currentSettings.font_family) errors.push("Font family required");
+    
+    return { warnings, errors, isValid: errors.length === 0 };
+  };
+
   // Save template
   const handleSave = async () => {
     if (!selectedTemplate || !currentSettings.id) return;
@@ -288,10 +313,45 @@ const InvoiceTemplates = () => {
 
       await refreshTemplate();
 
-      toast({
-        title: "Template saved",
-        description: "Template settings have been saved successfully.",
-      });
+      // Run validation and show results
+      const validation = validateTemplateData();
+      
+      if (validation.errors.length > 0) {
+        toast({
+          title: "Template saved with errors",
+          description: (
+            <div>
+              <p>Critical issues found:</p>
+              <ul className="list-disc list-inside mt-1 text-sm">
+                {validation.errors.map((error, i) => (
+                  <li key={i}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          variant: "destructive",
+        });
+      } else if (validation.warnings.length > 0) {
+        toast({
+          title: "Template saved",
+          description: (
+            <div>
+              <p>⚠️ Setup incomplete - some details missing:</p>
+              <ul className="list-disc list-inside mt-1 text-sm">
+                {validation.warnings.map((warning, i) => (
+                  <li key={i}>{warning}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs">Visit <a href="/settings" className="underline">Settings</a> to complete.</p>
+            </div>
+          ),
+        });
+      } else {
+        toast({
+          title: "Template saved",
+          description: "✅ All template and company settings are complete!",
+        });
+      }
     } catch (error) {
       console.error('Error saving template:', error);
       toast({
@@ -945,7 +1005,7 @@ const fontFamilies = [
                     
                     <UnifiedInvoiceLayout
                       templateId={selectedTemplate?.id}
-                      debug={true}
+                      debug={false}
                       invoiceData={sampleInvoiceData}
                       companySettings={companySettings ? {
                         name: companySettings.company_name || '',
