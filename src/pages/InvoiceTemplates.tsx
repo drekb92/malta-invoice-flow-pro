@@ -880,6 +880,32 @@ const fontFamilies = [
                           <Star className="h-4 w-4 mr-2" />
                           {selectedTemplate?.is_default ? 'Default Template' : 'Set as Default'}
                         </Button>
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={async () => {
+                            if (!selectedTemplate) return;
+                            try {
+                              const filename = `Template-Preview-${selectedTemplate.name.replace(/\s+/g, '-')}`;
+                              await downloadPdfFromFunction(filename, templateForPreview?.font_family);
+                              toast({
+                                title: 'PDF generated',
+                                description: 'Template preview has been downloaded.',
+                              });
+                            } catch (error) {
+                              console.error('[InvoiceTemplates] PDF preview error:', error);
+                              toast({
+                                title: 'PDF error',
+                                description: 'Failed to generate PDF preview.',
+                                variant: 'destructive',
+                              });
+                            }
+                          }}
+                          disabled={!selectedTemplate}
+                        >
+                          <FileDown className="h-4 w-4 mr-2" />
+                          Preview PDF
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
