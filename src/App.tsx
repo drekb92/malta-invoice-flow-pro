@@ -24,6 +24,7 @@ import ExportInvoices from "./pages/ExportInvoices";
 import ImportInvoices from "./pages/ImportInvoices";
 import ExportCustomers from "./pages/ExportCustomers";
 import ImportCustomers from "./pages/ImportCustomers";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ const App: React.FC = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
             <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />

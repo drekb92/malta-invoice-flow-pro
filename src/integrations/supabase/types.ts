@@ -691,6 +691,7 @@ export type Database = {
           id: string
           items_per_page: number | null
           language: string | null
+          onboarding_completed: boolean | null
           overdue_alerts: boolean | null
           payment_notifications: boolean | null
           second_reminder_days: number | null
@@ -713,6 +714,7 @@ export type Database = {
           id?: string
           items_per_page?: number | null
           language?: string | null
+          onboarding_completed?: boolean | null
           overdue_alerts?: boolean | null
           payment_notifications?: boolean | null
           second_reminder_days?: number | null
@@ -735,6 +737,7 @@ export type Database = {
           id?: string
           items_per_page?: number | null
           language?: string | null
+          onboarding_completed?: boolean | null
           overdue_alerts?: boolean | null
           payment_notifications?: boolean | null
           second_reminder_days?: number | null
