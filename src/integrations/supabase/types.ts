@@ -677,6 +677,51 @@ export type Database = {
           },
         ]
       }
+      services: {
+        Row: {
+          category: string | null
+          created_at: string
+          default_price: number
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          unit: string | null
+          updated_at: string
+          usage_count: number
+          user_id: string
+          vat_rate: number
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          default_price: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          unit?: string | null
+          updated_at?: string
+          usage_count?: number
+          user_id: string
+          vat_rate?: number
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          default_price?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          unit?: string | null
+          updated_at?: string
+          usage_count?: number
+          user_id?: string
+          vat_rate?: number
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           created_at: string | null

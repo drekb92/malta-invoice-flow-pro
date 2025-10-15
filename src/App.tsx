@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Invoices from "./pages/Invoices";
 import InvoiceDetails from "./pages/InvoiceDetails";
+import ServiceLibrary from "./pages/ServiceLibrary";
 import Quotations from "./pages/Quotations";
 import Customers from "./pages/Customers";
 import Reports from "./pages/Reports";
@@ -63,6 +64,7 @@ const App: React.FC = () => (
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/reminders" element={<ProtectedRoute><ReminderSettings /></ProtectedRoute>} />
             <Route path="/invoice-templates" element={<ProtectedRoute><InvoiceTemplates /></ProtectedRoute>} />
+            <Route path="/services" element={<ProtectedRoute><ServiceLibrary /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

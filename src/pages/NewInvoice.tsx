@@ -52,11 +52,12 @@ interface InvoiceItem {
 interface ServiceTemplate {
   id: string;
   name: string;
-  description: string;
-  unit_price: number;
+  description: string | null;
+  default_price: number;
   vat_rate: number;
   unit: string;
-  category: string;
+  category: string | null;
+  usage_count: number;
 }
 
 interface RecentItem {
@@ -92,64 +93,7 @@ const NewInvoice = () => {
   const discountInputRef = useRef<HTMLInputElement>(null);
   const [isQuickMode, setIsQuickMode] = useState(true);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
-
-  // Service templates - pre-configured common services
-  const serviceTemplates: ServiceTemplate[] = [
-    {
-      id: 'consulting',
-      name: 'Consulting Services',
-      description: 'Professional consulting services (hourly)',
-      unit_price: 100,
-      vat_rate: 0.18,
-      unit: 'hours',
-      category: 'Professional Services',
-    },
-    {
-      id: 'development',
-      name: 'Software Development',
-      description: 'Custom software development (hourly)',
-      unit_price: 80,
-      vat_rate: 0.18,
-      unit: 'hours',
-      category: 'Technology',
-    },
-    {
-      id: 'design',
-      name: 'Design Services',
-      description: 'Graphic and UI/UX design (hourly)',
-      unit_price: 90,
-      vat_rate: 0.18,
-      unit: 'hours',
-      category: 'Creative',
-    },
-    {
-      id: 'retainer',
-      name: 'Monthly Retainer',
-      description: 'Monthly retainer package',
-      unit_price: 1500,
-      vat_rate: 0.18,
-      unit: 'month',
-      category: 'Packages',
-    },
-    {
-      id: 'hosting',
-      name: 'Web Hosting',
-      description: 'Monthly web hosting service',
-      unit_price: 50,
-      vat_rate: 0.18,
-      unit: 'month',
-      category: 'Technology',
-    },
-    {
-      id: 'maintenance',
-      name: 'Maintenance & Support',
-      description: 'Technical maintenance and support',
-      unit_price: 200,
-      vat_rate: 0.18,
-      unit: 'month',
-      category: 'Support',
-    },
-  ];
+  const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -335,6 +279,26 @@ const NewInvoice = () => {
     }
   };
 
+  // Fetch service templates from database
+  const fetchServiceTemplates = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("services")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("usage_count", { ascending: false })
+        .limit(6);
+
+      if (error) throw error;
+      setServiceTemplates(data || []);
+    } catch (error) {
+      console.error("Error fetching service templates:", error);
+    }
+  };
+
   // Fetch recently used items
   const fetchRecentItems = async () => {
     try {
@@ -376,9 +340,12 @@ const NewInvoice = () => {
   };
 
   useEffect(() => {
-    fetchCustomers();
-    fetchRecentItems();
-  }, []);
+    if (user) {
+      fetchCustomers();
+      fetchServiceTemplates();
+      fetchRecentItems();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (searchParams.get('focus') === 'discount') {
@@ -402,16 +369,30 @@ const NewInvoice = () => {
     setItems(updatedItems);
   };
 
-  const addTemplateItem = (template: ServiceTemplate) => {
+  const addTemplateItem = async (template: ServiceTemplate) => {
     setItems([...items, {
-      description: template.description,
-      quantity: template.unit === 'hours' ? 5 : 1,
-      unit_price: template.unit_price,
+      description: template.name,
+      quantity: 1,
+      unit_price: template.default_price,
       vat_rate: template.vat_rate,
       unit: template.unit,
     }]);
+    
+    // Increment usage count in database
+    try {
+      await supabase
+        .from("services")
+        .update({ usage_count: template.usage_count + 1 })
+        .eq("id", template.id);
+      
+      // Refresh templates to show updated usage
+      fetchServiceTemplates();
+    } catch (error) {
+      console.error("Error updating service usage:", error);
+    }
+    
     toast({
-      title: "Template added",
+      title: "Service added",
       description: `${template.name} added to invoice`,
     });
   };
@@ -724,30 +705,56 @@ const NewInvoice = () => {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {serviceTemplates.map((template) => (
+                   <CardContent>
+                    {serviceTemplates.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          No services yet. Add common services to save time.
+                        </p>
                         <Button
-                          key={template.id}
                           type="button"
                           variant="outline"
-                          className="w-full justify-start h-auto py-3 px-4"
-                          onClick={() => addTemplateItem(template)}
+                          size="sm"
+                          onClick={() => navigate('/services')}
                         >
-                          <div className="flex flex-col items-start w-full">
-                            <div className="flex items-center justify-between w-full">
-                              <span className="font-semibold">{template.name}</span>
-                              <Badge variant="secondary" className="ml-2">
-                                €{template.unit_price}/{template.unit}
-                              </Badge>
-                            </div>
-                            <span className="text-xs text-muted-foreground mt-1">
-                              {template.description} • VAT {(template.vat_rate * 100).toFixed(0)}%
-                            </span>
-                          </div>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Manage Services
                         </Button>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {serviceTemplates.map((template) => (
+                          <Button
+                            key={template.id}
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-start h-auto py-3 px-4"
+                            onClick={() => addTemplateItem(template)}
+                          >
+                            <div className="flex flex-col items-start w-full">
+                              <div className="flex items-center justify-between w-full">
+                                <span className="font-semibold">{template.name}</span>
+                                <div className="flex items-center gap-2">
+                                  {template.usage_count > 0 && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {template.usage_count}x
+                                    </Badge>
+                                  )}
+                                  <Badge variant="secondary">
+                                    €{template.default_price}/{template.unit}
+                                  </Badge>
+                                </div>
+                              </div>
+                              {template.description && (
+                                <span className="text-xs text-muted-foreground mt-1">
+                                  {template.description} • VAT {(template.vat_rate * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
