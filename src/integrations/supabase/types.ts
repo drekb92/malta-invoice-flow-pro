@@ -677,6 +677,148 @@ export type Database = {
           },
         ]
       }
+      reminder_logs: {
+        Row: {
+          created_at: string | null
+          customer_id: string
+          days_overdue: number | null
+          email_error: string | null
+          email_sent: boolean | null
+          id: string
+          invoice_id: string
+          reminder_level: Database["public"]["Enums"]["reminder_level"]
+          sent_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id: string
+          days_overdue?: number | null
+          email_error?: string | null
+          email_sent?: boolean | null
+          id?: string
+          invoice_id: string
+          reminder_level: Database["public"]["Enums"]["reminder_level"]
+          sent_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string
+          days_overdue?: number | null
+          email_error?: string | null
+          email_sent?: boolean | null
+          id?: string
+          invoice_id?: string
+          reminder_level?: Database["public"]["Enums"]["reminder_level"]
+          sent_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_logs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "reminder_logs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_settings: {
+        Row: {
+          created_at: string | null
+          days_after_due_final: number | null
+          days_after_due_first: number | null
+          days_after_due_second: number | null
+          days_before_due: number | null
+          email_reminders_enabled: boolean | null
+          id: string
+          max_reminders: number | null
+          reminder_frequency: string | null
+          send_on_due_date: boolean | null
+          stop_after_payment: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          days_after_due_final?: number | null
+          days_after_due_first?: number | null
+          days_after_due_second?: number | null
+          days_before_due?: number | null
+          email_reminders_enabled?: boolean | null
+          id?: string
+          max_reminders?: number | null
+          reminder_frequency?: string | null
+          send_on_due_date?: boolean | null
+          stop_after_payment?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          days_after_due_final?: number | null
+          days_after_due_first?: number | null
+          days_after_due_second?: number | null
+          days_before_due?: number | null
+          email_reminders_enabled?: boolean | null
+          id?: string
+          max_reminders?: number | null
+          reminder_frequency?: string | null
+          send_on_due_date?: boolean | null
+          stop_after_payment?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reminder_templates: {
+        Row: {
+          body: string
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          level: Database["public"]["Enums"]["reminder_level"]
+          subject: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          level: Database["public"]["Enums"]["reminder_level"]
+          subject: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          level?: Database["public"]["Enums"]["reminder_level"]
+          subject?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           category: string | null
@@ -834,7 +976,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      reminder_level: "friendly" | "firm" | "final"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -961,6 +1103,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      reminder_level: ["friendly", "firm", "final"],
+    },
   },
 } as const
