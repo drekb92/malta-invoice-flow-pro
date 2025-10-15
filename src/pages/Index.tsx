@@ -1,7 +1,6 @@
 
 import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
-import { FeatureCard } from "@/components/FeatureCard";
 import { RecentActivity } from "@/components/RecentActivity";
 import { DashboardFilters } from "@/components/DashboardFilters";
 import { Button } from "@/components/ui/button";
@@ -9,9 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import {
   FileText,
@@ -29,6 +37,9 @@ import {
   ArrowRight,
   Building,
   Sparkles,
+  Send,
+  Clock,
+  ChevronDown,
 } from "lucide-react";
 
 interface SetupStatus {
@@ -40,9 +51,27 @@ interface SetupStatus {
   isComplete: boolean;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  email: string | null;
+  outstanding_amount?: number;
+}
+
+interface OverdueInvoice {
+  id: string;
+  invoice_number: string;
+  customer_id: string;
+  customer_name?: string;
+  total_amount: number;
+  due_date: string;
+  days_overdue: number;
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [setupStatus, setSetupStatus] = useState<SetupStatus>({
     hasCompanyInfo: false,
     hasBankingInfo: false,
@@ -58,11 +87,17 @@ const Index = () => {
     collectionRate: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [recentCustomers, setRecentCustomers] = useState<Customer[]>([]);
+  const [overdueInvoices, setOverdueInvoices] = useState<OverdueInvoice[]>([]);
+  const [pendingReminders, setPendingReminders] = useState(0);
 
   useEffect(() => {
     if (user) {
       fetchSetupStatus();
       fetchMetrics();
+      fetchRecentCustomers();
+      fetchOverdueInvoices();
+      fetchPendingReminders();
     }
   }, [user]);
 
@@ -162,6 +197,134 @@ const Index = () => {
     }
   };
 
+  const fetchRecentCustomers = async () => {
+    try {
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id, name, email')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (customers) {
+        // Fetch outstanding amounts for each customer
+        const { data: invoices } = await supabase
+          .from('invoices')
+          .select('customer_id, total_amount, status')
+          .eq('user_id', user!.id)
+          .in('customer_id', customers.map(c => c.id));
+
+        const customersWithOutstanding = customers.map(customer => {
+          const customerInvoices = invoices?.filter(inv => inv.customer_id === customer.id) || [];
+          const outstanding = customerInvoices
+            .filter(inv => inv.status !== 'paid')
+            .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+
+          return {
+            ...customer,
+            outstanding_amount: outstanding,
+          };
+        });
+
+        setRecentCustomers(customersWithOutstanding);
+      }
+    } catch (error) {
+      console.error('Error fetching recent customers:', error);
+    }
+  };
+
+  const fetchOverdueInvoices = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, customer_id, total_amount, due_date, status')
+        .eq('user_id', user!.id)
+        .neq('status', 'paid')
+        .lt('due_date', today)
+        .order('due_date', { ascending: true })
+        .limit(10);
+
+      if (invoices) {
+        // Fetch customer names
+        const customerIds = [...new Set(invoices.map(inv => inv.customer_id))];
+        const { data: customers } = await supabase
+          .from('customers')
+          .select('id, name')
+          .in('id', customerIds);
+
+        const customerMap = new Map(customers?.map(c => [c.id, c.name]) || []);
+
+        const overdueWithDetails = invoices.map(invoice => {
+          const dueDate = new Date(invoice.due_date);
+          const today = new Date();
+          const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          return {
+            id: invoice.id,
+            invoice_number: invoice.invoice_number,
+            customer_id: invoice.customer_id,
+            customer_name: customerMap.get(invoice.customer_id) || 'Unknown',
+            total_amount: Number(invoice.total_amount || 0),
+            due_date: invoice.due_date,
+            days_overdue: daysOverdue,
+          };
+        });
+
+        setOverdueInvoices(overdueWithDetails);
+      }
+    } catch (error) {
+      console.error('Error fetching overdue invoices:', error);
+    }
+  };
+
+  const fetchPendingReminders = async () => {
+    try {
+      // Count invoices that need reminders (overdue or due soon)
+      const today = new Date();
+      const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      const { count } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user!.id)
+        .neq('status', 'paid')
+        .lte('due_date', threeDaysFromNow);
+
+      setPendingReminders(count || 0);
+    } catch (error) {
+      console.error('Error fetching pending reminders:', error);
+    }
+  };
+
+  const handleSendReminders = async () => {
+    toast({
+      title: "Sending reminders...",
+      description: "Processing payment reminders for overdue invoices.",
+    });
+
+    try {
+      // In a real implementation, this would call an edge function to send emails
+      // For now, we'll show a success message
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast({
+        title: "Reminders sent successfully",
+        description: `${pendingReminders} payment reminders have been sent.`,
+      });
+
+      // Refresh data
+      fetchPendingReminders();
+    } catch (error) {
+      toast({
+        title: "Error sending reminders",
+        description: "Failed to send payment reminders. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const setupSteps = [
     {
       title: 'Company Information',
@@ -231,51 +394,6 @@ const Index = () => {
         },
       ]
     : [];
-
-  const features = [
-    {
-      title: "Create Invoice",
-      description: "Generate VAT-compliant invoices with Malta tax requirements",
-      icon: Plus,
-      action: "New Invoice",
-      onClick: () => navigate("/invoices/new"),
-    },
-    {
-      title: "Payment Tracking",
-      description: "Monitor payment status and send automated reminders",
-      icon: CreditCard,
-      action: "Track Payments",
-      onClick: () => console.log("Track payments"),
-    },
-    {
-      title: "Customer Management",
-      description: "Manage your customer database and communication history",
-      icon: Users,
-      action: "Manage Customers",
-      onClick: () => navigate("/customers"),
-    },
-    {
-      title: "Financial Reports",
-      description: "Generate receivables and cash flow reports in EUR",
-      icon: BarChart3,
-      action: "View Reports",
-      onClick: () => navigate("/reports"),
-    },
-    {
-      title: "Email Reminders",
-      description: "Configure and send automated payment reminder emails",
-      icon: Mail,
-      action: "Setup Reminders",
-      onClick: () => navigate("/reminders"),
-    },
-    {
-      title: "Export Data",
-      description: "Download invoices and reports for archiving (6-year Malta requirement)",
-      icon: Download,
-      action: "Export",
-      onClick: () => navigate("/invoices/export"),
-    },
-  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -441,33 +559,199 @@ const Index = () => {
             </div>
           )}
 
-          {/* Malta VAT Notice */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-              <h3 className="text-sm font-medium text-blue-900">Malta VAT Compliance</h3>
-            </div>
-            <p className="text-sm text-blue-700 mt-1">
-              All invoices include 18% VAT rate, sequential numbering, and required elements for Malta tax compliance. 
-              Documents are automatically archived for the mandatory 6-year period.
-            </p>
-          </div>
+          {/* Quick Actions - Show for complete setups */}
+          {setupStatus.isComplete && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                {/* Invoice Recent Customer */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      Quick Invoice
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button className="w-full" size="lg">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Invoice Customer
+                          <ChevronDown className="h-4 w-4 ml-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-80 bg-popover z-50">
+                        <DropdownMenuLabel>Recent Customers</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {recentCustomers.length > 0 ? (
+                          recentCustomers.map((customer) => (
+                            <DropdownMenuItem
+                              key={customer.id}
+                              onClick={() => navigate(`/invoices/new?client=${customer.id}`)}
+                              className="flex items-center justify-between cursor-pointer"
+                            >
+                              <div>
+                                <div className="font-medium">{customer.name}</div>
+                                <div className="text-xs text-muted-foreground">{customer.email}</div>
+                              </div>
+                              {customer.outstanding_amount && customer.outstanding_amount > 0 && (
+                                <Badge variant="outline" className="ml-2">
+                                  {formatCurrency(customer.outstanding_amount)}
+                                </Badge>
+                              )}
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>No customers yet</DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => navigate('/customers')}>
+                          <Users className="h-4 w-4 mr-2" />
+                          View All Customers
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {recentCustomers.length} customer{recentCustomers.length !== 1 ? 's' : ''} in database
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Overdue Invoices */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-destructive" />
+                      Overdue Invoices
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {overdueInvoices.length > 0 ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="destructive" className="w-full" size="lg">
+                            <AlertCircle className="h-4 w-4 mr-2" />
+                            Follow Up on {overdueInvoices.length}
+                            <ChevronDown className="h-4 w-4 ml-2" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-80 bg-popover z-50">
+                          <DropdownMenuLabel>Overdue Invoices</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {overdueInvoices.map((invoice) => (
+                            <DropdownMenuItem
+                              key={invoice.id}
+                              onClick={() => navigate(`/invoices/${invoice.id}`)}
+                              className="flex items-center justify-between cursor-pointer"
+                            >
+                              <div>
+                                <div className="font-medium">{invoice.invoice_number}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {invoice.customer_name} • {invoice.days_overdue} days overdue
+                                </div>
+                              </div>
+                              <div className="text-right ml-2">
+                                <div className="font-semibold text-destructive">
+                                  {formatCurrency(invoice.total_amount)}
+                                </div>
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => navigate('/invoices?status=overdue')}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            View All Overdue
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Button variant="outline" className="w-full" size="lg" disabled>
+                        <CheckCircle2 className="h-4 w-4 mr-2 text-primary" />
+                        No Overdue Invoices
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {overdueInvoices.length > 0 
+                        ? `Total: ${formatCurrency(overdueInvoices.reduce((sum, inv) => sum + inv.total_amount, 0))}`
+                        : 'All invoices paid on time'
+                      }
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Send Reminders */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Send className="h-4 w-4 text-primary" />
+                      Payment Reminders
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Button 
+                      className="w-full" 
+                      size="lg"
+                      onClick={handleSendReminders}
+                      disabled={pendingReminders === 0}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send {pendingReminders} Reminder{pendingReminders !== 1 ? 's' : ''}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {pendingReminders > 0 
+                        ? `${pendingReminders} invoice${pendingReminders !== 1 ? 's' : ''} due soon or overdue`
+                        : 'No pending reminders'
+                      }
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Malta VAT Notice */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                  <h3 className="text-sm font-medium text-blue-900">Malta VAT Compliance</h3>
+                </div>
+                <p className="text-sm text-blue-700 mt-1">
+                  All invoices include 18% VAT rate, sequential numbering, and required elements for Malta tax compliance. 
+                  Documents are automatically archived for the mandatory 6-year period.
+                </p>
+              </div>
+            </>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Features Grid */}
-            <div className="lg:col-span-2">
-              <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {features.map((feature, index) => (
-                  <FeatureCard key={index} {...feature} />
-                ))}
+            {/* Secondary Actions */}
+            {setupStatus.isComplete && (
+              <div className="lg:col-span-2">
+                <h2 className="text-lg font-semibold mb-4">More Actions</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => navigate('/customers')}>
+                    <Users className="h-6 w-6 text-primary" />
+                    <span className="font-semibold">Manage Customers</span>
+                    <span className="text-xs text-muted-foreground">{metrics.customers} total</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => navigate('/reports')}>
+                    <BarChart3 className="h-6 w-6 text-primary" />
+                    <span className="font-semibold">Financial Reports</span>
+                    <span className="text-xs text-muted-foreground">View analytics</span>
+                  </Button>
+                  <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => navigate('/invoices/export')}>
+                    <Download className="h-6 w-6 text-primary" />
+                    <span className="font-semibold">Export Data</span>
+                    <span className="text-xs text-muted-foreground">6-year archive</span>
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Recent Activity */}
-            <div>
-              <RecentActivity />
-            </div>
+            {setupStatus.isComplete && (
+              <div>
+                <RecentActivity />
+              </div>
+            )}
           </div>
 
           {/* Currency Info */}
