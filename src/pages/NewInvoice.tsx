@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -12,8 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, ArrowLeft, Download } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Plus, Trash2, ArrowLeft, Download, Zap, Settings2, Clock, Lightbulb, Info } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +49,24 @@ interface InvoiceItem {
   unit: string;
 }
 
+interface ServiceTemplate {
+  id: string;
+  name: string;
+  description: string;
+  unit_price: number;
+  vat_rate: number;
+  unit: string;
+  category: string;
+}
+
+interface RecentItem {
+  description: string;
+  unit_price: number;
+  vat_rate: number;
+  unit: string;
+  usage_count: number;
+}
+
 const NewInvoice = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
@@ -69,6 +90,66 @@ const NewInvoice = () => {
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>("");
   const discountInputRef = useRef<HTMLInputElement>(null);
+  const [isQuickMode, setIsQuickMode] = useState(true);
+  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
+
+  // Service templates - pre-configured common services
+  const serviceTemplates: ServiceTemplate[] = [
+    {
+      id: 'consulting',
+      name: 'Consulting Services',
+      description: 'Professional consulting services (hourly)',
+      unit_price: 100,
+      vat_rate: 0.18,
+      unit: 'hours',
+      category: 'Professional Services',
+    },
+    {
+      id: 'development',
+      name: 'Software Development',
+      description: 'Custom software development (hourly)',
+      unit_price: 80,
+      vat_rate: 0.18,
+      unit: 'hours',
+      category: 'Technology',
+    },
+    {
+      id: 'design',
+      name: 'Design Services',
+      description: 'Graphic and UI/UX design (hourly)',
+      unit_price: 90,
+      vat_rate: 0.18,
+      unit: 'hours',
+      category: 'Creative',
+    },
+    {
+      id: 'retainer',
+      name: 'Monthly Retainer',
+      description: 'Monthly retainer package',
+      unit_price: 1500,
+      vat_rate: 0.18,
+      unit: 'month',
+      category: 'Packages',
+    },
+    {
+      id: 'hosting',
+      name: 'Web Hosting',
+      description: 'Monthly web hosting service',
+      unit_price: 50,
+      vat_rate: 0.18,
+      unit: 'month',
+      category: 'Technology',
+    },
+    {
+      id: 'maintenance',
+      name: 'Maintenance & Support',
+      description: 'Technical maintenance and support',
+      unit_price: 200,
+      vat_rate: 0.18,
+      unit: 'month',
+      category: 'Support',
+    },
+  ];
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -254,8 +335,49 @@ const NewInvoice = () => {
     }
   };
 
+  // Fetch recently used items
+  const fetchRecentItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('invoice_items')
+        .select('description, unit_price, vat_rate, unit')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      // Group by description and count usage
+      const itemMap = new Map<string, RecentItem>();
+      data?.forEach((item) => {
+        const key = `${item.description}`;
+        if (itemMap.has(key)) {
+          const existing = itemMap.get(key)!;
+          existing.usage_count += 1;
+        } else {
+          itemMap.set(key, {
+            description: item.description,
+            unit_price: Number(item.unit_price),
+            vat_rate: Number(item.vat_rate),
+            unit: item.unit || 'service',
+            usage_count: 1,
+          });
+        }
+      });
+
+      // Sort by usage count and take top 5
+      const recent = Array.from(itemMap.values())
+        .sort((a, b) => b.usage_count - a.usage_count)
+        .slice(0, 5);
+
+      setRecentItems(recent);
+    } catch (error) {
+      console.error('Error fetching recent items:', error);
+    }
+  };
+
   useEffect(() => {
     fetchCustomers();
+    fetchRecentItems();
   }, []);
 
   useEffect(() => {
@@ -278,6 +400,34 @@ const NewInvoice = () => {
     const updatedItems = [...items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     setItems(updatedItems);
+  };
+
+  const addTemplateItem = (template: ServiceTemplate) => {
+    setItems([...items, {
+      description: template.description,
+      quantity: template.unit === 'hours' ? 5 : 1,
+      unit_price: template.unit_price,
+      vat_rate: template.vat_rate,
+      unit: template.unit,
+    }]);
+    toast({
+      title: "Template added",
+      description: `${template.name} added to invoice`,
+    });
+  };
+
+  const addRecentItem = (item: RecentItem) => {
+    setItems([...items, {
+      description: item.description,
+      quantity: 1,
+      unit_price: item.unit_price,
+      vat_rate: item.vat_rate,
+      unit: item.unit,
+    }]);
+    toast({
+      title: "Item added",
+      description: "Recently used item added to invoice",
+    });
   };
 
   const calculateTotals = () => {
@@ -528,21 +678,127 @@ const NewInvoice = () => {
                     </p>
                   </div>
                 </div>
-                {isEditMode && status === 'draft' && !invoiceNumber && (
-                  <Button 
-                    onClick={handleIssueInvoice}
-                    disabled={loading}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    Issue Invoice
-                  </Button>
-                )}
+                <div className="flex items-center gap-4">
+                  {/* Quick Mode Toggle */}
+                  {!isEditMode && (
+                    <div className="flex items-center gap-2 mr-4">
+                      <Zap className="h-4 w-4 text-primary" />
+                      <Label htmlFor="quick-mode" className="text-sm font-medium cursor-pointer">
+                        Quick Mode
+                      </Label>
+                      <Switch
+                        id="quick-mode"
+                        checked={isQuickMode}
+                        onCheckedChange={setIsQuickMode}
+                      />
+                      <Settings2 className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                  {isEditMode && status === 'draft' && !invoiceNumber && (
+                    <Button 
+                      onClick={handleIssueInvoice}
+                      disabled={loading}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Issue Invoice
+                    </Button>
+                  )}
+                </div>
               </div>
           </div>
         </header>
 
         <main className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Service Templates and Recent Items - Only in Quick Mode */}
+            {isQuickMode && !isEditMode && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* Service Templates */}
+                <Card className="border-primary/20">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      <div>
+                        <CardTitle className="text-lg">Service Templates</CardTitle>
+                        <CardDescription>Pre-configured common services</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {serviceTemplates.map((template) => (
+                        <Button
+                          key={template.id}
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-start h-auto py-3 px-4"
+                          onClick={() => addTemplateItem(template)}
+                        >
+                          <div className="flex flex-col items-start w-full">
+                            <div className="flex items-center justify-between w-full">
+                              <span className="font-semibold">{template.name}</span>
+                              <Badge variant="secondary" className="ml-2">
+                                €{template.unit_price}/{template.unit}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground mt-1">
+                              {template.description} • VAT {(template.vat_rate * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Recently Used Items */}
+                <Card className="border-primary/20">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-primary" />
+                      <div>
+                        <CardTitle className="text-lg">Recently Used</CardTitle>
+                        <CardDescription>Your frequently invoiced items</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {recentItems.length > 0 ? (
+                      <div className="space-y-2">
+                        {recentItems.map((item, idx) => (
+                          <Button
+                            key={idx}
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-start h-auto py-3 px-4"
+                            onClick={() => addRecentItem(item)}
+                          >
+                            <div className="flex flex-col items-start w-full">
+                              <div className="flex items-center justify-between w-full">
+                                <span className="font-semibold text-sm">{item.description}</span>
+                                <Badge variant="outline" className="ml-2">
+                                  Used {item.usage_count}x
+                                </Badge>
+                              </div>
+                              <span className="text-xs text-muted-foreground mt-1">
+                                €{formatNumber(item.unit_price, 2)} • VAT {(item.vat_rate * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground text-center py-6">
+                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No recent items yet</p>
+                        <p className="text-xs mt-1">Items you frequently invoice will appear here</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Invoice Details */}
               <Card className="lg:col-span-2">
@@ -557,7 +813,7 @@ const NewInvoice = () => {
                         <SelectTrigger>
                           <SelectValue placeholder="Select a customer" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-popover z-50">
                           {customers.map((customer) => (
                             <SelectItem key={customer.id} value={customer.id}>
                               {customer.name}
@@ -601,21 +857,21 @@ const NewInvoice = () => {
                       />
                     </div>
                     
-                    <div>
-                      <Label htmlFor="status">Status</Label>
-                      <Select value={status} onValueChange={setStatus}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="paid">Paid</SelectItem>
-                          <SelectItem value="overdue">Overdue</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div>
+                        <Label htmlFor="status">Status</Label>
+                        <Select value={status} onValueChange={setStatus}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="draft">Draft</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="overdue">Overdue</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </div>
                   
                   {selectedCustomer && (
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
@@ -737,7 +993,15 @@ const NewInvoice = () => {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Invoice Items</CardTitle>
+                  <div>
+                    <CardTitle>Invoice Items</CardTitle>
+                    {isQuickMode && (
+                      <CardDescription className="flex items-center gap-1 mt-1">
+                        <Lightbulb className="h-3 w-3" />
+                        Click templates above to quickly add items
+                      </CardDescription>
+                    )}
+                  </div>
                   <Button type="button" onClick={addItem} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Item
@@ -758,63 +1022,160 @@ const NewInvoice = () => {
                         />
                       </div>
                       
-                      <div>
-                        <Label>Quantity *</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label>Unit Price (€) *</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.unit_price}
-                          onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label>VAT Rate</Label>
-                        <Select 
-                          value={item.vat_rate.toString()} 
-                          onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">0% (Exempt)</SelectItem>
-                            <SelectItem value="0.05">5%</SelectItem>
-                            <SelectItem value="0.18">18% (Standard)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-end">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => removeItem(index)}
-                          disabled={items.length === 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {/* Show simplified fields in Quick Mode */}
+                      {isQuickMode ? (
+                        <>
+                          <div>
+                            <Label>Quantity *</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Unit Price (€) *</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.unit_price}
+                              onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label className="flex items-center gap-1">
+                              VAT Rate
+                              <span className="text-xs text-muted-foreground">(Malta)</span>
+                            </Label>
+                            <Select 
+                              value={item.vat_rate.toString()} 
+                              onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-popover z-50">
+                                <SelectItem value="0">
+                                  <div className="flex items-center gap-2">
+                                    <span>0% (Exempt)</span>
+                                    <Info className="h-3 w-3 text-muted-foreground" />
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="0.05">
+                                  <div>
+                                    <div>5% (Reduced)</div>
+                                    <div className="text-xs text-muted-foreground">Books, food, medical</div>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="0.18">
+                                  <div>
+                                    <div>18% (Standard)</div>
+                                    <div className="text-xs text-muted-foreground">Most services & goods</div>
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-end">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => removeItem(index)}
+                              disabled={items.length === 1}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Advanced Mode - All Fields */}
+                          <div>
+                            <Label>Quantity *</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Unit Price (€) *</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.unit_price}
+                              onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                              required
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>VAT Rate</Label>
+                            <Select 
+                              value={item.vat_rate.toString()} 
+                              onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-popover z-50">
+                                <SelectItem value="0">0% (Exempt)</SelectItem>
+                                <SelectItem value="0.05">5% (Reduced)</SelectItem>
+                                <SelectItem value="0.18">18% (Standard)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-end">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => removeItem(index)}
+                              disabled={items.length === 1}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
+                </div>
+                
+                {/* VAT Help Text */}
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-blue-900 dark:text-blue-100">
+                      <p className="font-semibold mb-1">Malta VAT Rates Guide:</p>
+                      <ul className="space-y-0.5 ml-4 list-disc">
+                        <li><strong>18% (Standard)</strong>: Most goods and services, consulting, professional services</li>
+                        <li><strong>5% (Reduced)</strong>: Books, newspapers, certain food items, medical equipment</li>
+                        <li><strong>0% (Exempt)</strong>: Educational services, medical services, financial services</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
