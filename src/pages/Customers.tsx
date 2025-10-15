@@ -35,6 +35,8 @@ import {
   Trash2,
   FileText,
   Receipt,
+  ArrowUpDown,
+  Info,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -58,38 +60,90 @@ interface Customer {
   notes: string | null;
   date_added?: string | null;
   user_id?: string;
+  total_invoiced?: number;
+  outstanding_amount?: number;
+  last_invoice_date?: string | null;
+  invoice_count?: number;
 }
+
+type SortField = 'name' | 'total_invoiced' | 'outstanding_amount' | 'last_invoice_date';
+type SortDirection = 'asc' | 'desc';
 
 const Customers = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const fetchCustomers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch customers
+      const { data: customersData, error: customersError } = await supabase
         .from("customers")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      
-      // Map the data to ensure all fields are present with defaults
-      const customersWithDefaults = (data || []).map(customer => ({
+      if (customersError) throw customersError;
+
+      // Fetch invoice metrics for each customer
+      const { data: invoiceMetrics, error: metricsError } = await supabase
+        .from("invoices")
+        .select("customer_id, total_amount, status, invoice_date");
+
+      if (metricsError) throw metricsError;
+
+      // Calculate metrics per customer
+      const metricsMap = new Map<string, {
+        total_invoiced: number;
+        outstanding_amount: number;
+        last_invoice_date: string | null;
+        invoice_count: number;
+      }>();
+
+      invoiceMetrics?.forEach(invoice => {
+        if (!invoice.customer_id) return;
+        
+        const existing = metricsMap.get(invoice.customer_id) || {
+          total_invoiced: 0,
+          outstanding_amount: 0,
+          last_invoice_date: null,
+          invoice_count: 0,
+        };
+
+        existing.total_invoiced += Number(invoice.total_amount || 0);
+        existing.invoice_count += 1;
+        
+        if (invoice.status !== 'paid') {
+          existing.outstanding_amount += Number(invoice.total_amount || 0);
+        }
+
+        if (invoice.invoice_date) {
+          if (!existing.last_invoice_date || invoice.invoice_date > existing.last_invoice_date) {
+            existing.last_invoice_date = invoice.invoice_date;
+          }
+        }
+
+        metricsMap.set(invoice.customer_id, existing);
+      });
+
+      // Merge customer data with metrics
+      const customersWithMetrics = (customersData || []).map(customer => ({
         ...customer,
         vat_status: (customer as any).vat_status || null,
         client_type: (customer as any).client_type || null,
         business_name: (customer as any).business_name || null,
         notes: (customer as any).notes || null,
         date_added: (customer as any).date_added || null,
+        ...metricsMap.get(customer.id),
       }));
       
-      setCustomers(customersWithDefaults);
-      setFilteredCustomers(customersWithDefaults);
+      setCustomers(customersWithMetrics);
+      setFilteredCustomers(customersWithMetrics);
     } catch (error) {
       toast({
         title: "Error",
@@ -106,17 +160,39 @@ const Customers = () => {
   }, []);
 
   useEffect(() => {
-    if (!searchTerm) {
-      setFilteredCustomers(customers);
-    } else {
-      const filtered = customers.filter((customer) =>
+    let result = [...customers];
+    
+    // Apply search filter
+    if (searchTerm) {
+      result = result.filter((customer) =>
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.vat_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.payment_terms?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setFilteredCustomers(filtered);
     }
-  }, [searchTerm, customers]);
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let aValue: any = a[sortField];
+      let bValue: any = b[sortField];
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) aValue = sortDirection === 'asc' ? Infinity : -Infinity;
+      if (bValue === null || bValue === undefined) bValue = sortDirection === 'asc' ? Infinity : -Infinity;
+
+      // Convert to numbers for numeric fields
+      if (sortField === 'total_invoiced' || sortField === 'outstanding_amount') {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredCustomers(result);
+  }, [searchTerm, customers, sortField, sortDirection]);
 
   const handleDeleteCustomer = async (id: string) => {
     // Security check: Verify user owns this customer before deletion
@@ -153,16 +229,67 @@ const Customers = () => {
     }
   };
 
-  const getStatusBadge = (customer: Customer) => {
-    // Simple status logic - could be enhanced with actual status field
-    const hasRecentActivity = new Date(customer.created_at) > new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    const status = hasRecentActivity ? "active" : "inactive";
+  const getPaymentStatusBadge = (customer: Customer) => {
+    if (!customer.invoice_count || customer.invoice_count === 0) {
+      return { 
+        status: "no-invoices", 
+        label: "No Invoices",
+        variant: "outline" as const
+      };
+    }
+
+    const outstanding = customer.outstanding_amount || 0;
+    const total = customer.total_invoiced || 0;
+
+    if (outstanding === 0) {
+      return { 
+        status: "paid", 
+        label: "Paid Up",
+        variant: "success" as const
+      };
+    }
+
+    const outstandingRatio = outstanding / total;
     
-    const variants = {
-      active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      inactive: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+    if (outstandingRatio >= 0.5) {
+      return { 
+        status: "overdue", 
+        label: "Payment Due",
+        variant: "destructive" as const
+      };
+    }
+
+    return { 
+      status: "partial", 
+      label: "Partial Paid",
+      variant: "default" as const
     };
-    return { status, className: variants[status] };
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined || amount === null) return '€0.00';
+    return new Intl.NumberFormat('en-IE', {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(amount);
+  };
+
+  const formatDate = (date: string | null | undefined) => {
+    if (!date) return 'Never';
+    return new Date(date).toLocaleDateString('en-IE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -245,13 +372,75 @@ const Customers = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
+                    <TableHead>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 -ml-3 font-medium"
+                        onClick={() => handleSort('name')}
+                      >
+                        Customer
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>VAT Number</TableHead>
                     <TableHead>Payment Terms</TableHead>
-                    <TableHead>Total Invoiced</TableHead>
-                    <TableHead>Outstanding</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 -ml-3 font-medium"
+                              onClick={() => handleSort('total_invoiced')}
+                            >
+                              Total Invoiced
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Sum of all invoices issued to this customer</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
+                    <TableHead>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 -ml-3 font-medium"
+                              onClick={() => handleSort('outstanding_amount')}
+                            >
+                              Outstanding
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Total unpaid invoice amount</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
+                    <TableHead>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 cursor-help">
+                              Payment Status
+                              <Info className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Customer payment status based on outstanding balance</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -270,7 +459,7 @@ const Customers = () => {
                     </TableRow>
                   ) : (
                     filteredCustomers.map((customer) => {
-                      const statusInfo = getStatusBadge(customer);
+                      const paymentStatus = getPaymentStatusBadge(customer);
                       return (
                         <TableRow key={customer.id}>
                           <TableCell>
@@ -291,11 +480,46 @@ const Customers = () => {
                           <TableCell>
                             <Badge variant="outline">{customer.payment_terms || "Not set"}</Badge>
                           </TableCell>
-                          <TableCell>-</TableCell>
-                          <TableCell className="font-medium">-</TableCell>
                           <TableCell>
-                            <Badge className={statusInfo.className}>
-                              {statusInfo.status.charAt(0).toUpperCase() + statusInfo.status.slice(1)}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="font-medium cursor-help">
+                                    {customer.invoice_count ? formatCurrency(customer.total_invoiced) : (
+                                      <span className="text-muted-foreground">No invoices yet</span>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{customer.invoice_count || 0} invoice(s) • Last: {formatDate(customer.last_invoice_date)}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                          <TableCell>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className={`font-medium cursor-help ${
+                                    (customer.outstanding_amount || 0) > 0 ? 'text-destructive' : 'text-muted-foreground'
+                                  }`}>
+                                    {customer.invoice_count ? formatCurrency(customer.outstanding_amount) : '-'}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    {customer.invoice_count 
+                                      ? `${formatCurrency((customer.total_invoiced || 0) - (customer.outstanding_amount || 0))} paid of ${formatCurrency(customer.total_invoiced)}`
+                                      : 'No outstanding balance'
+                                    }
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={paymentStatus.variant}>
+                              {paymentStatus.label}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
