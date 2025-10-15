@@ -18,6 +18,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -37,6 +45,7 @@ import {
   Receipt,
   ArrowUpDown,
   Info,
+  Zap,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -292,6 +301,26 @@ const Customers = () => {
     });
   };
 
+  const handleQuickInvoice = async (customerId: string, serviceType: string) => {
+    try {
+      // Navigate to new invoice with customer pre-selected and service type
+      navigate(`/invoices/new?client=${customerId}&quickService=${serviceType}`);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not create quick invoice",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const quickInvoiceTemplates = [
+    { label: 'Consulting (5h @ €100)', type: 'consulting', hours: 5, rate: 100 },
+    { label: 'Development (10h @ €80)', type: 'development', hours: 10, rate: 80 },
+    { label: 'Design (3h @ €90)', type: 'design', hours: 3, rate: 90 },
+    { label: 'Monthly Retainer (€1,500)', type: 'retainer', amount: 1500 },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -523,73 +552,109 @@ const Customers = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-60">
-                                <div className="space-y-1">
-                                  <Button 
-                                    variant="ghost" 
-                                    className="justify-start w-full text-sm"
-                                    onClick={() => navigate(`/customers/${customer.id}`)}
-                                  >
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View Details
+                            <div className="flex items-center justify-end gap-2">
+                              {/* Primary Create Invoice Button */}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      size="sm"
+                                      onClick={() => navigate(`/invoices/new?client=${customer.id}`)}
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Invoice
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Create new invoice for {customer.name}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+
+                              {/* Quick Invoice Dropdown */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="outline">
+                                    <Zap className="h-4 w-4 mr-2" />
+                                    Quick
                                   </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    className="justify-start w-full text-sm"
-                                    onClick={() => navigate(`/statements/${customer.id}`)}
-                                  >
-                                    <Receipt className="h-4 w-4 mr-2" />
-                                    View Statement
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                  <DropdownMenuLabel>Quick Invoice Templates</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  {quickInvoiceTemplates.map((template, idx) => (
+                                    <DropdownMenuItem
+                                      key={idx}
+                                      onClick={() => handleQuickInvoice(customer.id, template.type)}
+                                    >
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      {template.label}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
+                              {/* More Actions Popover */}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
                                   </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    className="justify-start w-full text-sm"
-                                    onClick={() => navigate(`/quotations?client=${customer.id}`)}
-                                  >
-                                    <FileText className="h-4 w-4 mr-2" />
-                                    View Quotations
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    className="justify-start w-full text-sm"
-                                    onClick={() => navigate(`/invoices/new?client=${customer.id}`)}
-                                  >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create Invoice
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    className="justify-start w-full text-sm"
-                                    onClick={() => navigate(`/quotations/new?client=${customer.id}`)}
-                                  >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create Quotation
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    className="justify-start w-full text-sm"
-                                    onClick={() => navigate(`/customers/edit/${customer.id}`)}
-                                  >
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit Customer
-                                  </Button>
-                                  <Button 
-                                    variant="destructive" 
-                                    className="justify-start w-full text-sm"
-                                    onClick={() => handleDeleteCustomer(customer.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete Customer
-                                  </Button>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-60">
+                                  <div className="space-y-1">
+                                    <Button 
+                                      variant="ghost" 
+                                      className="justify-start w-full text-sm"
+                                      onClick={() => navigate(`/customers/${customer.id}`)}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View Details
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      className="justify-start w-full text-sm"
+                                      onClick={() => navigate(`/statements/${customer.id}`)}
+                                    >
+                                      <Receipt className="h-4 w-4 mr-2" />
+                                      View Statement
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      className="justify-start w-full text-sm"
+                                      onClick={() => navigate(`/quotations?client=${customer.id}`)}
+                                    >
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      View Quotations
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      className="justify-start w-full text-sm"
+                                      onClick={() => navigate(`/quotations/new?client=${customer.id}`)}
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Create Quotation
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      className="justify-start w-full text-sm"
+                                      onClick={() => navigate(`/customers/edit/${customer.id}`)}
+                                    >
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Customer
+                                    </Button>
+                                    <Button 
+                                      variant="destructive" 
+                                      className="justify-start w-full text-sm"
+                                      onClick={() => handleDeleteCustomer(customer.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Customer
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
