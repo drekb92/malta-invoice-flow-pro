@@ -72,7 +72,9 @@ interface Customer {
   total_invoiced?: number;
   outstanding_amount?: number;
   last_invoice_date?: string | null;
+  last_payment_date?: string | null;
   invoice_count?: number;
+  has_overdue?: boolean;
 }
 
 type SortField = 'name' | 'total_invoiced' | 'outstanding_amount' | 'last_invoice_date';
@@ -102,17 +104,37 @@ const Customers = () => {
       // Fetch invoice metrics for each customer
       const { data: invoiceMetrics, error: metricsError } = await supabase
         .from("invoices")
-        .select("customer_id, total_amount, status, invoice_date");
+        .select("id, customer_id, total_amount, status, invoice_date, due_date");
 
       if (metricsError) throw metricsError;
+
+      // Fetch payment data for each customer
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select("invoice_id, payment_date, amount");
+
+      if (paymentsError) throw paymentsError;
 
       // Calculate metrics per customer
       const metricsMap = new Map<string, {
         total_invoiced: number;
         outstanding_amount: number;
         last_invoice_date: string | null;
+        last_payment_date: string | null;
         invoice_count: number;
+        has_overdue: boolean;
       }>();
+
+      // Create a map of payments by invoice_id
+      const paymentsMap = new Map<string, { payment_date: string; amount: number }[]>();
+      paymentsData?.forEach(payment => {
+        if (!payment.invoice_id) return;
+        const existing = paymentsMap.get(payment.invoice_id) || [];
+        existing.push({ payment_date: payment.payment_date, amount: Number(payment.amount || 0) });
+        paymentsMap.set(payment.invoice_id, existing);
+      });
+
+      const today = new Date().toISOString().split('T')[0];
 
       invoiceMetrics?.forEach(invoice => {
         if (!invoice.customer_id) return;
@@ -121,7 +143,9 @@ const Customers = () => {
           total_invoiced: 0,
           outstanding_amount: 0,
           last_invoice_date: null,
+          last_payment_date: null,
           invoice_count: 0,
+          has_overdue: false,
         };
 
         existing.total_invoiced += Number(invoice.total_amount || 0);
@@ -129,12 +153,29 @@ const Customers = () => {
         
         if (invoice.status !== 'paid') {
           existing.outstanding_amount += Number(invoice.total_amount || 0);
+          
+          // Check if this invoice is overdue
+          if (invoice.due_date && invoice.due_date < today) {
+            existing.has_overdue = true;
+          }
         }
 
         if (invoice.invoice_date) {
           if (!existing.last_invoice_date || invoice.invoice_date > existing.last_invoice_date) {
             existing.last_invoice_date = invoice.invoice_date;
           }
+        }
+
+        // Get payments for this invoice
+        const invoicePayments = paymentsMap.get(invoice.id);
+        if (invoicePayments && invoicePayments.length > 0) {
+          invoicePayments.forEach(payment => {
+            if (payment.payment_date) {
+              if (!existing.last_payment_date || payment.payment_date > existing.last_payment_date) {
+                existing.last_payment_date = payment.payment_date;
+              }
+            }
+          });
         }
 
         metricsMap.set(invoice.customer_id, existing);
@@ -243,35 +284,39 @@ const Customers = () => {
       return { 
         status: "no-invoices", 
         label: "No Invoices",
-        variant: "outline" as const
+        variant: "outline" as const,
+        color: "text-muted-foreground"
       };
     }
 
     const outstanding = customer.outstanding_amount || 0;
-    const total = customer.total_invoiced || 0;
-
-    if (outstanding === 0) {
-      return { 
-        status: "paid", 
-        label: "Paid Up",
-        variant: "success" as const
-      };
-    }
-
-    const outstandingRatio = outstanding / total;
     
-    if (outstandingRatio >= 0.5) {
+    // Red: Has overdue invoices
+    if (customer.has_overdue && outstanding > 0) {
       return { 
         status: "overdue", 
-        label: "Payment Due",
-        variant: "destructive" as const
+        label: "Overdue",
+        variant: "destructive" as const,
+        color: "text-destructive"
       };
     }
 
+    // Yellow: Has outstanding but not overdue
+    if (outstanding > 0) {
+      return { 
+        status: "outstanding", 
+        label: "Outstanding",
+        variant: "default" as const,
+        color: "text-yellow-600"
+      };
+    }
+
+    // Green: All paid up
     return { 
-      status: "partial", 
-      label: "Partial Paid",
-      variant: "default" as const
+      status: "paid", 
+      label: "Paid Up",
+      variant: "outline" as const,
+      color: "text-green-600"
     };
   };
 
@@ -465,7 +510,42 @@ const Customers = () => {
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Customer payment status based on outstanding balance</p>
+                            <p>Customer payment status: Overdue (red), Outstanding (yellow), Paid Up (green)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
+                    <TableHead>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 -ml-3 font-medium"
+                              onClick={() => handleSort('last_invoice_date')}
+                            >
+                              Last Invoice
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Date of most recent invoice issued</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
+                    <TableHead>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 cursor-help">
+                              Last Payment
+                              <Info className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Date of most recent payment received</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -476,13 +556,13 @@ const Customers = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6">
+                      <TableCell colSpan={10} className="text-center py-6">
                         Loading customers...
                       </TableCell>
                     </TableRow>
                   ) : filteredCustomers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6">
+                      <TableCell colSpan={10} className="text-center py-6">
                         {searchTerm ? "No customers found matching your search." : "No customers found."}
                       </TableCell>
                     </TableRow>
@@ -547,9 +627,19 @@ const Customers = () => {
                             </TooltipProvider>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={paymentStatus.variant}>
+                            <Badge variant={paymentStatus.variant} className={paymentStatus.color}>
                               {paymentStatus.label}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {formatDate(customer.last_invoice_date)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {formatDate(customer.last_payment_date)}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
