@@ -369,6 +369,38 @@ const Onboarding = () => {
     }
   };
 
+  const handleSkip = async () => {
+    try {
+      setLoading(true);
+
+      // Mark onboarding as complete so user isn't forced back
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user!.id,
+          onboarding_completed: true,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Setup saved",
+        description: "You can complete your profile anytime in Settings.",
+      });
+
+      // Navigate to dashboard
+      navigate('/');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to skip setup. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleNext = async () => {
     let canProceed = true;
 
@@ -786,9 +818,22 @@ const Onboarding = () => {
                   Step {currentStepIndex + 1} of {steps.length}
                 </CardTitle>
               </div>
-              {currentStep !== 'welcome' && currentStep !== 'complete' && (
-                <Badge variant="outline">Required</Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {currentStep !== 'complete' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSkip}
+                    disabled={loading}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Skip for now
+                  </Button>
+                )}
+                {currentStep !== 'welcome' && currentStep !== 'complete' && (
+                  <Badge variant="outline">Required</Badge>
+                )}
+              </div>
             </div>
             <Progress value={progress} className="h-2" />
           </div>
@@ -819,6 +864,12 @@ const Onboarding = () => {
                 )}
               </Button>
             </div>
+
+            {currentStep === 'welcome' && (
+              <p className="text-center text-xs text-muted-foreground">
+                You can skip setup now and complete it later in Settings
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
