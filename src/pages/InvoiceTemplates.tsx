@@ -64,9 +64,9 @@ interface InvoiceTemplate {
 
 const designPresets = [
   {
-    id: 'professional',
-    name: 'Professional',
-    description: 'Clean and minimal colors',
+    id: 'malta-professional',
+    name: 'Malta Professional',
+    description: 'Optimized for Malta business standards. Features clean layout with proper VAT display and local compliance requirements. Best for registered businesses in Malta.',
     settings: {
       primary_color: '#2563eb',
       accent_color: '#1e40af',
@@ -74,38 +74,78 @@ const designPresets = [
       font_size: '14px',
       layout: 'default' as const,
       header_layout: 'default' as const,
-      table_style: 'minimal' as const,
+      table_style: 'bordered' as const,
       totals_style: 'boxed' as const,
+      banking_visibility: true,
+      banking_style: 'boxed' as const,
     }
   },
   {
-    id: 'modern',
-    name: 'Modern',
-    description: 'Bold colors, sans-serif fonts',
+    id: 'service-business',
+    name: 'Service Business',
+    description: 'Perfect for consultants, contractors, and professional services. Emphasizes detailed service descriptions with clean minimal layout. Ideal for hourly work and project-based billing.',
     settings: {
       primary_color: '#7c3aed',
       accent_color: '#6d28d9',
-      font_family: 'Poppins',
+      font_family: 'Inter',
       font_size: '14px',
       layout: 'cleanMinimal' as const,
       header_layout: 'split' as const,
-      table_style: 'striped' as const,
+      table_style: 'minimal' as const,
       totals_style: 'highlighted' as const,
+      banking_visibility: true,
+      banking_style: 'minimal' as const,
     }
   },
   {
-    id: 'classic',
-    name: 'Classic',
-    description: 'Traditional, serif fonts',
+    id: 'retail-products',
+    name: 'Retail/Products',
+    description: 'Designed for product sales and retail businesses. Features striped tables for easy scanning of multiple items, quantities, and prices. Best for shops and e-commerce.',
     settings: {
       primary_color: '#059669',
       accent_color: '#047857',
+      font_family: 'Inter',
+      font_size: '14px',
+      layout: 'default' as const,
+      header_layout: 'centered' as const,
+      table_style: 'striped' as const,
+      totals_style: 'boxed' as const,
+      banking_visibility: true,
+      banking_style: 'default' as const,
+    }
+  },
+  {
+    id: 'minimal-clean',
+    name: 'Minimal Clean',
+    description: 'Ultra-simple design for businesses wanting straightforward invoices. Removes visual clutter while maintaining professionalism. Great for freelancers and small businesses.',
+    settings: {
+      primary_color: '#64748b',
+      accent_color: '#475569',
+      font_family: 'Inter',
+      font_size: '14px',
+      layout: 'cleanMinimal' as const,
+      header_layout: 'default' as const,
+      table_style: 'minimal' as const,
+      totals_style: 'default' as const,
+      banking_visibility: true,
+      banking_style: 'minimal' as const,
+    }
+  },
+  {
+    id: 'corporate',
+    name: 'Corporate',
+    description: 'Formal and structured design for established companies and B2B relationships. Features traditional layout with prominent branding and detailed breakdowns. Ideal for large contracts.',
+    settings: {
+      primary_color: '#1e40af',
+      accent_color: '#1e3a8a',
       font_family: 'Lato',
       font_size: '14px',
       layout: 'default' as const,
-      header_layout: 'default' as const,
+      header_layout: 'split' as const,
       table_style: 'bordered' as const,
-      totals_style: 'default' as const,
+      totals_style: 'boxed' as const,
+      banking_visibility: true,
+      banking_style: 'boxed' as const,
     }
   },
 ];
