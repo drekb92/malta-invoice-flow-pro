@@ -60,3 +60,6 @@ version = "ipv4"
 
 [functions.generate-invoice-pdf]
 verify_jwt = false
+
+[functions.send-payment-reminder]
+verify_jwt = false
