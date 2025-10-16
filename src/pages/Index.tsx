@@ -464,7 +464,7 @@ const Index = () => {
                       <Button
                         key={index}
                         variant={step.completed ? "outline" : "default"}
-                        className="h-auto p-4 flex flex-col items-start gap-2"
+                        className="h-auto p-4 flex flex-col items-start gap-2 whitespace-normal"
                         onClick={step.action}
                       >
                         <div className="flex items-center justify-between w-full">
@@ -475,9 +475,9 @@ const Index = () => {
                             <AlertCircle className="w-5 h-5 text-muted-foreground" />
                           )}
                         </div>
-                        <div className="text-left w-full">
-                          <div className="font-semibold text-sm">{step.title}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-left w-full space-y-1">
+                          <div className="font-semibold text-sm whitespace-normal break-words">{step.title}</div>
+                          <div className="text-xs text-muted-foreground whitespace-normal break-words line-clamp-2">
                             {step.description}
                           </div>
                         </div>
