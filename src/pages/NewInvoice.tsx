@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -16,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2, ArrowLeft, Download, Zap, Settings2, Clock, Lightbulb, Info } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Download, Zap, Settings2, Clock, Lightbulb, Info, Shield, AlertCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,7 @@ import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import type { InvoiceData } from "@/services/pdfService";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
+import { invoiceService } from "@/services/invoiceService";
 
 interface Customer {
   id: string;
@@ -87,6 +89,7 @@ const NewInvoice = () => {
   ]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isIssued, setIsIssued] = useState(false);
   const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>("");
@@ -256,6 +259,7 @@ const NewInvoice = () => {
       setSelectedCustomer(invoiceData.customer_id);
       setInvoiceDate(invoiceData.invoice_date || invoiceData.created_at.split("T")[0]);
       setStatus(invoiceData.status);
+      setIsIssued((invoiceData as any).is_issued || false);
       setDiscountType((invoiceData as any).discount_type || 'amount');
       setDiscountValue(Number((invoiceData as any).discount_value || 0));
       setDiscountReason((invoiceData as any).discount_reason || '');
@@ -453,7 +457,7 @@ const NewInvoice = () => {
     return { netTotal: round2(subtotal), discountAmount, taxable, vatTotal, grandTotal };
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, shouldIssue: boolean = false) => {
     e.preventDefault();
     setLoading(true);
 
@@ -488,7 +492,9 @@ const NewInvoice = () => {
         total_amount: grandTotal,
         invoice_date: invoiceDate,
         due_date: calculatedDueDate.toISOString().split("T")[0],
-        status: status,
+        status: shouldIssue ? 'issued' : 'draft',
+        is_issued: shouldIssue,
+        issued_at: shouldIssue ? new Date().toISOString() : null,
         user_id: user?.id,
         discount_type: discountType,
         discount_value: discountValue,
@@ -496,7 +502,7 @@ const NewInvoice = () => {
       };
 
       if (isEditMode && id) {
-        // Update existing invoice
+        // Update existing invoice (only if not issued)
         const { error: invoiceError } = await supabase
           .from("invoices")
           .update(invoiceData)
@@ -532,10 +538,10 @@ const NewInvoice = () => {
           description: "Invoice has been successfully updated.",
         });
       } else {
-        // Create new invoice - auto-generate invoice number
+        // Create new invoice - auto-generate invoice number if issuing
         let finalInvoiceNumber = invoiceNumber;
         
-        if (!invoiceNumber) {
+        if (shouldIssue && !invoiceNumber) {
           const { data, error } = await (supabase.rpc as any)('next_invoice_number', {
             p_business_id: user?.id,
             p_prefix: 'INV-'
@@ -574,9 +580,19 @@ const NewInvoice = () => {
 
         if (itemsError) throw itemsError;
 
+        // If issuing, use invoiceService to properly issue the invoice with audit logging
+        if (shouldIssue) {
+          const issueResult = await invoiceService.issueInvoice(invoice.id);
+          if (!issueResult.success) {
+            throw new Error(issueResult.error || "Failed to issue invoice");
+          }
+        }
+
         toast({
-          title: "Invoice created",
-          description: "Invoice has been successfully created.",
+          title: shouldIssue ? "Invoice issued" : "Draft saved",
+          description: shouldIssue 
+            ? `Invoice ${finalInvoiceNumber} has been issued and is now immutable.` 
+            : "Invoice saved as draft. You can edit it until you issue it.",
         });
       }
 
@@ -650,13 +666,26 @@ const NewInvoice = () => {
                       Back to Invoices
                     </Link>
                   </Button>
-                  <div>
-                    <h1 className="text-2xl font-bold text-foreground">
-                      {isEditMode ? "Edit Invoice" : "New Invoice"}
-                    </h1>
-                    <p className="text-muted-foreground">
-                      {isEditMode ? "Update existing invoice" : "Create a new Malta VAT-compliant invoice"}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <h1 className="text-2xl font-bold text-foreground">
+                        {isEditMode ? "Edit Invoice" : "New Invoice"}
+                      </h1>
+                      <p className="text-muted-foreground">
+                        {isEditMode ? "Update existing invoice" : "Create a new Malta VAT-compliant invoice"}
+                      </p>
+                    </div>
+                    {!isIssued && (
+                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300">
+                        DRAFT
+                      </Badge>
+                    )}
+                    {isIssued && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                        <Shield className="h-3 w-3 mr-1" />
+                        ISSUED
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -675,22 +704,25 @@ const NewInvoice = () => {
                       <Settings2 className="h-4 w-4 text-muted-foreground" />
                     </div>
                   )}
-                  {isEditMode && status === 'draft' && !invoiceNumber && (
-                    <Button 
-                      onClick={handleIssueInvoice}
-                      disabled={loading}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Issue Invoice
-                    </Button>
-                  )}
                 </div>
               </div>
           </div>
         </header>
 
         <main className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
+            {/* Malta VAT Compliance Alert */}
+            {!isIssued && (
+              <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-900 dark:text-blue-100">
+                  <strong>Draft Mode:</strong> This invoice can be edited freely until you issue it. 
+                  Once issued, it becomes immutable to comply with Malta VAT regulations. 
+                  Any corrections to an issued invoice must be made through a credit note.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Service Templates and Recent Items - Only in Quick Mode */}
             {isQuickMode && !isEditMode && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -1192,7 +1224,7 @@ const NewInvoice = () => {
               <Button type="button" variant="outline" asChild>
                 <Link to="/invoices">Cancel</Link>
               </Button>
-              {isEditMode && status !== 'draft' && (
+              {isEditMode && (
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -1202,9 +1234,31 @@ const NewInvoice = () => {
                   Download PDF
                 </Button>
               )}
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : (isEditMode ? "Update Invoice" : "Create Invoice")}
-              </Button>
+              {!isIssued && (
+                <>
+                  <Button 
+                    type="submit" 
+                    variant="outline"
+                    disabled={loading || isIssued}
+                  >
+                    {loading ? "Saving..." : "Save as Draft"}
+                  </Button>
+                  <Button 
+                    type="button"
+                    onClick={(e) => handleSubmit(e as any, true)}
+                    disabled={loading || isIssued}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    {loading ? "Issuing..." : "Save & Issue"}
+                  </Button>
+                </>
+              )}
+              {isIssued && isEditMode && (
+                <Button type="submit" disabled={true} variant="outline">
+                  Invoice Issued (Immutable)
+                </Button>
+              )}
             </div>
           </form>
         </main>
