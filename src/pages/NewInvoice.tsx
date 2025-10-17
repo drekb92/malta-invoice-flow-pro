@@ -636,9 +636,21 @@ const NewInvoice = () => {
 
       navigate("/invoices");
     } catch (error) {
+      let errorMessage = "An error occurred";
+      
+      if (error instanceof Error) {
+        // Check for Malta VAT compliance errors
+        if (error.message.includes("Cannot modify items of issued invoices") || 
+            error.message.includes("issued invoices to remain immutable")) {
+          errorMessage = "This invoice has been issued and cannot be modified. Malta VAT regulations require issued invoices to remain immutable for compliance. To make corrections, please create a credit note instead.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
