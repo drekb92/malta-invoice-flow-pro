@@ -49,6 +49,9 @@ interface Invoice {
   status: string;
   total_amount: number;
   customer_name: string;
+  is_issued?: boolean;
+  issued_at?: string;
+  invoice_hash?: string;
 }
 
 interface InvoiceExportData {

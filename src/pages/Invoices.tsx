@@ -59,6 +59,9 @@ interface Invoice {
   discount_value?: number;
   discount_type?: string;
   discount_reason?: string;
+  is_issued?: boolean;
+  issued_at?: string;
+  invoice_hash?: string;
   customers?: {
     name: string;
     email?: string;
