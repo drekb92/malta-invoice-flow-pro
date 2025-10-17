@@ -27,6 +27,7 @@ import type { InvoiceData } from "@/services/pdfService";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
+import { CreateCreditNoteDialog } from "@/components/CreateCreditNoteDialog";
 
 interface Invoice {
   id: string;
@@ -76,6 +77,7 @@ const InvoiceDetails = () => {
   const [loading, setLoading] = useState(true);
   const [auditTrail, setAuditTrail] = useState<any[]>([]);
   const [isIssuing, setIsIssuing] = useState(false);
+  const [showCreditNoteDialog, setShowCreditNoteDialog] = useState(false);
   const { toast } = useToast();
   
   // Load template using unified hook
@@ -326,11 +328,31 @@ const InvoiceDetails = () => {
   };
 
   const handleCreateCreditNote = () => {
-    // Navigate to credit note creation page (to be implemented)
-    toast({
-      title: "Create Credit Note",
-      description: "Credit note creation interface coming soon. Use this to correct issued invoices.",
-    });
+    setShowCreditNoteDialog(true);
+  };
+
+  const handleCreditNoteSuccess = async () => {
+    // Reload invoice data and audit trail
+    if (!invoice_id) return;
+    
+    const { data: updatedInvoice } = await supabase
+      .from("invoices")
+      .select("*")
+      .eq("id", invoice_id)
+      .single();
+    
+    if (updatedInvoice && invoice) {
+      setInvoice({
+        ...invoice,
+        ...(updatedInvoice as any)
+      });
+    }
+
+    // Reload audit trail
+    const auditResult = await invoiceService.getInvoiceAuditTrail(invoice_id);
+    if (auditResult.success && auditResult.auditTrail) {
+      setAuditTrail(auditResult.auditTrail);
+    }
   };
 
   const getImmutabilityBadge = () => {
@@ -764,6 +786,19 @@ const InvoiceDetails = () => {
           </InvoiceErrorBoundary>
         )}
       </div>
+
+      {/* Credit Note Dialog */}
+      {invoice && (
+        <CreateCreditNoteDialog
+          open={showCreditNoteDialog}
+          onOpenChange={setShowCreditNoteDialog}
+          invoiceId={invoice.id}
+          invoiceNumber={invoice.invoice_number}
+          originalAmount={computedTotals.net}
+          vatRate={invoice.vat_rate}
+          onSuccess={handleCreditNoteSuccess}
+        />
+      )}
 
     </div>
   );
