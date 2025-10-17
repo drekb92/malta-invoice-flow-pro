@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Mail, MessageCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, Download, Mail, MessageCircle, CheckCircle, AlertTriangle, FileText, Shield } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,7 @@ import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
+import { invoiceService } from "@/services/invoiceService";
 
 interface Invoice {
   id: string;
@@ -72,6 +74,8 @@ const InvoiceDetails = () => {
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [invoiceTotals, setInvoiceTotals] = useState<InvoiceTotals | null>(null);
   const [loading, setLoading] = useState(true);
+  const [auditTrail, setAuditTrail] = useState<any[]>([]);
+  const [isIssuing, setIsIssuing] = useState(false);
   const { toast } = useToast();
   
   // Load template using unified hook
@@ -123,6 +127,14 @@ const InvoiceDetails = () => {
         });
         setInvoiceItems(itemsData || []);
         setInvoiceTotals(totalsData);
+
+        // Load audit trail if invoice is issued
+        if ((invoiceData as any).is_issued) {
+          const auditResult = await invoiceService.getInvoiceAuditTrail(invoice_id);
+          if (auditResult.success && auditResult.auditTrail) {
+            setAuditTrail(auditResult.auditTrail);
+          }
+        }
       } catch (error) {
         toast({
           title: "Error",
@@ -283,6 +295,66 @@ const InvoiceDetails = () => {
     window.open(url, "_blank");
   };
 
+  const handleIssueInvoice = async () => {
+    if (!invoice_id || !invoice) return;
+    
+    setIsIssuing(true);
+    const result = await invoiceService.issueInvoice(invoice_id);
+    setIsIssuing(false);
+
+    if (result.success) {
+      // Reload invoice to get updated data
+      const { data: updatedInvoice } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("id", invoice_id)
+        .single();
+      
+      if (updatedInvoice) {
+        setInvoice({
+          ...invoice,
+          ...(updatedInvoice as any)
+        });
+      }
+
+      // Load audit trail
+      const auditResult = await invoiceService.getInvoiceAuditTrail(invoice_id);
+      if (auditResult.success && auditResult.auditTrail) {
+        setAuditTrail(auditResult.auditTrail);
+      }
+    }
+  };
+
+  const handleCreateCreditNote = () => {
+    // Navigate to credit note creation page (to be implemented)
+    toast({
+      title: "Create Credit Note",
+      description: "Credit note creation interface coming soon. Use this to correct issued invoices.",
+    });
+  };
+
+  const getImmutabilityBadge = () => {
+    if (!invoice) return null;
+    
+    const isIssued = (invoice as any).is_issued;
+    
+    if (isIssued) {
+      return (
+        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center gap-1">
+          <Shield className="h-3 w-3" />
+          ISSUED (Immutable)
+        </Badge>
+      );
+    }
+    
+    return (
+      <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 flex items-center gap-1">
+        <AlertTriangle className="h-3 w-3" />
+        DRAFT (Editable)
+      </Badge>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -336,18 +408,39 @@ const InvoiceDetails = () => {
                   </Button>
                 </Link>
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground">Invoice {invoice.invoice_number}</h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-foreground">Invoice {invoice.invoice_number}</h1>
+                    {getImmutabilityBadge()}
+                  </div>
                   <p className="text-muted-foreground">Invoice details and line items</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {!(invoice as any).is_issued && (
+                  <Button 
+                    onClick={handleIssueInvoice} 
+                    disabled={isIssuing}
+                    className="bg-green-600 hover:bg-green-700"
+                    aria-label="Issue invoice"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {isIssuing ? "Issuing..." : "Issue Invoice"}
+                  </Button>
+                )}
+                {(invoice as any).is_issued && (
+                  <Button 
+                    onClick={handleCreateCreditNote}
+                    variant="outline"
+                    aria-label="Create credit note"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Create Credit Note
+                  </Button>
+                )}
                 <Button onClick={handleDownload} aria-label="Download invoice PDF" title="Download invoice PDF">
                   <Download className="h-4 w-4" />
                   <span className="sr-only">Download</span>
                   <span className="hidden sm:inline">Download PDF</span>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleLegacyDownload} aria-label="Legacy download" title="Legacy download">
-                  <span className="hidden sm:inline">Legacy Download</span>
                 </Button>
                 <Button variant="secondary" onClick={handleEmailReminder} aria-label="Send email reminder" title="Send email reminder">
                   <Mail className="h-4 w-4" />
@@ -363,6 +456,27 @@ const InvoiceDetails = () => {
         </header>
 
         <main className="p-6 space-y-6">
+          {/* Malta VAT Compliance Alert */}
+          {(invoice as any).is_issued ? (
+            <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+              <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle className="text-green-800 dark:text-green-300">Malta VAT Compliant - Invoice Issued</AlertTitle>
+              <AlertDescription className="text-green-700 dark:text-green-400">
+                This invoice was issued on {format(new Date((invoice as any).issued_at), "dd/MM/yyyy 'at' HH:mm")} and is now immutable per Malta VAT regulations. 
+                It cannot be edited or deleted. To correct this invoice, create a credit note instead.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
+              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <AlertTitle className="text-yellow-800 dark:text-yellow-300">Draft Invoice - Not Yet Issued</AlertTitle>
+              <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+                This invoice is in draft mode and can still be edited. Once you click "Issue Invoice", it becomes immutable 
+                per Malta VAT compliance requirements. Issued invoices cannot be changed - only corrected via credit notes.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Invoice Header */}
           <Card>
             <CardHeader>
@@ -472,6 +586,67 @@ const InvoiceDetails = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Audit Trail - Malta VAT Compliance */}
+          {(invoice as any).is_issued && auditTrail.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Audit Trail (Malta VAT Compliance)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {auditTrail.map((entry, index) => (
+                    <div key={entry.id || index} className="border-l-2 border-primary pl-4 py-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-sm">
+                            {entry.action === 'issued' && 'Invoice Issued'}
+                            {entry.action === 'credit_note_created' && 'Credit Note Created'}
+                            {entry.action === 'created' && 'Invoice Created'}
+                            {entry.action === 'correction_note_added' && 'Correction Note Added'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {format(new Date(entry.timestamp), "dd/MM/yyyy 'at' HH:mm:ss")}
+                          </p>
+                          {entry.new_data && (
+                            <div className="mt-2 text-sm">
+                              {entry.action === 'issued' && (
+                                <p className="text-muted-foreground">
+                                  Invoice #{entry.new_data.invoice_number} issued and locked
+                                  {entry.new_data.hash && (
+                                    <span className="block text-xs font-mono mt-1">
+                                      Hash: {entry.new_data.hash.substring(0, 16)}...
+                                    </span>
+                                  )}
+                                </p>
+                              )}
+                              {entry.action === 'credit_note_created' && (
+                                <p className="text-muted-foreground">
+                                  Credit Note {entry.new_data.credit_note_number} created for €{formatNumber(entry.new_data.amount, 2)}
+                                  <span className="block text-xs mt-1">Reason: {entry.new_data.reason}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {entry.ip_address && (
+                          <Badge variant="outline" className="text-xs">
+                            {entry.ip_address}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-4 border-t pt-4">
+                  This audit trail is maintained for Malta VAT compliance and cannot be altered.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </main>
       </div>
 
