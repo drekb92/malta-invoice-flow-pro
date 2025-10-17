@@ -238,6 +238,9 @@ const NewInvoice = () => {
 
   const fetchInvoiceData = async (invoiceId: string) => {
     try {
+      // First check if invoice can be edited
+      const editCheckResult = await invoiceService.canEditInvoice(invoiceId);
+      
       const { data: invoiceData, error: invoiceError } = await supabase
         .from("invoices")
         .select(`
@@ -272,6 +275,15 @@ const NewInvoice = () => {
           vat_rate: item.vat_rate,
           unit: item.unit,
         })));
+      }
+      
+      // Show warning if invoice cannot be edited
+      if (!editCheckResult.canEdit) {
+        toast({
+          title: "Invoice is Immutable",
+          description: editCheckResult.reason || "This invoice has been issued and cannot be modified. Use credit notes for corrections.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       toast({
@@ -502,6 +514,16 @@ const NewInvoice = () => {
       };
 
       if (isEditMode && id) {
+        // Check if invoice can be edited before updating
+        const editCheckResult = await invoiceService.canEditInvoice(id);
+        
+        if (!editCheckResult.canEdit) {
+          throw new Error(
+            editCheckResult.reason || 
+            "This invoice has been issued and cannot be modified. Malta VAT regulations require issued invoices to remain immutable. Please create a credit note to make corrections."
+          );
+        }
+        
         // Update existing invoice (only if not issued)
         const { error: invoiceError } = await supabase
           .from("invoices")
@@ -723,6 +745,28 @@ const NewInvoice = () => {
               </Alert>
             )}
             
+            {/* Issued Invoice Warning */}
+            {isIssued && isEditMode && (
+              <Alert variant="destructive" className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
+                <Shield className="h-4 w-4" />
+                <AlertDescription className="text-red-900 dark:text-red-100">
+                  <strong>Invoice Issued - Immutable:</strong> This invoice has been issued and cannot be modified 
+                  per Malta VAT regulations. To correct this invoice, you must create a credit note.
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/invoices/${id}`)}
+                      className="bg-white dark:bg-gray-900"
+                    >
+                      View Invoice & Create Credit Note
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Service Templates and Recent Items - Only in Quick Mode */}
             {isQuickMode && !isEditMode && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -848,7 +892,11 @@ const NewInvoice = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="customer">Customer *</Label>
-                      <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+                      <Select 
+                        value={selectedCustomer} 
+                        onValueChange={setSelectedCustomer}
+                        disabled={isIssued}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a customer" />
                         </SelectTrigger>
@@ -893,12 +941,17 @@ const NewInvoice = () => {
                         value={invoiceDate}
                         onChange={(e) => setInvoiceDate(e.target.value)}
                         required
+                        disabled={isIssued}
                       />
                     </div>
                     
                       <div>
                         <Label htmlFor="status">Status</Label>
-                        <Select value={status} onValueChange={setStatus}>
+                        <Select 
+                          value={status} 
+                          onValueChange={setStatus}
+                          disabled={isIssued}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -941,11 +994,12 @@ const NewInvoice = () => {
                         type="single"
                         value={discountType}
                         onValueChange={(v) => v && setDiscountType(v as 'amount' | 'percent')}
+                        disabled={isIssued}
                       >
-                        <ToggleGroupItem value="amount" aria-label="Amount (€)">
+                        <ToggleGroupItem value="amount" aria-label="Amount (€)" disabled={isIssued}>
                           Amount (€)
                         </ToggleGroupItem>
-                        <ToggleGroupItem value="percent" aria-label="Percent (%)">
+                        <ToggleGroupItem value="percent" aria-label="Percent (%)" disabled={isIssued}>
                           Percent (%)
                         </ToggleGroupItem>
                       </ToggleGroup>
@@ -973,6 +1027,8 @@ const NewInvoice = () => {
                             }
                             setDiscountValue(v);
                           }}
+                          disabled={isIssued}
+                          readOnly={isIssued}
                         />
                         {discountType === 'percent' ? (
                           <p className="text-xs text-muted-foreground mt-1">Allowed: 0–100%</p>
@@ -987,6 +1043,8 @@ const NewInvoice = () => {
                           placeholder="Add a note for this discount"
                           value={discountReason}
                           onChange={(e) => setDiscountReason(e.target.value)}
+                          disabled={isIssued}
+                          readOnly={isIssued}
                         />
                       </div>
                     </div>
@@ -1041,7 +1099,12 @@ const NewInvoice = () => {
                       </CardDescription>
                     )}
                   </div>
-                  <Button type="button" onClick={addItem} size="sm">
+                  <Button 
+                    type="button" 
+                    onClick={addItem} 
+                    size="sm"
+                    disabled={isIssued}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Item
                   </Button>
@@ -1058,6 +1121,8 @@ const NewInvoice = () => {
                           onChange={(e) => updateItem(index, 'description', e.target.value)}
                           placeholder="Service description"
                           required
+                          disabled={isIssued}
+                          readOnly={isIssued}
                         />
                       </div>
                       
@@ -1073,6 +1138,8 @@ const NewInvoice = () => {
                               value={item.quantity}
                               onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                               required
+                              disabled={isIssued}
+                              readOnly={isIssued}
                             />
                           </div>
                           
@@ -1085,6 +1152,8 @@ const NewInvoice = () => {
                               value={item.unit_price}
                               onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                               required
+                              disabled={isIssued}
+                              readOnly={isIssued}
                             />
                           </div>
                           
@@ -1096,6 +1165,7 @@ const NewInvoice = () => {
                             <Select 
                               value={item.vat_rate.toString()} 
                               onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
+                              disabled={isIssued}
                             >
                               <SelectTrigger>
                                 <SelectValue />
@@ -1132,7 +1202,7 @@ const NewInvoice = () => {
                               variant="destructive"
                               size="sm"
                               onClick={() => removeItem(index)}
-                              disabled={items.length === 1}
+                              disabled={items.length === 1 || isIssued}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1150,6 +1220,8 @@ const NewInvoice = () => {
                               value={item.quantity}
                               onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                               required
+                              disabled={isIssued}
+                              readOnly={isIssued}
                             />
                           </div>
                           
@@ -1162,6 +1234,8 @@ const NewInvoice = () => {
                               value={item.unit_price}
                               onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                               required
+                              disabled={isIssued}
+                              readOnly={isIssued}
                             />
                           </div>
                           
@@ -1170,6 +1244,7 @@ const NewInvoice = () => {
                             <Select 
                               value={item.vat_rate.toString()} 
                               onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
+                              disabled={isIssued}
                             >
                               <SelectTrigger>
                                 <SelectValue />
@@ -1191,7 +1266,7 @@ const NewInvoice = () => {
                               variant="destructive"
                               size="sm"
                               onClick={() => removeItem(index)}
-                              disabled={items.length === 1}
+                              disabled={items.length === 1 || isIssued}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
