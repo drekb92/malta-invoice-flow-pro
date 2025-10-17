@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2, ArrowLeft, Download, Zap, Settings2, Clock, Lightbulb, Info, Shield, AlertCircle } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Download, Zap, Settings2, Clock, Lightbulb, Info, Shield, AlertCircle, FileText } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -90,6 +90,7 @@ const NewInvoice = () => {
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isIssued, setIsIssued] = useState(false);
+  const [issuedAt, setIssuedAt] = useState<string | null>(null);
   const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>("");
@@ -263,6 +264,7 @@ const NewInvoice = () => {
       setInvoiceDate(invoiceData.invoice_date || invoiceData.created_at.split("T")[0]);
       setStatus(invoiceData.status);
       setIsIssued((invoiceData as any).is_issued || false);
+      setIssuedAt((invoiceData as any).issued_at || null);
       setDiscountType((invoiceData as any).discount_type || 'amount');
       setDiscountValue(Number((invoiceData as any).discount_value || 0));
       setDiscountReason((invoiceData as any).discount_reason || '');
@@ -471,6 +473,17 @@ const NewInvoice = () => {
 
   const handleSubmit = async (e: React.FormEvent, shouldIssue: boolean = false) => {
     e.preventDefault();
+    
+    // Prevent submission if invoice is issued
+    if (isIssued && isEditMode) {
+      toast({
+        title: "Cannot Modify Issued Invoice",
+        description: "This invoice has been issued and is immutable per Malta VAT regulations. Please create a credit note to make corrections.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -760,7 +773,10 @@ const NewInvoice = () => {
         </header>
 
         <main className="p-6">
-          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
+          <form 
+            onSubmit={(e) => handleSubmit(e, false)} 
+            className={`space-y-6 ${isIssued ? 'opacity-75 pointer-events-none' : ''}`}
+          >
             {/* Malta VAT Compliance Alert */}
             {!isIssued && (
               <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
@@ -775,23 +791,59 @@ const NewInvoice = () => {
             
             {/* Issued Invoice Warning */}
             {isIssued && isEditMode && (
-              <Alert variant="destructive" className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
-                <Shield className="h-4 w-4" />
-                <AlertDescription className="text-red-900 dark:text-red-100">
-                  <strong>Invoice Issued - Immutable:</strong> This invoice has been issued and cannot be modified 
-                  per Malta VAT regulations. To correct this invoice, you must create a credit note.
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/invoices/${id}`)}
-                      className="bg-white dark:bg-gray-900"
-                    >
-                      View Invoice & Create Credit Note
-                    </Button>
+              <Alert variant="destructive" className="border-2 border-red-500 bg-red-50 dark:bg-red-950 shadow-lg">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <Shield className="h-6 w-6 text-red-600 dark:text-red-400" />
                   </div>
-                </AlertDescription>
+                  <div className="flex-1">
+                    <AlertDescription className="text-red-900 dark:text-red-100">
+                      <div className="text-lg font-bold mb-2">🔒 Invoice Issued - Immutable</div>
+                      <p className="mb-3">
+                        This invoice has been officially issued on {issuedAt ? format(new Date(issuedAt), "PPP 'at' p") : 'N/A'} and 
+                        <strong> cannot be modified</strong> in accordance with Malta VAT regulations (VAT Act, Chapter 406). 
+                        All issued invoices must remain unchanged to ensure tax compliance and audit integrity.
+                      </p>
+                      <div className="bg-white dark:bg-red-900 p-3 rounded-md mb-3 border border-red-200 dark:border-red-700">
+                        <p className="text-sm font-semibold mb-1">✓ What you can view:</p>
+                        <ul className="text-sm space-y-1 ml-4 list-disc">
+                          <li>All invoice details and items</li>
+                          <li>Download and print the invoice</li>
+                          <li>View audit history</li>
+                        </ul>
+                      </div>
+                      <div className="bg-white dark:bg-red-900 p-3 rounded-md border border-red-200 dark:border-red-700">
+                        <p className="text-sm font-semibold mb-1">✗ What you cannot do:</p>
+                        <ul className="text-sm space-y-1 ml-4 list-disc">
+                          <li>Edit customer or invoice details</li>
+                          <li>Modify, add, or remove line items</li>
+                          <li>Change amounts, dates, or VAT rates</li>
+                        </ul>
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="default"
+                          onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
+                          className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Create Credit Note for Corrections
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="default"
+                          onClick={() => navigate(`/invoices/${id}`)}
+                          className="border-red-300 dark:border-red-700"
+                        >
+                          View Full Invoice Details
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </div>
+                </div>
               </Alert>
             )}
             
@@ -1325,13 +1377,14 @@ const NewInvoice = () => {
             {/* Actions */}
             <div className="flex justify-end space-x-4">
               <Button type="button" variant="outline" asChild>
-                <Link to="/invoices">Cancel</Link>
+                <Link to="/invoices">Back to Invoices</Link>
               </Button>
               {isEditMode && (
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={handleDownloadPDF}
+                  disabled={loading}
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download PDF
@@ -1342,14 +1395,14 @@ const NewInvoice = () => {
                   <Button 
                     type="submit" 
                     variant="outline"
-                    disabled={loading || isIssued}
+                    disabled={loading}
                   >
                     {loading ? "Saving..." : "Save as Draft"}
                   </Button>
                   <Button 
                     type="button"
                     onClick={(e) => handleSubmit(e as any, true)}
-                    disabled={loading || isIssued}
+                    disabled={loading}
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <Shield className="h-4 w-4 mr-2" />
@@ -1358,9 +1411,17 @@ const NewInvoice = () => {
                 </>
               )}
               {isIssued && isEditMode && (
-                <Button type="submit" disabled={true} variant="outline">
-                  Invoice Issued (Immutable)
-                </Button>
+                <>
+                  <Button 
+                    type="button"
+                    variant="default"
+                    onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
+                    className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Create Credit Note
+                  </Button>
+                </>
               )}
             </div>
           </form>
