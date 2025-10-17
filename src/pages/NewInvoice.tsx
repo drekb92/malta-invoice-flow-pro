@@ -532,32 +532,48 @@ const NewInvoice = () => {
 
         if (invoiceError) throw invoiceError;
 
-        // Delete existing items and insert new ones
-        const { error: deleteError } = await supabase
-          .from("invoice_items")
-          .delete()
-          .eq("invoice_id", id);
+        // Only update invoice items if the invoice is not issued
+        // Malta VAT compliance requires issued invoices to be immutable
+        if (!isIssued) {
+          try {
+            // Delete existing items and insert new ones
+            const { error: deleteError } = await supabase
+              .from("invoice_items")
+              .delete()
+              .eq("invoice_id", id);
 
-        if (deleteError) throw deleteError;
+            if (deleteError) throw deleteError;
 
-        const itemsData = items.map(item => ({
-          invoice_id: id,
-          description: item.description,
-          quantity: item.quantity,
-          unit: item.unit,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate,
-        }));
+            const itemsData = items.map(item => ({
+              invoice_id: id,
+              description: item.description,
+              quantity: item.quantity,
+              unit: item.unit,
+              unit_price: item.unit_price,
+              vat_rate: item.vat_rate,
+            }));
 
-        const { error: itemsError } = await supabase
-          .from("invoice_items")
-          .insert(itemsData);
+            const { error: itemsError } = await supabase
+              .from("invoice_items")
+              .insert(itemsData);
 
-        if (itemsError) throw itemsError;
+            if (itemsError) throw itemsError;
+          } catch (itemError: any) {
+            // Handle specific Malta VAT compliance errors
+            if (itemError?.message?.includes("Cannot modify items of issued invoices")) {
+              throw new Error(
+                "Cannot modify items of issued invoices. Malta VAT regulations require issued invoices to remain immutable. Please create a credit note to make corrections to this invoice."
+              );
+            }
+            throw itemError;
+          }
+        }
 
         toast({
           title: "Invoice updated",
-          description: "Invoice has been successfully updated.",
+          description: isIssued 
+            ? "Invoice details updated. Items cannot be modified for issued invoices." 
+            : "Invoice has been successfully updated.",
         });
       } else {
         // Create new invoice - auto-generate invoice number if issuing
