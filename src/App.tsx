@@ -27,6 +27,7 @@ import ExportCustomers from "./pages/ExportCustomers";
 import ImportCustomers from "./pages/ImportCustomers";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
+import CreditNotes from "./pages/CreditNotes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,8 @@ const App: React.FC = () => (
             <Route path="/invoice-templates" element={<ProtectedRoute><InvoiceTemplates /></ProtectedRoute>} />
             <Route path="/services" element={<ProtectedRoute><ServiceLibrary /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/credit-notes" element={<ProtectedRoute><CreditNotes /></ProtectedRoute>} />
+            <Route path="/credit-notes/:id" element={<ProtectedRoute><CreditNotes /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

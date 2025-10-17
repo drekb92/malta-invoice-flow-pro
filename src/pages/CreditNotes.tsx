@@ -1,0 +1,386 @@
+import { Navigation } from "@/components/Navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Search,
+  Filter,
+  Download,
+  MoreHorizontal,
+  Eye,
+  FileText,
+  Shield,
+  AlertCircle,
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface CreditNote {
+  id: string;
+  credit_note_number: string;
+  customer_id: string;
+  original_invoice_id: string | null;
+  amount: number;
+  vat_rate: number;
+  reason: string;
+  credit_note_date: string;
+  status: string;
+  created_at: string;
+  user_id: string;
+  customers?: {
+    name: string;
+    email?: string;
+  };
+  invoices?: {
+    invoice_number: string;
+  };
+}
+
+const CreditNotes = () => {
+  const navigate = useNavigate();
+  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
+  const [filteredCreditNotes, setFilteredCreditNotes] = useState<CreditNote[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchCreditNotes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("credit_notes" as any)
+        .select(`
+          *,
+          customers (
+            name,
+            email
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      // Fetch original invoice numbers separately
+      const creditNotesWithInvoices = await Promise.all(
+        (data || []).map(async (cn: any) => {
+          if (cn.original_invoice_id) {
+            const { data: invoiceData } = await supabase
+              .from("invoices")
+              .select("invoice_number")
+              .eq("id", cn.original_invoice_id)
+              .maybeSingle();
+            
+            return {
+              ...cn,
+              invoices: invoiceData
+            };
+          }
+          return cn;
+        })
+      );
+      
+      setCreditNotes(creditNotesWithInvoices as CreditNote[]);
+      setFilteredCreditNotes(creditNotesWithInvoices as CreditNote[]);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load credit notes",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCreditNotes();
+  }, []);
+
+  useEffect(() => {
+    let filtered = creditNotes;
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter((creditNote) =>
+        creditNote.credit_note_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        creditNote.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (creditNote.invoices as any)?.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((creditNote) => creditNote.status === statusFilter);
+    }
+
+    setFilteredCreditNotes(filtered);
+  }, [searchTerm, statusFilter, creditNotes]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return {
+          className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+          label: "Draft"
+        };
+      case 'issued':
+        return {
+          className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+          label: "Issued"
+        };
+      case 'applied':
+        return {
+          className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+          label: "Applied"
+        };
+      default:
+        return {
+          className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+          label: status
+        };
+    }
+  };
+
+  const handleDownloadPDF = async (creditNoteId: string) => {
+    toast({
+      title: "Coming Soon",
+      description: "PDF download for credit notes will be available soon.",
+    });
+  };
+
+  const handlePrint = (creditNoteId: string) => {
+    toast({
+      title: "Coming Soon",
+      description: "Print functionality will be available soon.",
+    });
+  };
+
+  const calculateTotal = (amount: number, vatRate: number) => {
+    const vat = amount * vatRate;
+    return amount + vat;
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      
+      <div className="md:ml-64">
+        <header className="bg-card border-b border-border">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Credit Notes</h1>
+                <p className="text-muted-foreground">
+                  Manage Malta VAT-compliant credit notes for invoice corrections
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="p-6">
+          {/* Malta VAT Compliance Alert */}
+          <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+            <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              <strong>Malta VAT Compliance:</strong> Credit notes are used to correct issued invoices 
+              without modifying the original immutable invoice record. Each credit note is tracked for 
+              audit compliance.
+            </AlertDescription>
+          </Alert>
+
+          {/* Filters and Search */}
+          <div className="flex items-center space-x-4 mb-6">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search credit notes..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filter ({statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-background border border-border z-50">
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>All Credit Notes</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("issued")}>Issued</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("applied")}>Applied</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Credit Notes Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Credit Note List</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Credit Note #</TableHead>
+                    <TableHead>Original Invoice</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-6">
+                        Loading credit notes...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredCreditNotes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-6">
+                        {searchTerm || statusFilter !== "all" 
+                          ? "No credit notes found matching your criteria." 
+                          : "No credit notes found. Credit notes are created to correct issued invoices."}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredCreditNotes.map((creditNote) => {
+                      const total = calculateTotal(creditNote.amount, creditNote.vat_rate);
+                      const statusBadge = getStatusBadge(creditNote.status);
+                      
+                      return (
+                        <TableRow key={creditNote.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {creditNote.credit_note_number}
+                              <span title="Malta VAT Compliant">
+                                <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {creditNote.original_invoice_id ? (
+                              <Link 
+                                to={`/invoices/${creditNote.original_invoice_id}`}
+                                className="text-primary hover:underline flex items-center gap-1"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                {(creditNote.invoices as any)?.invoice_number || 'View'}
+                              </Link>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{creditNote.customers?.name || "Unknown Customer"}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{formatCurrency(total)}</span>
+                              <span className="text-xs text-muted-foreground">
+                                Net: {formatCurrency(creditNote.amount)} + VAT ({(creditNote.vat_rate * 100).toFixed(0)}%)
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm max-w-[200px] truncate block" title={creditNote.reason}>
+                              {creditNote.reason}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(creditNote.credit_note_date), "dd/MM/yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={statusBadge.className}>
+                              {statusBadge.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-background border border-border z-50">
+                                <DropdownMenuItem onClick={() => navigate(`/credit-notes/${creditNote.id}`)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                {creditNote.original_invoice_id && (
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/invoices/${creditNote.original_invoice_id}`}>
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      View Original Invoice
+                                    </Link>
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleDownloadPDF(creditNote.id)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download PDF
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Info Panel */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                About Credit Notes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>
+                Credit notes are created to correct issued invoices in compliance with Malta VAT regulations. 
+                They preserve the integrity of the original invoice while providing a formal correction.
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Credit notes must reference the original invoice</li>
+                <li>All credit notes are tracked for audit purposes</li>
+                <li>Status changes from Draft → Issued → Applied</li>
+                <li>Each credit note reduces the outstanding amount of the original invoice</li>
+              </ul>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default CreditNotes;

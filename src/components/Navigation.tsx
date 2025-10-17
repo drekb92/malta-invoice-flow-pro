@@ -16,6 +16,7 @@ import {
   FileCheck,
   LogOut,
   Package,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const navigationItems = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Invoices", href: "/invoices", icon: FileText },
   { name: "Quotations", href: "/quotations", icon: FileCheck },
+  { name: "Credit Notes", href: "/credit-notes", icon: FileSpreadsheet },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Services", href: "/services", icon: Package },
   { name: "Payments", href: "/payments", icon: CreditCard },
