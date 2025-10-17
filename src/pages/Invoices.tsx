@@ -29,6 +29,7 @@ import {
   Edit,
   Mail,
   Trash2,
+  Shield,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -257,14 +258,41 @@ const Invoices = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      overdue: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-      draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+  const getStatusBadge = (invoice: Invoice) => {
+    // Determine actual status based on is_issued and status
+    const isIssued = (invoice as any).is_issued;
+    const status = invoice.status;
+
+    if (status === 'credited') {
+      return {
+        className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+        label: "Credited",
+        icon: null
+      };
+    }
+
+    if (status === 'paid') {
+      return {
+        className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        label: "Paid",
+        icon: null
+      };
+    }
+
+    if (isIssued) {
+      return {
+        className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+        label: "Issued",
+        icon: Shield
+      };
+    }
+
+    // Draft or pending
+    return {
+      className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      label: "Draft",
+      icon: null
     };
-    return variants[status as keyof typeof variants] || variants.draft;
   };
 
   return (
@@ -328,11 +356,12 @@ const Invoices = () => {
                   Filter ({statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
+              <DropdownMenuContent className="bg-background border border-border z-50">
                 <DropdownMenuItem onClick={() => setStatusFilter("all")}>All Invoices</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("pending")}>Pending</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("issued")}>Issued</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("paid")}>Paid</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("credited")}>Credited</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("overdue")}>Overdue</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -353,46 +382,68 @@ const Invoices = () => {
                     <TableHead>Status</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Due Date</TableHead>
-                    <TableHead>Payment Terms</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6">
+                      <TableCell colSpan={7} className="text-center py-6">
                         Loading invoices...
                       </TableCell>
                     </TableRow>
                   ) : filteredInvoices.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6">
+                      <TableCell colSpan={7} className="text-center py-6">
                         {searchTerm || statusFilter !== "all" ? "No invoices found matching your criteria." : "No invoices found."}
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredInvoices.map((invoice) => {
                       const totalAmount = invoice.total_amount || invoice.amount || 0;
+                      const statusBadge = getStatusBadge(invoice);
+                      const StatusIcon = statusBadge.icon;
+                      
                       return (
                         <TableRow key={invoice.id}>
-                          <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {invoice.invoice_number}
+                              {(invoice as any).is_issued && (
+                                <span title="Malta VAT Compliant - Immutable">
+                                  <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>{invoice.customers?.name || "Unknown Customer"}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <span>{formatCurrency(totalAmount)}</span>
                               {Number(invoice.discount_value || 0) > 0 && (
-                                <Badge variant="secondary">Discount</Badge>
+                                <Badge variant="secondary" className="text-xs">Discount</Badge>
                               )}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={getStatusBadge(invoice.status)}>
-                              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                            <Badge className={statusBadge.className}>
+                              <span className="flex items-center gap-1.5">
+                                {StatusIcon && <StatusIcon className="h-3 w-3" />}
+                                {statusBadge.label}
+                              </span>
                             </Badge>
                           </TableCell>
-                          <TableCell>{format(new Date(invoice.invoice_date || invoice.created_at), "dd/MM/yyyy")}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span>{format(new Date(invoice.invoice_date || invoice.created_at), "dd/MM/yyyy")}</span>
+                              {(invoice as any).is_issued && (invoice as any).issued_at && (
+                                <span className="text-xs text-muted-foreground">
+                                  Issued: {format(new Date((invoice as any).issued_at), "dd/MM/yy")}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
-                          <TableCell>{invoice.customers?.payment_terms || "Not set"}</TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -400,32 +451,42 @@ const Invoices = () => {
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                              <DropdownMenuContent align="end" className="bg-background border border-border z-50">
                                 <DropdownMenuItem asChild>
                                   <Link to={`/invoices/${invoice.id}`}>
                                     <Eye className="h-4 w-4 mr-2" />
                                     View
                                   </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/invoices/edit/${invoice.id}`}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </Link>
-                                </DropdownMenuItem>
+                                {!(invoice as any).is_issued && (
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/invoices/edit/${invoice.id}`}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </Link>
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem 
                                   onClick={() => handleDownloadPDF(invoice.id)}
                                 >
                                   <Download className="h-4 w-4 mr-2" />
                                   Download PDF
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => handleDeleteInvoice(invoice.id)}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
+                                {!(invoice as any).is_issued && (
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteInvoice(invoice.id)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                                {(invoice as any).is_issued && (
+                                  <DropdownMenuItem disabled className="text-muted-foreground">
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    Immutable (VAT Compliant)
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
