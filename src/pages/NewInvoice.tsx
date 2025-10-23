@@ -33,6 +33,18 @@ import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import type { InvoiceData } from "@/services/pdfService";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import type { InvoiceWithCompliance } from '@/types/invoice-compliance';
+
+// Type-safe RPC wrapper
+type RpcFunction = 'next_invoice_number' | 'next_credit_note_number';
+
+const callRpc = async (
+  functionName: RpcFunction,
+  params: { p_business_id: string; p_prefix?: string }
+): Promise<{ data: string | null; error: any }> => {
+  return await supabase.rpc(functionName, params) as any;
+};
 
 interface Customer {
   id: string;
@@ -134,8 +146,8 @@ const NewInvoice = () => {
   // Generate invoice number using RPC
   const generateInvoiceNumber = async () => {
     try {
-      const { data, error } = await (supabase.rpc as any)('next_invoice_number', {
-        p_business_id: user?.id, // Using user_id as business_id
+      const { data, error } = await callRpc('next_invoice_number', {
+        p_business_id: user?.id,
         p_prefix: 'INV-'
       });
 
@@ -182,7 +194,7 @@ const NewInvoice = () => {
       
       // If no invoice number exists, generate one
       if (!invoiceNumber) {
-        const { data, error } = await (supabase.rpc as any)('next_invoice_number', {
+        const { data, error } = await callRpc('next_invoice_number', {
           p_business_id: user?.id,
           p_prefix: 'INV-'
         });
@@ -192,19 +204,24 @@ const NewInvoice = () => {
         setInvoiceNumber(data);
       }
 
-      // Update invoice status to issued
+      // Update invoice with Malta VAT compliance fields
+      const updatePayload = {
+        invoice_number: finalInvoiceNumber,
+        status: 'issued' as const,
+        is_issued: true,
+        issued_at: new Date().toISOString(),
+      };
+
       const { error: updateError } = await supabase
         .from("invoices")
-        .update({
-          invoice_number: finalInvoiceNumber,
-          status: 'issued',
-          // Add issued_at if you have this column, otherwise omit
-        })
+        .update(updatePayload)
         .eq("id", id);
 
       if (updateError) throw updateError;
       
       setStatus('issued');
+      setIsIssued(true);
+      setIssuedAt(new Date().toISOString());
       
       toast({
         title: "Invoice issued",
@@ -259,23 +276,26 @@ const NewInvoice = () => {
 
       if (invoiceError) throw invoiceError;
 
-      setInvoiceNumber(invoiceData.invoice_number);
-      setSelectedCustomer(invoiceData.customer_id);
-      setInvoiceDate(invoiceData.invoice_date || invoiceData.created_at.split("T")[0]);
-      setStatus(invoiceData.status);
-      setIsIssued((invoiceData as any).is_issued || false);
-      setIssuedAt((invoiceData as any).issued_at || null);
-      setDiscountType((invoiceData as any).discount_type || 'amount');
-      setDiscountValue(Number((invoiceData as any).discount_value || 0));
-      setDiscountReason((invoiceData as any).discount_reason || '');
+      // Type the invoice data properly
+      const invoice = invoiceData as InvoiceWithCompliance;
+
+      setInvoiceNumber(invoice.invoice_number || '');
+      setSelectedCustomer(invoice.customer_id || '');
+      setInvoiceDate(invoice.invoice_date || invoice.created_at?.split("T")[0] || '');
+      setStatus(invoice.status || 'draft');
+      setIsIssued(invoice.is_issued || false);
+      setIssuedAt(invoice.issued_at || null);
+      setDiscountType((invoice.discount_type || 'amount') as 'amount' | 'percent');
+      setDiscountValue(Number(invoice.discount_value || 0));
+      setDiscountReason(invoice.discount_reason || '');
       
-      if (invoiceData.invoice_items && invoiceData.invoice_items.length > 0) {
-        setItems(invoiceData.invoice_items.map((item: any) => ({
+      if (invoice.invoice_items && invoice.invoice_items.length > 0) {
+        setItems(invoice.invoice_items.map((item) => ({
           description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate,
-          unit: item.unit,
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unit_price),
+          vat_rate: Number(item.vat_rate),
+          unit: item.unit || 'service',
         })));
       }
       
@@ -509,21 +529,23 @@ const NewInvoice = () => {
 
       const { taxable, vatTotal, grandTotal } = calculateTotals();
 
-      const invoiceData = {
-        invoice_number: invoiceNumber || null, // Allow null for auto-generation
+      // Type-safe invoice payload
+      const invoicePayload = {
+        invoice_number: invoiceNumber || null,
         customer_id: selectedCustomer,
         amount: taxable,
         vat_amount: vatTotal,
         total_amount: grandTotal,
         invoice_date: invoiceDate,
         due_date: calculatedDueDate.toISOString().split("T")[0],
-        status: shouldIssue ? 'issued' : 'draft',
+        status: shouldIssue ? 'issued' as const : 'draft' as const,
         is_issued: shouldIssue,
         issued_at: shouldIssue ? new Date().toISOString() : null,
         user_id: user?.id,
+        vat_rate: items[0]?.vat_rate || 0.18,
         discount_type: discountType,
         discount_value: discountValue,
-        discount_reason: discountReason,
+        discount_reason: discountReason || null,
       };
 
       if (isEditMode && id) {
@@ -540,7 +562,7 @@ const NewInvoice = () => {
         // Update existing invoice (only if not issued)
         const { error: invoiceError } = await supabase
           .from("invoices")
-          .update(invoiceData)
+          .update(invoicePayload)
           .eq("id", id);
 
         if (invoiceError) throw invoiceError;
@@ -557,11 +579,12 @@ const NewInvoice = () => {
 
             if (deleteError) throw deleteError;
 
-            const itemsData = items.map(item => ({
+            // Type-safe items data
+            const itemsData: TablesInsert<'invoice_items'>[] = items.map(item => ({
               invoice_id: id,
               description: item.description,
               quantity: item.quantity,
-              unit: item.unit,
+              unit: item.unit || 'service',
               unit_price: item.unit_price,
               vat_rate: item.vat_rate,
             }));
@@ -571,9 +594,10 @@ const NewInvoice = () => {
               .insert(itemsData);
 
             if (itemsError) throw itemsError;
-          } catch (itemError: any) {
+          } catch (itemError) {
+            const error = itemError as Error;
             // Handle specific Malta VAT compliance errors
-            if (itemError?.message?.includes("Cannot modify items of issued invoices")) {
+            if (error.message?.includes("Cannot modify items of issued invoices")) {
               throw new Error(
                 "Cannot modify items of issued invoices. Malta VAT regulations require issued invoices to remain immutable. Please create a credit note to make corrections to this invoice."
               );
@@ -593,7 +617,7 @@ const NewInvoice = () => {
         let finalInvoiceNumber = invoiceNumber;
         
         if (shouldIssue && !invoiceNumber) {
-          const { data, error } = await (supabase.rpc as any)('next_invoice_number', {
+          const { data, error } = await callRpc('next_invoice_number', {
             p_business_id: user?.id,
             p_prefix: 'INV-'
           });
@@ -602,25 +626,26 @@ const NewInvoice = () => {
           finalInvoiceNumber = data;
         }
         
+        // Type-safe invoice data with number
         const invoiceDataWithNumber = {
-          ...invoiceData,
+          ...invoicePayload,
           invoice_number: finalInvoiceNumber
         };
         
         const { data: invoice, error: invoiceError } = await supabase
           .from("invoices")
-          .insert([invoiceDataWithNumber])
+          .insert(invoiceDataWithNumber)
           .select("id")
           .single();
 
         if (invoiceError) throw invoiceError;
 
-        // Create invoice items
-        const itemsData = items.map(item => ({
+        // Type-safe items data
+        const itemsData: TablesInsert<'invoice_items'>[] = items.map(item => ({
           invoice_id: invoice.id,
           description: item.description,
           quantity: item.quantity,
-          unit: item.unit,
+          unit: item.unit || 'service',
           unit_price: item.unit_price,
           vat_rate: item.vat_rate,
         }));
