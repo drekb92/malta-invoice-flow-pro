@@ -1,0 +1,87 @@
+// Type definitions for Malta VAT compliance features
+
+export interface InvoiceWithCompliance {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  customer_id: string;
+  amount: number;
+  vat_rate: number;
+  total_amount: number;
+  vat_amount?: number;
+  status: string;
+  user_id: string;
+  is_issued?: boolean;
+  issued_at?: string;
+  invoice_hash?: string;
+  discount_type?: string;
+  discount_value?: number;
+  discount_reason?: string;
+  due_date?: string;
+  created_at?: string;
+  invoice_items?: InvoiceItem[];
+  customers?: {
+    id: string;
+    name: string;
+    email?: string;
+  };
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoice_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  vat_rate: number;
+  unit?: string;
+  created_at?: string;
+}
+
+export interface CreditNote {
+  id: string;
+  credit_note_number: string;
+  original_invoice_id: string;
+  user_id: string;
+  customer_id: string;
+  amount: number;
+  vat_rate: number;
+  reason: string;
+  status: string;
+  credit_note_date: string;
+  created_at?: string;
+}
+
+export interface CreditNoteItem {
+  id?: string;
+  credit_note_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  vat_rate: number;
+  unit: string;
+}
+
+export interface InvoiceAuditLog {
+  id?: string;
+  invoice_id: string;
+  user_id: string;
+  action: 'issued' | 'credit_note_created' | 'modified' | 'deleted';
+  timestamp?: string;
+  old_data?: Record<string, unknown>;
+  new_data?: Record<string, unknown>;
+  ip_address?: string;
+  user_agent?: string;
+}
+
+export interface SupabaseError {
+  message: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+}
+
+// Type guard for Supabase errors
+export function isSupabaseError(error: unknown): error is SupabaseError {
+  return typeof error === 'object' && error !== null && 'message' in error;
+}

@@ -1,5 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import type {
+  InvoiceWithCompliance,
+  InvoiceItem,
+  CreditNote,
+  CreditNoteItem,
+  InvoiceAuditLog
+} from "@/types/invoice-compliance";
+import { isSupabaseError } from "@/types/invoice-compliance";
 
 // Invoice service for Malta VAT compliance - handles invoice immutability
 export const invoiceService = {
@@ -19,8 +27,10 @@ export const invoiceService = {
       if (fetchError) throw fetchError;
       if (!invoice) throw new Error('Invoice not found');
 
+      const invoiceData = invoice as InvoiceWithCompliance;
+      
       // Check if already issued
-      if ((invoice as any).is_issued) {
+      if (invoiceData.is_issued) {
         toast({
           title: "Already Issued",
           description: "This invoice has already been issued.",
@@ -46,19 +56,21 @@ export const invoiceService = {
       if (updateError) throw updateError;
 
       // Log the action for audit trail (Malta VAT compliance)
-      const { error: auditError } = await supabase
-        .from('invoice_audit_log' as any)
-        .insert({
-          invoice_id: invoiceId,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          action: 'issued',
-          new_data: {
-            invoice_number: invoice.invoice_number,
-            amount: invoice.amount,
-            issued_at: new Date().toISOString(),
-            hash: invoiceHash
-          }
-        });
+      const auditLog: Omit<InvoiceAuditLog, 'id' | 'timestamp'> = {
+        invoice_id: invoiceId,
+        user_id: (await supabase.auth.getUser()).data.user?.id!,
+        action: 'issued',
+        new_data: {
+          invoice_number: invoiceData.invoice_number,
+          amount: invoiceData.amount,
+          issued_at: new Date().toISOString(),
+          hash: invoiceHash
+        }
+      };
+      
+      const { error: auditError } = await (supabase as any)
+        .from('invoice_audit_log')
+        .insert(auditLog);
 
       if (auditError) {
         console.error('Audit log error:', auditError);
@@ -67,18 +79,19 @@ export const invoiceService = {
 
       toast({
         title: "Invoice Issued",
-        description: `Invoice ${invoice.invoice_number} is now immutable and compliant with Malta VAT regulations.`,
+        description: `Invoice ${invoiceData.invoice_number} is now immutable and compliant with Malta VAT regulations.`,
       });
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = isSupabaseError(error) ? error.message : "Failed to issue invoice";
       console.error('Error issuing invoice:', error);
       toast({
         title: "Error Issuing Invoice",
-        description: error.message || "Failed to issue invoice",
+        description: errorMessage,
         variant: "destructive",
       });
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage };
     }
   },
 
@@ -97,18 +110,19 @@ export const invoiceService = {
       if (error) throw error;
       if (!invoice) throw new Error('Invoice not found');
 
-      const invoiceData = invoice as any;
+      const invoiceData = invoice as InvoiceWithCompliance;
       if (invoiceData.is_issued) {
         return {
           canEdit: false,
-          reason: `Invoice ${invoiceData.invoice_number} was issued on ${new Date(invoiceData.issued_at).toLocaleDateString()} and cannot be edited. Create a credit note to make corrections.`
+          reason: `Invoice ${invoiceData.invoice_number} was issued on ${new Date(invoiceData.issued_at!).toLocaleDateString()} and cannot be edited. Create a credit note to make corrections.`
         };
       }
 
       return { canEdit: true };
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = isSupabaseError(error) ? error.message : "Failed to check invoice status";
       console.error('Error checking invoice edit status:', error);
-      return { canEdit: false, reason: error.message };
+      return { canEdit: false, reason: errorMessage };
     }
   },
 
@@ -138,7 +152,7 @@ export const invoiceService = {
       if (invoiceError) throw invoiceError;
       if (!invoice) throw new Error('Original invoice not found');
 
-      const invoiceData = invoice as any;
+      const invoiceData = invoice as InvoiceWithCompliance;
       if (!invoiceData.is_issued) {
         throw new Error('Can only create credit notes for issued invoices. Edit the draft invoice directly instead.');
       }
@@ -147,8 +161,8 @@ export const invoiceService = {
       if (!userId) throw new Error('User not authenticated');
 
       // Generate credit note number - use simple counter for now
-      const { data: existingNotes } = await supabase
-        .from('credit_notes' as any)
+      const { data: existingNotes } = await (supabase as any)
+        .from('credit_notes')
         .select('credit_note_number')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
@@ -156,33 +170,36 @@ export const invoiceService = {
 
       const year = new Date().getFullYear();
       const lastNumber = existingNotes && existingNotes.length > 0 
-        ? parseInt((existingNotes as any)[0].credit_note_number.split('-').pop() || '0')
+        ? parseInt((existingNotes as CreditNote[])[0].credit_note_number.split('-').pop() || '0')
         : 0;
       const creditNoteNumber = `CN-${year}-${String(lastNumber + 1).padStart(4, '0')}`;
 
       // Create credit note
-      const { data: creditNote, error: creditNoteError } = await supabase
-        .from('credit_notes' as any)
-        .insert({
-          credit_note_number: creditNoteNumber,
-          original_invoice_id: originalInvoiceId,
-          user_id: userId,
-          customer_id: invoice.customer_id,
-          amount: amount,
-          vat_rate: invoice.vat_rate,
-          reason: reason,
-          status: 'issued',
-          credit_note_date: new Date().toISOString().split('T')[0]
-        })
+      const newCreditNote: Omit<CreditNote, 'id' | 'created_at'> = {
+        credit_note_number: creditNoteNumber,
+        original_invoice_id: originalInvoiceId,
+        user_id: userId,
+        customer_id: invoiceData.customer_id,
+        amount: amount,
+        vat_rate: invoiceData.vat_rate,
+        reason: reason,
+        status: 'issued',
+        credit_note_date: new Date().toISOString().split('T')[0]
+      };
+      
+      const { data: creditNote, error: creditNoteError } = await (supabase as any)
+        .from('credit_notes')
+        .insert(newCreditNote)
         .select()
         .single();
 
       if (creditNoteError) throw creditNoteError;
+      if (!creditNote) throw new Error('Failed to create credit note');
 
-      const creditNoteData = creditNote as any;
+      const creditNoteData = creditNote as CreditNote;
 
       // Create credit note items
-      const creditNoteItems = items.map(item => ({
+      const creditNoteItems: Omit<CreditNoteItem, 'id'>[] = items.map(item => ({
         credit_note_id: creditNoteData.id,
         description: item.description,
         quantity: item.quantity,
@@ -191,26 +208,28 @@ export const invoiceService = {
         unit: item.unit || 'unit'
       }));
 
-      const { error: itemsError } = await supabase
-        .from('credit_note_items' as any)
+      const { error: itemsError } = await (supabase as any)
+        .from('credit_note_items')
         .insert(creditNoteItems);
 
       if (itemsError) throw itemsError;
 
       // Log audit trail
-      const { error: auditError } = await supabase
-        .from('invoice_audit_log' as any)
-        .insert({
-          invoice_id: originalInvoiceId,
-          user_id: userId,
-          action: 'credit_note_created',
-          new_data: {
-            credit_note_id: creditNoteData.id,
-            credit_note_number: creditNoteData.credit_note_number,
-            amount: amount,
-            reason: reason
-          }
-        });
+      const auditLog: Omit<InvoiceAuditLog, 'id' | 'timestamp'> = {
+        invoice_id: originalInvoiceId,
+        user_id: userId,
+        action: 'credit_note_created',
+        new_data: {
+          credit_note_id: creditNoteData.id,
+          credit_note_number: creditNoteData.credit_note_number,
+          amount: amount,
+          reason: reason
+        }
+      };
+      
+      const { error: auditError } = await (supabase as any)
+        .from('invoice_audit_log')
+        .insert(auditLog);
 
       if (auditError) {
         console.error('Audit log error:', auditError);
@@ -218,18 +237,19 @@ export const invoiceService = {
 
       toast({
         title: "Credit Note Created",
-        description: `Credit note ${creditNoteData.credit_note_number} created for invoice ${invoice.invoice_number}`,
+        description: `Credit note ${creditNoteData.credit_note_number} created for invoice ${invoiceData.invoice_number}`,
       });
 
       return { success: true, creditNoteId: creditNoteData.id };
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = isSupabaseError(error) ? error.message : "Failed to create credit note";
       console.error('Error creating credit note:', error);
       toast({
         title: "Error Creating Credit Note",
-        description: error.message || "Failed to create credit note",
+        description: errorMessage,
         variant: "destructive",
       });
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage };
     }
   },
 
@@ -238,27 +258,28 @@ export const invoiceService = {
    */
   async getInvoiceAuditTrail(invoiceId: string): Promise<{
     success: boolean;
-    auditTrail?: Array<any>;
+    auditTrail?: InvoiceAuditLog[];
     error?: string;
   }> {
     try {
-      const { data: auditTrail, error } = await supabase
-        .from('invoice_audit_log' as any)
+      const { data: auditTrail, error } = await (supabase as any)
+        .from('invoice_audit_log')
         .select('*')
         .eq('invoice_id', invoiceId)
         .order('timestamp', { ascending: false });
 
       if (error) throw error;
 
-      return { success: true, auditTrail: auditTrail || [] };
-    } catch (error: any) {
+      return { success: true, auditTrail: (auditTrail || []) as InvoiceAuditLog[] };
+    } catch (error) {
+      const errorMessage = isSupabaseError(error) ? error.message : "Failed to load audit trail";
       console.error('Error fetching audit trail:', error);
       toast({
         title: "Error Loading Audit Trail",
-        description: error.message || "Failed to load audit trail",
+        description: errorMessage,
         variant: "destructive",
       });
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage };
     }
   },
 
@@ -278,15 +299,17 @@ export const invoiceService = {
       if (invoiceError) throw invoiceError;
       if (!invoice) throw new Error('Invoice not found');
 
+      const invoiceData = invoice as InvoiceWithCompliance;
+      
       // Create hash input from critical fields
       const hashInput = JSON.stringify({
-        invoice_number: invoice.invoice_number,
-        invoice_date: invoice.invoice_date,
-        customer_id: invoice.customer_id,
-        amount: invoice.amount,
-        vat_rate: invoice.vat_rate,
-        total_amount: invoice.total_amount,
-        items: invoice.invoice_items.map((item: any) => ({
+        invoice_number: invoiceData.invoice_number,
+        invoice_date: invoiceData.invoice_date,
+        customer_id: invoiceData.customer_id,
+        amount: invoiceData.amount,
+        vat_rate: invoiceData.vat_rate,
+        total_amount: invoiceData.total_amount,
+        items: (invoiceData.invoice_items || []).map((item: InvoiceItem) => ({
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
@@ -303,9 +326,10 @@ export const invoiceService = {
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
       return hashHex;
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = isSupabaseError(error) ? error.message : "Unknown error";
       console.error('Error generating invoice hash:', error);
-      throw new Error(`Failed to generate invoice hash: ${error.message}`);
+      throw new Error(`Failed to generate invoice hash: ${errorMessage}`);
     }
   },
 
@@ -325,7 +349,7 @@ export const invoiceService = {
         .single();
 
       if (error) throw error;
-      const invoiceData = invoice as any;
+      const invoiceData = invoice as InvoiceWithCompliance;
       if (!invoiceData?.invoice_hash) {
         return { isValid: false };
       }
@@ -347,7 +371,7 @@ export const invoiceService = {
         storedHash: invoiceData.invoice_hash,
         calculatedHash
       };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error verifying invoice integrity:', error);
       return { isValid: false };
     }
