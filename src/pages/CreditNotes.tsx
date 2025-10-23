@@ -34,19 +34,9 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { CreditNote as CreditNoteType } from "@/types/invoice-compliance";
 
-interface CreditNote {
-  id: string;
-  credit_note_number: string;
-  customer_id: string;
-  original_invoice_id: string | null;
-  amount: number;
-  vat_rate: number;
-  reason: string;
-  credit_note_date: string;
-  status: string;
-  created_at: string;
-  user_id: string;
+interface CreditNoteWithRelations extends CreditNoteType {
   customers?: {
     name: string;
     email?: string;
@@ -58,8 +48,8 @@ interface CreditNote {
 
 const CreditNotes = () => {
   const navigate = useNavigate();
-  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
-  const [filteredCreditNotes, setFilteredCreditNotes] = useState<CreditNote[]>([]);
+  const [creditNotes, setCreditNotes] = useState<CreditNoteWithRelations[]>([]);
+  const [filteredCreditNotes, setFilteredCreditNotes] = useState<CreditNoteWithRelations[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -67,8 +57,8 @@ const CreditNotes = () => {
 
   const fetchCreditNotes = async () => {
     try {
-      const { data, error } = await supabase
-        .from("credit_notes" as any)
+      const { data, error } = await (supabase as any)
+        .from("credit_notes")
         .select(`
           *,
           customers (
@@ -82,7 +72,7 @@ const CreditNotes = () => {
       
       // Fetch original invoice numbers separately
       const creditNotesWithInvoices = await Promise.all(
-        (data || []).map(async (cn: any) => {
+        (data || []).map(async (cn) => {
           if (cn.original_invoice_id) {
             const { data: invoiceData } = await supabase
               .from("invoices")
@@ -92,15 +82,15 @@ const CreditNotes = () => {
             
             return {
               ...cn,
-              invoices: invoiceData
-            };
+              invoices: invoiceData || undefined
+            } as CreditNoteWithRelations;
           }
-          return cn;
+          return cn as CreditNoteWithRelations;
         })
       );
       
-      setCreditNotes(creditNotesWithInvoices as CreditNote[]);
-      setFilteredCreditNotes(creditNotesWithInvoices as CreditNote[]);
+      setCreditNotes(creditNotesWithInvoices);
+      setFilteredCreditNotes(creditNotesWithInvoices);
     } catch (error) {
       toast({
         title: "Error",
@@ -124,7 +114,7 @@ const CreditNotes = () => {
       filtered = filtered.filter((creditNote) =>
         creditNote.credit_note_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
         creditNote.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (creditNote.invoices as any)?.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
+        creditNote.invoices?.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -292,7 +282,7 @@ const CreditNotes = () => {
                                 className="text-primary hover:underline flex items-center gap-1"
                               >
                                 <FileText className="h-3.5 w-3.5" />
-                                {(creditNote.invoices as any)?.invoice_number || 'View'}
+                                {creditNote.invoices?.invoice_number || 'View'}
                               </Link>
                             ) : (
                               <span className="text-muted-foreground">—</span>
