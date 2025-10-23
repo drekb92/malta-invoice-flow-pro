@@ -4,8 +4,10 @@ import type {
   InvoiceWithCompliance,
   InvoiceItem,
   CreditNote,
-  CreditNoteItem,
-  InvoiceAuditLog
+  CreditNoteInsert,
+  CreditNoteItemInsert,
+  InvoiceAuditLog,
+  InvoiceAuditLogInsert,
 } from "@/types/invoice-compliance";
 import { isSupabaseError } from "@/types/invoice-compliance";
 
@@ -56,7 +58,7 @@ export const invoiceService = {
       if (updateError) throw updateError;
 
       // Log the action for audit trail (Malta VAT compliance)
-      const auditLog: Omit<InvoiceAuditLog, 'id' | 'timestamp'> = {
+      const auditLog: InvoiceAuditLogInsert = {
         invoice_id: invoiceId,
         user_id: (await supabase.auth.getUser()).data.user?.id!,
         action: 'issued',
@@ -175,7 +177,7 @@ export const invoiceService = {
       const creditNoteNumber = `CN-${year}-${String(lastNumber + 1).padStart(4, '0')}`;
 
       // Create credit note
-      const newCreditNote: Omit<CreditNote, 'id' | 'created_at'> = {
+      const newCreditNote: CreditNoteInsert = {
         credit_note_number: creditNoteNumber,
         original_invoice_id: originalInvoiceId,
         user_id: userId,
@@ -199,7 +201,7 @@ export const invoiceService = {
       const creditNoteData = creditNote as CreditNote;
 
       // Create credit note items
-      const creditNoteItems: Omit<CreditNoteItem, 'id'>[] = items.map(item => ({
+      const creditNoteItems: CreditNoteItemInsert[] = items.map(item => ({
         credit_note_id: creditNoteData.id,
         description: item.description,
         quantity: item.quantity,
@@ -215,7 +217,7 @@ export const invoiceService = {
       if (itemsError) throw itemsError;
 
       // Log audit trail
-      const auditLog: Omit<InvoiceAuditLog, 'id' | 'timestamp'> = {
+      const auditLog: InvoiceAuditLogInsert = {
         invoice_id: originalInvoiceId,
         user_id: userId,
         action: 'credit_note_created',

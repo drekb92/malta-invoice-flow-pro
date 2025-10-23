@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { addDays, format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
@@ -166,7 +167,7 @@ const NewQuotation = () => {
 
       const { net, vat, total } = calculateTotals();
 
-      const payload = {
+      const payload: TablesInsert<'quotations'> = {
         quotation_number: quotationNumber,
         customer_id: selectedCustomer,
         amount: net,
@@ -176,6 +177,7 @@ const NewQuotation = () => {
         valid_until: validUntil,
         status,
         user_id: user?.id,
+        vat_rate: 0.18,
       };
 
       if (isEditMode && id) {

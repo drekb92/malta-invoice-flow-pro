@@ -34,6 +34,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -177,24 +178,25 @@ const Quotations = () => {
       const dueDate = addDays(baseDateObj, paymentDays);
 
       // Create invoice
+      const invoicePayload: TablesInsert<'invoices'> = {
+        invoice_number: invoiceNumber,
+        customer_id: qData.customer_id,
+        amount: qData.amount,
+        vat_amount: qData.vat_amount,
+        total_amount: qData.total_amount,
+        invoice_date: baseDateObj.toISOString().split("T")[0],
+        due_date: dueDate.toISOString().split("T")[0],
+        status: "pending",
+        user_id: (qData as any).user_id,
+        discount_type: "amount",
+        discount_value: 0,
+        discount_reason: "",
+        vat_rate: qData.vat_rate || 0.18,
+      };
+
       const { data: inv, error: invErr } = await supabase
         .from("invoices")
-        .insert([
-          {
-            invoice_number: invoiceNumber,
-            customer_id: qData.customer_id,
-            amount: qData.amount,
-            vat_amount: qData.vat_amount,
-            total_amount: qData.total_amount,
-            invoice_date: baseDateObj.toISOString().split("T")[0],
-            due_date: dueDate.toISOString().split("T")[0],
-            status: "pending",
-            user_id: (qData as any).user_id,
-            discount_type: "amount",
-            discount_value: 0,
-            discount_reason: "",
-          },
-        ])
+        .insert(invoicePayload)
         .select("id")
         .single();
       if (invErr) throw invErr;

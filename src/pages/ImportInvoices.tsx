@@ -30,6 +30,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface CSVRow {
@@ -400,24 +401,26 @@ const ImportInvoices = () => {
             // Update existing invoice
             const { data: existingInvoice, error: fetchError } = await supabase
               .from('invoices')
-              .select('id')
+              .select('id, vat_rate')
               .eq('invoice_number', invoiceNumber)
               .single();
 
             if (fetchError) throw fetchError;
 
             // Update invoice header
+            const updatePayload: Partial<TablesInsert<'invoices'>> = {
+              invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
+              due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
+              status,
+              customer_id: customerId,
+              amount: netAmount,
+              vat_amount: vatAmount,
+              total_amount: totalAmount,
+            };
+
             const { error: updateError } = await supabase
               .from('invoices')
-              .update({
-                invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
-                due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
-                status,
-                customer_id: customerId,
-                amount: netAmount,
-                vat_amount: vatAmount,
-                total_amount: totalAmount,
-              })
+              .update(updatePayload)
               .eq('id', existingInvoice.id);
 
             if (updateError) throw updateError;
@@ -447,18 +450,21 @@ const ImportInvoices = () => {
             });
           } else {
             // Create new invoice
+            const invoicePayload: TablesInsert<'invoices'> = {
+              invoice_number: invoiceNumber,
+              invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
+              due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
+              status,
+              customer_id: customerId,
+              amount: netAmount,
+              vat_amount: vatAmount,
+              total_amount: totalAmount,
+              vat_rate: items[0]?.vat_rate || 0.18,
+            };
+
             const { data: newInvoice, error: invoiceError } = await supabase
               .from('invoices')
-              .insert({
-                invoice_number: invoiceNumber,
-                invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
-                due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
-                status,
-                customer_id: customerId,
-                amount: netAmount,
-                vat_amount: vatAmount,
-                total_amount: totalAmount,
-              })
+              .insert(invoicePayload)
               .select('id')
               .single();
 

@@ -1,24 +1,11 @@
 // Type definitions for Malta VAT compliance features
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 
-export interface InvoiceWithCompliance {
-  id: string;
-  invoice_number: string;
-  invoice_date: string;
-  customer_id: string;
-  amount: number;
-  vat_rate: number;
-  total_amount: number;
-  vat_amount?: number;
-  status: string;
-  user_id: string;
+// Extend base invoice type with Malta VAT compliance fields
+export interface InvoiceWithCompliance extends Tables<'invoices'> {
   is_issued?: boolean;
   issued_at?: string;
   invoice_hash?: string;
-  discount_type?: string;
-  discount_value?: number;
-  discount_reason?: string;
-  due_date?: string;
-  created_at?: string;
   invoice_items?: InvoiceItem[];
   customers?: {
     id: string;
@@ -27,17 +14,11 @@ export interface InvoiceWithCompliance {
   };
 }
 
-export interface InvoiceItem {
-  id: string;
-  invoice_id: string;
-  description: string;
-  quantity: number;
-  unit_price: number;
-  vat_rate: number;
-  unit?: string;
-  created_at?: string;
-}
+// Use generated types where available
+export type InvoiceItem = Tables<'invoice_items'>;
+export type InvoiceInsert = TablesInsert<'invoices'>;
 
+// Custom types for tables not in generated types
 export interface CreditNote {
   id: string;
   credit_note_number: string;
@@ -74,6 +55,12 @@ export interface InvoiceAuditLog {
   user_agent?: string;
 }
 
+// Insert types for custom tables
+export type CreditNoteInsert = Omit<CreditNote, 'id' | 'created_at'>;
+export type CreditNoteItemInsert = Omit<CreditNoteItem, 'id'>;
+export type InvoiceAuditLogInsert = Omit<InvoiceAuditLog, 'id' | 'timestamp' | 'ip_address' | 'user_agent'>;
+
+// Keep custom SupabaseError type
 export interface SupabaseError {
   message: string;
   details?: string;
