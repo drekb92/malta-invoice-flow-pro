@@ -155,6 +155,108 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_note_items: {
+        Row: {
+          credit_note_id: string | null
+          description: string
+          id: string
+          quantity: number
+          unit: string | null
+          unit_price: number
+          vat_rate: number
+        }
+        Insert: {
+          credit_note_id?: string | null
+          description: string
+          id?: string
+          quantity?: number
+          unit?: string | null
+          unit_price: number
+          vat_rate?: number
+        }
+        Update: {
+          credit_note_id?: string | null
+          description?: string
+          id?: string
+          quantity?: number
+          unit?: string | null
+          unit_price?: number
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_note_items_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_notes: {
+        Row: {
+          amount: number
+          created_at: string | null
+          credit_note_date: string | null
+          credit_note_number: string
+          customer_id: string | null
+          id: string
+          original_invoice_id: string | null
+          reason: string
+          status: string | null
+          user_id: string | null
+          vat_rate: number | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          credit_note_date?: string | null
+          credit_note_number: string
+          customer_id?: string | null
+          id?: string
+          original_invoice_id?: string | null
+          reason: string
+          status?: string | null
+          user_id?: string | null
+          vat_rate?: number | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          credit_note_date?: string | null
+          credit_note_number?: string
+          customer_id?: string | null
+          id?: string
+          original_invoice_id?: string | null
+          reason?: string
+          status?: string | null
+          user_id?: string | null
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "credit_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -205,6 +307,57 @@ export type Database = {
           vat_status?: string | null
         }
         Relationships: []
+      }
+      invoice_audit_log: {
+        Row: {
+          action: string
+          id: string
+          invoice_id: string | null
+          ip_address: unknown
+          new_data: Json | null
+          old_data: Json | null
+          timestamp: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          id?: string
+          invoice_id?: string | null
+          ip_address?: unknown
+          new_data?: Json | null
+          old_data?: Json | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          id?: string
+          invoice_id?: string | null
+          ip_address?: unknown
+          new_data?: Json | null
+          old_data?: Json | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_audit_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "invoice_audit_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_counters: {
         Row: {
@@ -463,7 +616,10 @@ export type Database = {
           due_date: string | null
           id: string
           invoice_date: string | null
+          invoice_hash: string | null
           invoice_number: string | null
+          is_issued: boolean | null
+          issued_at: string | null
           status: string | null
           total_amount: number | null
           user_id: string | null
@@ -480,7 +636,10 @@ export type Database = {
           due_date?: string | null
           id?: string
           invoice_date?: string | null
+          invoice_hash?: string | null
           invoice_number?: string | null
+          is_issued?: boolean | null
+          issued_at?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null
@@ -497,7 +656,10 @@ export type Database = {
           due_date?: string | null
           id?: string
           invoice_date?: string | null
+          invoice_hash?: string | null
           invoice_number?: string | null
+          is_issued?: boolean | null
+          issued_at?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null
@@ -962,10 +1124,20 @@ export type Database = {
       }
     }
     Functions: {
-      lpad_int: {
-        Args: { n: number; pad: number }
+      generate_credit_note_number: {
+        Args: { p_user_id: string }
         Returns: string
       }
+      log_invoice_action: {
+        Args: {
+          p_action: string
+          p_invoice_id: string
+          p_new_data?: Json
+          p_old_data?: Json
+        }
+        Returns: undefined
+      }
+      lpad_int: { Args: { n: number; pad: number }; Returns: string }
       next_credit_note_number: {
         Args: { p_business_id: string; p_prefix?: string }
         Returns: string
