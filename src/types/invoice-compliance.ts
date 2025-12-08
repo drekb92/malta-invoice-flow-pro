@@ -2,17 +2,14 @@
 import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 // Extend base invoice type with Malta VAT compliance fields
-export interface InvoiceWithCompliance extends Tables<'invoices'> {
-  is_issued?: boolean;
-  issued_at?: string;
-  invoice_hash?: string;
+export type InvoiceWithCompliance = Tables<'invoices'> & {
   invoice_items?: InvoiceItem[];
   customers?: {
     id: string;
     name: string;
     email?: string;
   };
-}
+};
 
 // Use generated types where available
 export type InvoiceItem = Tables<'invoice_items'>;

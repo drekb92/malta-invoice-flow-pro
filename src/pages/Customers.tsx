@@ -92,11 +92,18 @@ const Customers = () => {
   const navigate = useNavigate();
 
   const fetchCustomers = async () => {
+    // Return early if no user
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Fetch customers
+      // Fetch customers scoped to current user
       const { data: customersData, error: customersError } = await supabase
         .from("customers")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (customersError) throw customersError;
@@ -207,7 +214,7 @@ const Customers = () => {
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     let result = [...customers];
@@ -260,7 +267,8 @@ const Customers = () => {
       const { error } = await supabase
         .from("customers")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
