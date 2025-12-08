@@ -1,9 +1,11 @@
+// src/hooks/useDashboard.ts
 import { useQuery } from "@tanstack/react-query";
 import {
   getSetupStatus,
   getDashboardMetrics,
   getRecentCustomersWithOutstanding,
   getOverdueInvoices,
+  getPendingReminders,
 } from "@/lib/dashboard";
 
 export const useSetupStatus = (userId: string | undefined) =>
@@ -31,5 +33,12 @@ export const useOverdueInvoices = (userId: string | undefined) =>
   useQuery({
     queryKey: ["overdueInvoices", userId],
     queryFn: () => getOverdueInvoices(userId!),
+    enabled: !!userId,
+  });
+
+export const usePendingReminders = (userId: string | undefined) =>
+  useQuery({
+    queryKey: ["pendingReminders", userId],
+    queryFn: () => getPendingReminders(userId!),
     enabled: !!userId,
   });
