@@ -112,9 +112,9 @@ const CustomerDetail = () => {
 
       setInvoices(invoicesData || []);
 
-      // Calculate outstanding amount
+      // Calculate outstanding amount (all non-paid, non-draft invoices)
       const outstanding = (invoicesData || [])
-        .filter((inv) => inv.status === "pending" || inv.status === "overdue")
+        .filter((inv) => inv.status !== "paid" && inv.status !== "draft")
         .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
 
       setOutstandingAmount(outstanding);
@@ -147,6 +147,10 @@ const CustomerDetail = () => {
         className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
         icon: Clock,
       },
+      issued: {
+        className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+        icon: FileText,
+      },
       overdue: {
         className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
         icon: AlertCircle,
@@ -160,7 +164,7 @@ const CustomerDetail = () => {
   };
 
   const openInvoices = invoices.filter(
-    (inv) => inv.status === "pending" || inv.status === "overdue"
+    (inv) => inv.status !== "paid" && inv.status !== "draft"
   );
   const paidInvoices = invoices.filter((inv) => inv.status === "paid");
 
