@@ -36,6 +36,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
@@ -74,6 +75,7 @@ interface Invoice {
 
 const Invoices = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -93,6 +95,12 @@ const Invoices = () => {
   const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number; originalSubtotal?: number; discountAmount?: number } | null>(null);
 
   const fetchInvoices = async () => {
+    // Return early if no user
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("invoices")
@@ -106,6 +114,7 @@ const Invoices = () => {
             payment_terms
           )
         `)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -125,7 +134,7 @@ const Invoices = () => {
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     let filtered = invoices;
