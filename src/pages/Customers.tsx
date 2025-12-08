@@ -577,8 +577,12 @@ const Customers = () => {
                   ) : (
                     filteredCustomers.map((customer) => {
                       const paymentStatus = getPaymentStatusBadge(customer);
-                      return (
-                        <TableRow key={customer.id}>
+                        return (
+                        <TableRow 
+                          key={customer.id} 
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => navigate(`/customers/${customer.id}`)}
+                        >
                           <TableCell>
                             <div>
                               <div className="font-medium">{customer.name}</div>
@@ -649,7 +653,7 @@ const Customers = () => {
                               {formatDate(customer.last_payment_date)}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-2">
                               {/* Primary Create Invoice Button */}
                               <TooltipProvider>
