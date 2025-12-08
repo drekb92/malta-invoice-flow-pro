@@ -12,12 +12,21 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Plus,
   Search,
@@ -30,6 +39,7 @@ import {
   Mail,
   Trash2,
   Shield,
+  CheckCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -93,6 +103,15 @@ const Invoices = () => {
   const [exportInvoice, setExportInvoice] = useState<Invoice | null>(null);
   const [exportItems, setExportItems] = useState<any[]>([]);
   const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number; originalSubtotal?: number; discountAmount?: number } | null>(null);
+
+  // Mark as Paid modal state
+  const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false);
+  const [markPaidInvoice, setMarkPaidInvoice] = useState<Invoice | null>(null);
+  const [markPaidData, setMarkPaidData] = useState({
+    payment_date: format(new Date(), "yyyy-MM-dd"),
+    amount: "",
+  });
+  const [markPaidLoading, setMarkPaidLoading] = useState(false);
 
   const fetchInvoices = async () => {
     // Return early if no user
@@ -179,6 +198,74 @@ const Invoices = () => {
         description: "Failed to delete invoice",
         variant: "destructive",
       });
+    }
+  };
+
+  // Handle opening Mark as Paid dialog
+  const handleOpenMarkPaid = (invoice: Invoice) => {
+    setMarkPaidInvoice(invoice);
+    setMarkPaidData({
+      payment_date: format(new Date(), "yyyy-MM-dd"),
+      amount: String(invoice.total_amount || invoice.amount || 0),
+    });
+    setShowMarkPaidDialog(true);
+  };
+
+  // Handle Mark as Paid submission
+  const handleMarkAsPaid = async () => {
+    if (!markPaidInvoice || !user) return;
+
+    const amount = parseFloat(markPaidData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid payment amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setMarkPaidLoading(true);
+    try {
+      // Insert payment record
+      const { error: paymentError } = await supabase
+        .from("payments")
+        .insert({
+          user_id: user.id,
+          invoice_id: markPaidInvoice.id,
+          amount: amount,
+          payment_date: markPaidData.payment_date,
+          method: "bank_transfer",
+        });
+
+      if (paymentError) throw paymentError;
+
+      // Update invoice status to paid
+      const { error: invoiceError } = await supabase
+        .from("invoices")
+        .update({ status: "paid" })
+        .eq("id", markPaidInvoice.id)
+        .eq("user_id", user.id);
+
+      if (invoiceError) throw invoiceError;
+
+      toast({
+        title: "Invoice marked as paid",
+        description: `Payment of ${formatCurrency(amount)} recorded for ${markPaidInvoice.invoice_number}.`,
+      });
+
+      setShowMarkPaidDialog(false);
+      setMarkPaidInvoice(null);
+      fetchInvoices();
+    } catch (error) {
+      console.error("Error marking invoice as paid:", error);
+      toast({
+        title: "Error",
+        description: "Failed to record payment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setMarkPaidLoading(false);
     }
   };
 
@@ -457,6 +544,18 @@ const Invoices = () => {
                           </TableCell>
                           <TableCell>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {invoice.status !== 'paid' && invoice.status !== 'credited' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                                  onClick={() => handleOpenMarkPaid(invoice)}
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                  Paid
+                                </Button>
+                              )}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0">
@@ -501,6 +600,7 @@ const Invoices = () => {
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -635,6 +735,48 @@ const Invoices = () => {
             </InvoiceErrorBoundary>
           )}
         </div>
+
+        {/* Mark as Paid Dialog */}
+        <Dialog open={showMarkPaidDialog} onOpenChange={setShowMarkPaidDialog}>
+          <DialogContent className="sm:max-w-[360px]">
+            <DialogHeader>
+              <DialogTitle>Mark as Paid</DialogTitle>
+              <DialogDescription>
+                Record payment for {markPaidInvoice?.invoice_number}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="mark_paid_amount">Amount (€)</Label>
+                <Input
+                  id="mark_paid_amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={markPaidData.amount}
+                  onChange={(e) => setMarkPaidData({ ...markPaidData, amount: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="mark_paid_date">Payment Date</Label>
+                <Input
+                  id="mark_paid_date"
+                  type="date"
+                  value={markPaidData.payment_date}
+                  onChange={(e) => setMarkPaidData({ ...markPaidData, payment_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setShowMarkPaidDialog(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleMarkAsPaid} disabled={markPaidLoading}>
+                {markPaidLoading ? "Saving..." : "Confirm"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
       </div>
     </div>
