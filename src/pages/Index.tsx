@@ -99,7 +99,10 @@ const Index = () => {
     data: pendingRemindersData = 0,
     refetch: refetchPendingReminders,
   } = usePendingReminders(userId);
-
+  const completionPercentage =
+  setupStatus?.completionPercentage !== undefined
+    ? setupStatus.completionPercentage
+    : 0;
   // === Fallbacks / defaults ===
   const defaultSetupStatus: SetupStatus = {
     hasCompanyInfo: false,
@@ -303,14 +306,10 @@ const Index = () => {
                         Setup Progress
                       </span>
                       <span className="text-sm font-semibold text-primary">
-                        {setupStatus.completionPercentage.toFixed(0)}%
-                        {" "}Complete
+                        {completionPercentage.toFixed(0)}% Complete
                       </span>
                     </div>
-                    <Progress
-                      value={setupStatus.completionPercentage}
-                      className="h-2"
-                    />
+                    <Progress value={completionPercentage} className="h-2" />
                   </div>
 
                   <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
