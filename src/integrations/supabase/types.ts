@@ -681,28 +681,28 @@ export type Database = {
           amount: number | null
           created_at: string | null
           id: string
-          invoice_id: string | null
+          invoice_id: string
           method: string | null
           payment_date: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           amount?: number | null
           created_at?: string | null
           id?: string
-          invoice_id?: string | null
+          invoice_id: string
           method?: string | null
           payment_date?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           amount?: number | null
           created_at?: string | null
           id?: string
-          invoice_id?: string | null
+          invoice_id?: string
           method?: string | null
           payment_date?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -714,6 +714,20 @@ export type Database = {
           },
           {
             foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey2"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey2"
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
