@@ -123,3 +123,21 @@ export async function getOverdueInvoices(userId: string) {
     };
   }) ?? [];
 }
+
+export async function getPendingReminders(userId: string) {
+  const today = new Date();
+  const threeDaysFromNow = new Date(
+    today.getTime() + 3 * 24 * 60 * 60 * 1000
+  )
+    .toISOString()
+    .split("T")[0];
+
+  const { count } = await supabase
+    .from("invoices")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .neq("status", "paid")
+    .lte("due_date", threeDaysFromNow);
+
+  return count || 0;
+}
