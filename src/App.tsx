@@ -13,6 +13,7 @@ import InvoiceDetails from "./pages/InvoiceDetails";
 import ServiceLibrary from "./pages/ServiceLibrary";
 import Quotations from "./pages/Quotations";
 import Customers from "./pages/Customers";
+import CustomerDetail from "./pages/CustomerDetail";
 import Reports from "./pages/Reports";
 import ReminderSettings from "./pages/ReminderSettings";
 import InvoiceTemplates from "./pages/InvoiceTemplates";
@@ -60,6 +61,7 @@ const App: React.FC = () => (
             <Route path="/quotations/new" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
             <Route path="/quotations/edit/:id" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+            <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
             <Route path="/customers/export" element={<ProtectedRoute><ExportCustomers /></ProtectedRoute>} />
             <Route path="/customers/import" element={<ProtectedRoute><ImportCustomers /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
