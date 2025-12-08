@@ -1,12 +1,14 @@
-
 import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+
 import Index from "./pages/Index";
 import Invoices from "./pages/Invoices";
 import InvoiceDetails from "./pages/InvoiceDetails";
@@ -39,45 +41,221 @@ const queryClient = new QueryClient({
   },
 });
 
-const App: React.FC = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
+const App: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/invoices/new" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
-            <Route path="/invoices/edit/:id" element={<ProtectedRoute><NewInvoice /></ProtectedRoute>} />
-            <Route path="/invoices/export" element={<ProtectedRoute><ExportInvoices /></ProtectedRoute>} />
-            <Route path="/invoices/import" element={<ProtectedRoute><ImportInvoices /></ProtectedRoute>} />
-            <Route path="/invoices/:invoice_id" element={<ProtectedRoute><InvoiceDetails /></ProtectedRoute>} />
-            <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
-            <Route path="/quotations/new" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
-            <Route path="/quotations/edit/:id" element={<ProtectedRoute><NewQuotation /></ProtectedRoute>} />
-            <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
-            <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
-            <Route path="/customers/export" element={<ProtectedRoute><ExportCustomers /></ProtectedRoute>} />
-            <Route path="/customers/import" element={<ProtectedRoute><ImportCustomers /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/reminders" element={<ProtectedRoute><ReminderSettings /></ProtectedRoute>} />
-            <Route path="/invoice-templates" element={<ProtectedRoute><InvoiceTemplates /></ProtectedRoute>} />
-            <Route path="/services" element={<ProtectedRoute><ServiceLibrary /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/credit-notes" element={<ProtectedRoute><CreditNotes /></ProtectedRoute>} />
-            <Route path="/credit-notes/:id" element={<ProtectedRoute><CreditNotes /></ProtectedRoute>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AuthProvider>
+            <Routes>
+              {/* Auth & recovery */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+
+              {/* Onboarding (protected, but special) */}
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute>
+                    <Onboarding />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Main dashboard */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Index />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Invoices */}
+              <Route
+                path="/invoices"
+                element={
+                  <ProtectedRoute>
+                    <Invoices />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/invoices/new"
+                element={
+                  <ProtectedRoute>
+                    <NewInvoice />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/invoices/:id"
+                element={
+                  <ProtectedRoute>
+                    <InvoiceDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/invoices/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <NewInvoice />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Credit notes */}
+              <Route
+                path="/credit-notes"
+                element={
+                  <ProtectedRoute>
+                    <CreditNotes />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Services */}
+              <Route
+                path="/services"
+                element={
+                  <ProtectedRoute>
+                    <ServiceLibrary />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Quotations */}
+              <Route
+                path="/quotations"
+                element={
+                  <ProtectedRoute>
+                    <Quotations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/quotations/new"
+                element={
+                  <ProtectedRoute>
+                    <NewQuotation />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/quotations/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <NewQuotation />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Customers */}
+              <Route
+                path="/customers"
+                element={
+                  <ProtectedRoute>
+                    <Customers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/customers/:id"
+                element={
+                  <ProtectedRoute>
+                    <CustomerDetail />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Reports */}
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Reminders */}
+              <Route
+                path="/reminders"
+                element={
+                  <ProtectedRoute>
+                    <ReminderSettings />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Templates */}
+              <Route
+                path="/templates"
+                element={
+                  <ProtectedRoute>
+                    <InvoiceTemplates />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Settings */}
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Settings />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Import / Export */}
+              <Route
+                path="/exports/invoices"
+                element={
+                  <ProtectedRoute>
+                    <ExportInvoices />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/imports/invoices"
+                element={
+                  <ProtectedRoute>
+                    <ImportInvoices />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/exports/customers"
+                element={
+                  <ProtectedRoute>
+                    <ExportCustomers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/imports/customers"
+                element={
+                  <ProtectedRoute>
+                    <ImportCustomers />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Catch-all */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+
+      {/* Global toasters */}
+      <Toaster />
+      <Sonner />
+    </QueryClientProvider>
+  );
+};
 
 export default App;
