@@ -11,11 +11,29 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, Download, Mail, MessageCircle, CheckCircle, AlertTriangle, FileText, Shield } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Download, Mail, MessageCircle, CheckCircle, AlertTriangle, FileText, Shield, Plus, CreditCard } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
@@ -69,8 +87,19 @@ interface InvoiceTotals {
   total_amount: number;
 }
 
+interface Payment {
+  id: string;
+  invoice_id: string;
+  user_id: string;
+  amount: number;
+  payment_date: string;
+  method: string | null;
+  created_at: string;
+}
+
 const InvoiceDetails = () => {
   const { invoice_id } = useParams<{ invoice_id: string }>();
+  const { user } = useAuth();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [invoiceTotals, setInvoiceTotals] = useState<InvoiceTotals | null>(null);
@@ -78,6 +107,17 @@ const InvoiceDetails = () => {
   const [auditTrail, setAuditTrail] = useState<any[]>([]);
   const [isIssuing, setIsIssuing] = useState(false);
   const [showCreditNoteDialog, setShowCreditNoteDialog] = useState(false);
+  
+  // Payment states
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [newPayment, setNewPayment] = useState({
+    amount: "",
+    payment_date: format(new Date(), "yyyy-MM-dd"),
+    method: "bank_transfer",
+  });
+  
   const { toast } = useToast();
   
   // Load template using unified hook
@@ -87,8 +127,24 @@ const InvoiceDetails = () => {
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
 
+  // Fetch payments for this invoice
+  const fetchPayments = async () => {
+    if (!invoice_id || !user) return;
+    
+    const { data, error } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("invoice_id", invoice_id)
+      .eq("user_id", user.id)
+      .order("payment_date", { ascending: false });
+    
+    if (!error && data) {
+      setPayments(data as Payment[]);
+    }
+  };
+
   useEffect(() => {
-    if (!invoice_id) return;
+    if (!invoice_id || !user) return;
 
     const fetchInvoiceDetails = async () => {
       try {
@@ -102,6 +158,7 @@ const InvoiceDetails = () => {
             )
           `)
           .eq("id", invoice_id)
+          .eq("user_id", user.id)
           .single();
 
         if (invoiceError) throw invoiceError;
@@ -149,16 +206,18 @@ const InvoiceDetails = () => {
     };
 
     fetchInvoiceDetails();
-  }, [invoice_id, toast]);
+    fetchPayments();
+  }, [invoice_id, user, toast]);
 
   const getStatusBadge = (status: string) => {
-    const variants = {
+    const variants: Record<string, string> = {
       paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      partially_paid: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
       pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
       overdue: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
       draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
     };
-    return variants[status as keyof typeof variants] || variants.draft;
+    return variants[status] || variants.draft;
   };
 
   const computedTotals = useMemo(() => {
@@ -375,6 +434,116 @@ const InvoiceDetails = () => {
         DRAFT (Editable)
       </Badge>
     );
+  };
+
+  // Payment calculations
+  const totalPaid = useMemo(() => {
+    return payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  }, [payments]);
+
+  const remainingBalance = useMemo(() => {
+    const invoiceTotal = invoiceTotals?.total_amount ?? computedTotals.total;
+    return Number(invoiceTotal) - totalPaid;
+  }, [invoiceTotals, computedTotals, totalPaid]);
+
+  // Handle adding a payment
+  const handleAddPayment = async () => {
+    if (!invoice_id || !user || !invoice) return;
+    
+    const amount = parseFloat(newPayment.amount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid payment amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (amount > remainingBalance + 0.01) {
+      toast({
+        title: "Amount exceeds balance",
+        description: `Payment cannot exceed remaining balance of €${formatNumber(remainingBalance, 2)}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPaymentLoading(true);
+    try {
+      const { error } = await supabase
+        .from("payments")
+        .insert({
+          user_id: user.id,
+          invoice_id: invoice_id,
+          amount: amount,
+          payment_date: newPayment.payment_date,
+          method: newPayment.method,
+        });
+
+      if (error) throw error;
+
+      // Refetch payments
+      await fetchPayments();
+
+      // Calculate new remaining balance
+      const newTotalPaid = totalPaid + amount;
+      const invoiceTotal = Number(invoiceTotals?.total_amount ?? computedTotals.total);
+      const newRemainingBalance = invoiceTotal - newTotalPaid;
+
+      // Update invoice status if fully paid
+      if (newRemainingBalance <= 0.01) {
+        await supabase
+          .from("invoices")
+          .update({ status: "paid" })
+          .eq("id", invoice_id)
+          .eq("user_id", user.id);
+        
+        setInvoice({ ...invoice, status: "paid" });
+      } else if (newTotalPaid > 0 && newRemainingBalance > 0.01) {
+        // Partially paid (optional status)
+        await supabase
+          .from("invoices")
+          .update({ status: "partially_paid" })
+          .eq("id", invoice_id)
+          .eq("user_id", user.id);
+        
+        setInvoice({ ...invoice, status: "partially_paid" });
+      }
+
+      toast({
+        title: "Payment recorded",
+        description: `Payment of €${formatNumber(amount, 2)} has been added.`,
+      });
+
+      // Reset form and close dialog
+      setNewPayment({
+        amount: "",
+        payment_date: format(new Date(), "yyyy-MM-dd"),
+        method: "bank_transfer",
+      });
+      setShowPaymentDialog(false);
+    } catch (error) {
+      console.error("Error adding payment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to record payment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const getMethodLabel = (method: string | null) => {
+    const methods: Record<string, string> = {
+      bank_transfer: "Bank Transfer",
+      cash: "Cash",
+      card: "Card",
+      check: "Check",
+      other: "Other",
+    };
+    return methods[method || ""] || method || "—";
   };
 
   if (loading) {
@@ -609,6 +778,64 @@ const InvoiceDetails = () => {
             </CardContent>
           </Card>
 
+          {/* Payment History */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payment History
+              </CardTitle>
+              <Button onClick={() => setShowPaymentDialog(true)} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Payment
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {payments.length === 0 ? (
+                <p className="text-muted-foreground text-center py-6">No payments recorded yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Method</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>{format(new Date(payment.payment_date), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="font-medium">€{formatNumber(payment.amount, 2)}</TableCell>
+                        <TableCell>{getMethodLabel(payment.method)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              
+              {/* Payment Summary */}
+              <div className="mt-4 pt-4 border-t space-y-2 max-w-sm ml-auto">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Paid:</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">€{formatNumber(totalPaid, 2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Remaining Balance:</span>
+                  <span className={`font-bold ${remainingBalance <= 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                    €{formatNumber(Math.max(0, remainingBalance), 2)}
+                  </span>
+                </div>
+                {remainingBalance <= 0 && (
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 w-fit ml-auto">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Fully Paid
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Audit Trail - Malta VAT Compliance */}
           {(invoice as any).is_issued && auditTrail.length > 0 && (
             <Card>
@@ -786,6 +1013,68 @@ const InvoiceDetails = () => {
           </InvoiceErrorBoundary>
         )}
       </div>
+
+      {/* Add Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add Payment</DialogTitle>
+            <DialogDescription>
+              Record a payment for invoice {invoice?.invoice_number}. Remaining balance: €{formatNumber(remainingBalance, 2)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="payment_amount">Amount (€)</Label>
+              <Input
+                id="payment_amount"
+                type="number"
+                step="0.01"
+                min="0"
+                max={remainingBalance}
+                placeholder={`Max: €${formatNumber(remainingBalance, 2)}`}
+                value={newPayment.amount}
+                onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="payment_date">Payment Date</Label>
+              <Input
+                id="payment_date"
+                type="date"
+                value={newPayment.payment_date}
+                onChange={(e) => setNewPayment({ ...newPayment, payment_date: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="payment_method">Payment Method</Label>
+              <Select
+                value={newPayment.method}
+                onValueChange={(value) => setNewPayment({ ...newPayment, method: value })}
+              >
+                <SelectTrigger id="payment_method">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddPayment} disabled={paymentLoading}>
+              {paymentLoading ? "Recording..." : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Credit Note Dialog */}
       {invoice && (
