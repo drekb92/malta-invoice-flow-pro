@@ -115,10 +115,11 @@ const Customers = () => {
 
       if (metricsError) throw metricsError;
 
-      // Fetch payment data for each customer
+      // Fetch payment data for each customer (scoped to user)
       const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
-        .select("invoice_id, payment_date, amount");
+        .select("invoice_id, payment_date, amount")
+        .eq("user_id", user.id);
 
       if (paymentsError) throw paymentsError;
 
