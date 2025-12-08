@@ -36,6 +36,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -71,6 +72,7 @@ const Quotations = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [dateOption, setDateOption] = useState<"quotation" | "today" | "custom">("quotation");
@@ -79,10 +81,25 @@ const Quotations = () => {
 
   const navigate = useNavigate();
   const fetchQuotations = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("quotations")
-        .select(`*, customers ( name, email, address, vat_number, payment_terms )`)
+        .select(`
+          *,
+          customers (
+            name,
+            email,
+            address,
+            vat_number,
+            payment_terms
+          )
+        `)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setQuotations(data || []);
@@ -96,7 +113,7 @@ const Quotations = () => {
 
   useEffect(() => {
     fetchQuotations();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     let list = quotations;
@@ -124,8 +141,14 @@ const Quotations = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!user) return;
+    
     try {
-      const { error } = await supabase.from("quotations").delete().eq("id", id);
+      const { error } = await supabase
+        .from("quotations")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
       if (error) throw error;
       toast({ title: "Deleted", description: "Quotation removed." });
       fetchQuotations();
@@ -219,7 +242,8 @@ const Quotations = () => {
       const { error: updErr } = await supabase
         .from("quotations")
         .update({ status: "converted" })
-        .eq("id", quotationId);
+        .eq("id", quotationId)
+        .eq("user_id", user!.id);
       if (updErr) throw updErr;
 
       toast({ title: "Converted", description: "Quotation converted to invoice." });
