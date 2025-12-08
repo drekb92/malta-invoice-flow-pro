@@ -35,13 +35,9 @@ import {
   FileText,
   Users,
   CreditCard,
-  TrendingUp,
   Plus,
   Download,
   Mail,
-  Settings,
-  BarChart3,
-  Calendar,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
@@ -52,6 +48,7 @@ import {
   ChevronDown,
   FileSpreadsheet,
   Shield,
+  BarChart3,
 } from "lucide-react";
 
 interface SetupStatus {
@@ -80,6 +77,24 @@ interface OverdueInvoice {
   days_overdue: number;
 }
 
+const defaultSetupStatus: SetupStatus = {
+  hasCompanyInfo: false,
+  hasBankingInfo: false,
+  hasCustomers: false,
+  hasInvoices: false,
+  completionPercentage: 0,
+  isComplete: false,
+};
+
+const defaultMetrics = {
+  outstanding: 0,
+  customers: 0,
+  payments: 0,
+  collectionRate: 0,
+  creditNotes: 0,
+  creditNotesTotal: 0,
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -99,36 +114,19 @@ const Index = () => {
     data: pendingRemindersData = 0,
     refetch: refetchPendingReminders,
   } = usePendingReminders(userId);
-  const completionPercentage =
-  setupStatus?.completionPercentage !== undefined
-    ? setupStatus.completionPercentage
-    : 0;
-  // === Fallbacks / defaults ===
-  const defaultSetupStatus: SetupStatus = {
-    hasCompanyInfo: false,
-    hasBankingInfo: false,
-    hasCustomers: false,
-    hasInvoices: false,
-    completionPercentage: 0,
-    isComplete: false,
-  };
 
-  const defaultMetrics = {
-    outstanding: 0,
-    customers: 0,
-    payments: 0,
-    collectionRate: 0,
-    creditNotes: 0,
-    creditNotesTotal: 0,
-  };
-
-  const setupStatus = setupData ?? defaultSetupStatus;
+  // === Fallbacks / derived values ===
+  const setupStatus: SetupStatus = setupData ?? defaultSetupStatus;
   const metrics = metricsData ?? defaultMetrics;
   const recentCustomers =
     (recentCustomersData as Customer[] | undefined) ?? [];
   const overdueInvoices =
     (overdueInvoicesData as OverdueInvoice[] | undefined) ?? [];
-  const pendingReminders = pendingRemindersData ?? 0;
+  const pendingReminders: number = pendingRemindersData ?? 0;
+
+  const completionPercentage = Number(
+    setupStatus?.completionPercentage ?? 0
+  );
 
   const handleSendReminders = async () => {
     toast({
@@ -137,8 +135,7 @@ const Index = () => {
     });
 
     try {
-      // In a real implementation, this would call an edge function to send emails
-      // For now, we'll show a success message
+      // TODO: call an actual edge function here
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       toast({
@@ -146,7 +143,7 @@ const Index = () => {
         description: `${pendingReminders} payment reminders have been sent.`,
       });
 
-      // Refresh pending reminders from React Query
+      // Refresh from React Query
       await refetchPendingReminders();
     } catch (error) {
       toast({
@@ -188,61 +185,62 @@ const Index = () => {
     },
   ];
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IE", {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-IE", {
       style: "currency",
       currency: "EUR",
     }).format(amount);
-  };
 
-  const metricCards = setupStatus.isComplete
-    ? [
-        {
-          title: "Outstanding Invoices",
-          value: formatCurrency(metrics.outstanding),
-          change:
-            metrics.outstanding > 0 ? "Requires attention" : "All paid",
-          changeType:
-            metrics.outstanding > 0
-              ? ("neutral" as const)
-              : ("positive" as const),
-          icon: FileText,
-        },
-        {
-          title: "Active Customers",
-          value: metrics.customers.toString(),
-          change:
-            metrics.customers > 0
-              ? "Total in database"
-              : "No customers yet",
-          changeType: "neutral" as const,
-          icon: Users,
-        },
-        {
-          title: "Total Collected",
-          value: formatCurrency(metrics.payments),
-          change: "Year to date",
-          changeType: "positive" as const,
-          icon: CreditCard,
-        },
-        {
-          title: "Credit Notes Issued",
-          value: metrics.creditNotes.toString(),
-          change:
-            metrics.creditNotesTotal > 0
-              ? formatCurrency(metrics.creditNotesTotal) + " total"
-              : "Malta VAT compliant",
-          changeType: "neutral" as const,
-          icon: FileSpreadsheet,
-        },
-      ]
-    : [];
+  const metricCards =
+    setupStatus.isComplete
+      ? [
+          {
+            title: "Outstanding Invoices",
+            value: formatCurrency(metrics.outstanding),
+            change:
+              metrics.outstanding > 0
+                ? "Requires attention"
+                : "All paid",
+            changeType:
+              metrics.outstanding > 0
+                ? ("neutral" as const)
+                : ("positive" as const),
+            icon: FileText,
+          },
+          {
+            title: "Active Customers",
+            value: metrics.customers.toString(),
+            change:
+              metrics.customers > 0
+                ? "Total in database"
+                : "No customers yet",
+            changeType: "neutral" as const,
+            icon: Users,
+          },
+          {
+            title: "Total Collected",
+            value: formatCurrency(metrics.payments),
+            change: "Year to date",
+            changeType: "positive" as const,
+            icon: CreditCard,
+          },
+          {
+            title: "Credit Notes Issued",
+            value: metrics.creditNotes.toString(),
+            change:
+              metrics.creditNotesTotal > 0
+                ? formatCurrency(metrics.creditNotesTotal) + " total"
+                : "Malta VAT compliant",
+            changeType: "neutral" as const,
+            icon: FileSpreadsheet,
+          },
+        ]
+      : [];
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      {/* Main content */}
       <div className="md:ml-64">
         <header className="bg-card border-b border-border">
           <div className="px-6 py-4">
@@ -309,7 +307,10 @@ const Index = () => {
                         {completionPercentage.toFixed(0)}% Complete
                       </span>
                     </div>
-                    <Progress value={completionPercentage} className="h-2" />
+                    <Progress
+                      value={completionPercentage}
+                      className="h-2"
+                    />
                   </div>
 
                   <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
@@ -720,7 +721,9 @@ const Index = () => {
           <div className="mt-8 bg-muted/50 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium">Multi-Currency Support</h3>
+                <h3 className="text-sm font-medium">
+                  Multi-Currency Support
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   EUR base currency with live exchange rates
                 </p>
