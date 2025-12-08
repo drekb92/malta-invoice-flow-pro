@@ -156,11 +156,14 @@ const Invoices = () => {
   }, [searchTerm, statusFilter, invoices]);
 
   const handleDeleteInvoice = async (id: string) => {
+    if (!user) return;
+    
     try {
       const { error } = await supabase
         .from("invoices")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
