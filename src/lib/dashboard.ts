@@ -2,135 +2,170 @@
 import { supabase } from "@/integrations/supabase/client";
 
 // --- Setup status -------------------------------------------------------------
-
 export async function getSetupStatus(userId: string) {
-  const [{ data: company }, { data: banking }, { data: customers }, { data: invoices }] =
-    await Promise.all([
-      supabase.from("company_settings").select("*").eq("user_id", userId).maybeSingle(),
-      supabase.from("banking_details").select("*").eq("user_id", userId).maybeSingle(),
-      supabase.from("customers").select("id").eq("user_id", userId),
-      supabase.from("invoices").select("id").eq("user_id", userId)
-    ]);
+  // COMPANY INFO: complete if there's any row for this user
+  const { data: companyData } = await supabase
+    .from("company_settings")
+    .select("id, company_name, company_vat_number, company_address")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const hasCompanyInfo = !!companyData;
+
+  // BANKING INFO: complete if there's any row
+  const { data: bankingData } = await supabase
+    .from("banking_details")
+    .select("id, bank_name, bank_iban")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const hasBankingInfo = !!bankingData;
+
+  // CUSTOMERS: at least one
+  const { data: customers } = await supabase.from("customers").select("id").eq("user_id", userId).limit(1);
+
+  const hasCustomers = !!customers && customers.length > 0;
+
+  // INVOICES: at least one
+  const { data: invoices } = await supabase.from("invoices").select("id").eq("user_id", userId).limit(1);
+
+  const hasInvoices = !!invoices && invoices.length > 0;
+
+  const completedSteps = [hasCompanyInfo, hasBankingInfo, hasCustomers, hasInvoices].filter(Boolean).length;
+
+  const completionPercentage = (completedSteps / 4) * 100;
+  const isComplete = completionPercentage === 100;
 
   return {
-    companyCompleted: !!company,
-    bankingCompleted: !!banking,
-    customersCompleted: (customers?.length ?? 0) > 0,
-    invoicesCompleted: (invoices?.length ?? 0) > 0,
+    hasCompanyInfo,
+    hasBankingInfo,
+    hasCustomers,
+    hasInvoices,
+    completionPercentage,
+    isComplete,
   };
 }
 
 // --- Metrics ------------------------------------------------------------------
-
 export async function getDashboardMetrics(userId: string) {
-  const today = new Date().toISOString().split("T")[0];
+  // Invoices (for outstanding, payments, collection rate)
+  const { data: invoices } = await supabase.from("invoices").select("total_amount, status").eq("user_id", userId);
 
-  const [
-    { data: unpaid },
-    { data: payments },
-    { data: creditNotes }
-  ] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select("total_amount, vat_amount, due_date, status")
-      .eq("user_id", userId)
-      .neq("status", "paid"),
+  const outstanding =
+    invoices?.filter((inv) => inv.status !== "paid").reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
 
-    supabase
-      .from("payments")
-      .select("amount")
-      .eq("user_id", userId),
+  const payments =
+    invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
 
-    supabase
-      .from("credit_notes")
-      .select("total, vat")
-      .eq("user_id", userId)
-  ]);
+  const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
 
-  const outstanding = unpaid?.reduce((sum, inv) => sum + (inv.total_amount ?? 0) + (inv.vat_amount ?? 0), 0) ?? 0;
-  const collected = payments?.reduce((sum, p) => sum + (p.amount ?? 0), 0) ?? 0;
-  const creditNoteTotal = creditNotes?.reduce((sum, cn) => sum + (cn.total ?? 0) + (cn.vat ?? 0), 0) ?? 0;
+  const collectionRate = totalInvoiced > 0 ? ((totalInvoiced - outstanding) / totalInvoiced) * 100 : 0;
+
+  // Customers count
+  const { data: customers } = await supabase.from("customers").select("id").eq("user_id", userId);
+
+  const customersCount = customers?.length || 0;
+
+  // Credit notes stats
+  const { data: creditNotes } = await supabase
+    .from("credit_notes" as any)
+    .select("amount, vat_rate, status")
+    .eq("user_id", userId);
+
+  const creditNotesCount = creditNotes?.length || 0;
+  const creditNotesTotal =
+    (creditNotes as any[])?.reduce(
+      (sum: number, cn: any) => sum + Number(cn.amount || 0) * (1 + Number(cn.vat_rate || 0)),
+      0,
+    ) || 0;
 
   return {
     outstanding,
-    collected,
-    creditNoteTotal,
+    customers: customersCount,
+    payments,
+    collectionRate,
+    creditNotes: creditNotesCount,
+    creditNotesTotal,
   };
 }
 
-// --- Recent customers ----------------------------------------------------------
-
+// --- Recent customers ---------------------------------------------------------
 export async function getRecentCustomersWithOutstanding(userId: string) {
   const { data: customers } = await supabase
     .from("customers")
-    .select("id, name")
+    .select("id, name, email")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(5);
+    .limit(10);
 
-  if (!customers) return [];
-
-  const ids = customers.map(c => c.id);
+  if (!customers || customers.length === 0) return [];
 
   const { data: invoices } = await supabase
     .from("invoices")
-    .select("customer_id, total_amount, vat_amount, status")
-    .in("customer_id", ids);
-
-  const map = new Map();
-
-  customers.forEach(c => map.set(c.id, { ...c, outstanding: 0 }));
-
-  invoices?.forEach(inv => {
-    if (inv.status !== "paid") {
-      const total = (inv.total_amount ?? 0) + (inv.vat_amount ?? 0);
-      map.get(inv.customer_id).outstanding += total;
-    }
-  });
-
-  return Array.from(map.values());
-}
-
-// --- Overdue invoices ----------------------------------------------------------
-
-export async function getOverdueInvoices(userId: string) {
-  const today = new Date().toISOString().split("T")[0];
-
-  const { data: invoices } = await supabase
-    .from("invoices")
-    .select("id, invoice_number, customer_id, due_date, total_amount, vat_amount")
+    .select("customer_id, total_amount, status")
     .eq("user_id", userId)
-    .neq("status", "paid")
-    .lt("due_date", today);
+    .in(
+      "customer_id",
+      customers.map((c) => c.id),
+    );
 
-  const customerIds = Array.from(new Set(invoices?.map(i => i.customer_id) ?? []));
+  return customers.map((customer) => {
+    const customerInvoices = invoices?.filter((inv) => inv.customer_id === customer.id) || [];
 
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, name")
-    .in("id", customerIds);
-
-  const customerMap = new Map(customers?.map(c => [c.id, c.name]) ?? []);
-
-  return invoices?.map(inv => {
-    const days =
-      Math.floor((Date.now() - new Date(inv.due_date).getTime()) / (1000 * 60 * 60 * 24));
+    const outstanding = customerInvoices
+      .filter((inv) => inv.status !== "paid")
+      .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
 
     return {
-      ...inv,
-      customer_name: customerMap.get(inv.customer_id) ?? "Unknown",
-      daysOverdue: days,
+      ...customer,
+      outstanding_amount: outstanding,
     };
-  }) ?? [];
+  });
 }
 
+// --- Overdue invoices ---------------------------------------------------------
+export async function getOverdueInvoices(userId: string) {
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const { data: invoices } = await supabase
+    .from("invoices")
+    .select("id, invoice_number, customer_id, total_amount, due_date, status")
+    .eq("user_id", userId)
+    .neq("status", "paid")
+    .lt("due_date", todayStr)
+    .order("due_date", { ascending: true })
+    .limit(10);
+
+  if (!invoices || invoices.length === 0) return [];
+
+  const customerIds = [...new Set(invoices.map((inv) => inv.customer_id))];
+
+  const { data: customers } = await supabase.from("customers").select("id, name").in("id", customerIds);
+
+  const customerMap = new Map((customers || []).map((c) => [c.id, c.name]));
+
+  const today = new Date();
+
+  return invoices.map((invoice) => {
+    const dueDate = new Date(invoice.due_date);
+    const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    return {
+      id: invoice.id,
+      invoice_number: invoice.invoice_number,
+      customer_id: invoice.customer_id,
+      customer_name: customerMap.get(invoice.customer_id) || "Unknown",
+      total_amount: Number(invoice.total_amount || 0),
+      due_date: invoice.due_date,
+      days_overdue: daysOverdue,
+    };
+  });
+}
+
+// --- Pending reminders --------------------------------------------------------
 export async function getPendingReminders(userId: string) {
   const today = new Date();
-  const threeDaysFromNow = new Date(
-    today.getTime() + 3 * 24 * 60 * 60 * 1000
-  )
-    .toISOString()
-    .split("T")[0];
+  const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const { count } = await supabase
     .from("invoices")
