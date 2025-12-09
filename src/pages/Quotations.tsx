@@ -79,6 +79,7 @@ const Quotations = () => {
   const [isConverting, setIsConverting] = useState(false);
 
   const navigate = useNavigate();
+
   const fetchQuotations = async () => {
     if (!user) {
       setLoading(false);
@@ -102,6 +103,7 @@ const Quotations = () => {
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
+
       if (error) throw error;
       setQuotations(data || []);
       setFiltered(data || []);
@@ -180,9 +182,14 @@ const Quotations = () => {
       // Load quotation + items + customer payment terms
       const { data: qData, error: qErr } = await supabase
         .from("quotations")
-        .select(`*, customers ( payment_terms ), quotation_items ( description, quantity, unit, unit_price, vat_rate )`)
+        .select(
+          `*,
+           customers ( payment_terms ),
+           quotation_items ( description, quantity, unit, unit_price, vat_rate )`,
+        )
         .eq("id", quotationId)
         .single();
+
       if (qErr) throw qErr;
 
       const invoiceNumber = await generateNextInvoiceNumber();
@@ -241,10 +248,18 @@ const Quotations = () => {
       if (updErr) throw updErr;
 
       toast({ title: "Converted", description: "Quotation converted to invoice." });
-      navigate(`/invoices/edit/${inv.id}?focus=discount`);
+
+      // ✅ Correct route: invoice details page (with optional focus hint)
+      navigate(`/invoices/${inv.id}?focus=discount`);
+
+      // Refresh list so status updates
       fetchQuotations();
     } catch (e: any) {
-      toast({ title: "Error", description: e?.message || "Failed to convert quotation", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: e?.message || "Failed to convert quotation",
+        variant: "destructive",
+      });
       throw e;
     }
   };
