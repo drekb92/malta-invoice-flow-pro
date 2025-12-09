@@ -1,14 +1,6 @@
-
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -38,7 +30,14 @@ import type { TablesInsert } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -89,7 +88,8 @@ const Quotations = () => {
     try {
       const { data, error } = await supabase
         .from("quotations")
-        .select(`
+        .select(
+          `
           *,
           customers (
             name,
@@ -98,7 +98,8 @@ const Quotations = () => {
             vat_number,
             payment_terms
           )
-        `)
+        `,
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -118,9 +119,10 @@ const Quotations = () => {
   useEffect(() => {
     let list = quotations;
     if (searchTerm) {
-      list = list.filter((q) =>
-        q.quotation_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.customers?.name.toLowerCase().includes(searchTerm.toLowerCase())
+      list = list.filter(
+        (q) =>
+          q.quotation_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          q.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
     if (statusFilter !== "all") {
@@ -142,13 +144,9 @@ const Quotations = () => {
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-    
+
     try {
-      const { error } = await supabase
-        .from("quotations")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
+      const { error } = await supabase.from("quotations").delete().eq("id", id).eq("user_id", user.id);
       if (error) throw error;
       toast({ title: "Deleted", description: "Quotation removed." });
       fetchQuotations();
@@ -201,7 +199,7 @@ const Quotations = () => {
       const dueDate = addDays(baseDateObj, paymentDays);
 
       // Create invoice
-      const invoicePayload: TablesInsert<'invoices'> = {
+      const invoicePayload: TablesInsert<"invoices"> = {
         invoice_number: invoiceNumber,
         customer_id: qData.customer_id,
         amount: qData.amount,
@@ -217,11 +215,7 @@ const Quotations = () => {
         vat_rate: qData.vat_rate || 0.18,
       };
 
-      const { data: inv, error: invErr } = await supabase
-        .from("invoices")
-        .insert(invoicePayload)
-        .select("id")
-        .single();
+      const { data: inv, error: invErr } = await supabase.from("invoices").insert(invoicePayload).select("id").single();
       if (invErr) throw invErr;
 
       // Create invoice items from quotation items
@@ -307,13 +301,19 @@ const Quotations = () => {
           <div className="flex items-center space-x-4 mb-6">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input placeholder="Search quotations..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Input
+                placeholder="Search quotations..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filter ({statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
+                  Filter (
+                  {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
@@ -348,11 +348,17 @@ const Quotations = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6">Loading quotations...</TableCell>
+                      <TableCell colSpan={7} className="text-center py-6">
+                        Loading quotations...
+                      </TableCell>
                     </TableRow>
                   ) : filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6">{searchTerm || statusFilter !== 'all' ? 'No quotations found matching your criteria.' : 'No quotations found.'}</TableCell>
+                      <TableCell colSpan={7} className="text-center py-6">
+                        {searchTerm || statusFilter !== "all"
+                          ? "No quotations found matching your criteria."
+                          : "No quotations found."}
+                      </TableCell>
                     </TableRow>
                   ) : (
                     filtered.map((q) => (
@@ -366,7 +372,7 @@ const Quotations = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>{format(new Date(q.issue_date || q.created_at), "dd/MM/yyyy")}</TableCell>
-                        <TableCell>{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : '-'}</TableCell>
+                        <TableCell>{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : "-"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end space-x-2">
                             {q.status !== "converted" && (
@@ -421,12 +427,22 @@ const Quotations = () => {
           </Card>
 
           {/* Convert Confirmation Dialog */}
-          <Dialog open={convertDialogOpen} onOpenChange={(open) => { setConvertDialogOpen(open); if (!open) { setSelectedQuotation(null); } }}>
+          <Dialog
+            open={convertDialogOpen}
+            onOpenChange={(open) => {
+              setConvertDialogOpen(open);
+              if (!open) {
+                setSelectedQuotation(null);
+              }
+            }}
+          >
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Convert quotation to invoice</DialogTitle>
                 <DialogDescription>
-                  {selectedQuotation ? `You are converting ${selectedQuotation.quotation_number}. Choose the invoice date.` : "Choose the invoice date."}
+                  {selectedQuotation
+                    ? `You are converting ${selectedQuotation.quotation_number}. Choose the invoice date.`
+                    : "Choose the invoice date."}
                 </DialogDescription>
               </DialogHeader>
 
@@ -439,7 +455,11 @@ const Quotations = () => {
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="quotation" id="date-quotation" />
                     <Label htmlFor="date-quotation" className="cursor-pointer">
-                      Use quotation issue date ({selectedQuotation ? format(new Date(selectedQuotation.issue_date || selectedQuotation.created_at), "PPP") : "-"})
+                      Use quotation issue date (
+                      {selectedQuotation
+                        ? format(new Date(selectedQuotation.issue_date || selectedQuotation.created_at), "PPP")
+                        : "-"}
+                      )
                     </Label>
                   </div>
 
@@ -452,7 +472,9 @@ const Quotations = () => {
 
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="custom" id="date-custom" />
-                    <Label htmlFor="date-custom" className="cursor-pointer">Pick a custom date</Label>
+                    <Label htmlFor="date-custom" className="cursor-pointer">
+                      Pick a custom date
+                    </Label>
                     {dateOption === "custom" && (
                       <Popover>
                         <PopoverTrigger asChild>
@@ -493,4 +515,3 @@ const Quotations = () => {
 };
 
 export default Quotations;
-
