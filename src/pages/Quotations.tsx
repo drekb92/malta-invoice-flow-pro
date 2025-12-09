@@ -20,7 +20,6 @@ import {
   Mail,
   ArrowRight,
   Trash2,
-  Download,
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -105,6 +104,7 @@ const Quotations = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+
       setQuotations(data || []);
       setFiltered(data || []);
     } catch (e) {
@@ -120,6 +120,7 @@ const Quotations = () => {
 
   useEffect(() => {
     let list = quotations;
+
     if (searchTerm) {
       list = list.filter(
         (q) =>
@@ -127,9 +128,11 @@ const Quotations = () => {
           q.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
+
     if (statusFilter !== "all") {
       list = list.filter((q) => q.status === statusFilter);
     }
+
     setFiltered(list);
   }, [searchTerm, statusFilter, quotations]);
 
@@ -150,9 +153,10 @@ const Quotations = () => {
     try {
       const { error } = await supabase.from("quotations").delete().eq("id", id).eq("user_id", user.id);
       if (error) throw error;
+
       toast({ title: "Deleted", description: "Quotation removed." });
       fetchQuotations();
-    } catch (e) {
+    } catch {
       toast({ title: "Error", description: "Failed to delete quotation", variant: "destructive" });
     }
   };
@@ -164,16 +168,19 @@ const Quotations = () => {
         .select("invoice_number")
         .order("created_at", { ascending: false })
         .limit(1);
+
       if (error) throw error;
+
       let next = 1;
       if (data && data.length > 0) {
         const last = data[0].invoice_number || "";
         const match = last.match(/INV-(\d+)/);
         if (match) next = parseInt(match[1]) + 1;
       }
+
       return `INV-${String(next).padStart(6, "0")}`;
     } catch {
-      return `INV-000001`;
+      return "INV-000001";
     }
   };
 
@@ -183,9 +190,11 @@ const Quotations = () => {
       const { data: qData, error: qErr } = await supabase
         .from("quotations")
         .select(
-          `*,
-           customers ( payment_terms ),
-           quotation_items ( description, quantity, unit, unit_price, vat_rate )`,
+          `
+          *,
+          customers ( payment_terms ),
+          quotation_items ( description, quantity, unit, unit_price, vat_rate )
+        `,
         )
         .eq("id", quotationId)
         .single();
@@ -223,6 +232,7 @@ const Quotations = () => {
       };
 
       const { data: inv, error: invErr } = await supabase.from("invoices").insert(invoicePayload).select("id").single();
+
       if (invErr) throw invErr;
 
       // Create invoice items from quotation items
@@ -234,6 +244,7 @@ const Quotations = () => {
         unit_price: it.unit_price,
         vat_rate: it.vat_rate,
       }));
+
       if (itemsPayload.length > 0) {
         const { error: itemsErr } = await supabase.from("invoice_items").insert(itemsPayload);
         if (itemsErr) throw itemsErr;
@@ -245,14 +256,15 @@ const Quotations = () => {
         .update({ status: "converted" })
         .eq("id", quotationId)
         .eq("user_id", user!.id);
+
       if (updErr) throw updErr;
 
       toast({ title: "Converted", description: "Quotation converted to invoice." });
 
-      // ✅ Correct route: invoice details page (with optional focus hint)
-      navigate(`/invoices/${inv.id}?focus=discount`);
+      // ✅ Go back to invoice list instead of broken detail route
+      navigate("/invoices");
 
-      // Refresh list so status updates
+      // Refresh quotations list
       fetchQuotations();
     } catch (e: any) {
       toast({
@@ -273,13 +285,20 @@ const Quotations = () => {
 
   const confirmConvert = async () => {
     if (!selectedQuotation) return;
+
     if (dateOption === "custom" && !customDate) {
-      toast({ title: "Select a date", description: "Please choose a valid custom date.", variant: "destructive" });
+      toast({
+        title: "Select a date",
+        description: "Please choose a valid custom date.",
+        variant: "destructive",
+      });
       return;
     }
+
     setIsConverting(true);
     try {
       const override = dateOption === "today" ? new Date() : dateOption === "custom" ? customDate : undefined;
+
       await handleConvertToInvoice(selectedQuotation.id, override);
       setConvertDialogOpen(false);
       setSelectedQuotation(null);
@@ -446,9 +465,7 @@ const Quotations = () => {
             open={convertDialogOpen}
             onOpenChange={(open) => {
               setConvertDialogOpen(open);
-              if (!open) {
-                setSelectedQuotation(null);
-              }
+              if (!open) setSelectedQuotation(null);
             }}
           >
             <DialogContent>
