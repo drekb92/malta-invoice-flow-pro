@@ -35,6 +35,7 @@ import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
 import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 import type { InvoiceWithCompliance } from '@/types/invoice-compliance';
+import { validateDocumentItems } from "@/lib/documentItems";
 
 // Type-safe RPC wrapper
 type RpcFunction = 'next_invoice_number' | 'next_credit_note_number';
@@ -508,12 +509,13 @@ const NewInvoice = () => {
 
     try {
       if (!selectedCustomer) {
-        throw new Error("Please select a customer");
-      }
+  throw new Error("Please select a customer");
+}
 
-      if (items.some(item => !item.description || item.quantity <= 0 || item.unit_price < 0)) {
-        throw new Error("Please fill in all item details");
-      }
+const validationError = validateDocumentItems(items);
+if (validationError) {
+  throw new Error(validationError);
+}
 
       // Get selected customer's payment terms to calculate due date
       const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
