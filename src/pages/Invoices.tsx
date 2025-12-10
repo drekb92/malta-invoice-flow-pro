@@ -32,6 +32,7 @@ import {
   Trash2,
   Shield,
   CheckCircle,
+  FileMinus2, // NEW
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -47,6 +48,7 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
+import { createCreditNoteFromInvoice } from "@/services/creditNotesService"; // NEW
 
 interface Invoice {
   id: string;
@@ -110,6 +112,9 @@ const Invoices = () => {
     amount: "",
   });
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
+
+  // NEW: track which invoice is currently issuing a credit note
+  const [issuingCreditNoteId, setIssuingCreditNoteId] = useState<string | null>(null);
 
   const fetchInvoices = async () => {
     // Return early if no user
@@ -354,6 +359,52 @@ const Invoices = () => {
     }
   };
 
+  // NEW: create a credit note from an issued invoice
+  const handleIssueCreditNote = async (invoice: Invoice) => {
+    try {
+      if (!(invoice as any).is_issued) {
+        toast({
+          title: "Not issued",
+          description: "You can only create a credit note for an issued invoice.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (invoice.status === "credited") {
+        toast({
+          title: "Already credited",
+          description: "This invoice already has a credit note.",
+        });
+        return;
+      }
+
+      setIssuingCreditNoteId(invoice.id);
+
+      const cn = await createCreditNoteFromInvoice({
+        invoiceId: invoice.id,
+        reason: `Credit note for invoice ${invoice.invoice_number}`,
+      });
+
+      toast({
+        title: "Credit note created",
+        description: `Credit note ${cn.credit_note_number} has been created.`,
+      });
+
+      // Refresh invoice list so status updates to credited
+      fetchInvoices();
+    } catch (error: any) {
+      console.error("Error issuing credit note:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create credit note.",
+        variant: "destructive",
+      });
+    } finally {
+      setIssuingCreditNoteId(null);
+    }
+  };
+
   const getStatusBadge = (invoice: Invoice) => {
     // Determine actual status based on is_issued and status
     const isIssued = (invoice as any).is_issued;
@@ -573,6 +624,18 @@ const Invoices = () => {
                                     <Download className="h-4 w-4 mr-2" />
                                     Download PDF
                                   </DropdownMenuItem>
+
+                                  {/* NEW: Issue Credit Note for issued, non-credited invoices */}
+                                  {(invoice as any).is_issued && invoice.status !== "credited" && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleIssueCreditNote(invoice)}
+                                      disabled={issuingCreditNoteId === invoice.id}
+                                    >
+                                      <FileMinus2 className="h-4 w-4 mr-2" />
+                                      {issuingCreditNoteId === invoice.id ? "Issuing..." : "Issue Credit Note"}
+                                    </DropdownMenuItem>
+                                  )}
+
                                   {!(invoice as any).is_issued && (
                                     <DropdownMenuItem
                                       onClick={() => handleDeleteInvoice(invoice.id)}
