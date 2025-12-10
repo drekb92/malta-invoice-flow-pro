@@ -1,3 +1,5 @@
+import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import type { InvoiceData } from "@/services/pdfService";
 import { Navigation } from "@/components/Navigation";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import { Button } from "@/components/ui/button";
@@ -141,7 +143,7 @@ const CreditNotes = () => {
 
   const handleDownloadPDF = async (creditNoteId: string) => {
     try {
-      // 1) Load credit note with customer
+      // 1) Load credit note + customer
       const { data: cn, error: cnError } = await (supabase as any)
         .from("credit_notes")
         .select(
@@ -172,7 +174,7 @@ const CreditNotes = () => {
         throw new Error(itemsError.message);
       }
 
-      const items = (itemsData || []).map((item) => ({
+      const items = (itemsData || []).map((item: any) => ({
         description: item.description,
         quantity: Number(item.quantity || 0),
         unit_price: Number(item.unit_price || 0),
@@ -180,32 +182,32 @@ const CreditNotes = () => {
         unit: item.unit || undefined,
       }));
 
-      // 3) Compute totals (header amount is net)
-      const netFromHeader = Number(cn.amount || 0);
+      // 3) Totals from header (your column `amount` is NET)
+      const net = Number(cn.amount || 0);
       const vatRate = Number(cn.vat_rate ?? 0.18);
-      const vatFromHeader = netFromHeader * vatRate;
-      const grandFromHeader = netFromHeader + vatFromHeader;
+      const vat = net * vatRate;
+      const total = net + vat;
 
-      const invoiceData = {
+      const invoiceData: InvoiceData = {
         invoiceNumber: cn.credit_note_number,
         invoiceDate: cn.credit_note_date,
         dueDate: cn.credit_note_date,
-        documentType: "CREDIT NOTE" as const,
+        documentType: "CREDIT NOTE",
         customer: {
           name: cn.customers?.name || "Unknown Customer",
           email: cn.customers?.email || "",
           address: cn.customers?.address || "",
           vat_number: cn.customers?.vat_number || "",
         },
-        items: items,
+        items,
         totals: {
-          netTotal: netFromHeader,
-          vatTotal: vatFromHeader,
-          grandTotal: grandFromHeader,
+          netTotal: net,
+          vatTotal: vat,
+          grandTotal: total,
         },
       };
 
-      await generateInvoicePDFWithTemplate(invoiceData as any, cn.credit_note_number || "credit-note");
+      await generateInvoicePDFWithTemplate(invoiceData, cn.credit_note_number || "credit-note");
 
       toast({
         title: "PDF generated",
@@ -219,13 +221,6 @@ const CreditNotes = () => {
         variant: "destructive",
       });
     }
-  };
-
-  const handlePrint = (creditNoteId: string) => {
-    toast({
-      title: "Coming Soon",
-      description: "Print functionality will be available soon.",
-    });
   };
 
   const calculateTotal = (amount: number, vatRate: number) => {
