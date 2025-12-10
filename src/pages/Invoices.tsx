@@ -49,6 +49,7 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
+import { CreateCreditNoteDialog } from "@/components/CreateCreditNoteDialog";
 
 interface Invoice {
   id: string;
@@ -112,6 +113,9 @@ const Invoices = () => {
     amount: "",
   });
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
+
+  // Credit Note dialog state
+  const [creditNoteInvoice, setCreditNoteInvoice] = useState<Invoice | null>(null);
 
   const fetchInvoices = async () => {
     // Return early if no user
@@ -397,9 +401,9 @@ const Invoices = () => {
     };
   };
 
-  // 👉 Issue Credit Note handler: go to the New Credit Note page with invoice pre-selected
+  // 👉 Issue Credit Note handler: open the dialog
   const handleIssueCreditNote = (invoice: Invoice) => {
-    navigate(`/credit-notes/new?invoice=${invoice.id}`);
+    setCreditNoteInvoice(invoice);
   };
 
   return (
@@ -820,6 +824,20 @@ const Invoices = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Credit Note Dialog */}
+        <CreateCreditNoteDialog
+          open={!!creditNoteInvoice}
+          onOpenChange={(open) => !open && setCreditNoteInvoice(null)}
+          invoiceId={creditNoteInvoice?.id || ""}
+          invoiceNumber={creditNoteInvoice?.invoice_number || ""}
+          originalAmount={creditNoteInvoice?.amount || 0}
+          vatRate={creditNoteInvoice?.vat_rate || 0.18}
+          onSuccess={() => {
+            setCreditNoteInvoice(null);
+            fetchInvoices();
+          }}
+        />
       </div>
     </div>
   );
