@@ -1,16 +1,6 @@
 // src/services/creditNotesService.ts
 import { supabase } from "@/integrations/supabase/client";
 
-// We’ll use the same RPC that your dialog uses
-type RpcFunction = "next_credit_note_number";
-
-const callRpc = async (
-  functionName: RpcFunction,
-  params: { p_business_id: string; p_prefix?: string },
-): Promise<{ data: string | null; error: any }> => {
-  return (await supabase.rpc(functionName, params)) as any;
-};
-
 type InvoiceRow = {
   id: string;
   invoice_number: string;
@@ -28,6 +18,40 @@ type InvoiceItemRow = {
   unit: string | null;
   unit_price: number;
   vat_rate: number | null;
+};
+
+/**
+ * Generate the next credit note number for a specific user by looking at
+ * existing credit_notes rows. This guarantees uniqueness per user.
+ *
+ * Pattern used:  CN-000001, CN-000002, ...
+ */
+const generateNextCreditNoteNumber = async (userId: string): Promise<string> => {
+  const { data, error } = await supabase
+    .from("credit_notes")
+    .select("credit_note_number")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("[creditNotesService] Error reading last credit note number:", error);
+  }
+
+  let next = 1;
+
+  if (data && data.length > 0 && data[0].credit_note_number) {
+    // Extract trailing digits from the last number (e.g. "CN-000012" -> 12)
+    const last = data[0].credit_note_number as string;
+    const match = last.match(/(\d+)$/);
+    if (match) {
+      const current = parseInt(match[1], 10);
+      if (!isNaN(current)) next = current + 1;
+    }
+  }
+
+  const padded = String(next).padStart(6, "0");
+  return `CN-${padded}`;
 };
 
 export const creditNotesService = {
@@ -85,60 +109,37 @@ export const creditNotesService = {
 
     const vatRate = typedInvoice.vat_rate ?? items[0]?.vat_rate ?? 0.18; // fallback to first item / 18%
 
-    // 3) Generate a **unique** credit note number via RPC
-    const { data: creditNoteNumber, error: rpcError } = await callRpc("next_credit_note_number", {
-      p_business_id: userId,
-      p_prefix: "CN-",
-    });
+    // 3) Generate a UNIQUE credit note number per user
+    const creditNoteNumber = await generateNextCreditNoteNumber(userId);
+    console.log("[creditNotesService] Generated credit note number:", creditNoteNumber);
 
-    if (rpcError) {
-      console.error("[creditNotesService] RPC error:", rpcError);
-      throw new Error("Failed to generate credit note number.");
-    }
-    if (!creditNoteNumber) {
-      throw new Error("Could not generate credit note number.");
-    }
+    // 4) Insert credit note header (includes user_id for RLS)
+    const { data: headerData, error: headerError } = await supabase
+      .from("credit_notes")
+      .insert({
+        credit_note_number: creditNoteNumber,
+        original_invoice_id: typedInvoice.id,
+        user_id: userId, // <- important for RLS
+        customer_id: typedInvoice.customer_id,
+        amount: netAmount,
+        vat_rate: vatRate,
+        reason: `Full credit for invoice ${typedInvoice.invoice_number}`,
+        status: "issued",
+      })
+      .select("id")
+      .maybeSingle();
 
-    // 4) Insert credit note header (IMPORTANT: includes user_id)
-    //    Wrap in a small retry loop in case of unique-constraint races.
-    let creditNoteId: string | null = null;
-    let lastHeaderError: any = null;
-
-    for (let attempt = 0; attempt < 2 && !creditNoteId; attempt++) {
-      const numberToUse = attempt === 0 ? creditNoteNumber : `${creditNoteNumber}-R${attempt}`;
-
-      const { data: headerData, error: headerError } = await supabase
-        .from("credit_notes")
-        .insert({
-          credit_note_number: numberToUse,
-          original_invoice_id: typedInvoice.id,
-          user_id: userId, // <- fixes RLS for items
-          customer_id: typedInvoice.customer_id,
-          amount: netAmount,
-          vat_rate: vatRate,
-          reason: `Full credit for invoice ${typedInvoice.invoice_number}`,
-          status: "issued",
-        })
-        .select("id")
-        .maybeSingle();
-
-      if (!headerError && headerData?.id) {
-        creditNoteId = headerData.id;
-        break;
+    if (headerError || !headerData?.id) {
+      console.error("[creditNotesService] Error inserting credit note header:", headerError);
+      // If the unique constraint somehow still fires, surface a friendly message
+      const msg = (headerError as any)?.message || "Failed to create credit note header.";
+      if (msg.includes("unique_credit_note_number_per_user") || msg.includes("duplicate key value")) {
+        throw new Error("A credit note with this number already exists for this user. Please try again.");
       }
-
-      lastHeaderError = headerError;
-
-      // If it’s not a unique-constraint error, break immediately
-      if (!(headerError as any)?.code || (headerError as any).code !== "23505") {
-        break;
-      }
+      throw new Error(msg);
     }
 
-    if (!creditNoteId) {
-      console.error("[creditNotesService] Error inserting credit note header:", lastHeaderError);
-      throw new Error("Failed to create credit note (number already used). Please try again.");
-    }
+    const creditNoteId = headerData.id;
 
     // 5) Insert credit note items – RLS relies on the parent credit_note.user_id
     const itemsPayload = items.map((i) => ({
@@ -154,7 +155,7 @@ export const creditNotesService = {
 
     if (itemsError) {
       console.error("[creditNotesService] Error inserting credit note items:", itemsError);
-      throw new Error("Failed to create credit note items (check row-level security).");
+      throw new Error("Failed to create credit note items (row-level security may be blocking this).");
     }
 
     return {
