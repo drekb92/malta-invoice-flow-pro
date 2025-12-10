@@ -1,7 +1,6 @@
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
 import { Navigation } from "@/components/Navigation";
-import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
