@@ -7,7 +7,6 @@ import type {
   CreditNoteInsert,
   CreditNoteItemInsert,
   InvoiceAuditLog,
-  InvoiceAuditLogInsert,
 } from "@/types/invoice-compliance";
 import { isSupabaseError } from "@/types/invoice-compliance";
 
@@ -86,7 +85,7 @@ export const invoiceService = {
       if (updateError) throw updateError;
 
       // 7) Log the action for audit trail (Malta VAT compliance)
-      const auditLog: InvoiceAuditLogInsert = {
+      const { error: auditError } = await supabase.from("invoice_audit_log").insert({
         invoice_id: invoiceId,
         user_id: userId,
         action: "issued",
@@ -97,9 +96,7 @@ export const invoiceService = {
           customer_id: invoiceData.customer_id,
           issued_at: new Date().toISOString(),
         },
-      };
-
-      const { error: auditError } = await supabase.from("invoice_audit_log").insert(auditLog);
+      });
 
       if (auditError) {
         console.error("Audit log error:", auditError);
@@ -240,7 +237,7 @@ export const invoiceService = {
       if (itemsError) throw itemsError;
 
       // Log audit trail
-      const auditLog: InvoiceAuditLogInsert = {
+      const { error: auditError } = await (supabase as any).from("invoice_audit_log").insert({
         invoice_id: originalInvoiceId,
         user_id: userId,
         action: "credit_note_created",
@@ -250,9 +247,7 @@ export const invoiceService = {
           amount: amount,
           reason: reason,
         },
-      };
-
-      const { error: auditError } = await (supabase as any).from("invoice_audit_log").insert(auditLog);
+      });
 
       if (auditError) {
         console.error("Audit log error:", auditError);
