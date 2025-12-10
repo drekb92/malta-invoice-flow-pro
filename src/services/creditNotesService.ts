@@ -22,7 +22,7 @@ type InvoiceItemRow = {
 
 /**
  * Generate the next credit note number for a specific user by looking at
- * existing credit_notes rows. This guarantees uniqueness per user.
+ * existing credit_notes rows for that user that ALREADY have a number.
  *
  * Pattern used:  CN-000001, CN-000002, ...
  */
@@ -31,7 +31,10 @@ const generateNextCreditNoteNumber = async (userId: string): Promise<string> => 
     .from("credit_notes")
     .select("credit_note_number")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false })
+    // IMPORTANT: ignore rows where credit_note_number is NULL
+    .not("credit_note_number", "is", null)
+    // because we zero-pad, lexical order works to get the “largest” number
+    .order("credit_note_number", { ascending: false })
     .limit(1);
 
   if (error) {
@@ -41,12 +44,14 @@ const generateNextCreditNoteNumber = async (userId: string): Promise<string> => 
   let next = 1;
 
   if (data && data.length > 0 && data[0].credit_note_number) {
-    // Extract trailing digits from the last number (e.g. "CN-000012" -> 12)
     const last = data[0].credit_note_number as string;
+    // extract the trailing digits, e.g. "CN-000012" -> "000012"
     const match = last.match(/(\d+)$/);
     if (match) {
       const current = parseInt(match[1], 10);
-      if (!isNaN(current)) next = current + 1;
+      if (!isNaN(current)) {
+        next = current + 1;
+      }
     }
   }
 
