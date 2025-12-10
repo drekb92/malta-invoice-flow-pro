@@ -90,18 +90,18 @@ const App: React.FC = () => {
                 }
               />
               <Route
-                path="/invoices/:id"
+                path="/invoices/edit/:id"
                 element={
                   <ProtectedRoute>
-                    <InvoiceDetails />
+                    <NewInvoice />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/invoices/:id/edit"
+                path="/invoices/:id"
                 element={
                   <ProtectedRoute>
-                    <NewInvoice />
+                    <InvoiceDetails />
                   </ProtectedRoute>
                 }
               />
