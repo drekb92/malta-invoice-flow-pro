@@ -49,7 +49,6 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
-import { creditNotesService } from "@/services/creditNotesService";
 
 interface Invoice {
   id: string;
@@ -398,29 +397,9 @@ const Invoices = () => {
     };
   };
 
-  // 👉 NEW: Issue Credit Note handler
-  const handleIssueCreditNote = async (invoice: Invoice) => {
-    if (!user) return;
-
-    try {
-      const result = await creditNotesService.createCreditNoteFromInvoice(invoice.id, user.id);
-
-      if (result?.success) {
-        toast({
-          title: "Credit note issued",
-          description: `A full credit note was created for invoice ${invoice.invoice_number}.`,
-        });
-        // Refresh invoice list so status can change to "credited" if you wire that up later
-        fetchInvoices();
-      }
-    } catch (error: any) {
-      console.error("Error issuing credit note:", error);
-      toast({
-        title: "Error issuing credit note",
-        description: error?.message || "Failed to create credit note from this invoice.",
-        variant: "destructive",
-      });
-    }
+  // 👉 Issue Credit Note handler: go to the New Credit Note page with invoice pre-selected
+  const handleIssueCreditNote = (invoice: Invoice) => {
+    navigate(`/credit-notes/new?invoice=${invoice.id}`);
   };
 
   return (
