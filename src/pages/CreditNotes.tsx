@@ -1,13 +1,7 @@
 import { Navigation } from "@/components/Navigation";
+import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,16 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Search,
-  Filter,
-  Download,
-  MoreHorizontal,
-  Eye,
-  FileText,
-  Shield,
-  AlertCircle,
-} from "lucide-react";
+import { Search, Filter, Download, MoreHorizontal, Eye, FileText, Shield, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,17 +44,19 @@ const CreditNotes = () => {
     try {
       const { data, error } = await (supabase as any)
         .from("credit_notes")
-        .select(`
+        .select(
+          `
           *,
           customers (
             name,
             email
           )
-        `)
+        `,
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
+
       // Fetch original invoice numbers separately
       const creditNotesWithInvoices = await Promise.all(
         (data || []).map(async (cn) => {
@@ -79,16 +66,16 @@ const CreditNotes = () => {
               .select("invoice_number")
               .eq("id", cn.original_invoice_id)
               .maybeSingle();
-            
+
             return {
               ...cn,
-              invoices: invoiceData || undefined
+              invoices: invoiceData || undefined,
             } as CreditNoteWithRelations;
           }
           return cn as CreditNoteWithRelations;
-        })
+        }),
       );
-      
+
       setCreditNotes(creditNotesWithInvoices);
       setFilteredCreditNotes(creditNotesWithInvoices);
     } catch (error) {
@@ -111,10 +98,11 @@ const CreditNotes = () => {
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter((creditNote) =>
-        creditNote.credit_note_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        creditNote.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        creditNote.invoices?.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (creditNote) =>
+          creditNote.credit_note_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          creditNote.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          creditNote.invoices?.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
@@ -128,34 +116,109 @@ const CreditNotes = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'draft':
+      case "draft":
         return {
           className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-          label: "Draft"
+          label: "Draft",
         };
-      case 'issued':
+      case "issued":
         return {
           className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-          label: "Issued"
+          label: "Issued",
         };
-      case 'applied':
+      case "applied":
         return {
           className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-          label: "Applied"
+          label: "Applied",
         };
       default:
         return {
           className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-          label: status
+          label: status,
         };
     }
   };
 
   const handleDownloadPDF = async (creditNoteId: string) => {
-    toast({
-      title: "Coming Soon",
-      description: "PDF download for credit notes will be available soon.",
-    });
+    try {
+      // 1) Load credit note with customer
+      const { data: cn, error: cnError } = await (supabase as any)
+        .from("credit_notes")
+        .select(
+          `
+        *,
+        customers (
+          name,
+          email,
+          address,
+          vat_number
+        )
+      `,
+        )
+        .eq("id", creditNoteId)
+        .maybeSingle();
+
+      if (cnError || !cn) {
+        throw new Error(cnError?.message || "Credit note not found");
+      }
+
+      // 2) Load credit note items
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("credit_note_items")
+        .select("*")
+        .eq("credit_note_id", creditNoteId);
+
+      if (itemsError) {
+        throw new Error(itemsError.message);
+      }
+
+      const items = (itemsData || []).map((item) => ({
+        description: item.description,
+        quantity: Number(item.quantity || 0),
+        unit_price: Number(item.unit_price || 0),
+        vat_rate: Number(item.vat_rate ?? cn.vat_rate ?? 0.18),
+        unit: item.unit || undefined,
+      }));
+
+      // 3) Compute totals (header amount is net)
+      const netFromHeader = Number(cn.amount || 0);
+      const vatRate = Number(cn.vat_rate ?? 0.18);
+      const vatFromHeader = netFromHeader * vatRate;
+      const grandFromHeader = netFromHeader + vatFromHeader;
+
+      const invoiceData = {
+        invoiceNumber: cn.credit_note_number,
+        invoiceDate: cn.credit_note_date,
+        dueDate: cn.credit_note_date,
+        documentType: "CREDIT NOTE" as const,
+        customer: {
+          name: cn.customers?.name || "Unknown Customer",
+          email: cn.customers?.email || "",
+          address: cn.customers?.address || "",
+          vat_number: cn.customers?.vat_number || "",
+        },
+        items: items,
+        totals: {
+          netTotal: netFromHeader,
+          vatTotal: vatFromHeader,
+          grandTotal: grandFromHeader,
+        },
+      };
+
+      await generateInvoicePDFWithTemplate(invoiceData as any, cn.credit_note_number || "credit-note");
+
+      toast({
+        title: "PDF generated",
+        description: `Credit note ${cn.credit_note_number} downloaded.`,
+      });
+    } catch (error: any) {
+      console.error("Error generating credit note PDF:", error);
+      toast({
+        title: "PDF error",
+        description: error.message || "Could not generate credit note PDF.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePrint = (creditNoteId: string) => {
@@ -173,16 +236,14 @@ const CreditNotes = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="md:ml-64">
         <header className="bg-card border-b border-border">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Credit Notes</h1>
-                <p className="text-muted-foreground">
-                  Manage Malta VAT-compliant credit notes for invoice corrections
-                </p>
+                <p className="text-muted-foreground">Manage Malta VAT-compliant credit notes for invoice corrections</p>
               </div>
             </div>
           </div>
@@ -193,9 +254,8 @@ const CreditNotes = () => {
           <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
             <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-blue-800 dark:text-blue-200">
-              <strong>Malta VAT Compliance:</strong> Credit notes are used to correct issued invoices 
-              without modifying the original immutable invoice record. Each credit note is tracked for 
-              audit compliance.
+              <strong>Malta VAT Compliance:</strong> Credit notes are used to correct issued invoices without modifying
+              the original immutable invoice record. Each credit note is tracked for audit compliance.
             </AlertDescription>
           </Alert>
 
@@ -214,7 +274,8 @@ const CreditNotes = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filter ({statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
+                  Filter (
+                  {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-background border border-border z-50">
@@ -255,8 +316,8 @@ const CreditNotes = () => {
                   ) : filteredCreditNotes.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-6">
-                        {searchTerm || statusFilter !== "all" 
-                          ? "No credit notes found matching your criteria." 
+                        {searchTerm || statusFilter !== "all"
+                          ? "No credit notes found matching your criteria."
                           : "No credit notes found. Credit notes are created to correct issued invoices."}
                       </TableCell>
                     </TableRow>
@@ -264,7 +325,7 @@ const CreditNotes = () => {
                     filteredCreditNotes.map((creditNote) => {
                       const total = calculateTotal(creditNote.amount, creditNote.vat_rate);
                       const statusBadge = getStatusBadge(creditNote.status);
-                      
+
                       return (
                         <TableRow key={creditNote.id}>
                           <TableCell className="font-medium">
@@ -277,12 +338,12 @@ const CreditNotes = () => {
                           </TableCell>
                           <TableCell>
                             {creditNote.original_invoice_id ? (
-                              <Link 
+                              <Link
                                 to={`/invoices/${creditNote.original_invoice_id}`}
                                 className="text-primary hover:underline flex items-center gap-1"
                               >
                                 <FileText className="h-3.5 w-3.5" />
-                                {creditNote.invoices?.invoice_number || 'View'}
+                                {creditNote.invoices?.invoice_number || "View"}
                               </Link>
                             ) : (
                               <span className="text-muted-foreground">—</span>
@@ -293,7 +354,8 @@ const CreditNotes = () => {
                             <div className="flex flex-col">
                               <span className="font-medium">{formatCurrency(total)}</span>
                               <span className="text-xs text-muted-foreground">
-                                Net: {formatCurrency(creditNote.amount)} + VAT ({(creditNote.vat_rate * 100).toFixed(0)}%)
+                                Net: {formatCurrency(creditNote.amount)} + VAT ({(creditNote.vat_rate * 100).toFixed(0)}
+                                %)
                               </span>
                             </div>
                           </TableCell>
@@ -302,13 +364,9 @@ const CreditNotes = () => {
                               {creditNote.reason}
                             </span>
                           </TableCell>
+                          <TableCell>{format(new Date(creditNote.credit_note_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell>
-                            {format(new Date(creditNote.credit_note_date), "dd/MM/yyyy")}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={statusBadge.className}>
-                              {statusBadge.label}
-                            </Badge>
+                            <Badge className={statusBadge.className}>{statusBadge.label}</Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -356,8 +414,8 @@ const CreditNotes = () => {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-2">
               <p>
-                Credit notes are created to correct issued invoices in compliance with Malta VAT regulations. 
-                They preserve the integrity of the original invoice while providing a formal correction.
+                Credit notes are created to correct issued invoices in compliance with Malta VAT regulations. They
+                preserve the integrity of the original invoice while providing a formal correction.
               </p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li>Credit notes must reference the original invoice</li>
