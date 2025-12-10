@@ -531,9 +531,24 @@ if (validationError) {
 
       const { taxable, vatTotal, grandTotal } = calculateTotals();
 
+      // Generate invoice number if issuing and no number exists
+      let finalInvoiceNumber = invoiceNumber || null;
+      if (shouldIssue && !finalInvoiceNumber) {
+        const { data: generatedNumber, error: numberError } = await callRpc('next_invoice_number', {
+          p_business_id: user?.id,
+          p_prefix: 'INV-'
+        });
+        
+        if (numberError) throw numberError;
+        if (!generatedNumber) throw new Error("Failed to generate invoice number");
+        
+        finalInvoiceNumber = generatedNumber;
+        setInvoiceNumber(generatedNumber);
+      }
+
       // Type-safe invoice payload
       const invoicePayload = {
-        invoice_number: invoiceNumber || null,
+        invoice_number: finalInvoiceNumber,
         customer_id: selectedCustomer,
         amount: taxable,
         vat_amount: vatTotal,
@@ -609,11 +624,15 @@ if (validationError) {
         }
 
         toast({
-          title: "Invoice updated",
-          description: isIssued 
-            ? "Invoice details updated. Items cannot be modified for issued invoices." 
+          title: shouldIssue ? "Invoice issued" : "Invoice updated",
+          description: shouldIssue 
+            ? `Invoice ${finalInvoiceNumber} has been issued and is now immutable.` 
             : "Invoice has been successfully updated.",
         });
+        
+        // Navigate to invoice details after issuing, or back to list
+        navigate(shouldIssue ? `/invoices/${id}` : "/invoices");
+        return;
       } else {
         // Create new invoice - auto-generate invoice number if issuing
         let finalInvoiceNumber = invoiceNumber;
@@ -672,6 +691,10 @@ if (validationError) {
             ? `Invoice ${finalInvoiceNumber} has been issued and is now immutable.` 
             : "Invoice saved as draft. You can edit it until you issue it.",
         });
+        
+        // Navigate to invoice details if issued, otherwise to list
+        navigate(shouldIssue ? `/invoices/${invoice.id}` : "/invoices");
+        return;
       }
 
       navigate("/invoices");
