@@ -48,7 +48,8 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
-import { createCreditNoteFromInvoice } from "@/services/creditNotesService"; // NEW
+import { creditNotesService } from "@/services/creditNotesService"; // ✅ FIXED
+
 
 interface Invoice {
   id: string;
@@ -361,23 +362,30 @@ const Invoices = () => {
 
   // NEW: create a credit note from an issued invoice
   const handleIssueCreditNote = async (invoice: Invoice) => {
-    try {
-      if (!(invoice as any).is_issued) {
-        toast({
-          title: "Not issued",
-          description: "You can only create a credit note for an issued invoice.",
-          variant: "destructive",
-        });
-        return;
-      }
+  if (!user) return;
 
-      if (invoice.status === "credited") {
-        toast({
-          title: "Already credited",
-          description: "This invoice already has a credit note.",
-        });
-        return;
-      }
+  try {
+    const result = await creditNotesService.createCreditNoteFromInvoice(
+      invoice.id,
+      user.id
+    );
+
+    if (result?.success) {
+      toast({
+        title: "Credit note issued",
+        description: `A full credit note was created for invoice ${invoice.invoice_number}.`,
+      });
+      fetchInvoices();
+    }
+  } catch (error: any) {
+    console.error("Error issuing credit note:", error);
+    toast({
+      title: "Error issuing credit note",
+      description: error?.message || "Failed to create credit note",
+      variant: "destructive",
+    });
+  }
+};
 
       setIssuingCreditNoteId(invoice.id);
 
