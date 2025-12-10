@@ -1,134 +1,165 @@
+// src/services/creditNotesService.ts
 import { supabase } from "@/integrations/supabase/client";
 
-interface InvoiceItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unit_price: number;
-  vat_rate: number;
-  unit?: string;
-}
+// We’ll use the same RPC that your dialog uses
+type RpcFunction = "next_credit_note_number";
 
-interface InvoiceWithRelations {
+const callRpc = async (
+  functionName: RpcFunction,
+  params: { p_business_id: string; p_prefix?: string },
+): Promise<{ data: string | null; error: any }> => {
+  return (await supabase.rpc(functionName, params)) as any;
+};
+
+type InvoiceRow = {
   id: string;
   invoice_number: string;
   customer_id: string;
-  user_id: string;
-  amount: number | null; // net
-  vat_rate: number | null;
+  amount: number | null;
   vat_amount: number | null;
   total_amount: number | null;
-  invoice_date: string;
-  due_date: string | null;
-  status: string;
-  is_issued?: boolean;
-  invoice_items: InvoiceItem[];
-}
-
-export const getInvoiceWithItems = async (invoiceId: string): Promise<InvoiceWithRelations> => {
-  const { data, error } = await (supabase as any)
-    .from("invoices")
-    .select(
-      `
-      *,
-      invoice_items (
-        id,
-        description,
-        quantity,
-        unit,
-        unit_price,
-        vat_rate
-      )
-    `,
-    )
-    .eq("id", invoiceId)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error(error?.message || "Invoice not found");
-  }
-
-  if (!data.invoice_items) {
-    data.invoice_items = [];
-  }
-
-  return data as InvoiceWithRelations;
+  vat_rate: number | null;
 };
 
-export const createCreditNoteFromInvoice = async ({
-  invoiceId,
-  reason,
-  date,
-}: {
-  invoiceId: string;
-  reason?: string;
-  date?: string;
-}) => {
-  const invoice = await getInvoiceWithItems(invoiceId);
+type InvoiceItemRow = {
+  id: string;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  vat_rate: number | null;
+};
 
-  // Only allow credit notes for issued invoices (optional safety)
-  if (!(invoice as any).is_issued) {
-    throw new Error("Invoice must be issued before creating a credit note.");
-  }
+export const creditNotesService = {
+  /**
+   * Creates a FULL credit note for a given invoice.
+   * Used by the "Issue Credit Note" action on the invoice list.
+   */
+  async createCreditNoteFromInvoice(invoiceId: string, userId: string) {
+    // 1) Fetch invoice + items, scoped to the current user
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select(
+        `
+        id,
+        invoice_number,
+        customer_id,
+        amount,
+        vat_amount,
+        total_amount,
+        vat_rate,
+        invoice_items (
+          id,
+          description,
+          quantity,
+          unit,
+          unit_price,
+          vat_rate
+        )
+      `,
+      )
+      .eq("id", invoiceId)
+      .eq("user_id", userId)
+      .maybeSingle();
 
-  // Decide NET amount:
-  // - Prefer invoices.amount (your net field)
-  // - Otherwise derive from total_amount - vat_amount
-  const totalAmount = Number(invoice.total_amount ?? 0);
-  const vatAmount = Number(invoice.vat_amount ?? 0);
-  const netFromTotals = totalAmount > 0 && vatAmount >= 0 ? totalAmount - vatAmount : 0;
+    if (invoiceError) {
+      console.error("[creditNotesService] Error loading invoice:", invoiceError);
+      throw new Error("Failed to load invoice for credit note.");
+    }
+    if (!invoice) {
+      throw new Error("Invoice not found.");
+    }
 
-  const netAmount = invoice.amount !== null && invoice.amount !== undefined ? Number(invoice.amount) : netFromTotals;
+    const typedInvoice = invoice as InvoiceRow & {
+      invoice_items: InvoiceItemRow[];
+    };
 
-  const vatRate = Number(invoice.vat_rate ?? 0.18);
-  const creditReason = reason || `Credit note for invoice ${invoice.invoice_number}`;
+    const items = typedInvoice.invoice_items || [];
 
-  // 1) Insert header into credit_notes (your schema)
-  const { data: insertedCN, error: headerError } = await supabase
-    .from("credit_notes")
-    .insert({
-      credit_note_number: `CN-${invoice.invoice_number}`, // simple pattern for now
-      original_invoice_id: invoice.id,
-      user_id: invoice.user_id,
-      customer_id: invoice.customer_id,
-      amount: netAmount,
-      vat_rate: vatRate,
-      reason: creditReason,
-      credit_note_date: date || new Date().toISOString().slice(0, 10),
-      status: "issued",
-    })
-    .select()
-    .single();
+    if (items.length === 0) {
+      throw new Error("Invoice has no line items to credit.");
+    }
 
-  if (headerError || !insertedCN) {
-    throw new Error(headerError?.message || "Failed to create credit note");
-  }
+    // 2) Calculate net amount from items (safer than trusting header)
+    const netAmount = items.reduce((sum, i) => sum + Number(i.quantity || 0) * Number(i.unit_price || 0), 0);
 
-  // 2) Clone items into credit_note_items (your schema)
-  if ((invoice.invoice_items || []).length > 0) {
-    const { error: itemsError } = await supabase.from("credit_note_items").insert(
-      invoice.invoice_items.map((item) => ({
-        credit_note_id: insertedCN.id,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        vat_rate: item.vat_rate ?? vatRate,
-        unit: item.unit || "unit",
-      })),
-    );
+    const vatRate = typedInvoice.vat_rate ?? items[0]?.vat_rate ?? 0.18; // fallback to first item / 18%
+
+    // 3) Generate a **unique** credit note number via RPC
+    const { data: creditNoteNumber, error: rpcError } = await callRpc("next_credit_note_number", {
+      p_business_id: userId,
+      p_prefix: "CN-",
+    });
+
+    if (rpcError) {
+      console.error("[creditNotesService] RPC error:", rpcError);
+      throw new Error("Failed to generate credit note number.");
+    }
+    if (!creditNoteNumber) {
+      throw new Error("Could not generate credit note number.");
+    }
+
+    // 4) Insert credit note header (IMPORTANT: includes user_id)
+    //    Wrap in a small retry loop in case of unique-constraint races.
+    let creditNoteId: string | null = null;
+    let lastHeaderError: any = null;
+
+    for (let attempt = 0; attempt < 2 && !creditNoteId; attempt++) {
+      const numberToUse = attempt === 0 ? creditNoteNumber : `${creditNoteNumber}-R${attempt}`;
+
+      const { data: headerData, error: headerError } = await supabase
+        .from("credit_notes")
+        .insert({
+          credit_note_number: numberToUse,
+          original_invoice_id: typedInvoice.id,
+          user_id: userId, // <- fixes RLS for items
+          customer_id: typedInvoice.customer_id,
+          amount: netAmount,
+          vat_rate: vatRate,
+          reason: `Full credit for invoice ${typedInvoice.invoice_number}`,
+          status: "issued",
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (!headerError && headerData?.id) {
+        creditNoteId = headerData.id;
+        break;
+      }
+
+      lastHeaderError = headerError;
+
+      // If it’s not a unique-constraint error, break immediately
+      if (!(headerError as any)?.code || (headerError as any).code !== "23505") {
+        break;
+      }
+    }
+
+    if (!creditNoteId) {
+      console.error("[creditNotesService] Error inserting credit note header:", lastHeaderError);
+      throw new Error("Failed to create credit note (number already used). Please try again.");
+    }
+
+    // 5) Insert credit note items – RLS relies on the parent credit_note.user_id
+    const itemsPayload = items.map((i) => ({
+      credit_note_id: creditNoteId,
+      description: i.description,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+      vat_rate: i.vat_rate ?? vatRate,
+      unit: i.unit || "unit",
+    }));
+
+    const { error: itemsError } = await supabase.from("credit_note_items").insert(itemsPayload);
 
     if (itemsError) {
-      throw new Error(itemsError.message);
+      console.error("[creditNotesService] Error inserting credit note items:", itemsError);
+      throw new Error("Failed to create credit note items (check row-level security).");
     }
-  }
 
-  // 3) Mark invoice as credited
-  const { error: updateError } = await supabase.from("invoices").update({ status: "credited" }).eq("id", invoice.id);
-
-  if (updateError) {
-    // Not critical for creating the CN, but good to log
-    console.error("Failed to update invoice status to credited:", updateError);
-  }
-
-  return insertedCN;
+    return {
+      success: true,
+      creditNoteId,
+    };
+  },
 };
