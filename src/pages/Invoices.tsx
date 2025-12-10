@@ -1,3 +1,4 @@
+// src/pages/Invoices.tsx
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,7 +33,7 @@ import {
   Trash2,
   Shield,
   CheckCircle,
-  FileMinus2, // NEW
+  FileMinus2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -48,8 +49,7 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
-import { creditNotesService } from "@/services/creditNotesService"; // ✅ FIXED
-
+import { creditNotesService } from "@/services/creditNotesService";
 
 interface Invoice {
   id: string;
@@ -114,9 +114,6 @@ const Invoices = () => {
   });
   const [markPaidLoading, setMarkPaidLoading] = useState(false);
 
-  // NEW: track which invoice is currently issuing a credit note
-  const [issuingCreditNoteId, setIssuingCreditNoteId] = useState<string | null>(null);
-
   const fetchInvoices = async () => {
     // Return early if no user
     if (!user) {
@@ -175,7 +172,11 @@ const Invoices = () => {
 
     // Filter by status
     if (statusFilter !== "all") {
-      filtered = filtered.filter((invoice) => invoice.status === statusFilter);
+      if (statusFilter === "issued") {
+        filtered = filtered.filter((invoice) => (invoice as any).is_issued);
+      } else {
+        filtered = filtered.filter((invoice) => invoice.status === statusFilter);
+      }
     }
 
     setFilteredInvoices(filtered);
@@ -360,59 +361,6 @@ const Invoices = () => {
     }
   };
 
-  // NEW: create a credit note from an issued invoice
-  const handleIssueCreditNote = async (invoice: Invoice) => {
-  if (!user) return;
-
-  try {
-    const result = await creditNotesService.createCreditNoteFromInvoice(
-      invoice.id,
-      user.id
-    );
-
-    if (result?.success) {
-      toast({
-        title: "Credit note issued",
-        description: `A full credit note was created for invoice ${invoice.invoice_number}.`,
-      });
-      fetchInvoices();
-    }
-  } catch (error: any) {
-    console.error("Error issuing credit note:", error);
-    toast({
-      title: "Error issuing credit note",
-      description: error?.message || "Failed to create credit note",
-      variant: "destructive",
-    });
-  }
-};
-
-      setIssuingCreditNoteId(invoice.id);
-
-      const cn = await createCreditNoteFromInvoice({
-        invoiceId: invoice.id,
-        reason: `Credit note for invoice ${invoice.invoice_number}`,
-      });
-
-      toast({
-        title: "Credit note created",
-        description: `Credit note ${cn.credit_note_number} has been created.`,
-      });
-
-      // Refresh invoice list so status updates to credited
-      fetchInvoices();
-    } catch (error: any) {
-      console.error("Error issuing credit note:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create credit note.",
-        variant: "destructive",
-      });
-    } finally {
-      setIssuingCreditNoteId(null);
-    }
-  };
-
   const getStatusBadge = (invoice: Invoice) => {
     // Determine actual status based on is_issued and status
     const isIssued = (invoice as any).is_issued;
@@ -448,6 +396,31 @@ const Invoices = () => {
       label: "Draft",
       icon: null,
     };
+  };
+
+  // 👉 NEW: Issue Credit Note handler
+  const handleIssueCreditNote = async (invoice: Invoice) => {
+    if (!user) return;
+
+    try {
+      const result = await creditNotesService.createCreditNoteFromInvoice(invoice.id, user.id);
+
+      if (result?.success) {
+        toast({
+          title: "Credit note issued",
+          description: `A full credit note was created for invoice ${invoice.invoice_number}.`,
+        });
+        // Refresh invoice list so status can change to "credited" if you wire that up later
+        fetchInvoices();
+      }
+    } catch (error: any) {
+      console.error("Error issuing credit note:", error);
+      toast({
+        title: "Error issuing credit note",
+        description: error?.message || "Failed to create credit note from this invoice.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -607,6 +580,19 @@ const Invoices = () => {
                                   Paid
                                 </Button>
                               )}
+
+                              {(invoice as any).is_issued && invoice.status !== "credited" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
+                                  onClick={() => handleIssueCreditNote(invoice)}
+                                >
+                                  <FileMinus2 className="h-3.5 w-3.5 mr-1" />
+                                  Credit
+                                </Button>
+                              )}
+
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" className="h-8 w-8 p-0">
@@ -632,18 +618,6 @@ const Invoices = () => {
                                     <Download className="h-4 w-4 mr-2" />
                                     Download PDF
                                   </DropdownMenuItem>
-
-                                  {/* NEW: Issue Credit Note for issued, non-credited invoices */}
-                                  {(invoice as any).is_issued && invoice.status !== "credited" && (
-                                    <DropdownMenuItem
-                                      onClick={() => handleIssueCreditNote(invoice)}
-                                      disabled={issuingCreditNoteId === invoice.id}
-                                    >
-                                      <FileMinus2 className="h-4 w-4 mr-2" />
-                                      {issuingCreditNoteId === invoice.id ? "Issuing..." : "Issue Credit Note"}
-                                    </DropdownMenuItem>
-                                  )}
-
                                   {!(invoice as any).is_issued && (
                                     <DropdownMenuItem
                                       onClick={() => handleDeleteInvoice(invoice.id)}
@@ -678,7 +652,9 @@ const Invoices = () => {
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
           <link
-            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(template?.font_family || "Inter")}:wght@400;600;700&display=swap`}
+            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+              template?.font_family || "Inter",
+            )}:wght@400;600;700&display=swap`}
             rel="stylesheet"
           />
         </div>
@@ -694,10 +670,18 @@ const Invoices = () => {
             --th-text: ${(template as any)?.line_item_header_text || "#111827"};
 
             /* margins (cm) */
-            --m-top: ${typeof (template as any)?.margin_top === "number" ? `${(template as any).margin_top}cm` : "1.2cm"};
-            --m-right: ${typeof (template as any)?.margin_right === "number" ? `${(template as any).margin_right}cm` : "1.2cm"};
-            --m-bottom: ${typeof (template as any)?.margin_bottom === "number" ? `${(template as any).margin_bottom}cm` : "1.2cm"};
-            --m-left: ${typeof (template as any)?.margin_left === "number" ? `${(template as any).margin_left}cm` : "1.2cm"};
+            --m-top: ${
+              typeof (template as any)?.margin_top === "number" ? `${(template as any).margin_top}cm` : "1.2cm"
+            };
+            --m-right: ${
+              typeof (template as any)?.margin_right === "number" ? `${(template as any).margin_right}cm` : "1.2cm"
+            };
+            --m-bottom: ${
+              typeof (template as any)?.margin_bottom === "number" ? `${(template as any).margin_bottom}cm` : "1.2cm"
+            };
+            --m-left: ${
+              typeof (template as any)?.margin_left === "number" ? `${(template as any).margin_left}cm` : "1.2cm"
+            };
 
             width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
             font-family: var(--font);
@@ -824,7 +808,12 @@ const Invoices = () => {
                   step="0.01"
                   min="0"
                   value={markPaidData.amount}
-                  onChange={(e) => setMarkPaidData({ ...markPaidData, amount: e.target.value })}
+                  onChange={(e) =>
+                    setMarkPaidData({
+                      ...markPaidData,
+                      amount: e.target.value,
+                    })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -833,7 +822,12 @@ const Invoices = () => {
                   id="mark_paid_date"
                   type="date"
                   value={markPaidData.payment_date}
-                  onChange={(e) => setMarkPaidData({ ...markPaidData, payment_date: e.target.value })}
+                  onChange={(e) =>
+                    setMarkPaidData({
+                      ...markPaidData,
+                      payment_date: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
