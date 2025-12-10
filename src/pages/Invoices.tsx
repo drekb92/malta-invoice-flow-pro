@@ -1,14 +1,6 @@
-
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -92,17 +84,23 @@ const Invoices = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  
+
   // Load template using unified hook
   const { template } = useInvoiceTemplate();
-  
+
   // Load company and banking settings
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
 
   const [exportInvoice, setExportInvoice] = useState<Invoice | null>(null);
   const [exportItems, setExportItems] = useState<any[]>([]);
-  const [exportTotals, setExportTotals] = useState<{ net: number; vat: number; total: number; originalSubtotal?: number; discountAmount?: number } | null>(null);
+  const [exportTotals, setExportTotals] = useState<{
+    net: number;
+    vat: number;
+    total: number;
+    originalSubtotal?: number;
+    discountAmount?: number;
+  } | null>(null);
 
   // Mark as Paid modal state
   const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false);
@@ -123,7 +121,8 @@ const Invoices = () => {
     try {
       const { data, error } = await supabase
         .from("invoices")
-        .select(`
+        .select(
+          `
           *,
           customers (
             name,
@@ -132,12 +131,13 @@ const Invoices = () => {
             vat_number,
             payment_terms
           )
-        `)
+        `,
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
+
       setInvoices(data || []);
       setFilteredInvoices(data || []);
     } catch (error) {
@@ -160,9 +160,10 @@ const Invoices = () => {
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter((invoice) =>
-        invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.customers?.name.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (invoice) =>
+          invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          invoice.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
@@ -176,13 +177,9 @@ const Invoices = () => {
 
   const handleDeleteInvoice = async (id: string) => {
     if (!user) return;
-    
+
     try {
-      const { error } = await supabase
-        .from("invoices")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
+      const { error } = await supabase.from("invoices").delete().eq("id", id).eq("user_id", user.id);
 
       if (error) throw error;
 
@@ -190,7 +187,7 @@ const Invoices = () => {
         title: "Invoice deleted",
         description: "Invoice has been successfully removed.",
       });
-      
+
       fetchInvoices();
     } catch (error) {
       toast({
@@ -228,15 +225,13 @@ const Invoices = () => {
     setMarkPaidLoading(true);
     try {
       // Insert payment record
-      const { error: paymentError } = await supabase
-        .from("payments")
-        .insert({
-          user_id: user.id,
-          invoice_id: markPaidInvoice.id,
-          amount: amount,
-          payment_date: markPaidData.payment_date,
-          method: "bank_transfer",
-        });
+      const { error: paymentError } = await supabase.from("payments").insert({
+        user_id: user.id,
+        invoice_id: markPaidInvoice.id,
+        amount: amount,
+        payment_date: markPaidData.payment_date,
+        method: "bank_transfer",
+      });
 
       if (paymentError) throw paymentError;
 
@@ -271,50 +266,50 @@ const Invoices = () => {
 
   const handleDownloadPDF = async (invoiceId: string) => {
     try {
-      console.log('[Invoices] Starting PDF download for invoice:', invoiceId);
-      
-      const invoice = invoices.find(inv => inv.id === invoiceId);
+      console.log("[Invoices] Starting PDF download for invoice:", invoiceId);
+
+      const invoice = invoices.find((inv) => inv.id === invoiceId);
       if (!invoice) {
-        throw new Error('Invoice not found');
+        throw new Error("Invoice not found");
       }
 
       // Validate template is loaded
       if (!template) {
-        console.error('[Invoices] Template not loaded');
-        throw new Error('Template not loaded. Please refresh the page.');
+        console.error("[Invoices] Template not loaded");
+        throw new Error("Template not loaded. Please refresh the page.");
       }
 
       // Validate company settings
       if (!companySettings?.company_name) {
         toast({
-          title: 'Company Settings Required',
-          description: 'Please complete your company information in Settings before downloading PDFs.',
-          variant: 'destructive',
+          title: "Company Settings Required",
+          description: "Please complete your company information in Settings before downloading PDFs.",
+          variant: "destructive",
         });
         return;
       }
 
       // Fetch items
       const { data: itemsData, error: itemsError } = await supabase
-        .from('invoice_items')
-        .select('*')
-        .eq('invoice_id', invoiceId);
+        .from("invoice_items")
+        .select("*")
+        .eq("invoice_id", invoiceId);
       if (itemsError) throw itemsError;
 
       const { data: totalsData } = await supabase
-        .from('invoice_totals')
-        .select('net_amount, vat_amount, total_amount')
-        .eq('invoice_id', invoiceId)
+        .from("invoice_totals")
+        .select("net_amount, vat_amount, total_amount")
+        .eq("invoice_id", invoiceId)
         .maybeSingle();
 
       // Calculate discount
       const originalSubtotal = (itemsData || []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
       const discountValue = Number(invoice.discount_value || 0);
-      const discountType = (invoice.discount_type as 'amount' | 'percent') || 'amount';
+      const discountType = (invoice.discount_type as "amount" | "percent") || "amount";
       let discountAmount = 0;
-      
+
       if (discountValue > 0) {
-        if (discountType === 'percent') {
+        if (discountType === "percent") {
           discountAmount = originalSubtotal * (discountValue / 100);
         } else {
           discountAmount = discountValue;
@@ -323,18 +318,20 @@ const Invoices = () => {
 
       const netAfterDiscount = originalSubtotal - discountAmount;
       const net = totalsData?.net_amount ?? netAfterDiscount;
-      const vat = totalsData?.vat_amount ?? (itemsData || []).reduce((s, i) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
+      const vat =
+        totalsData?.vat_amount ??
+        (itemsData || []).reduce((s, i) => s + i.quantity * i.unit_price * (i.vat_rate || 0), 0);
       const total = totalsData?.total_amount ?? net + vat;
 
       // Set export state with invoice data
       setExportInvoice(invoice);
       setExportItems(itemsData || []);
-      setExportTotals({ 
-        net: Number(net), 
-        vat: Number(vat), 
+      setExportTotals({
+        net: Number(net),
+        vat: Number(vat),
         total: Number(total),
         originalSubtotal,
-        discountAmount
+        discountAmount,
       });
 
       // Wait for DOM update
@@ -342,17 +339,17 @@ const Invoices = () => {
 
       // Use edge PDF generation
       await downloadPdfFromFunction(`Invoice-${invoice.invoice_number}`, template.font_family);
-      
-      toast({ 
-        title: 'Success', 
-        description: 'PDF downloaded successfully' 
+
+      toast({
+        title: "Success",
+        description: "PDF downloaded successfully",
       });
     } catch (error) {
-      console.error('[Invoices] PDF download error:', error);
+      console.error("[Invoices] PDF download error:", error);
       toast({
-        title: 'Error',
-        description: `Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: 'destructive',
+        title: "Error",
+        description: `Failed to download PDF: ${error instanceof Error ? error.message : "Unknown error"}`,
+        variant: "destructive",
       });
     }
   };
@@ -362,19 +359,19 @@ const Invoices = () => {
     const isIssued = (invoice as any).is_issued;
     const status = invoice.status;
 
-    if (status === 'credited') {
+    if (status === "credited") {
       return {
         className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
         label: "Credited",
-        icon: null
+        icon: null,
       };
     }
 
-    if (status === 'paid') {
+    if (status === "paid") {
       return {
         className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
         label: "Paid",
-        icon: null
+        icon: null,
       };
     }
 
@@ -382,7 +379,7 @@ const Invoices = () => {
       return {
         className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
         label: "Issued",
-        icon: Shield
+        icon: Shield,
       };
     }
 
@@ -390,38 +387,28 @@ const Invoices = () => {
     return {
       className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
       label: "Draft",
-      icon: null
+      icon: null,
     };
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="md:ml-64">
         <header className="bg-card border-b border-border">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
-                <p className="text-muted-foreground">
-                  Manage your Malta VAT-compliant invoices
-                </p>
+                <p className="text-muted-foreground">Manage your Malta VAT-compliant invoices</p>
               </div>
               <div className="flex items-center space-x-3">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate('/invoices/import?entity=invoices')}
-                >
+                <Button variant="outline" size="sm" onClick={() => navigate("/invoices/import?entity=invoices")}>
                   <Upload className="h-4 w-4 mr-2" />
                   Import CSV
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate('/invoices/export?entity=invoices')}
-                >
+                <Button variant="outline" size="sm" onClick={() => navigate("/invoices/export?entity=invoices")}>
                   <Download className="h-4 w-4 mr-2" />
                   Export All
                 </Button>
@@ -452,7 +439,8 @@ const Invoices = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filter ({statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
+                  Filter (
+                  {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-background border border-border z-50">
@@ -494,7 +482,9 @@ const Invoices = () => {
                   ) : filteredInvoices.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-6">
-                        {searchTerm || statusFilter !== "all" ? "No invoices found matching your criteria." : "No invoices found."}
+                        {searchTerm || statusFilter !== "all"
+                          ? "No invoices found matching your criteria."
+                          : "No invoices found."}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -502,7 +492,7 @@ const Invoices = () => {
                       const totalAmount = invoice.total_amount || invoice.amount || 0;
                       const statusBadge = getStatusBadge(invoice);
                       const StatusIcon = statusBadge.icon;
-                      
+
                       return (
                         <TableRow key={invoice.id}>
                           <TableCell className="font-medium">
@@ -520,7 +510,9 @@ const Invoices = () => {
                             <div className="flex items-center gap-2">
                               <span>{formatCurrency(totalAmount)}</span>
                               {Number(invoice.discount_value || 0) > 0 && (
-                                <Badge variant="secondary" className="text-xs">Discount</Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  Discount
+                                </Badge>
                               )}
                             </div>
                           </TableCell>
@@ -545,7 +537,7 @@ const Invoices = () => {
                           <TableCell>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              {invoice.status !== 'paid' && invoice.status !== 'credited' && (
+                              {invoice.status !== "paid" && invoice.status !== "credited" && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -556,50 +548,48 @@ const Invoices = () => {
                                   Paid
                                 </Button>
                               )}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-background border border-border z-50">
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/invoices/${invoice.id}`}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View
-                                  </Link>
-                                </DropdownMenuItem>
-                                {!(invoice as any).is_issued && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-background border border-border z-50">
                                   <DropdownMenuItem asChild>
-                                    <Link to={`/invoices/edit/${invoice.id}`}>
-                                      <Edit className="h-4 w-4 mr-2" />
-                                      Edit
+                                    <Link to={`/invoices/${invoice.id}`}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      View
                                     </Link>
                                   </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem 
-                                  onClick={() => handleDownloadPDF(invoice.id)}
-                                >
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download PDF
-                                </DropdownMenuItem>
-                                {!(invoice as any).is_issued && (
-                                  <DropdownMenuItem 
-                                    onClick={() => handleDeleteInvoice(invoice.id)}
-                                    className="text-red-600"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
+                                  {!(invoice as any).is_issued && (
+                                    <DropdownMenuItem asChild>
+                                      <Link to={`/invoices/edit/${invoice.id}`}>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </Link>
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => handleDownloadPDF(invoice.id)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download PDF
                                   </DropdownMenuItem>
-                                )}
-                                {(invoice as any).is_issued && (
-                                  <DropdownMenuItem disabled className="text-muted-foreground">
-                                    <Shield className="h-4 w-4 mr-2" />
-                                    Immutable (VAT Compliant)
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                  {!(invoice as any).is_issued && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleDeleteInvoice(invoice.id)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
+                                  {(invoice as any).is_issued && (
+                                    <DropdownMenuItem disabled className="text-muted-foreground">
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      Immutable (VAT Compliant)
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -613,11 +603,11 @@ const Invoices = () => {
         </main>
 
         {/* Hidden Font Injector for Google Font based on template */}
-        <div style={{ display: 'none' }}>
+        <div style={{ display: "none" }}>
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
           <link
-            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(template?.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+            href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(template?.font_family || "Inter")}:wght@400;600;700&display=swap`}
             rel="stylesheet"
           />
         </div>
@@ -626,17 +616,17 @@ const Invoices = () => {
         <style>{`
           @page { size: A4; margin: 0; }
           #invoice-preview-root{
-            --font: '${template?.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-            --color-primary: ${template?.primary_color || '#111827'};
-            --color-accent: ${template?.accent_color || '#2563EB'};
-            --th-bg: ${(template as any)?.line_item_header_bg || '#F3F4F6'};
-            --th-text: ${(template as any)?.line_item_header_text || '#111827'};
+            --font: '${template?.font_family || "Inter"}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            --color-primary: ${template?.primary_color || "#111827"};
+            --color-accent: ${template?.accent_color || "#2563EB"};
+            --th-bg: ${(template as any)?.line_item_header_bg || "#F3F4F6"};
+            --th-text: ${(template as any)?.line_item_header_text || "#111827"};
 
             /* margins (cm) */
-            --m-top: ${typeof (template as any)?.margin_top === 'number' ? `${(template as any).margin_top}cm` : '1.2cm'};
-            --m-right: ${typeof (template as any)?.margin_right === 'number' ? `${(template as any).margin_right}cm` : '1.2cm'};
-            --m-bottom: ${typeof (template as any)?.margin_bottom === 'number' ? `${(template as any).margin_bottom}cm` : '1.2cm'};
-            --m-left: ${typeof (template as any)?.margin_left === 'number' ? `${(template as any).margin_left}cm` : '1.2cm'};
+            --m-top: ${typeof (template as any)?.margin_top === "number" ? `${(template as any).margin_top}cm` : "1.2cm"};
+            --m-right: ${typeof (template as any)?.margin_right === "number" ? `${(template as any).margin_right}cm` : "1.2cm"};
+            --m-bottom: ${typeof (template as any)?.margin_bottom === "number" ? `${(template as any).margin_bottom}cm` : "1.2cm"};
+            --m-left: ${typeof (template as any)?.margin_left === "number" ? `${(template as any).margin_left}cm` : "1.2cm"};
 
             width: 21cm; min-height: 29.7cm; background:#fff; color: var(--color-primary);
             font-family: var(--font);
@@ -660,7 +650,7 @@ const Invoices = () => {
         `}</style>
 
         {/* Hidden A4 DOM used for 1:1 export */}
-        <div style={{ display: 'none' }}>
+        <div style={{ display: "none" }}>
           {exportInvoice && template && (
             <InvoiceErrorBoundary>
               <UnifiedInvoiceLayout
@@ -670,10 +660,10 @@ const Invoices = () => {
                 debug={false}
                 invoiceData={{
                   invoiceNumber: exportInvoice.invoice_number,
-                  invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), 'yyyy-MM-dd'),
+                  invoiceDate: format(new Date(exportInvoice.invoice_date || exportInvoice.created_at), "yyyy-MM-dd"),
                   dueDate: exportInvoice.due_date,
                   customer: {
-                    name: exportInvoice.customers?.name || 'Unknown Customer',
+                    name: exportInvoice.customers?.name || "Unknown Customer",
                     email: exportInvoice.customers?.email || undefined,
                     address: exportInvoice.customers?.address || undefined,
                     vat_number: exportInvoice.customers?.vat_number || undefined,
@@ -690,47 +680,58 @@ const Invoices = () => {
                     vatTotal: Number(exportTotals?.vat ?? 0),
                     grandTotal: Number(exportTotals?.total ?? 0),
                   },
-                  discount: (exportTotals?.discountAmount ?? 0) > 0 ? {
-                    type: (exportInvoice.discount_type as 'amount' | 'percent') || 'amount',
-                    value: Number(exportInvoice.discount_value || 0),
-                    amount: exportTotals?.discountAmount ?? 0,
-                  } : undefined,
+                  discount:
+                    (exportTotals?.discountAmount ?? 0) > 0
+                      ? {
+                          type: (exportInvoice.discount_type as "amount" | "percent") || "amount",
+                          value: Number(exportInvoice.discount_value || 0),
+                          amount: exportTotals?.discountAmount ?? 0,
+                        }
+                      : undefined,
                 }}
                 templateSettings={{
                   primaryColor: template.primary_color,
                   accentColor: template.accent_color,
                   fontFamily: template.font_family,
                   fontSize: template.font_size,
-                  layout: template?.layout || 'default',
-                  headerLayout: template?.header_layout || 'default',
-                  tableStyle: template?.table_style || 'default',
-                  totalsStyle: template?.totals_style || 'default',
+                  layout: template?.layout || "default",
+                  headerLayout: template?.header_layout || "default",
+                  tableStyle: template?.table_style || "default",
+                  totalsStyle: template?.totals_style || "default",
                   bankingVisibility: template?.banking_visibility !== false,
-                  bankingStyle: template?.banking_style || 'default',
+                  bankingStyle: template?.banking_style || "default",
                   marginTop: template?.margin_top || 20,
                   marginRight: template?.margin_right || 20,
                   marginBottom: template?.margin_bottom || 20,
-                  marginLeft: template?.margin_left || 20
+                  marginLeft: template?.margin_left || 20,
                 }}
-                companySettings={companySettings ? {
-                  name: companySettings.company_name,
-                  email: companySettings.company_email,
-                  phone: companySettings.company_phone,
-                  address: companySettings.company_address,
-                  city: companySettings.company_city,
-                  state: companySettings.company_state,
-                  zipCode: companySettings.company_zip_code,
-                  country: companySettings.company_country,
-                  taxId: companySettings.company_vat_number,
-                  registrationNumber: companySettings.company_registration_number,
-                  logo: companySettings.company_logo,
-                } : undefined}
-                bankingSettings={bankingSettings ? {
-                  bankName: bankingSettings.bank_name,
-                  accountName: bankingSettings.bank_account_name,
-                  iban: bankingSettings.bank_iban,
-                  swiftCode: bankingSettings.bank_swift_code,
-                } : undefined}
+                companySettings={
+                  companySettings
+                    ? {
+                        name: companySettings.company_name,
+                        email: companySettings.company_email,
+                        phone: companySettings.company_phone,
+                        address: companySettings.company_address,
+                        city: companySettings.company_city,
+                        state: companySettings.company_state,
+                        zipCode: companySettings.company_zip_code,
+                        country: companySettings.company_country,
+                        taxId: companySettings.company_vat_number,
+                        registrationNumber: companySettings.company_registration_number,
+                        logo: companySettings.company_logo,
+                      }
+                    : undefined
+                }
+                bankingSettings={
+                  bankingSettings
+                    ? {
+                        bankName: bankingSettings.bank_name,
+                        accountName: bankingSettings.bank_account_name,
+                        iban: bankingSettings.bank_iban,
+                        swiftCode: bankingSettings.bank_swift_code,
+                      }
+                    : undefined
+                }
               />
             </InvoiceErrorBoundary>
           )}
@@ -741,9 +742,7 @@ const Invoices = () => {
           <DialogContent className="sm:max-w-[360px]">
             <DialogHeader>
               <DialogTitle>Mark as Paid</DialogTitle>
-              <DialogDescription>
-                Record payment for {markPaidInvoice?.invoice_number}
-              </DialogDescription>
+              <DialogDescription>Record payment for {markPaidInvoice?.invoice_number}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
@@ -777,7 +776,6 @@ const Invoices = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
       </div>
     </div>
   );
