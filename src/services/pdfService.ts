@@ -6,7 +6,7 @@ export interface InvoiceData {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
-  documentType?: "INVOICE" | "CREDIT NOTE";
+  documentType?: "INVOICE" | "CREDIT NOTE"; // NEW
   customer: {
     name: string;
     email?: string;
@@ -70,7 +70,6 @@ export class PDFGenerator {
     // Company info (right side)
     const rightX = this.pageWidth - this.margin - 80;
 
-    // NEW: allow CREDIT NOTE
     const title = invoiceData.documentType || "INVOICE";
 
     this.setColor(this.template.primary_color);
@@ -87,7 +86,6 @@ export class PDFGenerator {
     this.currentY += 6;
     this.pdf.text(`Date: ${invoiceData.invoiceDate}`, rightX, this.currentY);
 
-    // For credit notes we don't really need a “Due Date”, but we keep it for now
     this.currentY += 6;
     this.pdf.text(`Due Date: ${invoiceData.dueDate}`, rightX, this.currentY);
 
