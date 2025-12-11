@@ -386,9 +386,7 @@ export const InvoiceSettlementSheet = ({
                   {statusBadge.label}
                 </Badge>
                 <span>·</span>
-                <span>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</span>
-                <span>·</span>
-                <span>Due {format(new Date(invoice.due_date), "dd MMM yyyy")}</span>
+                <span>{customer?.name || "Loading..."}</span>
               </div>
             </div>
           </div>
