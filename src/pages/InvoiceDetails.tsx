@@ -736,6 +736,19 @@ const InvoiceDetails = () => {
                     <span className="font-bold">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
                   </div>
                 </div>
+                {/* Payment Summary */}
+                <div className="border-t pt-1 mt-1 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Paid:</span>
+                    <span className="font-medium text-muted-foreground">€{formatNumber(totalPaid, 2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Remaining:</span>
+                    <span className={`font-bold ${remainingBalance <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                      €{formatNumber(Math.max(0, remainingBalance), 2)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -776,25 +789,6 @@ const InvoiceDetails = () => {
                 </Table>
               )}
 
-              {/* Payment Summary */}
-              <div className="mt-3 pt-3 border-t space-y-1 max-w-xs ml-auto text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Paid:</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">€{formatNumber(totalPaid, 2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Remaining:</span>
-                  <span className={`font-bold ${remainingBalance <= 0 ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}`}>
-                    €{formatNumber(Math.max(0, remainingBalance), 2)}
-                  </span>
-                </div>
-                {remainingBalance <= 0 && (
-                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 w-fit ml-auto text-xs">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Fully Paid
-                  </Badge>
-                )}
-              </div>
             </CardContent>
           </Card>
 
