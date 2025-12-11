@@ -607,64 +607,56 @@ const InvoiceDetails = () => {
           </div>
         </header>
 
-        <main className="p-6 space-y-6">
+        <main className="p-4 space-y-4">
           {/* Malta VAT Compliance Alert */}
           {(invoice as any).is_issued ? (
-            <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+            <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800 py-2">
               <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertTitle className="text-green-800 dark:text-green-300">
+              <AlertTitle className="text-green-800 dark:text-green-300 text-sm">
                 Malta VAT Compliant - Invoice Issued
               </AlertTitle>
-              <AlertDescription className="text-green-700 dark:text-green-400">
-                This invoice was issued on {format(new Date((invoice as any).issued_at), "dd/MM/yyyy 'at' HH:mm")} and
-                is now immutable per Malta VAT regulations. It cannot be edited or deleted. To correct this invoice,
-                create a credit note instead.
+              <AlertDescription className="text-green-700 dark:text-green-400 text-xs">
+                Issued on {format(new Date((invoice as any).issued_at), "dd/MM/yyyy 'at' HH:mm")}. Immutable per Malta VAT regulations. Create a credit note to correct.
               </AlertDescription>
             </Alert>
           ) : (
-            <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
+            <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800 py-2">
               <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              <AlertTitle className="text-yellow-800 dark:text-yellow-300">Draft Invoice - Not Yet Issued</AlertTitle>
-              <AlertDescription className="text-yellow-700 dark:text-yellow-400">
-                This invoice is in draft mode and can still be edited. Once you click "Issue Invoice", it becomes
-                immutable per Malta VAT compliance requirements. Issued invoices cannot be changed - only corrected via
-                credit notes.
+              <AlertTitle className="text-yellow-800 dark:text-yellow-300 text-sm">Draft Invoice</AlertTitle>
+              <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-xs">
+                Can be edited. Once issued, it becomes immutable per Malta VAT compliance.
               </AlertDescription>
             </Alert>
           )}
 
           {/* Invoice Header */}
           <Card>
-            <CardHeader>
-              <CardTitle>Invoice Information</CardTitle>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-base">Invoice Information</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <CardContent className="px-4 pb-4 pt-0">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Invoice Number</label>
-                  <p className="text-lg font-semibold">{invoice.invoice_number}</p>
+                  <label className="text-xs font-medium text-muted-foreground">Invoice Number</label>
+                  <p className="font-semibold">{invoice.invoice_number}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Customer</label>
-                  <p className="text-lg">{invoice.customers?.name || "Unknown Customer"}</p>
+                  <label className="text-xs font-medium text-muted-foreground">Customer</label>
+                  <p>{invoice.customers?.name || "Unknown Customer"}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Issue Date</label>
-                  <p className="text-lg">
-                    {format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy")}
-                  </p>
+                  <label className="text-xs font-medium text-muted-foreground">Issue Date</label>
+                  <p>{format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy")}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Due Date</label>
-                  <p className="text-lg">{format(new Date(invoice.due_date), "dd/MM/yyyy")}</p>
+                  <label className="text-xs font-medium text-muted-foreground">Due Date</label>
+                  <p>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Status</label>
-                  <div className="mt-1">
-                    <Badge className={getStatusBadge(invoice.status)}>
-                      {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                    </Badge>
-                  </div>
+                  <label className="text-xs font-medium text-muted-foreground">Status</label>
+                  <Badge className={`${getStatusBadge(invoice.status)} mt-0.5`}>
+                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  </Badge>
                 </div>
               </div>
             </CardContent>
@@ -672,26 +664,26 @@ const InvoiceDetails = () => {
 
           {/* Line Items */}
           <Card>
-            <CardHeader>
-              <CardTitle>Line Items</CardTitle>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-base">Line Items</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 pb-4 pt-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Unit Price</TableHead>
-                    <TableHead>VAT Rate</TableHead>
-                    <TableHead className="text-right">Line Total</TableHead>
+                    <TableHead className="py-2 text-xs">Description</TableHead>
+                    <TableHead className="py-2 text-xs">Qty</TableHead>
+                    <TableHead className="py-2 text-xs">Unit</TableHead>
+                    <TableHead className="py-2 text-xs">Price</TableHead>
+                    <TableHead className="py-2 text-xs">VAT</TableHead>
+                    <TableHead className="py-2 text-xs text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {invoiceItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6">
-                        No line items found for this invoice.
+                      <TableCell colSpan={6} className="text-center py-4 text-sm">
+                        No line items found.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -699,12 +691,12 @@ const InvoiceDetails = () => {
                       const lineTotal = item.quantity * item.unit_price;
                       return (
                         <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.description}</TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>{item.unit || "-"}</TableCell>
-                          <TableCell>€{formatNumber(item.unit_price, 2)}</TableCell>
-                          <TableCell>{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
-                          <TableCell className="text-right">€{formatNumber(lineTotal, 2)}</TableCell>
+                          <TableCell className="py-2 font-medium text-sm">{item.description}</TableCell>
+                          <TableCell className="py-2 text-sm">{item.quantity}</TableCell>
+                          <TableCell className="py-2 text-sm">{item.unit || "-"}</TableCell>
+                          <TableCell className="py-2 text-sm">€{formatNumber(item.unit_price, 2)}</TableCell>
+                          <TableCell className="py-2 text-sm">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
+                          <TableCell className="py-2 text-sm text-right">€{formatNumber(lineTotal, 2)}</TableCell>
                         </TableRow>
                       );
                     })
@@ -716,16 +708,14 @@ const InvoiceDetails = () => {
 
           {/* Totals */}
           <Card>
-            <CardHeader>
-              <CardTitle>Invoice Totals</CardTitle>
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-base">Invoice Totals</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-w-sm ml-auto">
+            <CardContent className="px-4 pb-3 pt-0">
+              <div className="space-y-1 max-w-xs ml-auto text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Net Amount:</span>
-                  <span className="font-medium">
-                    €{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}
-                  </span>
+                  <span className="font-medium">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
                 </div>
                 {discountInfo.amount > 0 && (
                   <div className="flex justify-between">
@@ -738,16 +728,12 @@ const InvoiceDetails = () => {
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">VAT Amount:</span>
-                  <span className="font-medium">
-                    €{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}
-                  </span>
+                  <span className="font-medium">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
                 </div>
-                <div className="border-t pt-2">
+                <div className="border-t pt-1 mt-1">
                   <div className="flex justify-between">
-                    <span className="text-lg font-semibold">Total Amount:</span>
-                    <span className="text-lg font-bold">
-                      €{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}
-                    </span>
+                    <span className="font-semibold">Total Amount:</span>
+                    <span className="font-bold">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
                   </div>
                 </div>
               </div>
@@ -756,34 +742,34 @@ const InvoiceDetails = () => {
 
           {/* Payment History */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
+            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
                 Payment History
               </CardTitle>
-              <Button onClick={() => setShowPaymentDialog(true)} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button onClick={() => setShowPaymentDialog(true)} size="sm" className="h-7 text-xs">
+                <Plus className="h-3 w-3 mr-1" />
                 Add Payment
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 pb-3 pt-0">
               {payments.length === 0 ? (
-                <p className="text-muted-foreground text-center py-6">No payments recorded yet.</p>
+                <p className="text-muted-foreground text-center py-3 text-sm">No payments recorded yet.</p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
+                      <TableHead className="py-2 text-xs">Date</TableHead>
+                      <TableHead className="py-2 text-xs">Amount</TableHead>
+                      <TableHead className="py-2 text-xs">Method</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {payments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell>{format(new Date(payment.payment_date), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="font-medium">€{formatNumber(payment.amount, 2)}</TableCell>
-                        <TableCell>{getMethodLabel(payment.method)}</TableCell>
+                        <TableCell className="py-2 text-sm">{format(new Date(payment.payment_date), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="py-2 text-sm font-medium">€{formatNumber(payment.amount, 2)}</TableCell>
+                        <TableCell className="py-2 text-sm">{getMethodLabel(payment.method)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -791,25 +777,19 @@ const InvoiceDetails = () => {
               )}
 
               {/* Payment Summary */}
-              <div className="mt-4 pt-4 border-t space-y-2 max-w-sm ml-auto">
+              <div className="mt-3 pt-3 border-t space-y-1 max-w-xs ml-auto text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Paid:</span>
                   <span className="font-medium text-green-600 dark:text-green-400">€{formatNumber(totalPaid, 2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Remaining Balance:</span>
-                  <span
-                    className={`font-bold ${
-                      remainingBalance <= 0
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-orange-600 dark:text-orange-400"
-                    }`}
-                  >
+                  <span className="text-muted-foreground">Remaining:</span>
+                  <span className={`font-bold ${remainingBalance <= 0 ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}`}>
                     €{formatNumber(Math.max(0, remainingBalance), 2)}
                   </span>
                 </div>
                 {remainingBalance <= 0 && (
-                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 w-fit ml-auto">
+                  <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 w-fit ml-auto text-xs">
                     <CheckCircle className="h-3 w-3 mr-1" />
                     Fully Paid
                   </Badge>
@@ -821,60 +801,46 @@ const InvoiceDetails = () => {
           {/* Audit Trail */}
           {(invoice as any).is_issued && auditTrail.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
                   Audit Trail (Malta VAT Compliance)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="px-4 pb-3 pt-0">
+                <div className="space-y-2">
                   {auditTrail.map((entry, index) => (
-                    <div key={entry.id || index} className="border-l-2 border-primary pl-4 py-2">
+                    <div key={entry.id || index} className="border-l-2 border-primary pl-3 py-1">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-semibold text-sm">
+                          <p className="font-semibold text-xs">
                             {entry.action === "issued" && "Invoice Issued"}
                             {entry.action === "credit_note_created" && "Credit Note Created"}
                             {entry.action === "created" && "Invoice Created"}
                             {entry.action === "correction_note_added" && "Correction Note Added"}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground">
                             {format(new Date(entry.timestamp), "dd/MM/yyyy 'at' HH:mm:ss")}
                           </p>
                           {entry.new_data && (
-                            <div className="mt-2 text-sm">
+                            <div className="text-xs text-muted-foreground">
                               {entry.action === "issued" && (
-                                <p className="text-muted-foreground">
-                                  Invoice #{entry.new_data.invoice_number} issued and locked
-                                  {entry.new_data.hash && (
-                                    <span className="block text-xs font-mono mt-1">
-                                      Hash: {entry.new_data.hash.substring(0, 16)}...
-                                    </span>
-                                  )}
-                                </p>
+                                <span>Invoice #{entry.new_data.invoice_number} issued and locked</span>
                               )}
                               {entry.action === "credit_note_created" && (
-                                <p className="text-muted-foreground">
-                                  Credit Note {entry.new_data.credit_note_number} created for €
-                                  {formatNumber(entry.new_data.amount, 2)}
-                                  <span className="block text-xs mt-1">Reason: {entry.new_data.reason}</span>
-                                </p>
+                                <span>
+                                  {entry.new_data.credit_note_number} for €{formatNumber(entry.new_data.amount, 2)} - {entry.new_data.reason}
+                                </span>
                               )}
                             </div>
                           )}
                         </div>
-                        {entry.ip_address && (
-                          <Badge variant="outline" className="text-xs">
-                            {entry.ip_address}
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-4 border-t pt-4">
-                  This audit trail is maintained for Malta VAT compliance and cannot be altered.
+                <p className="text-xs text-muted-foreground mt-3 border-t pt-2">
+                  Audit trail maintained for Malta VAT compliance.
                 </p>
               </CardContent>
             </Card>
