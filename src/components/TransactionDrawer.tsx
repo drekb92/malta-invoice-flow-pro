@@ -677,77 +677,77 @@ export const TransactionDrawer = ({
                 </div>
               )}
 
-              {/* Type-specific info for Credit Note */}
-              {type === "credit_note" && originalInvoice && (
-                <div className="mt-3">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Reference</h3>
-                  <div className="bg-muted/40 rounded-lg p-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Original Invoice</span>
-                      <span className="font-medium">{originalInvoice.invoice_number}</span>
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-muted-foreground">Reason</span>
-                      <span className="text-right max-w-[180px] truncate" title={(transaction as CreditNoteTransaction).reason}>
-                        {(transaction as CreditNoteTransaction).reason}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Type-specific info for Quotation */}
-              {type === "quotation" && (
-                <div className="mt-3">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Validity</h3>
-                  <div className="bg-muted/40 rounded-lg p-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Issue Date</span>
-                      <span className="font-medium">
-                        {format(new Date((transaction as QuotationTransaction).issue_date), "dd MMM yyyy")}
-                      </span>
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-muted-foreground">Valid Until</span>
-                      <span className="font-medium">
-                        {(transaction as QuotationTransaction).valid_until
-                          ? format(new Date((transaction as QuotationTransaction).valid_until), "dd MMM yyyy")
-                          : "—"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Financial Summary */}
+              {/* ═══════════════════════════════════════════════════════════════
+                  B. DOCUMENT SUMMARY BLOCK - Adapts per type
+                  ═══════════════════════════════════════════════════════════════ */}
               <div className="mt-3">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                  {typeLabel} Summary
+                  {type === "invoice" ? "Invoice" : type === "credit_note" ? "Credit Note" : "Quote"} Summary
                 </h3>
-                <div className="bg-muted/40 rounded-lg p-3 space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{type === "invoice" ? "Original Amount" : "Total Amount"}</span>
-                    <span className="font-medium">{formatCurrency(getTotalAmount())}</span>
-                  </div>
-
-                  {type === "invoice" && totalCredits > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Credit Notes</span>
-                      <span className="text-destructive">– {formatCurrency(totalCredits)}</span>
-                    </div>
-                  )}
-                  {type === "invoice" && totalPayments > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Payments</span>
-                      <span className="text-green-600">– {formatCurrency(totalPayments)}</span>
-                    </div>
-                  )}
-
+                <div className="bg-muted/40 rounded-lg p-3 space-y-2">
+                  {/* INVOICE SUMMARY */}
                   {type === "invoice" && (
                     <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Original Amount</span>
+                        <span className="font-medium">{formatCurrency(getTotalAmount())}</span>
+                      </div>
+                      
+                      {totalCredits > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Credit Notes Applied</span>
+                            <span className="text-destructive font-medium">– {formatCurrency(totalCredits)}</span>
+                          </div>
+                          <div className="ml-1.5 space-y-1">
+                            {creditNotes.map(cn => (
+                              <div
+                                key={cn.id}
+                                className="flex justify-between items-center py-1.5 px-2 bg-muted/50 rounded text-xs"
+                              >
+                                <div className="min-w-0">
+                                  <span className="font-medium">{cn.credit_note_number}</span>
+                                  <span className="text-muted-foreground"> · {format(new Date(cn.credit_note_date), "dd MMM")}</span>
+                                </div>
+                                <span className="text-destructive shrink-0 ml-2">
+                                  – {formatCurrency(getCreditNoteGrossAmount(cn))}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {totalPayments > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Payments Received</span>
+                            <span className="text-green-600 font-medium">– {formatCurrency(totalPayments)}</span>
+                          </div>
+                          <div className="ml-1.5 space-y-1">
+                            {payments.map(p => (
+                              <div
+                                key={p.id}
+                                className="flex justify-between items-center py-1.5 px-2 bg-muted/50 rounded text-xs"
+                              >
+                                <div className="min-w-0">
+                                  <span>{format(new Date(p.payment_date!), "dd MMM yyyy")}</span>
+                                  {p.method && (
+                                    <span className="text-muted-foreground">
+                                      {" "}· {p.method.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-green-600 shrink-0 ml-2">{formatCurrency(Number(p.amount))}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <Separator className="my-1.5" />
                       <div
-                        className={`flex justify-between items-center -mx-3 px-3 py-1.5 rounded-md ${
+                        className={`flex justify-between items-center -mx-3 px-3 py-2 rounded-md ${
                           remainingBalance === 0
                             ? "bg-green-50 dark:bg-green-950/30"
                             : remainingBalance > 0
@@ -760,69 +760,108 @@ export const TransactionDrawer = ({
                       </div>
                     </>
                   )}
+
+                  {/* CREDIT NOTE SUMMARY */}
+                  {type === "credit_note" && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Credit Note Amount</span>
+                        <span className="font-medium">{formatCurrency(getTotalAmount())}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Net Amount</span>
+                        <span>{formatCurrency((transaction as CreditNoteTransaction).amount)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">VAT ({((transaction as CreditNoteTransaction).vat_rate * 100).toFixed(0)}%)</span>
+                        <span>{formatCurrency((transaction as CreditNoteTransaction).amount * (transaction as CreditNoteTransaction).vat_rate)}</span>
+                      </div>
+                      
+                      <Separator className="my-1.5" />
+                      
+                      {originalInvoice && (
+                        <div className="flex justify-between text-sm items-center">
+                          <span className="text-muted-foreground">Applied to Invoice</span>
+                          <button
+                            className="font-medium text-primary hover:underline cursor-pointer"
+                            onClick={() => {
+                              const invId = (transaction as CreditNoteTransaction).original_invoice_id;
+                              if (invId) {
+                                onOpenChange(false);
+                                navigate(`/invoices/${invId}`);
+                              }
+                            }}
+                          >
+                            {originalInvoice.invoice_number}
+                          </button>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Reason</span>
+                        <span className="text-right max-w-[180px] truncate" title={(transaction as CreditNoteTransaction).reason}>
+                          {(transaction as CreditNoteTransaction).reason}
+                        </span>
+                      </div>
+                      
+                      <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
+                        <span className="text-sm font-medium">Status</span>
+                        <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+                          {statusBadge.label}
+                        </Badge>
+                      </div>
+                    </>
+                  )}
+
+                  {/* QUOTATION SUMMARY */}
+                  {type === "quotation" && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Quote Value</span>
+                        <span className="font-semibold">{formatCurrency(getTotalAmount())}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Net Amount</span>
+                        <span>{formatCurrency((transaction as QuotationTransaction).amount || 0)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">VAT Amount</span>
+                        <span>{formatCurrency((transaction as QuotationTransaction).vat_amount || 0)}</span>
+                      </div>
+                      
+                      <Separator className="my-1.5" />
+                      
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Issue Date</span>
+                        <span className="font-medium">
+                          {format(new Date((transaction as QuotationTransaction).issue_date), "dd MMM yyyy")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Valid Until</span>
+                        <span className="font-medium">
+                          {(transaction as QuotationTransaction).valid_until
+                            ? format(new Date((transaction as QuotationTransaction).valid_until), "dd MMM yyyy")
+                            : "—"}
+                        </span>
+                      </div>
+                      
+                      <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
+                        <span className="text-sm font-medium">Acceptance Status</span>
+                        <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+                          {statusBadge.label}
+                        </Badge>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Settlement Breakdown (Invoice only) */}
-              {type === "invoice" && (creditNotes.length > 0 || payments.length > 0) && (
-                <div className="mt-1">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                    Settlement Breakdown
-                  </h3>
-                  <div className="space-y-3">
-                    {creditNotes.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-xs font-medium text-muted-foreground">Credit Notes Applied</h4>
-                        <div className="space-y-1.5 ml-1.5">
-                          {creditNotes.map(cn => (
-                            <div
-                              key={cn.id}
-                              className="flex justify-between items-center py-2 px-2.5 bg-muted/30 rounded-md text-xs"
-                            >
-                              <div className="min-w-0">
-                                <span className="font-medium">{cn.credit_note_number}</span>
-                                <span className="text-muted-foreground"> · {format(new Date(cn.credit_note_date), "dd MMM")}</span>
-                              </div>
-                              <span className="font-medium text-destructive shrink-0 ml-2">
-                                – {formatCurrency(getCreditNoteGrossAmount(cn))}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {payments.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-xs font-medium text-muted-foreground">Payments Received</h4>
-                        <div className="space-y-1.5 ml-1.5">
-                          {payments.map(p => (
-                            <div
-                              key={p.id}
-                              className="flex justify-between items-center py-2 px-2.5 bg-muted/30 rounded-md text-xs"
-                            >
-                              <div className="min-w-0">
-                                <span>{format(new Date(p.payment_date!), "dd MMM yyyy")}</span>
-                                {p.method && (
-                                  <span className="text-muted-foreground">
-                                    {" "}
-                                    · {p.method.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="font-medium text-green-600 shrink-0 ml-2">{formatCurrency(Number(p.amount))}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Timeline */}
+              {/* ═══════════════════════════════════════════════════════════════
+                  C. ACTIVITY TIMELINE (shared, collapsible)
+                  ═══════════════════════════════════════════════════════════════ */}
               {timelineEvents.length > 0 && (
-                <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
+                <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen} className="mt-4">
                   <CollapsibleTrigger className="flex items-center justify-between w-full group">
                     <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Activity Timeline</h3>
                     <ChevronDown
