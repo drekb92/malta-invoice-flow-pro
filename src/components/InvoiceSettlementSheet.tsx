@@ -7,15 +7,15 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useToast } from "@/hooks/use-toast";
-import { generateStatementPDF, StatementData } from "@/services/statementPdfService";
+import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import { InvoiceData } from "@/services/pdfService";
+
 interface Invoice {
   id: string;
   invoice_number: string;
@@ -118,7 +118,6 @@ export const InvoiceSettlementSheet = ({
 }: InvoiceSettlementSheetProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { settings: companySettings } = useCompanySettings();
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
@@ -135,11 +134,11 @@ export const InvoiceSettlementSheet = ({
     }
   };
 
-  const handleDownloadStatement = async () => {
-    if (!invoice || !customer || !companySettings) {
+  const handleDownloadPdf = async () => {
+    if (!invoice || !customer || invoiceItems.length === 0) {
       toast({
-        title: "Cannot generate statement",
-        description: "Missing invoice, customer, or company data.",
+        title: "Cannot generate PDF",
+        description: "Missing invoice data. Please try again.",
         variant: "destructive",
       });
       return;
@@ -147,72 +146,48 @@ export const InvoiceSettlementSheet = ({
 
     setDownloadingPdf(true);
     try {
-      const statementData: StatementData = {
+      // Calculate totals from items
+      const netTotal = invoiceItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+      const vatTotal = invoiceItems.reduce((sum, item) => sum + (item.quantity * item.unit_price * item.vat_rate), 0);
+      const grandTotal = netTotal + vatTotal;
+
+      const invoiceData: InvoiceData = {
+        invoiceNumber: invoice.invoice_number,
+        invoiceDate: invoice.invoice_date,
+        dueDate: invoice.due_date,
+        documentType: "INVOICE",
         customer: {
-          id: customer.id,
           name: customer.name,
-          email: customer.email,
-          address: customer.address,
-          vat_number: customer.vat_number,
+          email: customer.email || undefined,
+          address: customer.address || undefined,
+          vat_number: customer.vat_number || undefined,
         },
-        invoices: [{
-          id: invoice.id,
-          invoice_number: invoice.invoice_number,
-          invoice_date: invoice.invoice_date,
-          due_date: invoice.due_date,
-          status: invoice.status,
-          total_amount: invoice.total_amount,
-          amount: invoice.amount || invoice.total_amount,
-          vat_amount: invoice.vat_amount || 0,
-        }],
-        creditNotes: creditNotes.map(cn => ({
-          id: cn.id,
-          credit_note_number: cn.credit_note_number,
-          credit_note_date: cn.credit_note_date,
-          amount: Number(cn.amount),
-          vat_rate: 0.18, // Default VAT rate
-          reason: cn.reason,
-          original_invoice_id: invoice.id,
+        items: invoiceItems.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+          unit: item.unit || undefined,
         })),
-        payments: payments.map(p => ({
-          id: p.id,
-          payment_date: p.payment_date,
-          amount: Number(p.amount),
-          method: p.method,
-          invoice_id: invoice.id,
-        })),
-        company: {
-          name: companySettings.company_name || "Your Company",
-          email: companySettings.company_email,
-          phone: companySettings.company_phone,
-          address: companySettings.company_address,
-          city: companySettings.company_city,
-          country: companySettings.company_country,
-          vat_number: companySettings.company_vat_number,
-          logo: companySettings.company_logo,
+        totals: {
+          netTotal,
+          vatTotal,
+          grandTotal,
         },
-        options: {
-          dateFrom: new Date(invoice.invoice_date),
-          dateTo: new Date(),
-          statementType: "activity",
-          includeCreditNotes: true,
-          includeVatBreakdown: false,
-        },
-        generatedAt: new Date(),
       };
 
-      const filename = `Statement-${invoice.invoice_number}-${format(new Date(), "yyyy-MM-dd")}`;
-      await generateStatementPDF(statementData, filename);
+      const filename = `Invoice-${invoice.invoice_number}`;
+      await generateInvoicePDFWithTemplate(invoiceData, filename);
 
       toast({
-        title: "Statement downloaded",
-        description: `Statement for ${invoice.invoice_number} has been downloaded.`,
+        title: "PDF downloaded",
+        description: `Invoice ${invoice.invoice_number} has been downloaded.`,
       });
     } catch (error) {
-      console.error("Error generating statement PDF:", error);
+      console.error("Error generating invoice PDF:", error);
       toast({
         title: "Download failed",
-        description: "Failed to generate the statement PDF. Please try again.",
+        description: "Failed to generate the invoice PDF. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -627,21 +602,21 @@ export const InvoiceSettlementSheet = ({
             )}
             </div>
 
-            {/* (D) Action Buttons */}
-            <div className="px-6 py-4 border-t border-border bg-background">
+            {/* Action Buttons - Fixed at bottom */}
+            <div className="shrink-0 px-6 py-4 border-t border-border bg-background">
               <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   className="w-full sm:w-auto order-2 sm:order-1"
-                  onClick={handleDownloadStatement}
-                  disabled={downloadingPdf || !customer}
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf || invoiceItems.length === 0}
                 >
                   {downloadingPdf ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Download className="h-4 w-4 mr-2" />
                   )}
-                  {downloadingPdf ? "Generating..." : "Download Statement"}
+                  {downloadingPdf ? "Generating..." : "Download PDF"}
                 </Button>
                 <Button
                   className="w-full sm:w-auto order-1 sm:order-2"
