@@ -517,6 +517,8 @@ const CustomerDetail = () => {
             id: customer.id,
             name: customer.name,
             email: customer.email,
+            address: customer.address,
+            vat_number: customer.vat_number,
           }}
         />
       )}

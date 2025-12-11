@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
-import { CalendarIcon, Download, Eye, Mail, MessageCircle, FileText } from "lucide-react";
+import { CalendarIcon, Download, Eye, Mail, MessageCircle, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -21,6 +21,17 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import {
+  generateStatementPDF,
+  getStatementPDFBlob,
+  StatementData,
+  StatementInvoice,
+  StatementCreditNote,
+  StatementPayment,
+} from "@/services/statementPdfService";
 
 interface StatementModalProps {
   open: boolean;
@@ -29,34 +40,208 @@ interface StatementModalProps {
     id: string;
     name: string;
     email: string | null;
+    address?: string | null;
+    vat_number?: string | null;
   };
 }
 
 export const StatementModal = ({ open, onOpenChange, customer }: StatementModalProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { settings: companySettings } = useCompanySettings();
+  
   const [dateFrom, setDateFrom] = useState<Date>(startOfMonth(subMonths(new Date(), 3)));
   const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
   const [statementType, setStatementType] = useState<"outstanding" | "activity">("outstanding");
   const [includeCreditNotes, setIncludeCreditNotes] = useState(true);
   const [includeVatBreakdown, setIncludeVatBreakdown] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handlePreviewPDF = () => {
-    toast({
-      title: "Preview Statement",
-      description: "PDF preview will open in a new tab.",
-    });
-    // TODO: Implement PDF preview
+  const fetchStatementData = async (): Promise<StatementData | null> => {
+    if (!user) return null;
+
+    try {
+      // Fetch invoices for this customer within date range
+      let invoicesQuery = supabase
+        .from("invoices")
+        .select("id, invoice_number, invoice_date, due_date, status, total_amount, amount, vat_amount")
+        .eq("customer_id", customer.id)
+        .eq("user_id", user.id)
+        .gte("invoice_date", format(dateFrom, "yyyy-MM-dd"))
+        .lte("invoice_date", format(dateTo, "yyyy-MM-dd"))
+        .neq("status", "draft")
+        .order("invoice_date", { ascending: true });
+
+      // If outstanding only, filter to non-paid invoices
+      if (statementType === "outstanding") {
+        invoicesQuery = invoicesQuery.neq("status", "paid");
+      }
+
+      const { data: invoicesData, error: invoicesError } = await invoicesQuery;
+      if (invoicesError) throw invoicesError;
+
+      const invoices: StatementInvoice[] = (invoicesData || []).map((inv) => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number || "",
+        invoice_date: inv.invoice_date || "",
+        due_date: inv.due_date || "",
+        status: inv.status || "",
+        total_amount: Number(inv.total_amount) || 0,
+        amount: Number(inv.amount) || 0,
+        vat_amount: Number(inv.vat_amount) || 0,
+      }));
+
+      // Fetch credit notes if included
+      let creditNotes: StatementCreditNote[] = [];
+      if (includeCreditNotes) {
+        const { data: cnData, error: cnError } = await supabase
+          .from("credit_notes")
+          .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason")
+          .eq("customer_id", customer.id)
+          .eq("user_id", user.id)
+          .gte("credit_note_date", format(dateFrom, "yyyy-MM-dd"))
+          .lte("credit_note_date", format(dateTo, "yyyy-MM-dd"))
+          .order("credit_note_date", { ascending: true });
+
+        if (cnError) throw cnError;
+
+        creditNotes = (cnData || []).map((cn) => ({
+          id: cn.id,
+          credit_note_number: cn.credit_note_number,
+          credit_note_date: cn.credit_note_date || "",
+          amount: Number(cn.amount) || 0,
+          vat_rate: Number(cn.vat_rate) || 0,
+          reason: cn.reason,
+        }));
+      }
+
+      // Fetch payments for invoices in the period
+      const invoiceIds = invoices.map((inv) => inv.id);
+      let payments: StatementPayment[] = [];
+
+      if (invoiceIds.length > 0) {
+        const { data: paymentsData, error: paymentsError } = await supabase
+          .from("payments")
+          .select("id, payment_date, amount, method, invoice_id")
+          .in("invoice_id", invoiceIds)
+          .eq("user_id", user.id)
+          .order("payment_date", { ascending: true });
+
+        if (paymentsError) throw paymentsError;
+
+        payments = (paymentsData || []).map((pmt) => ({
+          id: pmt.id,
+          payment_date: pmt.payment_date || "",
+          amount: Number(pmt.amount) || 0,
+          method: pmt.method,
+          invoice_id: pmt.invoice_id,
+        }));
+      }
+
+      const statementData: StatementData = {
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          address: customer.address || null,
+          vat_number: customer.vat_number || null,
+        },
+        invoices,
+        creditNotes,
+        payments,
+        company: {
+          name: companySettings?.company_name || "Your Company",
+          email: companySettings?.company_email,
+          phone: companySettings?.company_phone,
+          address: companySettings?.company_address,
+          city: companySettings?.company_city,
+          country: companySettings?.company_country,
+          vat_number: companySettings?.company_vat_number,
+          logo: companySettings?.company_logo,
+        },
+        options: {
+          dateFrom,
+          dateTo,
+          statementType,
+          includeCreditNotes,
+          includeVatBreakdown,
+        },
+        generatedAt: new Date(),
+      };
+
+      return statementData;
+    } catch (error) {
+      console.error("Error fetching statement data:", error);
+      throw error;
+    }
   };
 
-  const handleDownload = () => {
-    toast({
-      title: "Downloading Statement",
-      description: `Statement for ${customer.name} is being generated.`,
-    });
-    // TODO: Implement PDF download
+  const handlePreviewPDF = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchStatementData();
+      if (!data) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch statement data.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const blob = await getStatementPDFBlob(data);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+
+      toast({
+        title: "Preview Ready",
+        description: "Statement preview opened in a new tab.",
+      });
+    } catch (error) {
+      console.error("Error previewing statement:", error);
+      toast({
+        title: "Preview Error",
+        description: "Failed to generate statement preview.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSendEmail = () => {
+  const handleDownload = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchStatementData();
+      if (!data) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch statement data.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const filename = `Statement-${customer.name.replace(/\s+/g, "_")}-${format(new Date(), "yyyyMMdd")}`;
+      await generateStatementPDF(data, filename);
+
+      toast({
+        title: "Download Complete",
+        description: `Statement for ${customer.name} has been downloaded.`,
+      });
+    } catch (error) {
+      console.error("Error downloading statement:", error);
+      toast({
+        title: "Download Error",
+        description: "Failed to generate statement PDF.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
     if (!customer.email) {
       toast({
         title: "No email address",
@@ -66,18 +251,55 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       return;
     }
     toast({
-      title: "Sending Statement",
-      description: `Statement will be sent to ${customer.email}`,
+      title: "Coming Soon",
+      description: "Email sending functionality will be available soon.",
     });
-    // TODO: Implement email sending
   };
 
-  const handleSendWhatsApp = () => {
-    toast({
-      title: "WhatsApp",
-      description: "Opening WhatsApp to send statement.",
-    });
-    // TODO: Implement WhatsApp sharing
+  const handleSendWhatsApp = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchStatementData();
+      if (!data) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch statement data.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Calculate total outstanding
+      const totalInvoiced = data.invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
+      const totalCredits = data.creditNotes.reduce((sum, cn) => sum + cn.amount + cn.amount * cn.vat_rate, 0);
+      const totalPayments = data.payments.reduce((sum, pmt) => sum + pmt.amount, 0);
+      const balance = totalInvoiced - totalCredits - totalPayments;
+
+      const message = encodeURIComponent(
+        `Hi ${customer.name},\n\n` +
+        `Here is your account statement for the period ${format(dateFrom, "dd/MM/yyyy")} to ${format(dateTo, "dd/MM/yyyy")}.\n\n` +
+        `Total Invoiced: €${balance >= 0 ? balance.toFixed(2) : "0.00"}\n` +
+        `Balance Due: €${balance > 0 ? balance.toFixed(2) : "0.00"}\n\n` +
+        `Please contact us if you have any questions.\n\n` +
+        `Best regards,\n${companySettings?.company_name || "Your Company"}`
+      );
+
+      window.open(`https://wa.me/?text=${message}`, "_blank");
+
+      toast({
+        title: "WhatsApp Opened",
+        description: "Continue sharing the statement in WhatsApp.",
+      });
+    } catch (error) {
+      console.error("Error preparing WhatsApp message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare WhatsApp message.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -224,21 +446,21 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           {/* Actions */}
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" onClick={handlePreviewPDF} className="w-full">
-                <Eye className="h-4 w-4 mr-2" />
+              <Button variant="outline" onClick={handlePreviewPDF} disabled={isLoading} className="w-full">
+                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
                 Preview PDF
               </Button>
-              <Button variant="outline" onClick={handleDownload} className="w-full">
-                <Download className="h-4 w-4 mr-2" />
+              <Button variant="outline" onClick={handleDownload} disabled={isLoading} className="w-full">
+                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                 Download
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Button onClick={handleSendEmail} className="w-full">
+              <Button onClick={handleSendEmail} disabled={isLoading || !customer.email} className="w-full">
                 <Mail className="h-4 w-4 mr-2" />
                 Send via Email
               </Button>
-              <Button variant="secondary" onClick={handleSendWhatsApp} className="w-full">
+              <Button variant="secondary" onClick={handleSendWhatsApp} disabled={isLoading} className="w-full">
                 <MessageCircle className="h-4 w-4 mr-2" />
                 Send via WhatsApp
               </Button>
