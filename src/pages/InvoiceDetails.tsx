@@ -584,10 +584,20 @@ const InvoiceDetails = () => {
     return payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   }, [payments]);
 
+  // Calculate total credit notes amount (including VAT)
+  const totalCreditNotesAmount = useMemo(() => {
+    return creditNotes.reduce((sum, cn) => {
+      const netAmount = Number(cn.amount || 0);
+      const vatRate = Number(cn.vat_rate || 0);
+      return sum + netAmount + (netAmount * vatRate);
+    }, 0);
+  }, [creditNotes]);
+
   const remainingBalance = useMemo(() => {
     const invoiceTotal = invoiceTotals?.total_amount ?? computedTotals.total;
-    return Number(invoiceTotal) - totalPaid;
-  }, [invoiceTotals, computedTotals, totalPaid]);
+    const adjustedTotal = Number(invoiceTotal) - totalCreditNotesAmount;
+    return adjustedTotal - totalPaid;
+  }, [invoiceTotals, computedTotals, totalPaid, totalCreditNotesAmount]);
 
   // Handle adding a payment
   const handleAddPayment = async () => {
@@ -628,7 +638,8 @@ const InvoiceDetails = () => {
 
       const newTotalPaid = totalPaid + amount;
       const invoiceTotal = Number(invoiceTotals?.total_amount ?? computedTotals.total);
-      const newRemainingBalance = invoiceTotal - newTotalPaid;
+      const adjustedTotal = invoiceTotal - totalCreditNotesAmount;
+      const newRemainingBalance = adjustedTotal - newTotalPaid;
 
       if (newRemainingBalance <= 0.01) {
         await supabase.from("invoices").update({ status: "paid" }).eq("id", id).eq("user_id", user.id);
