@@ -1,13 +1,16 @@
 import { format } from "date-fns";
 import { useEffect, useState, useMemo } from "react";
-import { FileText, CheckCircle, Clock, CreditCard, AlertCircle, Loader2, Receipt, Banknote, CircleDollarSign } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FileText, CheckCircle, Clock, CreditCard, AlertCircle, Loader2, Receipt, Banknote, ExternalLink, Download } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -99,9 +102,17 @@ export const InvoiceSettlementSheet = ({
   onOpenChange,
   invoice,
 }: InvoiceSettlementSheetProps) => {
+  const navigate = useNavigate();
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const handleViewInvoice = () => {
+    if (invoice) {
+      onOpenChange(false);
+      navigate(`/invoices/${invoice.id}`);
+    }
+  };
 
   useEffect(() => {
     if (open && invoice) {
@@ -264,11 +275,13 @@ export const InvoiceSettlementSheet = ({
         <Separator />
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Loading settlement details…</span>
           </div>
         ) : (
-          <div className="px-6 py-4 space-y-6">
+          <div className="flex flex-col h-[calc(100%-73px)]">
+            <div className="flex-1 px-6 py-4 space-y-6 overflow-y-auto">
             {/* (A) Summary Section */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-muted/50 rounded-lg p-4">
@@ -413,6 +426,31 @@ export const InvoiceSettlementSheet = ({
                 </div>
               </div>
             )}
+            </div>
+
+            {/* (D) Action Buttons */}
+            <div className="px-6 py-4 border-t border-border bg-background">
+              <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  className="w-full sm:w-auto order-2 sm:order-1"
+                  onClick={() => {
+                    // Placeholder for download statement functionality
+                    console.log("Download statement for invoice:", invoice?.id);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Statement
+                </Button>
+                <Button
+                  className="w-full sm:w-auto order-1 sm:order-2"
+                  onClick={handleViewInvoice}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View Full Invoice
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </SheetContent>
