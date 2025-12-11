@@ -472,7 +472,7 @@ export const InvoiceSettlementSheet = ({
               )}
 
               {/* 2. Invoice Financial Summary */}
-              <div>
+              <div className="mt-2">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                   Invoice Summary
                 </h3>
