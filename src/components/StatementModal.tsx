@@ -62,7 +62,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
 
     try {
       // Fetch invoices for this customer within date range
-      let invoicesQuery = supabase
+      const { data: invoicesData, error: invoicesError } = await supabase
         .from("invoices")
         .select("id, invoice_number, invoice_date, due_date, status, total_amount, amount, vat_amount")
         .eq("customer_id", customer.id)
@@ -72,53 +72,12 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         .neq("status", "draft")
         .order("invoice_date", { ascending: true });
 
-      // If outstanding only, filter to non-paid invoices
-      if (statementType === "outstanding") {
-        invoicesQuery = invoicesQuery.neq("status", "paid");
-      }
-
-      const { data: invoicesData, error: invoicesError } = await invoicesQuery;
       if (invoicesError) throw invoicesError;
 
-      const invoices: StatementInvoice[] = (invoicesData || []).map((inv) => ({
-        id: inv.id,
-        invoice_number: inv.invoice_number || "",
-        invoice_date: inv.invoice_date || "",
-        due_date: inv.due_date || "",
-        status: inv.status || "",
-        total_amount: Number(inv.total_amount) || 0,
-        amount: Number(inv.amount) || 0,
-        vat_amount: Number(inv.vat_amount) || 0,
-      }));
+      const invoiceIds = (invoicesData || []).map((inv) => inv.id);
 
-      // Fetch credit notes if included
-      let creditNotes: StatementCreditNote[] = [];
-      if (includeCreditNotes) {
-        const { data: cnData, error: cnError } = await supabase
-          .from("credit_notes")
-          .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason")
-          .eq("customer_id", customer.id)
-          .eq("user_id", user.id)
-          .gte("credit_note_date", format(dateFrom, "yyyy-MM-dd"))
-          .lte("credit_note_date", format(dateTo, "yyyy-MM-dd"))
-          .order("credit_note_date", { ascending: true });
-
-        if (cnError) throw cnError;
-
-        creditNotes = (cnData || []).map((cn) => ({
-          id: cn.id,
-          credit_note_number: cn.credit_note_number,
-          credit_note_date: cn.credit_note_date || "",
-          amount: Number(cn.amount) || 0,
-          vat_rate: Number(cn.vat_rate) || 0,
-          reason: cn.reason,
-        }));
-      }
-
-      // Fetch payments for invoices in the period
-      const invoiceIds = invoices.map((inv) => inv.id);
+      // Fetch all payments for these invoices (regardless of statement type - needed for balance calc)
       let payments: StatementPayment[] = [];
-
       if (invoiceIds.length > 0) {
         const { data: paymentsData, error: paymentsError } = await supabase
           .from("payments")
@@ -138,6 +97,74 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         }));
       }
 
+      // Fetch credit notes if included
+      let creditNotes: StatementCreditNote[] = [];
+      if (includeCreditNotes) {
+        const { data: cnData, error: cnError } = await supabase
+          .from("credit_notes")
+          .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason, original_invoice_id")
+          .eq("customer_id", customer.id)
+          .eq("user_id", user.id)
+          .gte("credit_note_date", format(dateFrom, "yyyy-MM-dd"))
+          .lte("credit_note_date", format(dateTo, "yyyy-MM-dd"))
+          .order("credit_note_date", { ascending: true });
+
+        if (cnError) throw cnError;
+
+        creditNotes = (cnData || []).map((cn) => ({
+          id: cn.id,
+          credit_note_number: cn.credit_note_number,
+          credit_note_date: cn.credit_note_date || "",
+          amount: Number(cn.amount) || 0,
+          vat_rate: Number(cn.vat_rate) || 0,
+          reason: cn.reason,
+          original_invoice_id: cn.original_invoice_id,
+        }));
+      }
+
+      // Calculate payments per invoice to filter out fully-paid invoices for outstanding statement
+      const paymentsByInvoice = new Map<string, number>();
+      payments.forEach((pmt) => {
+        const current = paymentsByInvoice.get(pmt.invoice_id) || 0;
+        paymentsByInvoice.set(pmt.invoice_id, current + pmt.amount);
+      });
+
+      // Calculate credits per invoice
+      const creditsByInvoice = new Map<string, number>();
+      creditNotes.forEach((cn) => {
+        if (cn.original_invoice_id) {
+          const totalAmount = cn.amount + cn.amount * cn.vat_rate;
+          const current = creditsByInvoice.get(cn.original_invoice_id) || 0;
+          creditsByInvoice.set(cn.original_invoice_id, current + totalAmount);
+        }
+      });
+
+      // Build invoices list
+      const invoices: StatementInvoice[] = (invoicesData || [])
+        .map((inv) => {
+          const paidAmount = paymentsByInvoice.get(inv.id) || 0;
+          const creditsAmount = creditsByInvoice.get(inv.id) || 0;
+          return {
+            id: inv.id,
+            invoice_number: inv.invoice_number || "",
+            invoice_date: inv.invoice_date || "",
+            due_date: inv.due_date || "",
+            status: inv.status || "",
+            total_amount: Number(inv.total_amount) || 0,
+            amount: Number(inv.amount) || 0,
+            vat_amount: Number(inv.vat_amount) || 0,
+            paid_amount: paidAmount + creditsAmount,
+          };
+        })
+        .filter((inv) => {
+          // For outstanding only, filter to invoices with remaining balance
+          if (statementType === "outstanding") {
+            const remaining = inv.total_amount - (inv.paid_amount || 0);
+            return remaining > 0.01; // Small threshold for floating point
+          }
+          return true;
+        });
+
       const statementData: StatementData = {
         customer: {
           id: customer.id,
@@ -147,8 +174,8 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           vat_number: customer.vat_number || null,
         },
         invoices,
-        creditNotes,
-        payments,
+        creditNotes: statementType === "outstanding" ? [] : creditNotes, // Don't include credit notes in outstanding view
+        payments: statementType === "outstanding" ? [] : payments, // Don't include payments in outstanding view (they're already factored into the remaining calc)
         company: {
           name: companySettings?.company_name || "Your Company",
           email: companySettings?.company_email,

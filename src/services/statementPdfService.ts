@@ -27,6 +27,7 @@ export interface StatementInvoice {
   total_amount: number;
   amount: number;
   vat_amount: number;
+  paid_amount?: number; // Total payments against this invoice
 }
 
 export interface StatementCreditNote {
@@ -36,6 +37,7 @@ export interface StatementCreditNote {
   amount: number;
   vat_rate: number;
   reason: string;
+  original_invoice_id?: string | null;
 }
 
 export interface StatementPayment {
@@ -202,7 +204,120 @@ export class StatementPDFGenerator {
     this.currentY += 15;
   }
 
-  private addTransactionsTable(data: StatementData) {
+  private addOutstandingTable(data: StatementData): number {
+    const tableWidth = this.pageWidth - this.margin * 2;
+    const colWidths = [35, 28, 28, 28, 28, 28]; // Invoice #, Date, Due Date, Amount, Paid, Remaining
+    const rowHeight = 7;
+
+    // Table header
+    this.setFillColor(this.primaryColor);
+    this.pdf.rect(this.margin, this.currentY, tableWidth, rowHeight + 1, "F");
+
+    this.pdf.setTextColor(255, 255, 255);
+    this.pdf.setFontSize(8);
+    this.pdf.setFont("helvetica", "bold");
+
+    let currentX = this.margin + 2;
+    this.pdf.text("Invoice #", currentX, this.currentY + 5);
+    currentX += colWidths[0];
+    this.pdf.text("Date", currentX, this.currentY + 5);
+    currentX += colWidths[1];
+    this.pdf.text("Due Date", currentX, this.currentY + 5);
+    currentX += colWidths[2];
+    this.pdf.text("Amount", currentX, this.currentY + 5);
+    currentX += colWidths[3];
+    this.pdf.text("Paid", currentX, this.currentY + 5);
+    currentX += colWidths[4];
+    this.pdf.text("Remaining", currentX, this.currentY + 5);
+
+    this.currentY += rowHeight + 1;
+
+    // Calculate payments per invoice
+    const paymentsByInvoice = new Map<string, number>();
+    data.payments.forEach((pmt) => {
+      const current = paymentsByInvoice.get(pmt.invoice_id) || 0;
+      paymentsByInvoice.set(pmt.invoice_id, current + pmt.amount);
+    });
+
+    // Calculate credits per invoice
+    const creditsByInvoice = new Map<string, number>();
+    if (data.options.includeCreditNotes) {
+      data.creditNotes.forEach((cn) => {
+        if (cn.original_invoice_id) {
+          const totalAmount = cn.amount + cn.amount * cn.vat_rate;
+          const current = creditsByInvoice.get(cn.original_invoice_id) || 0;
+          creditsByInvoice.set(cn.original_invoice_id, current + totalAmount);
+        }
+      });
+    }
+
+    // Filter to only outstanding invoices
+    const outstandingInvoices = data.invoices.filter((inv) => {
+      const paid = paymentsByInvoice.get(inv.id) || 0;
+      const credits = creditsByInvoice.get(inv.id) || 0;
+      const remaining = inv.total_amount - paid - credits;
+      return remaining > 0.01; // Small threshold for floating point
+    });
+
+    // Draw rows
+    this.pdf.setTextColor(0, 0, 0);
+    this.pdf.setFont("helvetica", "normal");
+    this.pdf.setFontSize(8);
+
+    let totalRemaining = 0;
+
+    outstandingInvoices.forEach((inv, index) => {
+      this.checkPageBreak(rowHeight + 5);
+
+      const isEven = index % 2 === 0;
+      if (isEven) {
+        this.pdf.setFillColor(248, 250, 252);
+        this.pdf.rect(this.margin, this.currentY, tableWidth, rowHeight, "F");
+      }
+
+      const paidAmount = paymentsByInvoice.get(inv.id) || 0;
+      const creditsAmount = creditsByInvoice.get(inv.id) || 0;
+      const remaining = inv.total_amount - paidAmount - creditsAmount;
+      totalRemaining += remaining;
+
+      currentX = this.margin + 2;
+      this.pdf.text(inv.invoice_number, currentX, this.currentY + 5);
+      currentX += colWidths[0];
+      this.pdf.text(format(new Date(inv.invoice_date), "dd/MM/yyyy"), currentX, this.currentY + 5);
+      currentX += colWidths[1];
+      this.pdf.text(format(new Date(inv.due_date), "dd/MM/yyyy"), currentX, this.currentY + 5);
+      currentX += colWidths[2];
+      this.pdf.text(`€${formatNumber(inv.total_amount, 2)}`, currentX, this.currentY + 5);
+      currentX += colWidths[3];
+      this.pdf.text(`€${formatNumber(paidAmount + creditsAmount, 2)}`, currentX, this.currentY + 5);
+      currentX += colWidths[4];
+
+      // Remaining in red
+      this.pdf.setTextColor(220, 38, 38);
+      this.pdf.text(`€${formatNumber(remaining, 2)}`, currentX, this.currentY + 5);
+      this.pdf.setTextColor(0, 0, 0);
+
+      this.currentY += rowHeight;
+    });
+
+    // Table border
+    if (outstandingInvoices.length > 0) {
+      this.pdf.setDrawColor(200, 200, 200);
+      this.pdf.rect(this.margin, this.currentY - outstandingInvoices.length * rowHeight - rowHeight - 1, tableWidth, outstandingInvoices.length * rowHeight + rowHeight + 1);
+    } else {
+      // No outstanding invoices
+      this.pdf.setFontSize(10);
+      this.pdf.setTextColor(100, 100, 100);
+      this.pdf.text("No outstanding invoices for this period.", this.margin, this.currentY + 5);
+      this.currentY += 10;
+    }
+
+    this.currentY += 10;
+
+    return totalRemaining;
+  }
+
+  private addActivityTable(data: StatementData): number {
     const tableWidth = this.pageWidth - this.margin * 2;
     const colWidths = [28, 55, 22, 28, 28, 28]; // Date, Description, Type, Debit, Credit, Balance
     const rowHeight = 7;
@@ -241,7 +356,7 @@ export class StatementPDFGenerator {
 
     const transactions: Transaction[] = [];
 
-    // Add invoices
+    // Add invoices (debits - increase balance)
     data.invoices.forEach((inv) => {
       transactions.push({
         date: new Date(inv.invoice_date),
@@ -252,7 +367,7 @@ export class StatementPDFGenerator {
       });
     });
 
-    // Add credit notes
+    // Add credit notes (credits - decrease balance)
     if (data.options.includeCreditNotes) {
       data.creditNotes.forEach((cn) => {
         const totalAmount = cn.amount + cn.amount * cn.vat_rate;
@@ -266,7 +381,7 @@ export class StatementPDFGenerator {
       });
     }
 
-    // Add payments
+    // Add payments (credits - decrease balance)
     data.payments.forEach((pmt) => {
       transactions.push({
         date: new Date(pmt.payment_date),
@@ -296,6 +411,7 @@ export class StatementPDFGenerator {
         this.pdf.rect(this.margin, this.currentY, tableWidth, rowHeight, "F");
       }
 
+      // Apply transaction: invoices add, credits/payments subtract
       runningBalance += txn.debit - txn.credit;
 
       currentX = this.margin + 2;
@@ -336,12 +452,27 @@ export class StatementPDFGenerator {
     });
 
     // Table border
-    this.pdf.setDrawColor(200, 200, 200);
-    this.pdf.rect(this.margin, this.currentY - transactions.length * rowHeight - rowHeight - 1, tableWidth, transactions.length * rowHeight + rowHeight + 1);
+    if (transactions.length > 0) {
+      this.pdf.setDrawColor(200, 200, 200);
+      this.pdf.rect(this.margin, this.currentY - transactions.length * rowHeight - rowHeight - 1, tableWidth, transactions.length * rowHeight + rowHeight + 1);
+    } else {
+      this.pdf.setFontSize(10);
+      this.pdf.setTextColor(100, 100, 100);
+      this.pdf.text("No transactions found for this period.", this.margin, this.currentY + 5);
+      this.currentY += 10;
+    }
 
     this.currentY += 10;
 
     return runningBalance;
+  }
+
+  private addTransactionsTable(data: StatementData): number {
+    if (data.options.statementType === "outstanding") {
+      return this.addOutstandingTable(data);
+    } else {
+      return this.addActivityTable(data);
+    }
   }
 
   private addSummary(data: StatementData, finalBalance: number) {
@@ -350,7 +481,48 @@ export class StatementPDFGenerator {
     const summaryX = this.pageWidth - this.margin - 80;
     const labelX = summaryX - 30;
 
-    // Calculate totals using correct accounting rules
+    // For outstanding statements, use a simpler summary
+    if (data.options.statementType === "outstanding") {
+      // Calculate total outstanding from invoices
+      const totalOutstanding = data.invoices.reduce((sum, inv) => {
+        const remaining = inv.total_amount - (inv.paid_amount || 0);
+        return sum + remaining;
+      }, 0);
+
+      const boxHeight = 25;
+      this.setFillColor("#f8fafc");
+      this.pdf.rect(labelX - 5, this.currentY - 2, 115, boxHeight, "F");
+
+      this.pdf.setFontSize(9);
+      this.pdf.setFont("helvetica", "normal");
+      this.pdf.setTextColor(100, 100, 100);
+
+      this.pdf.text("Outstanding Invoices:", labelX, this.currentY + 5);
+      this.pdf.text(`${data.invoices.length}`, summaryX + 30, this.currentY + 5, { align: "right" });
+
+      this.currentY += 8;
+      this.pdf.setDrawColor(100, 100, 100);
+      this.pdf.line(labelX, this.currentY, summaryX + 35, this.currentY);
+
+      this.currentY += 6;
+      this.pdf.setFontSize(12);
+      this.pdf.setFont("helvetica", "bold");
+
+      if (totalOutstanding > 0) {
+        this.setColor("#dc2626"); // Red
+        this.pdf.text("Total Due:", labelX, this.currentY + 2);
+        this.pdf.text(`€${formatNumber(totalOutstanding, 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
+      } else {
+        this.pdf.setTextColor(100, 100, 100);
+        this.pdf.text("Balance:", labelX, this.currentY + 2);
+        this.pdf.text("No balance due", summaryX + 30, this.currentY + 2, { align: "right" });
+      }
+
+      this.currentY += 15;
+      return;
+    }
+
+    // Activity statement - full summary
     const totalInvoiced = data.invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
     const totalCreditNotes = data.options.includeCreditNotes
       ? data.creditNotes.reduce((sum, cn) => sum + cn.amount + cn.amount * cn.vat_rate, 0)
