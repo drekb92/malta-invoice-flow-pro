@@ -602,23 +602,32 @@ export const TransactionDrawer = ({
     }
   };
 
-  const typeLabel = type === "invoice" ? "Invoice" : type === "credit_note" ? "Credit Note" : "Quotation";
+  const typeLabel = type === "invoice" ? "Invoice" : type === "credit_note" ? "Credit Note" : "Quote";
+  
+  const getTypeBadgeClass = () => {
+    if (type === "invoice") return "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300";
+    if (type === "credit_note") return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
+    return "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300";
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-[420px] p-0 flex flex-col">
         {/* Fixed Header */}
         <SheetHeader className="px-5 pt-5 pb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <SheetTitle className="text-base" style={{ fontWeight: 600 }}>
-              {getTransactionNumber()}
-            </SheetTitle>
+          <div className="flex items-center gap-2 mb-1">
+            <Badge className={`${getTypeBadgeClass()} text-[10px] px-1.5 py-0.5 font-medium`}>
+              {typeLabel}
+            </Badge>
             <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
               {StatusIcon && <StatusIcon className="h-2.5 w-2.5 mr-0.5" />}
               {statusBadge.label}
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">{customer?.name || "Loading..."}</p>
+          <SheetTitle className="text-base" style={{ fontWeight: 600 }}>
+            {getTransactionNumber()}
+          </SheetTitle>
+          <p className="text-xs text-muted-foreground">{customer?.name || "Loading..."}</p>
         </SheetHeader>
 
         <Separator />
