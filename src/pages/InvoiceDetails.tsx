@@ -631,14 +631,19 @@ const InvoiceDetails = () => {
 
           {/* Invoice Header */}
           <Card>
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-base">Invoice Information</CardTitle>
+            <CardHeader className="py-2 px-4">
+              <CardTitle className="text-sm font-semibold">Invoice Information</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <CardContent className="px-4 pb-3 pt-0">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Invoice Number</label>
-                  <p className="font-semibold">{invoice.invoice_number}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">{invoice.invoice_number}</p>
+                    <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
+                      {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                    </Badge>
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Customer</label>
@@ -652,20 +657,14 @@ const InvoiceDetails = () => {
                   <label className="text-xs font-medium text-muted-foreground">Due Date</label>
                   <p>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</p>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Status</label>
-                  <Badge className={`${getStatusBadge(invoice.status)} mt-0.5`}>
-                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                  </Badge>
-                </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Line Items */}
           <Card>
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-base">Line Items</CardTitle>
+            <CardHeader className="py-2 px-4">
+              <CardTitle className="text-sm font-semibold">Line Items</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4 pt-0">
               <Table>
@@ -708,8 +707,8 @@ const InvoiceDetails = () => {
 
           {/* Totals */}
           <Card>
-            <CardHeader className="py-3 px-4">
-              <CardTitle className="text-base">Invoice Totals</CardTitle>
+            <CardHeader className="py-2 px-4">
+              <CardTitle className="text-sm font-semibold">Invoice Totals</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3 pt-0">
               <div className="space-y-1 max-w-xs ml-auto text-sm">
@@ -755,12 +754,12 @@ const InvoiceDetails = () => {
 
           {/* Payment History */}
           <Card>
-            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="py-2 px-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
                 Payment History
               </CardTitle>
-              <Button onClick={() => setShowPaymentDialog(true)} size="sm" className="h-7 text-xs">
+              <Button onClick={() => setShowPaymentDialog(true)} size="sm" className="h-6 text-[10px] px-2">
                 <Plus className="h-3 w-3 mr-1" />
                 Add Payment
               </Button>
@@ -795,8 +794,8 @@ const InvoiceDetails = () => {
           {/* Audit Trail */}
           {(invoice as any).is_issued && auditTrail.length > 0 && (
             <Card>
-              <CardHeader className="py-3 px-4">
-                <CardTitle className="text-base flex items-center gap-2">
+              <CardHeader className="py-2 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Shield className="h-4 w-4" />
                   Audit Trail (Malta VAT Compliance)
                 </CardTitle>
