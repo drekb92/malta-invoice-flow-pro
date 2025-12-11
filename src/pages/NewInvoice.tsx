@@ -576,15 +576,22 @@ if (validationError) {
           );
         }
         
-        // Update existing invoice (only if not issued)
+        // IMPORTANT: When issuing, we must save items BEFORE marking invoice as issued
+        // because the database trigger prevents modifying items on issued invoices.
+        
+        // Step 1: Update invoice WITHOUT setting is_issued yet (if we're issuing)
+        const draftPayload = shouldIssue 
+          ? { ...invoicePayload, is_issued: false, issued_at: null, status: 'draft' as const }
+          : invoicePayload;
+        
         const { error: invoiceError } = await supabase
           .from("invoices")
-          .update(invoicePayload)
+          .update(draftPayload)
           .eq("id", id);
 
         if (invoiceError) throw invoiceError;
 
-        // Only update invoice items if the invoice is not issued
+        // Step 2: Update invoice items (while invoice is still draft)
         // Malta VAT compliance requires issued invoices to be immutable
         if (!isIssued) {
           try {
@@ -620,6 +627,14 @@ if (validationError) {
               );
             }
             throw itemError;
+          }
+        }
+
+        // Step 3: Now mark invoice as issued (if requested)
+        if (shouldIssue) {
+          const issueResult = await invoiceService.issueInvoice(id);
+          if (!issueResult.success) {
+            throw new Error(issueResult.error || "Failed to issue invoice");
           }
         }
 
