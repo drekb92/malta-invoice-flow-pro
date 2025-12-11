@@ -22,22 +22,22 @@ export const TransactionDrawerHeader = ({
 
   return (
     <>
-      <SheetHeader className="px-5 pt-5 pb-3 shrink-0">
-        <div className="flex items-center gap-2 mb-1">
-          <Badge className={`${getTypeBadgeClass(type)} text-[10px] px-1.5 py-0.5 font-medium`}>
+      <SheetHeader className="px-5 pt-5 pb-4 shrink-0">
+        <div className="flex items-center gap-2 mb-1.5">
+          <Badge className={`${getTypeBadgeClass(type)} text-[10px] px-2 py-0.5 font-semibold`}>
             {typeLabel}
           </Badge>
-          <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
-            {StatusIcon && <StatusIcon className="h-2.5 w-2.5 mr-0.5" />}
+          <Badge className={`${statusBadge.className} text-[10px] px-2 py-0.5 font-medium`}>
+            {StatusIcon && <StatusIcon className="h-3 w-3 mr-1" />}
             {statusBadge.label}
           </Badge>
         </div>
-        <SheetTitle className="text-base" style={{ fontWeight: 600 }}>
+        <SheetTitle className="text-lg font-semibold text-foreground">
           {transactionNumber}
         </SheetTitle>
-        <p className="text-xs text-muted-foreground">{customerName}</p>
+        <p className="text-sm text-muted-foreground">{customerName}</p>
       </SheetHeader>
-      <Separator />
+      <Separator className="bg-border/60" />
     </>
   );
 };

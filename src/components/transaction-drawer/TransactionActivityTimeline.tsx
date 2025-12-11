@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { FileText, CheckCircle, Receipt, Banknote, ChevronDown } from "lucide-react";
+import { FileText, CheckCircle, Receipt, Banknote, ChevronDown, History } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -58,32 +58,33 @@ export const TransactionActivityTimeline = ({
   if (events.length === 0) return null;
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-4">
-      <CollapsibleTrigger className="flex items-center justify-between w-full group">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-5">
+      <CollapsibleTrigger className="flex items-center justify-between w-full group py-1">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+          <History className="h-3.5 w-3.5" />
           Activity Timeline
         </h3>
         <ChevronDown
-          className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className="pt-2">
-        <div className="relative">
-          <div className="absolute left-[9px] top-2 bottom-2 w-px bg-border" />
-          <div className="space-y-2">
+      <CollapsibleContent className="pt-3">
+        <div className="relative bg-card border border-border/60 rounded-lg p-4 shadow-sm">
+          <div className="absolute left-[25px] top-6 bottom-6 w-px bg-border/60" />
+          <div className="space-y-3">
             {events.map(event => (
-              <div key={event.id} className="flex items-start gap-2.5 relative">
+              <div key={event.id} className="flex items-start gap-3 relative">
                 <div
-                  className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full ${getTimelineColor(event.type)}`}
+                  className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${getTimelineColor(event.type)}`}
                 >
                   {getTimelineIcon(event.type)}
                 </div>
                 <div className="flex-1 min-w-0 pt-0.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs truncate">{event.title}</span>
+                    <span className="text-sm text-foreground truncate">{event.title}</span>
                     {event.amount && (
                       <span
-                        className={`text-[10px] font-medium ${
+                        className={`text-xs font-medium shrink-0 ${
                           event.type === "credit_note" ? "text-destructive" : "text-green-600"
                         }`}
                       >
@@ -92,7 +93,7 @@ export const TransactionActivityTimeline = ({
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     {format(new Date(event.date), "dd/MM/yyyy HH:mm")}
                   </div>
                 </div>
