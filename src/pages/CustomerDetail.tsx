@@ -147,6 +147,10 @@ const CustomerDetail = () => {
         className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
         icon: Clock,
       },
+      partially_paid: {
+        className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+        icon: CreditCard,
+      },
       issued: {
         className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
         icon: FileText,
@@ -205,18 +209,18 @@ const CustomerDetail = () => {
   const InvoiceTable = ({ invoiceList }: { invoiceList: Invoice[] }) => (
     <Table>
       <TableHeader>
-        <TableRow>
-          <TableHead>Invoice #</TableHead>
-          <TableHead>Date</TableHead>
-          <TableHead>Due Date</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Amount</TableHead>
+        <TableRow className="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+          <TableHead className="h-9 text-xs font-semibold">Invoice #</TableHead>
+          <TableHead className="h-9 text-xs font-semibold">Date</TableHead>
+          <TableHead className="h-9 text-xs font-semibold">Due Date</TableHead>
+          <TableHead className="h-9 text-xs font-semibold">Status</TableHead>
+          <TableHead className="h-9 text-xs font-semibold text-right">Amount</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {invoiceList.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+            <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
               No invoices found
             </TableCell>
           </TableRow>
@@ -227,23 +231,27 @@ const CustomerDetail = () => {
             return (
               <TableRow
                 key={invoice.id}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                className="cursor-pointer hover:bg-muted/50 transition-colors h-10"
                 onClick={() => navigate(`/invoices/${invoice.id}`)}
               >
-                <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                <TableCell>
+                <TableCell className="py-2">
+                  <span className="font-medium text-primary hover:underline">
+                    {invoice.invoice_number}
+                  </span>
+                </TableCell>
+                <TableCell className="py-2 text-sm">
                   {format(new Date(invoice.invoice_date), "dd/MM/yyyy")}
                 </TableCell>
-                <TableCell>
+                <TableCell className="py-2 text-sm">
                   {format(new Date(invoice.due_date), "dd/MM/yyyy")}
                 </TableCell>
-                <TableCell>
-                  <Badge className={statusBadge.className}>
+                <TableCell className="py-2">
+                  <Badge className={`${statusBadge.className} text-xs`}>
                     <StatusIcon className="h-3 w-3 mr-1" />
                     {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right font-medium">
+                <TableCell className="py-2 text-right font-medium">
                   {formatCurrency(invoice.total_amount)}
                 </TableCell>
               </TableRow>
