@@ -136,7 +136,7 @@ export const CreditNoteApplicationBreakdown = ({
     <div className="mt-5">
       <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         <ArrowDownRight className="h-3.5 w-3.5" />
-        Application Breakdown
+        Applied To Invoices
       </h3>
       <div className="bg-card border border-border/60 rounded-lg p-4 shadow-sm">
         {originalInvoice ? (
