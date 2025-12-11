@@ -24,6 +24,7 @@ import {
   CheckCircle,
   Clock,
   Edit,
+  ScrollText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -31,6 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { StatementModal } from "@/components/StatementModal";
 
 interface Customer {
   id: string;
@@ -67,6 +69,7 @@ const CustomerDetail = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [outstandingAmount, setOutstandingAmount] = useState(0);
+  const [statementModalOpen, setStatementModalOpen] = useState(false);
 
   useEffect(() => {
     if (user && id) {
@@ -290,6 +293,13 @@ const CustomerDetail = () => {
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Customer
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setStatementModalOpen(true)}
+                >
+                  <ScrollText className="h-4 w-4 mr-2" />
+                  Issue Statement
+                </Button>
                 <Button onClick={() => navigate(`/invoices/new?client=${customer.id}`)}>
                   <FileText className="h-4 w-4 mr-2" />
                   New Invoice
@@ -482,8 +492,12 @@ const CustomerDetail = () => {
                     </div>
 
                     {/* Issue Statement Button */}
-                    <Button className="w-full mt-2" variant="outline">
-                      <FileText className="h-4 w-4 mr-2" />
+                    <Button 
+                      className="w-full mt-2" 
+                      variant="outline"
+                      onClick={() => setStatementModalOpen(true)}
+                    >
+                      <ScrollText className="h-4 w-4 mr-2" />
                       Issue Statement
                     </Button>
                   </CardContent>
@@ -493,6 +507,19 @@ const CustomerDetail = () => {
           </div>
         </main>
       </div>
+
+      {/* Statement Modal */}
+      {customer && (
+        <StatementModal
+          open={statementModalOpen}
+          onOpenChange={setStatementModalOpen}
+          customer={{
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+          }}
+        />
+      )}
     </div>
   );
 };
