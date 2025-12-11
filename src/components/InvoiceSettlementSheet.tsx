@@ -325,7 +325,7 @@ export const InvoiceSettlementSheet = ({
         id: `payment-${p.id}`,
         type: "payment",
         date: p.payment_date,
-        title: `Payment${p.method ? ` (${p.method.charAt(0).toUpperCase() + p.method.slice(1)})` : ""}`,
+        title: `Payment${p.method ? ` (${p.method.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())})` : ""}`,
         amount: Number(p.amount),
       });
     });
@@ -411,7 +411,7 @@ export const InvoiceSettlementSheet = ({
         {/* Fixed Header */}
         <SheetHeader className="px-5 pt-5 pb-3 shrink-0">
           <div className="flex items-center gap-2">
-            <SheetTitle className="text-base font-semibold">
+            <SheetTitle className="text-base" style={{ fontWeight: 600 }}>
               {invoice.invoice_number}
             </SheetTitle>
             <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
@@ -472,7 +472,7 @@ export const InvoiceSettlementSheet = ({
               )}
 
               {/* 2. Invoice Financial Summary */}
-              <div className="mt-2">
+              <div className="mt-3">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                   Invoice Summary
                 </h3>
@@ -509,7 +509,7 @@ export const InvoiceSettlementSheet = ({
 
               {/* 3. Settlement Breakdown */}
               {(creditNotes.length > 0 || payments.length > 0) && (
-                <div>
+                <div className="mt-1">
                   <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                     Settlement Breakdown
                   </h3>
@@ -550,7 +550,7 @@ export const InvoiceSettlementSheet = ({
                               <div className="min-w-0">
                                 <span>{format(new Date(p.payment_date!), "dd MMM yyyy")}</span>
                                 {p.method && (
-                                  <span className="text-muted-foreground"> · {p.method.charAt(0).toUpperCase() + p.method.slice(1)}</span>
+                                  <span className="text-muted-foreground"> · {p.method.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
                                 )}
                               </div>
                               <span className="font-medium text-green-600 shrink-0 ml-2">
