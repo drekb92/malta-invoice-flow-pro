@@ -1,6 +1,32 @@
 import jsPDF from "jspdf";
-import { formatNumber } from "@/lib/utils";
 import { format } from "date-fns";
+
+// Format currency with thousands separators: €X,XXX.XX
+const formatCurrencyAmount = (amount: number): string => {
+  return amount.toLocaleString('en-IE', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+};
+
+// Format debit amount (positive, no sign): €1,180.00
+const formatDebit = (amount: number): string => {
+  if (amount <= 0) return "";
+  return `€${formatCurrencyAmount(amount)}`;
+};
+
+// Format credit amount in parentheses: (€1,180.00)
+const formatCredit = (amount: number): string => {
+  if (amount <= 0) return "";
+  return `(€${formatCurrencyAmount(amount)})`;
+};
+
+// Format balance: positive €1,180.00, negative (€1,180.00)
+const formatBalance = (amount: number): string => {
+  if (amount === 0) return "€0.00";
+  if (amount > 0) return `€${formatCurrencyAmount(amount)}`;
+  return `(€${formatCurrencyAmount(Math.abs(amount))})`;
+};
 
 export interface StatementOptions {
   dateFrom: Date;
@@ -287,14 +313,14 @@ export class StatementPDFGenerator {
       currentX += colWidths[1];
       this.pdf.text(format(new Date(inv.due_date), "dd/MM/yyyy"), currentX, this.currentY + 5);
       currentX += colWidths[2];
-      this.pdf.text(`€${formatNumber(inv.total_amount, 2)}`, currentX, this.currentY + 5);
+      this.pdf.text(`€${formatCurrencyAmount(inv.total_amount)}`, currentX, this.currentY + 5);
       currentX += colWidths[3];
-      this.pdf.text(`€${formatNumber(paidAmount + creditsAmount, 2)}`, currentX, this.currentY + 5);
+      this.pdf.text(`€${formatCurrencyAmount(paidAmount + creditsAmount)}`, currentX, this.currentY + 5);
       currentX += colWidths[4];
 
       // Remaining in red
       this.pdf.setTextColor(220, 38, 38);
-      this.pdf.text(`€${formatNumber(remaining, 2)}`, currentX, this.currentY + 5);
+      this.pdf.text(`€${formatCurrencyAmount(remaining)}`, currentX, this.currentY + 5);
       this.pdf.setTextColor(0, 0, 0);
 
       this.currentY += rowHeight;
@@ -429,23 +455,23 @@ export class StatementPDFGenerator {
       this.pdf.text(txn.type, currentX, this.currentY + 5);
       currentX += colWidths[2];
 
-      this.pdf.text(txn.debit > 0 ? `€${formatNumber(txn.debit, 2)}` : "", currentX, this.currentY + 5);
+      // Debit column - positive amount, no sign
+      this.pdf.text(formatDebit(txn.debit), currentX, this.currentY + 5);
       currentX += colWidths[3];
 
-      this.pdf.text(txn.credit > 0 ? `€${formatNumber(txn.credit, 2)}` : "", currentX, this.currentY + 5);
+      // Credit column - shown in parentheses
+      this.pdf.text(formatCredit(txn.credit), currentX, this.currentY + 5);
       currentX += colWidths[4];
 
-      // Color and format balance based on amount
+      // Balance column - color and format based on amount
       if (runningBalance > 0) {
         this.pdf.setTextColor(220, 38, 38); // Red for owing
-        this.pdf.text(`€${formatNumber(runningBalance, 2)}`, currentX, this.currentY + 5);
       } else if (runningBalance < 0) {
         this.pdf.setTextColor(22, 163, 74); // Green for credit
-        this.pdf.text(`(€${formatNumber(Math.abs(runningBalance), 2)})`, currentX, this.currentY + 5);
       } else {
         this.pdf.setTextColor(100, 100, 100); // Grey for zero
-        this.pdf.text(`€0.00`, currentX, this.currentY + 5);
       }
+      this.pdf.text(formatBalance(runningBalance), currentX, this.currentY + 5);
       this.pdf.setTextColor(0, 0, 0);
 
       this.currentY += rowHeight;
@@ -516,7 +542,7 @@ export class StatementPDFGenerator {
       if (totalOutstanding > 0) {
         this.setColor("#dc2626"); // Red
         this.pdf.text("Balance Due:", labelX, this.currentY + 2);
-        this.pdf.text(`€${formatNumber(totalOutstanding, 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
+        this.pdf.text(`€${formatCurrencyAmount(totalOutstanding)}`, summaryX + 30, this.currentY + 2, { align: "right" });
       } else {
         this.pdf.setTextColor(100, 100, 100); // Grey
         this.pdf.setFont("helvetica", "normal");
@@ -544,15 +570,15 @@ export class StatementPDFGenerator {
     this.pdf.setTextColor(100, 100, 100);
 
     this.pdf.text("Total Invoiced:", labelX, this.currentY + 5);
-    this.pdf.text(`€${formatNumber(totalInvoiced, 2)}`, summaryX + 30, this.currentY + 5, { align: "right" });
+    this.pdf.text(`€${formatCurrencyAmount(totalInvoiced)}`, summaryX + 30, this.currentY + 5, { align: "right" });
 
     this.currentY += 6;
     this.pdf.text("Total Credits:", labelX, this.currentY + 5);
-    this.pdf.text(`-€${formatNumber(totalCreditNotes, 2)}`, summaryX + 30, this.currentY + 5, { align: "right" });
+    this.pdf.text(formatCredit(totalCreditNotes), summaryX + 30, this.currentY + 5, { align: "right" });
 
     this.currentY += 6;
     this.pdf.text("Total Payments:", labelX, this.currentY + 5);
-    this.pdf.text(`-€${formatNumber(totalPayments, 2)}`, summaryX + 30, this.currentY + 5, { align: "right" });
+    this.pdf.text(formatCredit(totalPayments), summaryX + 30, this.currentY + 5, { align: "right" });
 
     this.currentY += 8;
     this.pdf.setDrawColor(100, 100, 100);
@@ -567,12 +593,12 @@ export class StatementPDFGenerator {
       // Customer owes money
       this.setColor("#dc2626"); // Red
       this.pdf.text("Balance Due:", labelX, this.currentY + 2);
-      this.pdf.text(`€${formatNumber(finalBalance, 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
+      this.pdf.text(`€${formatCurrencyAmount(finalBalance)}`, summaryX + 30, this.currentY + 2, { align: "right" });
     } else if (finalBalance < 0) {
       // Customer has credit
       this.setColor("#16a34a"); // Green
       this.pdf.text("Credit Balance:", labelX, this.currentY + 2);
-      this.pdf.text(`€${formatNumber(Math.abs(finalBalance), 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
+      this.pdf.text(`€${formatCurrencyAmount(Math.abs(finalBalance))}`, summaryX + 30, this.currentY + 2, { align: "right" });
       
       // Add credit note
       this.currentY += 8;
@@ -607,11 +633,11 @@ export class StatementPDFGenerator {
 
     this.pdf.setFontSize(9);
     this.pdf.setFont("helvetica", "normal");
-    this.pdf.text(`Net Total: €${formatNumber(totalNet, 2)}`, this.margin, this.currentY);
+    this.pdf.text(`Net Total: €${formatCurrencyAmount(totalNet)}`, this.margin, this.currentY);
     this.currentY += 5;
-    this.pdf.text(`VAT Total: €${formatNumber(totalVat, 2)}`, this.margin, this.currentY);
+    this.pdf.text(`VAT Total: €${formatCurrencyAmount(totalVat)}`, this.margin, this.currentY);
     this.currentY += 5;
-    this.pdf.text(`Gross Total: €${formatNumber(totalNet + totalVat, 2)}`, this.margin, this.currentY);
+    this.pdf.text(`Gross Total: €${formatCurrencyAmount(totalNet + totalVat)}`, this.margin, this.currentY);
 
     this.currentY += 10;
   }
