@@ -25,6 +25,7 @@ import {
   Clock,
   Edit,
   ScrollText,
+  Info,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -33,6 +34,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { StatementModal } from "@/components/StatementModal";
+import { InvoiceSettlementSheet } from "@/components/InvoiceSettlementSheet";
 
 interface Customer {
   id: string;
@@ -70,6 +72,8 @@ const CustomerDetail = () => {
   const [loading, setLoading] = useState(true);
   const [outstandingAmount, setOutstandingAmount] = useState(0);
   const [statementModalOpen, setStatementModalOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [settlementSheetOpen, setSettlementSheetOpen] = useState(false);
 
   useEffect(() => {
     if (user && id) {
@@ -210,6 +214,12 @@ const CustomerDetail = () => {
     );
   }
 
+  const handleOpenSettlement = (invoice: Invoice, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click navigation
+    setSelectedInvoice(invoice);
+    setSettlementSheetOpen(true);
+  };
+
   const InvoiceTable = ({ invoiceList }: { invoiceList: Invoice[] }) => (
     <Table>
       <TableHeader>
@@ -235,7 +245,7 @@ const CustomerDetail = () => {
             return (
               <TableRow
                 key={invoice.id}
-                className="cursor-pointer hover:bg-muted/50 transition-colors h-10"
+                className="cursor-pointer hover:bg-muted/50 transition-colors h-10 group"
                 onClick={() => navigate(`/invoices/${invoice.id}`)}
               >
                 <TableCell className="py-2">
@@ -250,10 +260,20 @@ const CustomerDetail = () => {
                   {format(new Date(invoice.due_date), "dd/MM/yyyy")}
                 </TableCell>
                 <TableCell className="py-2">
-                  <Badge className={`${statusBadge.className} text-xs`}>
-                    <StatusIcon className="h-3 w-3 mr-1" />
-                    {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge className={`${statusBadge.className} text-xs`}>
+                      <StatusIcon className="h-3 w-3 mr-1" />
+                      {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => handleOpenSettlement(invoice, e)}
+                    >
+                      <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </TableCell>
                 <TableCell className="py-2 text-right font-medium">
                   {formatCurrency(invoice.total_amount)}
@@ -519,6 +539,13 @@ const CustomerDetail = () => {
           }}
         />
       )}
+
+      {/* Invoice Settlement Sheet */}
+      <InvoiceSettlementSheet
+        open={settlementSheetOpen}
+        onOpenChange={setSettlementSheetOpen}
+        invoice={selectedInvoice}
+      />
     </div>
   );
 };
