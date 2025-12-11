@@ -151,9 +151,9 @@ const InvoiceSummaryCard = ({
         </div>
       )}
 
-      {/* Total Amount */}
+      {/* Original Total */}
       <div className="text-center pb-4 border-b border-[#f1f5f9] dark:border-border">
-        <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
+        <p className="text-xs text-muted-foreground mb-1">Original Total</p>
         <p className="text-2xl font-bold text-foreground">€{formatNumber(total, 2)}</p>
         <div className="mt-2">
           <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
@@ -164,14 +164,14 @@ const InvoiceSummaryCard = ({
 
       {/* Credit Notes Applied */}
       {creditNotes.length > 0 && (
-        <div className="py-4 border-b border-[#f1f5f9] dark:border-border">
+        <div className="py-4 pb-2 border-b border-[#f1f5f9] dark:border-border">
           <p className="text-sm font-medium text-foreground mb-2">Credit Notes Applied</p>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {creditNotes.map((cn, index) => {
               const cnTotal = Number(cn.amount || 0) + (Number(cn.amount || 0) * Number(cn.vat_rate || 0));
               return (
                 <div key={cn.id}>
-                  {index > 0 && <div className="border-t border-[#f1f5f9] dark:border-border my-2" />}
+                  {index > 0 && <div className="border-t border-[#f1f5f9] dark:border-border my-1.5" />}
                   <div className="flex justify-between items-start">
                     <span className="text-xs font-medium text-foreground">{cn.credit_note_number}</span>
                     <span className="text-xs font-medium text-red-600 dark:text-red-400">– €{formatNumber(cnTotal, 2)}</span>
@@ -186,10 +186,10 @@ const InvoiceSummaryCard = ({
 
       {/* Adjusted Total */}
       {creditNotes.length > 0 && (
-        <div className="py-4 border-b border-[#f1f5f9] dark:border-border">
+        <div className="py-4 border-b border-[#f1f5f9] dark:border-border bg-[#f7fdf9] dark:bg-green-950/20 -mx-5 px-5">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-foreground">Adjusted Total</span>
-            <span className={`text-lg font-bold ${adjustedTotal > 0 ? "text-foreground" : "text-green-600 dark:text-green-400"}`}>
+            <span className="text-sm font-bold text-foreground">Adjusted Total</span>
+            <span className={`text-xl font-bold ${adjustedTotal > 0 ? "text-foreground" : "text-green-600 dark:text-green-400"}`}>
               €{formatNumber(Math.max(0, adjustedTotal), 2)}
             </span>
           </div>
