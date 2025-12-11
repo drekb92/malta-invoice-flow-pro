@@ -294,53 +294,78 @@ const CustomerDetail = () => {
           <div className="flex gap-6">
             {/* Left Column - Main Content */}
             <div className="flex-1 space-y-6 min-w-0">
-              {/* Customer Info Card */}
+            {/* Customer Info Card */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building className="h-5 w-5" />
-                    Customer Information
-                  </CardTitle>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Building className="h-5 w-5" />
+                      Customer Information
+                    </CardTitle>
+                  </div>
+                  {/* Customer Summary Line */}
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {customer.name} ({customer.client_type === "Business" ? "Business" : "Individual Client"})
+                    <span className="mx-2">•</span>
+                    Customer since {new Date(customer.created_at).getFullYear()}
+                    <span className="mx-2">•</span>
+                    {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
+                    {outstandingAmount > 0 && (
+                      <>
+                        <span className="mx-2">•</span>
+                        <span className="text-destructive font-medium">{formatCurrency(outstandingAmount)} outstanding</span>
+                      </>
+                    )}
+                  </p>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        Email
-                      </p>
-                      <p className="font-medium">{customer.email || "Not provided"}</p>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Email</p>
+                        <p className="font-medium truncate">{customer.email || <span className="text-muted-foreground">—</span>}</p>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        Phone
-                      </p>
-                      <p className="font-medium">{customer.phone || "Not provided"}</p>
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="font-medium">{customer.phone || <span className="text-muted-foreground">—</span>}</p>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Address
-                      </p>
-                      <p className="font-medium">{customer.address || "Not provided"}</p>
+                    <div className="flex items-center gap-3">
+                      <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Address</p>
+                        <p className="font-medium truncate">{customer.address || <span className="text-muted-foreground">—</span>}</p>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">VAT Number</p>
-                      <p className="font-medium">{customer.vat_number || "Not provided"}</p>
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">VAT Number</p>
+                        <p className="font-medium">{customer.vat_number || <span className="text-muted-foreground">—</span>}</p>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">VAT Status</p>
-                      <Badge variant="outline">{customer.vat_status || "Not set"}</Badge>
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">VAT Status</p>
+                        <Badge variant="outline" className="mt-0.5">{customer.vat_status || "Not set"}</Badge>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Payment Terms</p>
-                      <Badge variant="outline">{customer.payment_terms || "Net 30"}</Badge>
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Payment Terms</p>
+                        <Badge variant="outline" className="mt-0.5">{customer.payment_terms || "Net 30"}</Badge>
+                      </div>
                     </div>
                   </div>
                   {customer.notes && (
-                    <div className="mt-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs text-muted-foreground mb-1">Notes</p>
                       <p className="text-sm">{customer.notes}</p>
                     </div>
                   )}
