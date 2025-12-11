@@ -156,7 +156,7 @@ export const CreditNoteApplicationBreakdown = ({
                   >
                     {originalInvoice.invoice_number}
                   </button>
-                  <span className="font-medium text-destructive shrink-0 ml-2">
+                  <span className="font-medium text-destructive shrink-0 ml-2 bg-red-50 dark:bg-red-950/40 rounded-md px-1.5 py-0.5">
                     – {formatCurrency(totalApplied)}
                   </span>
                 </div>
