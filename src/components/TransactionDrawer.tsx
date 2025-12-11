@@ -229,6 +229,7 @@ export const TransactionDrawer = ({
   };
 
   const getTotalAmount = () => {
+    if (!transaction) return 0;
     if (type === "invoice") return (transaction as InvoiceTransaction).total_amount;
     if (type === "credit_note") {
       const cn = transaction as CreditNoteTransaction;
@@ -252,10 +253,10 @@ export const TransactionDrawer = ({
   // Invoice-specific calculations
   const totalCredits = creditNotes.reduce((sum, cn) => sum + getCreditNoteGrossAmount(cn), 0);
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const remainingBalance = type === "invoice" ? getTotalAmount() - totalCredits - totalPayments : 0;
+  const remainingBalance = type === "invoice" && transaction ? getTotalAmount() - totalCredits - totalPayments : 0;
 
   // Credit Note-specific calculations (unified logic)
-  const creditNoteAmount = type === "credit_note" ? getTotalAmount() : 0;
+  const creditNoteAmount = type === "credit_note" && transaction ? getTotalAmount() : 0;
   const creditNoteTotalApplied = type === "credit_note" && originalInvoice ? creditNoteAmount : 0;
   const creditNoteRemainingCredit = creditNoteAmount - creditNoteTotalApplied;
 
