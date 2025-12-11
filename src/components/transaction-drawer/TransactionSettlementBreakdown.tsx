@@ -105,6 +105,7 @@ interface CreditNoteApplicationBreakdownProps {
   originalInvoice: { invoice_number: string } | null;
   originalInvoiceId: string | null;
   totalAmount: number;
+  appliedDate: string | null;
   onClose: () => void;
 }
 
@@ -112,6 +113,7 @@ export const CreditNoteApplicationBreakdown = ({
   originalInvoice,
   originalInvoiceId,
   totalAmount,
+  appliedDate,
   onClose,
 }: CreditNoteApplicationBreakdownProps) => {
   const navigate = useNavigate();
@@ -127,21 +129,28 @@ export const CreditNoteApplicationBreakdown = ({
           <>
             <h4 className="text-xs font-medium text-muted-foreground mb-2">Applied To:</h4>
             <div className="space-y-1.5">
-              <div className="flex justify-between items-center py-2.5 px-3 bg-muted/30 rounded-md text-sm">
-                <button
-                  className="font-medium text-primary hover:underline cursor-pointer"
-                  onClick={() => {
-                    if (originalInvoiceId) {
-                      onClose();
-                      navigate(`/invoices/${originalInvoiceId}`);
-                    }
-                  }}
-                >
-                  {originalInvoice.invoice_number}
-                </button>
-                <span className="font-medium text-destructive shrink-0 ml-2">
-                  – {formatCurrency(totalAmount)}
-                </span>
+              <div className="py-2.5 px-3 bg-muted/30 rounded-md">
+                <div className="flex justify-between items-center text-sm">
+                  <button
+                    className="font-medium text-primary hover:underline cursor-pointer text-left"
+                    onClick={() => {
+                      if (originalInvoiceId) {
+                        onClose();
+                        navigate(`/invoices/${originalInvoiceId}`);
+                      }
+                    }}
+                  >
+                    {originalInvoice.invoice_number}
+                  </button>
+                  <span className="font-medium text-destructive shrink-0 ml-2">
+                    – {formatCurrency(totalAmount)}
+                  </span>
+                </div>
+                {appliedDate && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Applied on: {format(new Date(appliedDate), "dd MMM yyyy")}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/60 text-sm">

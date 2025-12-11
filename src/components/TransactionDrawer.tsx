@@ -455,6 +455,7 @@ export const TransactionDrawer = ({
                   originalInvoice={originalInvoice}
                   originalInvoiceId={(transaction as CreditNoteTransaction).original_invoice_id || null}
                   totalAmount={getTotalAmount()}
+                  appliedDate={(transaction as CreditNoteTransaction).credit_note_date}
                   onClose={handleClose}
                 />
               )}
