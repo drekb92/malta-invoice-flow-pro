@@ -15,6 +15,10 @@ import {
   ChevronDown,
   Shield,
   ArrowRight,
+  Plus,
+  Send,
+  Bell,
+  Calendar,
 } from "lucide-react";
 import {
   Sheet,
@@ -126,6 +130,11 @@ interface TransactionDrawerProps {
   transaction: Transaction | null;
   type: TransactionType;
   onConvertQuotation?: (quotationId: string) => void;
+  onAddPayment?: (invoiceId: string) => void;
+  onIssueCreditNote?: (invoiceId: string) => void;
+  onSendReminder?: (invoiceId: string) => void;
+  onSendQuote?: (quotationId: string) => void;
+  onApplyCreditNote?: (creditNoteId: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,6 +199,11 @@ export const TransactionDrawer = ({
   transaction,
   type,
   onConvertQuotation,
+  onAddPayment,
+  onIssueCreditNote,
+  onSendReminder,
+  onSendQuote,
+  onApplyCreditNote,
 }: TransactionDrawerProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -758,46 +772,68 @@ export const TransactionDrawer = ({
                   )}
 
                   {/* QUOTATION SUMMARY */}
-                  {type === "quotation" && (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Total Quote Value</span>
-                        <span className="font-semibold">{formatCurrency(getTotalAmount())}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Net Amount</span>
-                        <span>{formatCurrency((transaction as QuotationTransaction).amount || 0)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">VAT Amount</span>
-                        <span>{formatCurrency((transaction as QuotationTransaction).vat_amount || 0)}</span>
-                      </div>
-                      
-                      <Separator className="my-1.5" />
-                      
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Issue Date</span>
-                        <span className="font-medium">
-                          {format(new Date((transaction as QuotationTransaction).issue_date), "dd MMM yyyy")}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Valid Until</span>
-                        <span className="font-medium">
-                          {(transaction as QuotationTransaction).valid_until
-                            ? format(new Date((transaction as QuotationTransaction).valid_until), "dd MMM yyyy")
-                            : "—"}
-                        </span>
-                      </div>
-                      
-                      <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
-                        <span className="text-sm font-medium">Acceptance Status</span>
-                        <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
-                          {statusBadge.label}
-                        </Badge>
-                      </div>
-                    </>
-                  )}
+                  {type === "quotation" && (() => {
+                    const quote = transaction as QuotationTransaction;
+                    const issueDate = new Date(quote.issue_date);
+                    const validUntil = quote.valid_until ? new Date(quote.valid_until) : null;
+                    const validityDays = validUntil
+                      ? Math.ceil((validUntil.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24))
+                      : null;
+                    const isExpired = validUntil && new Date() > validUntil;
+                    
+                    return (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Total Quote Value</span>
+                          <span className="font-semibold">{formatCurrency(getTotalAmount())}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Net Amount</span>
+                          <span>{formatCurrency(quote.amount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">VAT Amount</span>
+                          <span>{formatCurrency(quote.vat_amount || 0)}</span>
+                        </div>
+                        
+                        <Separator className="my-1.5" />
+                        
+                        {/* Quote Metadata */}
+                        <div className="flex justify-between text-sm items-center">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Issue Date
+                          </span>
+                          <span className="font-medium">
+                            {format(issueDate, "dd MMM yyyy")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm items-center">
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Valid Until
+                          </span>
+                          <span className={`font-medium ${isExpired ? "text-destructive" : ""}`}>
+                            {validUntil ? format(validUntil, "dd MMM yyyy") : "—"}
+                            {isExpired && <span className="text-[10px] ml-1">(Expired)</span>}
+                          </span>
+                        </div>
+                        {validityDays && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Validity Period</span>
+                            <span>{validityDays} days</span>
+                          </div>
+                        )}
+                        
+                        <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
+                          <span className="text-sm font-medium">Quote Status</span>
+                          <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+                            {statusBadge.label}
+                          </Badge>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -972,24 +1008,13 @@ export const TransactionDrawer = ({
               )}
             </div>
 
-            {/* Fixed Footer Actions */}
+            {/* Fixed Footer Actions - Dynamic based on transaction type */}
             <div className="shrink-0 px-5 py-3 border-t border-border bg-background">
-              <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
-                {type === "quotation" && transaction.status !== "converted" && onConvertQuotation && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto order-3 sm:order-1"
-                    onClick={handleConvert}
-                  >
-                    <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
-                    Convert to Invoice
-                  </Button>
-                )}
+              <div className="flex flex-wrap justify-end gap-2">
+                {/* Download PDF - Always available */}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full sm:w-auto order-2"
                   onClick={handleDownloadPdf}
                   disabled={downloadingPdf || lineItems.length === 0}
                 >
@@ -1000,7 +1025,111 @@ export const TransactionDrawer = ({
                   )}
                   {downloadingPdf ? "Generating..." : "Download PDF"}
                 </Button>
-                <Button size="sm" className="w-full sm:w-auto order-1 sm:order-3" onClick={handleViewFull}>
+
+                {/* INVOICE ACTIONS */}
+                {type === "invoice" && (
+                  <>
+                    {/* Add Payment - only if outstanding balance */}
+                    {remainingBalance > 0 && onAddPayment && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onOpenChange(false);
+                          onAddPayment(transaction.id);
+                        }}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1.5" />
+                        Add Payment
+                      </Button>
+                    )}
+                    
+                    {/* Issue Credit Note */}
+                    {onIssueCreditNote && (transaction as InvoiceTransaction).is_issued && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onOpenChange(false);
+                          onIssueCreditNote(transaction.id);
+                        }}
+                      >
+                        <Receipt className="h-3.5 w-3.5 mr-1.5" />
+                        Issue Credit Note
+                      </Button>
+                    )}
+                    
+                    {/* Send Reminder - if overdue or unpaid */}
+                    {remainingBalance > 0 && onSendReminder && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onOpenChange(false);
+                          onSendReminder(transaction.id);
+                        }}
+                      >
+                        <Bell className="h-3.5 w-3.5 mr-1.5" />
+                        Send Reminder
+                      </Button>
+                    )}
+                  </>
+                )}
+
+                {/* CREDIT NOTE ACTIONS */}
+                {type === "credit_note" && (
+                  <>
+                    {/* Apply to Invoice - if not already applied */}
+                    {!originalInvoice && onApplyCreditNote && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onOpenChange(false);
+                          onApplyCreditNote(transaction.id);
+                        }}
+                      >
+                        <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
+                        Apply to Invoice
+                      </Button>
+                    )}
+                  </>
+                )}
+
+                {/* QUOTATION ACTIONS */}
+                {type === "quotation" && (
+                  <>
+                    {/* Send Quote */}
+                    {transaction.status === "draft" && onSendQuote && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onOpenChange(false);
+                          onSendQuote(transaction.id);
+                        }}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        Send Quote
+                      </Button>
+                    )}
+                    
+                    {/* Convert to Invoice */}
+                    {transaction.status !== "converted" && onConvertQuotation && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleConvert}
+                      >
+                        <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
+                        Convert to Invoice
+                      </Button>
+                    )}
+                  </>
+                )}
+
+                {/* View Full - Always available */}
+                <Button size="sm" onClick={handleViewFull}>
                   <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                   View Full {typeLabel}
                 </Button>
