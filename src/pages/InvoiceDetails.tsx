@@ -610,23 +610,19 @@ const InvoiceDetails = () => {
         <main className="p-4 space-y-4">
           {/* Malta VAT Compliance Alert */}
           {(invoice as any).is_issued ? (
-            <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800 py-2">
-              <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertTitle className="text-green-800 dark:text-green-300 text-sm">
-                Malta VAT Compliant - Invoice Issued
-              </AlertTitle>
-              <AlertDescription className="text-green-700 dark:text-green-400 text-xs">
-                Issued on {format(new Date((invoice as any).issued_at), "dd/MM/yyyy 'at' HH:mm")}. Immutable per Malta VAT regulations. Create a credit note to correct.
-              </AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800 rounded-md px-3 py-1.5">
+              <Shield className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <p className="text-xs text-green-700 dark:text-green-400">
+                <span className="font-medium text-green-800 dark:text-green-300">VAT Compliant</span> — Issued {format(new Date((invoice as any).issued_at), "dd/MM/yyyy HH:mm")}. Immutable. Use credit note to correct.
+              </p>
+            </div>
           ) : (
-            <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800 py-2">
-              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              <AlertTitle className="text-yellow-800 dark:text-yellow-300 text-sm">Draft Invoice</AlertTitle>
-              <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-xs">
-                Can be edited. Once issued, it becomes immutable per Malta VAT compliance.
-              </AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800 rounded-md px-3 py-1.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+              <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                <span className="font-medium text-yellow-800 dark:text-yellow-300">Draft</span> — Editable. Once issued, becomes immutable per Malta VAT.
+              </p>
+            </div>
           )}
 
           {/* Invoice Header */}
