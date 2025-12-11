@@ -1,128 +1,39 @@
-import { format } from "date-fns";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  FileText,
-  CheckCircle,
-  Clock,
-  CreditCard,
-  AlertCircle,
-  Loader2,
-  Receipt,
-  Banknote,
-  ExternalLink,
-  Download,
-  ChevronDown,
-  Shield,
-  ArrowRight,
-  Plus,
-  Send,
-  Bell,
-  Calendar,
-} from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Loader2 } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import type { InvoiceData } from "@/services/pdfService";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
+// Import reusable components
+import {
+  TransactionType,
+  Transaction,
+  InvoiceTransaction,
+  CreditNoteTransaction,
+  QuotationTransaction,
+  LineItem,
+  Customer,
+  CreditNote,
+  Payment,
+  TimelineEvent,
+  getCreditNoteGrossAmount,
+  getInvoiceStatusBadge,
+  getCreditNoteStatusBadge,
+  getQuotationStatusBadge,
+} from "./transaction-drawer";
 
-export type TransactionType = "invoice" | "credit_note" | "quotation";
+import { TransactionDrawerHeader } from "./transaction-drawer/TransactionDrawerHeader";
+import { TransactionLineItems } from "./transaction-drawer/TransactionLineItems";
+import { TransactionSummaryCard } from "./transaction-drawer/TransactionSummaryCard";
+import { TransactionActivityTimeline } from "./transaction-drawer/TransactionActivityTimeline";
+import { InvoiceSettlementBreakdown, CreditNoteApplicationBreakdown } from "./transaction-drawer/TransactionSettlementBreakdown";
+import { TransactionFooterActions } from "./transaction-drawer/TransactionFooterActions";
 
-interface BaseTransaction {
-  id: string;
-  status: string;
-}
-
-interface InvoiceTransaction extends BaseTransaction {
-  invoice_number: string;
-  invoice_date: string;
-  due_date: string;
-  total_amount: number;
-  amount?: number;
-  vat_amount?: number;
-  is_issued: boolean;
-  customer_id?: string;
-}
-
-interface CreditNoteTransaction extends BaseTransaction {
-  credit_note_number: string;
-  credit_note_date: string;
-  amount: number;
-  vat_rate: number;
-  reason: string;
-  original_invoice_id?: string;
-  customer_id?: string;
-}
-
-interface QuotationTransaction extends BaseTransaction {
-  quotation_number: string;
-  issue_date: string;
-  valid_until: string;
-  amount: number;
-  vat_amount: number;
-  total_amount: number;
-  customer_id?: string;
-}
-
-type Transaction = InvoiceTransaction | CreditNoteTransaction | QuotationTransaction;
-
-interface LineItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unit_price: number;
-  vat_rate: number;
-  unit: string | null;
-}
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string | null;
-  address: string | null;
-  vat_number: string | null;
-}
-
-interface CreditNote {
-  id: string;
-  credit_note_number: string;
-  credit_note_date: string;
-  amount: number;
-  vat_rate: number;
-  reason: string;
-}
-
-interface Payment {
-  id: string;
-  payment_date: string;
-  amount: number;
-  method: string | null;
-}
-
-interface TimelineEvent {
-  id: string;
-  type: "created" | "issued" | "sent" | "accepted" | "converted" | "credit_note" | "payment" | "paid";
-  date: string;
-  title: string;
-  amount?: number;
-}
+// Re-export types for external use
+export type { TransactionType, Transaction, InvoiceTransaction, CreditNoteTransaction, QuotationTransaction };
 
 interface TransactionDrawerProps {
   open: boolean;
@@ -136,62 +47,6 @@ interface TransactionDrawerProps {
   onSendQuote?: (quotationId: string) => void;
   onApplyCreditNote?: (creditNoteId: string) => void;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("en-IE", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
-};
-
-const getCreditNoteGrossAmount = (cn: CreditNote): number => {
-  return cn.amount * (1 + cn.vat_rate);
-};
-
-// Status badge configs
-const getInvoiceStatusBadge = (status: string, isIssued?: boolean) => {
-  if (status === "paid") {
-    return { className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: CheckCircle, label: "Paid" };
-  }
-  if (status === "partially_paid") {
-    return { className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200", icon: CreditCard, label: "Partially Paid" };
-  }
-  if (isIssued) {
-    return { className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", icon: Shield, label: "Issued" };
-  }
-  if (status === "overdue") {
-    return { className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: AlertCircle, label: "Overdue" };
-  }
-  return { className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200", icon: FileText, label: "Draft" };
-};
-
-const getCreditNoteStatusBadge = (status: string) => {
-  const variants: Record<string, { className: string; label: string }> = {
-    draft: { className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200", label: "Draft" },
-    issued: { className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", label: "Issued" },
-    applied: { className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", label: "Applied" },
-  };
-  return variants[status] || variants.draft;
-};
-
-const getQuotationStatusBadge = (status: string) => {
-  const variants: Record<string, { className: string; label: string }> = {
-    draft: { className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200", label: "Draft" },
-    sent: { className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", label: "Sent" },
-    accepted: { className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", label: "Accepted" },
-    converted: { className: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", label: "Converted" },
-    expired: { className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", label: "Expired" },
-  };
-  return variants[status] || variants.draft;
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Component
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const TransactionDrawer = ({
   open,
@@ -219,7 +74,6 @@ export const TransactionDrawer = ({
 
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [timelineOpen, setTimelineOpen] = useState(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Data Loading
@@ -383,12 +237,6 @@ export const TransactionDrawer = ({
     return (transaction as QuotationTransaction).total_amount || (transaction as QuotationTransaction).amount;
   };
 
-  const getTransactionDate = () => {
-    if (type === "invoice") return (transaction as InvoiceTransaction).invoice_date;
-    if (type === "credit_note") return (transaction as CreditNoteTransaction).credit_note_date;
-    return (transaction as QuotationTransaction).issue_date;
-  };
-
   const getStatusBadge = () => {
     if (!transaction) return { className: "", label: "", icon: undefined };
     if (type === "invoice") {
@@ -546,105 +394,26 @@ export const TransactionDrawer = ({
     }
   };
 
-  const handleConvert = () => {
-    if (type === "quotation" && onConvertQuotation && transaction) {
-      onOpenChange(false);
-      onConvertQuotation(transaction.id);
-    }
-  };
+  const handleClose = () => onOpenChange(false);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Render Helpers
+  // Render
   // ─────────────────────────────────────────────────────────────────────────
 
   if (!transaction) return null;
 
   const statusBadge = getStatusBadge();
-  const StatusIcon = statusBadge.icon;
-
-  const getBalanceDisplay = () => {
-    if (remainingBalance === 0) {
-      return (
-        <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200">
-          Paid in full
-        </Badge>
-      );
-    }
-    if (remainingBalance < 0) {
-      return (
-        <div className="text-right">
-          <span className="text-base font-semibold text-green-600">{formatCurrency(Math.abs(remainingBalance))}</span>
-          <div className="text-[10px] text-green-600">Credit in favour</div>
-        </div>
-      );
-    }
-    return <span className="text-base font-semibold text-destructive">{formatCurrency(remainingBalance)}</span>;
-  };
-
-  const getTimelineIcon = (eventType: TimelineEvent["type"]) => {
-    switch (eventType) {
-      case "created":
-      case "issued":
-        return <FileText className="h-3 w-3" />;
-      case "credit_note":
-        return <Receipt className="h-3 w-3" />;
-      case "payment":
-      case "paid":
-        return <Banknote className="h-3 w-3" />;
-      case "sent":
-      case "accepted":
-      case "converted":
-        return <CheckCircle className="h-3 w-3" />;
-    }
-  };
-
-  const getTimelineColor = (eventType: TimelineEvent["type"]) => {
-    switch (eventType) {
-      case "created":
-        return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
-      case "issued":
-      case "sent":
-        return "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300";
-      case "credit_note":
-        return "bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-300";
-      case "payment":
-      case "paid":
-      case "accepted":
-        return "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300";
-      case "converted":
-        return "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300";
-    }
-  };
-
-  const typeLabel = type === "invoice" ? "Invoice" : type === "credit_note" ? "Credit Note" : "Quote";
-  
-  const getTypeBadgeClass = () => {
-    if (type === "invoice") return "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300";
-    if (type === "credit_note") return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
-    return "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300";
-  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-[420px] p-0 flex flex-col">
-        {/* Fixed Header */}
-        <SheetHeader className="px-5 pt-5 pb-3 shrink-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge className={`${getTypeBadgeClass()} text-[10px] px-1.5 py-0.5 font-medium`}>
-              {typeLabel}
-            </Badge>
-            <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
-              {StatusIcon && <StatusIcon className="h-2.5 w-2.5 mr-0.5" />}
-              {statusBadge.label}
-            </Badge>
-          </div>
-          <SheetTitle className="text-base" style={{ fontWeight: 600 }}>
-            {getTransactionNumber()}
-          </SheetTitle>
-          <p className="text-xs text-muted-foreground">{customer?.name || "Loading..."}</p>
-        </SheetHeader>
-
-        <Separator />
+        {/* Shared Header */}
+        <TransactionDrawerHeader
+          type={type}
+          transactionNumber={getTransactionNumber()}
+          customerName={customer?.name || "Loading..."}
+          statusBadge={statusBadge}
+        />
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 flex-1">
@@ -655,486 +424,63 @@ export const TransactionDrawer = ({
           <>
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {/* Line Items */}
-              {lineItems.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Line Items</h3>
-                  <div className="border border-border rounded-lg overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left px-2.5 py-1.5 font-medium text-muted-foreground">Description</th>
-                          <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-10">Qty</th>
-                          <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-16">Price</th>
-                          <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-12">VAT</th>
-                          <th className="text-right px-2.5 py-1.5 font-medium text-muted-foreground w-18">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lineItems.map((item, idx) => {
-                          const lineTotal = item.quantity * item.unit_price * (1 + item.vat_rate);
-                          return (
-                            <tr key={item.id} className={idx !== lineItems.length - 1 ? "border-b border-border/50" : ""}>
-                              <td className="px-2.5 py-1.5 text-foreground truncate max-w-[100px]" title={item.description}>
-                                {item.description}
-                              </td>
-                              <td className="text-right px-2 py-1.5 text-muted-foreground">{item.quantity}</td>
-                              <td className="text-right px-2 py-1.5 text-muted-foreground">{formatCurrency(item.unit_price)}</td>
-                              <td className="text-right px-2 py-1.5 text-muted-foreground">{(item.vat_rate * 100).toFixed(0)}%</td>
-                              <td className="text-right px-2.5 py-1.5 font-medium">{formatCurrency(lineTotal)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+              {/* A. Shared Line Items */}
+              <TransactionLineItems items={lineItems} />
+
+              {/* B. Shared Summary Card (adapts per type) */}
+              <TransactionSummaryCard
+                type={type}
+                transaction={transaction}
+                totalAmount={getTotalAmount()}
+                totalCredits={totalCredits}
+                totalPayments={totalPayments}
+                remainingBalance={remainingBalance}
+                statusBadge={statusBadge}
+              />
+
+              {/* Settlement Breakdown (Invoice Only) */}
+              {type === "invoice" && (
+                <InvoiceSettlementBreakdown
+                  creditNotes={creditNotes}
+                  payments={payments}
+                  totalCredits={totalCredits}
+                  totalPayments={totalPayments}
+                  onClose={handleClose}
+                />
               )}
 
-              {/* ═══════════════════════════════════════════════════════════════
-                  B. DOCUMENT SUMMARY BLOCK - Adapts per type
-                  ═══════════════════════════════════════════════════════════════ */}
-              <div className="mt-3">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                  {type === "invoice" ? "Invoice" : type === "credit_note" ? "Credit Note" : "Quote"} Summary
-                </h3>
-                <div className="bg-muted/40 rounded-lg p-3 space-y-2">
-                  {/* INVOICE SUMMARY - Clean numbers only */}
-                  {type === "invoice" && (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Original Amount</span>
-                        <span className="font-medium">{formatCurrency(getTotalAmount())}</span>
-                      </div>
-                      
-                      {totalCredits > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Credit Notes Applied</span>
-                          <span className="text-destructive font-medium">– {formatCurrency(totalCredits)}</span>
-                        </div>
-                      )}
-
-                      {totalPayments > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Payments Received</span>
-                          <span className="text-green-600 font-medium">– {formatCurrency(totalPayments)}</span>
-                        </div>
-                      )}
-
-                      <Separator className="my-1.5" />
-                      <div
-                        className={`flex justify-between items-center -mx-3 px-3 py-2 rounded-md ${
-                          remainingBalance === 0
-                            ? "bg-green-50 dark:bg-green-950/30"
-                            : remainingBalance > 0
-                            ? "bg-red-50 dark:bg-red-950/30"
-                            : "bg-green-50 dark:bg-green-950/30"
-                        }`}
-                      >
-                        <span className="text-sm font-medium">Remaining Balance</span>
-                        {getBalanceDisplay()}
-                      </div>
-                    </>
-                  )}
-
-                  {/* CREDIT NOTE SUMMARY */}
-                  {type === "credit_note" && (
-                    <>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Credit Note Amount</span>
-                        <span className="font-medium">{formatCurrency(getTotalAmount())}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Net Amount</span>
-                        <span>{formatCurrency((transaction as CreditNoteTransaction).amount)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">VAT ({((transaction as CreditNoteTransaction).vat_rate * 100).toFixed(0)}%)</span>
-                        <span>{formatCurrency((transaction as CreditNoteTransaction).amount * (transaction as CreditNoteTransaction).vat_rate)}</span>
-                      </div>
-                      
-                      <Separator className="my-1.5" />
-                      
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Reason</span>
-                        <span className="text-right max-w-[180px] truncate" title={(transaction as CreditNoteTransaction).reason}>
-                          {(transaction as CreditNoteTransaction).reason}
-                        </span>
-                      </div>
-                      
-                      <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
-                        <span className="text-sm font-medium">Status</span>
-                        <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
-                          {statusBadge.label}
-                        </Badge>
-                      </div>
-                    </>
-                  )}
-
-                  {/* QUOTATION SUMMARY */}
-                  {type === "quotation" && (() => {
-                    const quote = transaction as QuotationTransaction;
-                    const issueDate = new Date(quote.issue_date);
-                    const validUntil = quote.valid_until ? new Date(quote.valid_until) : null;
-                    const validityDays = validUntil
-                      ? Math.ceil((validUntil.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24))
-                      : null;
-                    const isExpired = validUntil && new Date() > validUntil;
-                    
-                    return (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Total Quote Value</span>
-                          <span className="font-semibold">{formatCurrency(getTotalAmount())}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Net Amount</span>
-                          <span>{formatCurrency(quote.amount || 0)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">VAT Amount</span>
-                          <span>{formatCurrency(quote.vat_amount || 0)}</span>
-                        </div>
-                        
-                        <Separator className="my-1.5" />
-                        
-                        {/* Quote Metadata */}
-                        <div className="flex justify-between text-sm items-center">
-                          <span className="text-muted-foreground flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Issue Date
-                          </span>
-                          <span className="font-medium">
-                            {format(issueDate, "dd MMM yyyy")}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm items-center">
-                          <span className="text-muted-foreground flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Valid Until
-                          </span>
-                          <span className={`font-medium ${isExpired ? "text-destructive" : ""}`}>
-                            {validUntil ? format(validUntil, "dd MMM yyyy") : "—"}
-                            {isExpired && <span className="text-[10px] ml-1">(Expired)</span>}
-                          </span>
-                        </div>
-                        {validityDays && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Validity Period</span>
-                            <span>{validityDays} days</span>
-                          </div>
-                        )}
-                        
-                        <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
-                          <span className="text-sm font-medium">Quote Status</span>
-                          <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
-                            {statusBadge.label}
-                          </Badge>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* ═══════════════════════════════════════════════════════════════
-                  SETTLEMENT BREAKDOWN (INVOICE ONLY)
-                  ═══════════════════════════════════════════════════════════════ */}
-              {type === "invoice" && (creditNotes.length > 0 || payments.length > 0) && (
-                <div className="mt-4">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                    Settlement Breakdown
-                  </h3>
-                  <div className="space-y-3">
-                    {/* Credit Notes Applied */}
-                    {creditNotes.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-xs font-medium text-muted-foreground">Credit Notes Applied</h4>
-                        <div className="space-y-1 ml-1.5">
-                          {creditNotes.map(cn => (
-                            <div
-                              key={cn.id}
-                              className="flex justify-between items-center py-1.5 px-2.5 bg-muted/30 rounded-md text-xs"
-                            >
-                              <div className="min-w-0">
-                                <span className="font-medium">{cn.credit_note_number}</span>
-                                <span className="text-muted-foreground"> · {format(new Date(cn.credit_note_date), "dd MMM")}</span>
-                              </div>
-                              <span className="font-medium text-destructive shrink-0 ml-2">
-                                – {formatCurrency(getCreditNoteGrossAmount(cn))}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Payments Received */}
-                    {payments.length > 0 && (
-                      <div className="space-y-1.5">
-                        <h4 className="text-xs font-medium text-muted-foreground">Payments Received</h4>
-                        <div className="space-y-1 ml-1.5">
-                          {payments.map(p => (
-                            <div
-                              key={p.id}
-                              className="flex justify-between items-center py-1.5 px-2.5 bg-muted/30 rounded-md text-xs"
-                            >
-                              <div className="min-w-0">
-                                <span>{format(new Date(p.payment_date!), "dd MMM yyyy")}</span>
-                                {p.method && (
-                                  <span className="text-muted-foreground">
-                                    {" "}· {p.method.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="font-medium text-green-600 shrink-0 ml-2">{formatCurrency(Number(p.amount))}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Totals */}
-                    <div className="border-t border-border pt-2 space-y-1">
-                      {totalCredits > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Total Credits</span>
-                          <span className="font-medium text-destructive">– {formatCurrency(totalCredits)}</span>
-                        </div>
-                      )}
-                      {totalPayments > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Total Payments</span>
-                          <span className="font-medium text-green-600">{formatCurrency(totalPayments)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ═══════════════════════════════════════════════════════════════
-                  CREDIT NOTE APPLICATION BREAKDOWN (CN ONLY)
-                  ═══════════════════════════════════════════════════════════════ */}
+              {/* Credit Note Application Breakdown (CN Only) */}
               {type === "credit_note" && (
-                <div className="mt-4">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                    Application Breakdown
-                  </h3>
-                  <div className="bg-muted/30 rounded-lg p-3">
-                    {originalInvoice ? (
-                      <>
-                        <h4 className="text-xs font-medium text-muted-foreground mb-2">Applied To:</h4>
-                        <div className="space-y-1.5 ml-1.5">
-                          <div className="flex justify-between items-center py-1.5 px-2.5 bg-muted/50 rounded-md text-xs">
-                            <button
-                              className="font-medium text-primary hover:underline cursor-pointer"
-                              onClick={() => {
-                                const invId = (transaction as CreditNoteTransaction).original_invoice_id;
-                                if (invId) {
-                                  onOpenChange(false);
-                                  navigate(`/invoices/${invId}`);
-                                }
-                              }}
-                            >
-                              {originalInvoice.invoice_number}
-                            </button>
-                            <span className="font-medium text-destructive shrink-0 ml-2">
-                              – {formatCurrency(getTotalAmount())}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center mt-3 pt-2 border-t border-border text-xs">
-                          <span className="text-muted-foreground">Remaining Credit:</span>
-                          <span className="font-medium">€0.00</span>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic text-center py-2">
-                        This credit note has not been applied to any invoice.
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <CreditNoteApplicationBreakdown
+                  originalInvoice={originalInvoice}
+                  originalInvoiceId={(transaction as CreditNoteTransaction).original_invoice_id || null}
+                  totalAmount={getTotalAmount()}
+                  onClose={handleClose}
+                />
               )}
-              {/* ═══════════════════════════════════════════════════════════════
-                  C. ACTIVITY TIMELINE (shared, collapsible)
-                  ═══════════════════════════════════════════════════════════════ */}
-              {timelineEvents.length > 0 && (
-                <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen} className="mt-4">
-                  <CollapsibleTrigger className="flex items-center justify-between w-full group">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Activity Timeline</h3>
-                    <ChevronDown
-                      className={`h-4 w-4 text-muted-foreground transition-transform ${timelineOpen ? "rotate-180" : ""}`}
-                    />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="relative">
-                      <div className="absolute left-[9px] top-2 bottom-2 w-px bg-border" />
-                      <div className="space-y-2">
-                        {timelineEvents.map(event => (
-                          <div key={event.id} className="flex items-start gap-2.5 relative">
-                            <div
-                              className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full ${getTimelineColor(
-                                event.type
-                              )}`}
-                            >
-                              {getTimelineIcon(event.type)}
-                            </div>
-                            <div className="flex-1 min-w-0 pt-0.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs truncate">{event.title}</span>
-                                {event.amount && (
-                                  <span
-                                    className={`text-[10px] font-medium ${
-                                      event.type === "credit_note" ? "text-destructive" : "text-green-600"
-                                    }`}
-                                  >
-                                    {event.type === "credit_note" ? "–" : ""}
-                                    {formatCurrency(event.amount)}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {format(new Date(event.date), "dd/MM/yyyy HH:mm")}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
+
+              {/* C. Shared Activity Timeline */}
+              <TransactionActivityTimeline events={timelineEvents} />
             </div>
 
-            {/* Fixed Footer Actions - Dynamic based on transaction type */}
-            <div className="shrink-0 px-5 py-3 border-t border-border bg-background">
-              <div className="flex flex-wrap justify-end gap-2">
-                {/* Download PDF - Always available */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadPdf}
-                  disabled={downloadingPdf || lineItems.length === 0}
-                >
-                  {downloadingPdf ? (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                  )}
-                  {downloadingPdf ? "Generating..." : "Download PDF"}
-                </Button>
-
-                {/* INVOICE ACTIONS */}
-                {type === "invoice" && (
-                  <>
-                    {/* Add Payment - only if outstanding balance */}
-                    {remainingBalance > 0 && onAddPayment && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onOpenChange(false);
-                          onAddPayment(transaction.id);
-                        }}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1.5" />
-                        Add Payment
-                      </Button>
-                    )}
-                    
-                    {/* Issue Credit Note */}
-                    {onIssueCreditNote && (transaction as InvoiceTransaction).is_issued && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onOpenChange(false);
-                          onIssueCreditNote(transaction.id);
-                        }}
-                      >
-                        <Receipt className="h-3.5 w-3.5 mr-1.5" />
-                        Issue Credit Note
-                      </Button>
-                    )}
-                    
-                    {/* Send Reminder - if overdue or unpaid */}
-                    {remainingBalance > 0 && onSendReminder && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onOpenChange(false);
-                          onSendReminder(transaction.id);
-                        }}
-                      >
-                        <Bell className="h-3.5 w-3.5 mr-1.5" />
-                        Send Reminder
-                      </Button>
-                    )}
-                  </>
-                )}
-
-                {/* CREDIT NOTE ACTIONS */}
-                {type === "credit_note" && (
-                  <>
-                    {/* Apply to Invoice - if not already applied */}
-                    {!originalInvoice && onApplyCreditNote && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onOpenChange(false);
-                          onApplyCreditNote(transaction.id);
-                        }}
-                      >
-                        <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
-                        Apply to Invoice
-                      </Button>
-                    )}
-                  </>
-                )}
-
-                {/* QUOTATION ACTIONS */}
-                {type === "quotation" && (
-                  <>
-                    {/* Send Quote */}
-                    {transaction.status === "draft" && onSendQuote && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          onOpenChange(false);
-                          onSendQuote(transaction.id);
-                        }}
-                      >
-                        <Send className="h-3.5 w-3.5 mr-1.5" />
-                        Send Quote
-                      </Button>
-                    )}
-                    
-                    {/* Convert to Invoice */}
-                    {transaction.status !== "converted" && onConvertQuotation && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleConvert}
-                      >
-                        <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
-                        Convert to Invoice
-                      </Button>
-                    )}
-                  </>
-                )}
-
-                {/* View Full - Always available */}
-                <Button size="sm" onClick={handleViewFull}>
-                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                  View Full {typeLabel}
-                </Button>
-              </div>
-            </div>
+            {/* Shared Footer Actions (dynamic per type) */}
+            <TransactionFooterActions
+              type={type}
+              transaction={transaction}
+              downloadingPdf={downloadingPdf}
+              lineItemsCount={lineItems.length}
+              remainingBalance={remainingBalance}
+              originalInvoice={originalInvoice}
+              onDownloadPdf={handleDownloadPdf}
+              onViewFull={handleViewFull}
+              onAddPayment={onAddPayment}
+              onIssueCreditNote={onIssueCreditNote}
+              onSendReminder={onSendReminder}
+              onConvertQuotation={onConvertQuotation}
+              onSendQuote={onSendQuote}
+              onApplyCreditNote={onApplyCreditNote}
+              onClose={handleClose}
+            />
           </>
         )}
       </SheetContent>
