@@ -34,6 +34,7 @@ interface CreditNote {
   credit_note_number: string;
   credit_note_date: string;
   amount: number;
+  vat_rate: number;
   reason: string;
 }
 
@@ -109,6 +110,11 @@ const formatCurrency = (amount: number) => {
     style: "currency",
     currency: "EUR",
   }).format(amount);
+};
+
+// Calculate gross amount for credit note (net + VAT)
+const getCreditNoteGrossAmount = (cn: CreditNote): number => {
+  return cn.amount * (1 + cn.vat_rate);
 };
 
 export const InvoiceSettlementSheet = ({
@@ -209,7 +215,7 @@ export const InvoiceSettlementSheet = ({
       const [creditNotesResult, paymentsResult, invoiceItemsResult, invoiceDetailsResult] = await Promise.all([
         supabase
           .from("credit_notes")
-          .select("id, credit_note_number, credit_note_date, amount, reason")
+          .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason")
           .eq("original_invoice_id", invoice.id)
           .order("credit_note_date", { ascending: true }),
         supabase
@@ -230,7 +236,11 @@ export const InvoiceSettlementSheet = ({
       ]);
 
       if (creditNotesResult.data) {
-        setCreditNotes(creditNotesResult.data);
+        setCreditNotes(creditNotesResult.data.map(cn => ({
+          ...cn,
+          amount: Number(cn.amount),
+          vat_rate: Number(cn.vat_rate ?? 0),
+        })));
       }
       if (paymentsResult.data) {
         setPayments(paymentsResult.data);
@@ -260,8 +270,8 @@ export const InvoiceSettlementSheet = ({
     }
   };
 
-  // Calculate totals first (needed by timeline)
-  const totalCredits = creditNotes.reduce((sum, cn) => sum + Number(cn.amount), 0);
+  // Calculate totals first (needed by timeline) - use gross amounts for credit notes
+  const totalCredits = creditNotes.reduce((sum, cn) => sum + getCreditNoteGrossAmount(cn), 0);
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remainingBalance = invoice ? invoice.total_amount - totalCredits - totalPayments : 0;
 
@@ -305,7 +315,7 @@ export const InvoiceSettlementSheet = ({
         type: "credit_note",
         date: cn.credit_note_date,
         title: `Credit Note ${cn.credit_note_number} created`,
-        amount: Number(cn.amount),
+        amount: getCreditNoteGrossAmount(cn),
       });
     });
 
@@ -472,7 +482,7 @@ export const InvoiceSettlementSheet = ({
                           </div>
                         </div>
                         <span className="text-sm font-medium text-destructive">
-                          – {formatCurrency(Number(cn.amount))}
+                          – {formatCurrency(getCreditNoteGrossAmount(cn))}
                         </span>
                       </div>
                     ))}
