@@ -42,6 +42,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/utils";
+import { TransactionDrawer } from "@/components/TransactionDrawer";
 
 interface Quotation {
   id: string;
@@ -76,6 +77,7 @@ const Quotations = () => {
   const [dateOption, setDateOption] = useState<"quotation" | "today" | "custom">("quotation");
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [isConverting, setIsConverting] = useState(false);
+  const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
 
   const navigate = useNavigate();
 
@@ -397,7 +399,15 @@ const Quotations = () => {
                   ) : (
                     filtered.map((q) => (
                       <TableRow key={q.id}>
-                        <TableCell className="font-medium">{q.quotation_number}</TableCell>
+                        <TableCell className="font-medium">
+                          <button
+                            type="button"
+                            className="text-left hover:text-primary hover:underline transition-colors"
+                            onClick={() => setDrawerQuotation(q)}
+                          >
+                            {q.quotation_number}
+                          </button>
+                        </TableCell>
                         <TableCell>{q.customers?.name || "Unknown Customer"}</TableCell>
                         <TableCell>{formatCurrency(q.total_amount || q.amount || 0)}</TableCell>
                         <TableCell>
@@ -542,6 +552,28 @@ const Quotations = () => {
           </Dialog>
         </main>
       </div>
+
+      {/* Transaction Drawer */}
+      <TransactionDrawer
+        open={!!drawerQuotation}
+        onOpenChange={(open) => !open && setDrawerQuotation(null)}
+        transaction={drawerQuotation ? {
+          id: drawerQuotation.id,
+          quotation_number: drawerQuotation.quotation_number,
+          issue_date: drawerQuotation.issue_date,
+          valid_until: drawerQuotation.valid_until,
+          amount: drawerQuotation.amount,
+          vat_amount: drawerQuotation.vat_amount,
+          total_amount: drawerQuotation.total_amount,
+          status: drawerQuotation.status,
+          customer_id: drawerQuotation.customer_id,
+        } : null}
+        type="quotation"
+        onConvertQuotation={(id) => {
+          const q = quotations.find(qt => qt.id === id);
+          if (q) openConvertDialog(q);
+        }}
+      />
     </div>
   );
 };
