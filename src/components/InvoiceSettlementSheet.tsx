@@ -518,7 +518,7 @@ export const InvoiceSettlementSheet = ({
                     {creditNotes.length > 0 && (
                       <div className="space-y-1.5">
                         <h4 className="text-xs font-medium text-muted-foreground">Credit Notes Applied</h4>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 ml-1.5">
                           {creditNotes.map((cn) => (
                             <div
                               key={cn.id}
@@ -541,7 +541,7 @@ export const InvoiceSettlementSheet = ({
                     {payments.length > 0 && (
                       <div className="space-y-1.5">
                         <h4 className="text-xs font-medium text-muted-foreground">Payments Received</h4>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 ml-1.5">
                           {payments.map((p) => (
                             <div
                               key={p.id}
