@@ -291,10 +291,11 @@ const CustomerDetail = () => {
         </header>
 
         <main className="p-6">
-          <div className="space-y-6">
-            {/* Customer Info Card */}
-            <div className="grid gap-6 md:grid-cols-3">
-              <Card className="md:col-span-2">
+          <div className="flex gap-6">
+            {/* Left Column - Main Content */}
+            <div className="flex-1 space-y-6 min-w-0">
+              {/* Customer Info Card */}
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building className="h-5 w-5" />
@@ -346,69 +347,89 @@ const CustomerDetail = () => {
                 </CardContent>
               </Card>
 
-              {/* Outstanding Amount Card */}
+              {/* Invoices Tabs */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Outstanding
-                  </CardTitle>
-                  <CardDescription>Total unpaid invoices</CardDescription>
+                  <CardTitle>Invoices</CardTitle>
+                  <CardDescription>View and manage invoices for this customer</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-destructive">
-                    {formatCurrency(outstandingAmount)}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {openInvoices.length} open invoice{openInvoices.length !== 1 ? "s" : ""}
-                  </p>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Invoices</span>
-                      <span className="font-medium">{invoices.length}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Paid</span>
-                      <span className="font-medium text-green-600">{paidInvoices.length}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Open</span>
-                      <span className="font-medium text-yellow-600">{openInvoices.length}</span>
-                    </div>
-                  </div>
+                  <Tabs defaultValue="open" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 max-w-md">
+                      <TabsTrigger value="open" className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Open ({openInvoices.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="paid" className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Paid ({paidInvoices.length})
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="open" className="mt-4">
+                      <InvoiceTable invoiceList={openInvoices} />
+                    </TabsContent>
+
+                    <TabsContent value="paid" className="mt-4">
+                      <InvoiceTable invoiceList={paidInvoices} />
+                    </TabsContent>
+                  </Tabs>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Invoices Tabs */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Invoices</CardTitle>
-                <CardDescription>View and manage invoices for this customer</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="open" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 max-w-md">
-                    <TabsTrigger value="open" className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Open ({openInvoices.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="paid" className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4" />
-                      Paid ({paidInvoices.length})
-                    </TabsTrigger>
-                  </TabsList>
+            {/* Right Column - Floating Customer Summary */}
+            <div className="hidden lg:block w-80 flex-shrink-0">
+              <div className="sticky top-6">
+                <Card className="shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <CreditCard className="h-5 w-5" />
+                      Customer Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Total Outstanding - Big Red Number */}
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Total Outstanding</p>
+                      <p className="text-3xl font-bold text-destructive">
+                        {formatCurrency(outstandingAmount)}
+                      </p>
+                    </div>
 
-                  <TabsContent value="open" className="mt-4">
-                    <InvoiceTable invoiceList={openInvoices} />
-                  </TabsContent>
+                    {/* Invoice Stats */}
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total Invoices</span>
+                        <span className="font-medium">{invoices.length}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Paid</span>
+                        <span className="font-medium text-green-600 dark:text-green-400">{paidInvoices.length}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Open</span>
+                        <span className="font-medium text-yellow-600 dark:text-yellow-400">{openInvoices.length}</span>
+                      </div>
+                    </div>
 
-                  <TabsContent value="paid" className="mt-4">
-                    <InvoiceTable invoiceList={paidInvoices} />
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+                    {/* Payment Terms */}
+                    <div className="pt-2 border-t">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Payment Terms</span>
+                        <span className="font-medium">{customer.payment_terms || "Net 30"}</span>
+                      </div>
+                    </div>
+
+                    {/* Issue Statement Button */}
+                    <Button className="w-full mt-2" variant="outline">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Issue Statement
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
         </main>
       </div>
