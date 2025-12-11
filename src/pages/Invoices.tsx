@@ -50,6 +50,7 @@ import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { CreateCreditNoteDialog } from "@/components/CreateCreditNoteDialog";
+import { InvoiceSettlementSheet } from "@/components/InvoiceSettlementSheet";
 
 interface Invoice {
   id: string;
@@ -116,6 +117,9 @@ const Invoices = () => {
 
   // Credit Note dialog state
   const [creditNoteInvoice, setCreditNoteInvoice] = useState<Invoice | null>(null);
+
+  // Settlement Sheet state
+  const [settlementInvoice, setSettlementInvoice] = useState<Invoice | null>(null);
 
   const fetchInvoices = async () => {
     // Return early if no user
@@ -511,14 +515,18 @@ const Invoices = () => {
                       return (
                         <TableRow key={invoice.id}>
                           <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {invoice.invoice_number}
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 text-left hover:text-primary transition-colors group"
+                              onClick={() => setSettlementInvoice(invoice)}
+                            >
+                              <span className="group-hover:underline">{invoice.invoice_number}</span>
                               {(invoice as any).is_issued && (
                                 <span title="Malta VAT Compliant - Immutable">
                                   <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                                 </span>
                               )}
-                            </div>
+                            </button>
                           </TableCell>
                           <TableCell>{invoice.customers?.name || "Unknown Customer"}</TableCell>
                           <TableCell>
@@ -837,6 +845,24 @@ const Invoices = () => {
             setCreditNoteInvoice(null);
             fetchInvoices();
           }}
+        />
+
+        {/* Invoice Settlement Sheet */}
+        <InvoiceSettlementSheet
+          open={!!settlementInvoice}
+          onOpenChange={(open) => !open && setSettlementInvoice(null)}
+          invoice={settlementInvoice ? {
+            id: settlementInvoice.id,
+            invoice_number: settlementInvoice.invoice_number,
+            invoice_date: settlementInvoice.invoice_date || settlementInvoice.created_at,
+            due_date: settlementInvoice.due_date,
+            status: settlementInvoice.status,
+            total_amount: settlementInvoice.total_amount || settlementInvoice.amount || 0,
+            amount: settlementInvoice.amount,
+            vat_amount: settlementInvoice.vat_amount,
+            is_issued: (settlementInvoice as any).is_issued || false,
+            customer_id: settlementInvoice.customer_id,
+          } : null}
         />
       </div>
     </div>
