@@ -1,6 +1,6 @@
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
-import { FileText, CheckCircle, Clock, CreditCard, AlertCircle, Loader2 } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { FileText, CheckCircle, Clock, CreditCard, AlertCircle, Loader2, Receipt, Banknote, CircleDollarSign } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -34,6 +34,15 @@ interface Payment {
   payment_date: string;
   amount: number;
   method: string | null;
+}
+
+interface TimelineEvent {
+  id: string;
+  type: "invoice" | "credit_note" | "payment";
+  date: string;
+  title: string;
+  subtitle?: string;
+  amount?: number;
 }
 
 interface InvoiceSettlementSheetProps {
@@ -131,6 +140,48 @@ export const InvoiceSettlementSheet = ({
     }
   };
 
+  // Build timeline events
+  const timelineEvents = useMemo<TimelineEvent[]>(() => {
+    if (!invoice) return [];
+
+    const events: TimelineEvent[] = [
+      {
+        id: `invoice-${invoice.id}`,
+        type: "invoice",
+        date: invoice.invoice_date,
+        title: "Invoice Issued",
+        subtitle: invoice.invoice_number,
+        amount: invoice.total_amount,
+      },
+    ];
+
+    creditNotes.forEach((cn) => {
+      events.push({
+        id: `cn-${cn.id}`,
+        type: "credit_note",
+        date: cn.credit_note_date,
+        title: cn.credit_note_number,
+        subtitle: cn.reason,
+        amount: Number(cn.amount),
+      });
+    });
+
+    payments.forEach((p) => {
+      events.push({
+        id: `payment-${p.id}`,
+        type: "payment",
+        date: p.payment_date,
+        title: "Payment Received",
+        subtitle: p.method ? p.method.charAt(0).toUpperCase() + p.method.slice(1) : undefined,
+        amount: Number(p.amount),
+      });
+    });
+
+    // Sort by date ascending
+    events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return events;
+  }, [invoice, creditNotes, payments]);
+
   if (!invoice) return null;
 
   const statusBadge = getStatusBadge(invoice.status);
@@ -138,8 +189,54 @@ export const InvoiceSettlementSheet = ({
 
   const totalCredits = creditNotes.reduce((sum, cn) => sum + Number(cn.amount), 0);
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const adjustedTotal = invoice.total_amount - totalCredits;
-  const remainingBalance = adjustedTotal - totalPayments;
+  const remainingBalance = invoice.total_amount - totalCredits - totalPayments;
+
+  const getBalanceDisplay = () => {
+    if (remainingBalance === 0) {
+      return (
+        <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200">
+          Paid in full
+        </Badge>
+      );
+    } else if (remainingBalance < 0) {
+      return (
+        <div className="text-right">
+          <span className="text-lg font-bold text-green-600">
+            {formatCurrency(Math.abs(remainingBalance))}
+          </span>
+          <div className="text-xs text-green-600">Credit in favour</div>
+        </div>
+      );
+    } else {
+      return (
+        <span className="text-lg font-bold text-destructive">
+          {formatCurrency(remainingBalance)}
+        </span>
+      );
+    }
+  };
+
+  const getTimelineIcon = (type: "invoice" | "credit_note" | "payment") => {
+    switch (type) {
+      case "invoice":
+        return <FileText className="h-3.5 w-3.5" />;
+      case "credit_note":
+        return <Receipt className="h-3.5 w-3.5" />;
+      case "payment":
+        return <Banknote className="h-3.5 w-3.5" />;
+    }
+  };
+
+  const getTimelineColor = (type: "invoice" | "credit_note" | "payment") => {
+    switch (type) {
+      case "invoice":
+        return "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300";
+      case "credit_note":
+        return "bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-300";
+      case "payment":
+        return "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300";
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -172,121 +269,148 @@ export const InvoiceSettlementSheet = ({
           </div>
         ) : (
           <div className="px-6 py-4 space-y-6">
-            {/* Settlement Summary */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                Settlement Summary
-              </h3>
-              
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Invoice Total</span>
-                  <span className="font-semibold">{formatCurrency(invoice.total_amount)}</span>
+            {/* (A) Summary Section */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-muted/50 rounded-lg p-4">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+                  Original Amount
                 </div>
-                
-                {totalCredits > 0 && (
-                  <div className="flex justify-between items-center text-amber-600">
-                    <span className="text-sm">Credit Notes Applied</span>
-                    <span className="font-medium">−{formatCurrency(totalCredits)}</span>
-                  </div>
-                )}
-
-                {totalCredits > 0 && (
-                  <>
-                    <Separator className="my-2" />
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Adjusted Total</span>
-                      <span className="font-semibold">{formatCurrency(adjustedTotal)}</span>
-                    </div>
-                  </>
-                )}
-
-                {totalPayments > 0 && (
-                  <div className="flex justify-between items-center text-green-600">
-                    <span className="text-sm">Payments Received</span>
-                    <span className="font-medium">−{formatCurrency(totalPayments)}</span>
-                  </div>
-                )}
-                
-                <Separator className="my-2" />
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Balance Due</span>
-                  {remainingBalance <= 0 ? (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      Settled
-                    </Badge>
-                  ) : (
-                    <span className="text-lg font-bold text-destructive">
-                      {formatCurrency(remainingBalance)}
-                    </span>
-                  )}
+                <div className="text-lg font-semibold">
+                  {formatCurrency(invoice.total_amount)}
                 </div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4">
+                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+                  Remaining Balance
+                </div>
+                {getBalanceDisplay()}
               </div>
             </div>
 
-            {/* Credit Notes List */}
-            {creditNotes.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  Credit Notes ({creditNotes.length})
-                </h3>
-                <div className="space-y-2">
-                  {creditNotes.map((cn) => (
-                    <div
-                      key={cn.id}
-                      className="flex justify-between items-start p-3 bg-muted/30 rounded-lg"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">{cn.credit_note_number}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {format(new Date(cn.credit_note_date), "dd MMM yyyy")} · {cn.reason}
-                        </div>
-                      </div>
-                      <span className="text-sm font-medium text-amber-600">
-                        −{formatCurrency(Number(cn.amount))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* (B) Settlement Breakdown */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                Settlement Breakdown
+              </h3>
 
-            {/* Payments List */}
-            {payments.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  Payments ({payments.length})
-                </h3>
-                <div className="space-y-2">
-                  {payments.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex justify-between items-start p-3 bg-muted/30 rounded-lg"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">
-                          {format(new Date(p.payment_date!), "dd MMM yyyy")}
-                        </div>
-                        {p.method && (
-                          <div className="text-xs text-muted-foreground capitalize">
-                            {p.method}
+              {/* Credit Notes Applied */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Credit Notes Applied</h4>
+                {creditNotes.length > 0 ? (
+                  <div className="space-y-2">
+                    {creditNotes.map((cn) => (
+                      <div
+                        key={cn.id}
+                        className="flex justify-between items-start p-3 bg-muted/30 rounded-lg border border-border/50"
+                      >
+                        <div>
+                          <div className="text-sm font-medium">
+                            {cn.credit_note_number} · {format(new Date(cn.credit_note_date), "dd MMM yyyy")}
                           </div>
-                        )}
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {cn.reason}
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-destructive">
+                          – {formatCurrency(Number(cn.amount))}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium text-green-600">
-                        −{formatCurrency(Number(p.amount))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    No credit notes applied to this invoice.
+                  </p>
+                )}
               </div>
-            )}
 
-            {/* Empty State */}
-            {creditNotes.length === 0 && payments.length === 0 && (
-              <div className="text-center py-6 text-muted-foreground text-sm">
-                No payments or credit notes recorded yet.
+              <Separator />
+
+              {/* Payments Received */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Payments Received</h4>
+                {payments.length > 0 ? (
+                  <div className="space-y-2">
+                    {payments.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex justify-between items-start p-3 bg-muted/30 rounded-lg border border-border/50"
+                      >
+                        <div>
+                          <div className="text-sm font-medium">
+                            {format(new Date(p.payment_date!), "dd MMM yyyy")}
+                            {p.method && (
+                              <span className="text-muted-foreground"> · {p.method.charAt(0).toUpperCase() + p.method.slice(1)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-green-600">
+                          {formatCurrency(Number(p.amount))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    No payments recorded yet.
+                  </p>
+                )}
+              </div>
+
+              {/* Summary Line */}
+              <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground pt-2">
+                <span>Credit Notes: <span className="font-medium text-destructive">– {formatCurrency(totalCredits)}</span></span>
+                <span>·</span>
+                <span>Payments: <span className="font-medium text-green-600">{formatCurrency(totalPayments)}</span></span>
+              </div>
+            </div>
+
+            {/* (C) Activity Timeline */}
+            {timelineEvents.length > 1 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                  Activity Timeline
+                </h3>
+                <div className="relative">
+                  {/* Timeline line */}
+                  <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
+                  
+                  <div className="space-y-3">
+                    {timelineEvents.map((event, index) => (
+                      <div key={event.id} className="flex items-start gap-3 relative">
+                        {/* Icon */}
+                        <div className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full ${getTimelineColor(event.type)}`}>
+                          {getTimelineIcon(event.type)}
+                        </div>
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-medium truncate">{event.title}</div>
+                            {event.amount && event.type !== "invoice" && (
+                              <span className={`text-xs font-medium ${event.type === "credit_note" ? "text-destructive" : "text-green-600"}`}>
+                                {event.type === "credit_note" ? "–" : "+"} {formatCurrency(event.amount)}
+                              </span>
+                            )}
+                            {event.type === "invoice" && event.amount && (
+                              <span className="text-xs font-medium">
+                                {formatCurrency(event.amount)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span>{format(new Date(event.date), "dd MMM yyyy")}</span>
+                            {event.subtitle && (
+                              <>
+                                <span>·</span>
+                                <span className="truncate">{event.subtitle}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
