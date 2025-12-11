@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, CheckCircle, Clock, CreditCard, AlertCircle, Loader2, Receipt, Banknote, ExternalLink, Download } from "lucide-react";
+import { FileText, CheckCircle, Clock, CreditCard, AlertCircle, Loader2, Receipt, Banknote, ExternalLink, Download, ChevronDown } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
@@ -132,6 +137,7 @@ export const InvoiceSettlementSheet = ({
   const [invoiceIssuedAt, setInvoiceIssuedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   const handleViewInvoice = () => {
     if (invoice) {
@@ -152,7 +158,6 @@ export const InvoiceSettlementSheet = ({
 
     setDownloadingPdf(true);
     try {
-      // Calculate totals from items
       const netTotal = invoiceItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
       const vatTotal = invoiceItems.reduce((sum, item) => sum + (item.quantity * item.unit_price * item.vat_rate), 0);
       const grandTotal = netTotal + vatTotal;
@@ -254,7 +259,6 @@ export const InvoiceSettlementSheet = ({
         })));
       }
       
-      // Handle invoice details and customer
       if (invoiceDetailsResult.data) {
         setInvoiceCreatedAt(invoiceDetailsResult.data.created_at);
         setInvoiceIssuedAt(invoiceDetailsResult.data.issued_at);
@@ -270,7 +274,7 @@ export const InvoiceSettlementSheet = ({
     }
   };
 
-  // Calculate totals first (needed by timeline) - use gross amounts for credit notes
+  // Calculate totals - use gross amounts for credit notes
   const totalCredits = creditNotes.reduce((sum, cn) => sum + getCreditNoteGrossAmount(cn), 0);
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remainingBalance = invoice ? invoice.total_amount - totalCredits - totalPayments : 0;
@@ -281,7 +285,6 @@ export const InvoiceSettlementSheet = ({
 
     const events: TimelineEvent[] = [];
 
-    // Invoice created event
     if (invoiceCreatedAt) {
       events.push({
         id: `invoice-created-${invoice.id}`,
@@ -291,7 +294,6 @@ export const InvoiceSettlementSheet = ({
       });
     }
 
-    // Invoice issued event
     if (invoice.is_issued && invoiceIssuedAt) {
       events.push({
         id: `invoice-issued-${invoice.id}`,
@@ -300,7 +302,6 @@ export const InvoiceSettlementSheet = ({
         title: "Invoice issued",
       });
     } else if (invoice.is_issued) {
-      // Fallback to invoice_date if issued_at not available
       events.push({
         id: `invoice-issued-${invoice.id}`,
         type: "invoice_issued",
@@ -314,7 +315,7 @@ export const InvoiceSettlementSheet = ({
         id: `cn-${cn.id}`,
         type: "credit_note",
         date: cn.credit_note_date,
-        title: `Credit Note ${cn.credit_note_number} created`,
+        title: `Credit Note ${cn.credit_note_number}`,
         amount: getCreditNoteGrossAmount(cn),
       });
     });
@@ -329,7 +330,6 @@ export const InvoiceSettlementSheet = ({
       });
     });
 
-    // If paid in full, add a paid event (use last payment date)
     const calcBalance = invoice.total_amount - totalCredits - totalPayments;
     if (calcBalance === 0 && payments.length > 0) {
       const lastPayment = [...payments].sort((a, b) => 
@@ -339,11 +339,10 @@ export const InvoiceSettlementSheet = ({
         id: `paid-${invoice.id}`,
         type: "paid",
         date: lastPayment.payment_date,
-        title: "Invoice marked as paid",
+        title: "Marked as paid",
       });
     }
 
-    // Sort by date ascending
     events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     return events;
   }, [invoice, creditNotes, payments, invoiceCreatedAt, invoiceIssuedAt, totalCredits, totalPayments]);
@@ -363,15 +362,15 @@ export const InvoiceSettlementSheet = ({
     } else if (remainingBalance < 0) {
       return (
         <div className="text-right">
-          <span className="text-lg font-bold text-green-600">
+          <span className="text-base font-semibold text-green-600">
             {formatCurrency(Math.abs(remainingBalance))}
           </span>
-          <div className="text-xs text-green-600">Credit in favour</div>
+          <div className="text-[10px] text-green-600">Credit in favour</div>
         </div>
       );
     } else {
       return (
-        <span className="text-lg font-bold text-destructive">
+        <span className="text-base font-semibold text-destructive">
           {formatCurrency(remainingBalance)}
         </span>
       );
@@ -381,15 +380,14 @@ export const InvoiceSettlementSheet = ({
   const getTimelineIcon = (type: TimelineEvent["type"]) => {
     switch (type) {
       case "invoice_created":
-        return <FileText className="h-3.5 w-3.5" />;
       case "invoice_issued":
-        return <FileText className="h-3.5 w-3.5" />;
+        return <FileText className="h-3 w-3" />;
       case "credit_note":
-        return <Receipt className="h-3.5 w-3.5" />;
+        return <Receipt className="h-3 w-3" />;
       case "payment":
-        return <Banknote className="h-3.5 w-3.5" />;
+        return <Banknote className="h-3 w-3" />;
       case "paid":
-        return <CheckCircle className="h-3.5 w-3.5" />;
+        return <CheckCircle className="h-3 w-3" />;
     }
   };
 
@@ -402,7 +400,6 @@ export const InvoiceSettlementSheet = ({
       case "credit_note":
         return "bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-300";
       case "payment":
-        return "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300";
       case "paid":
         return "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300";
     }
@@ -410,234 +407,226 @@ export const InvoiceSettlementSheet = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[400px] p-0 overflow-y-auto">
-        <SheetHeader className="px-6 pt-6 pb-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <SheetTitle className="text-lg font-semibold">
-                Invoice {invoice.invoice_number}
-              </SheetTitle>
-              <div className="flex items-center gap-2 mt-1.5 text-sm text-muted-foreground flex-wrap">
-                <Badge className={`${statusBadge.className} text-xs`}>
-                  <StatusIcon className="h-3 w-3 mr-1" />
-                  {statusBadge.label}
-                </Badge>
-                <span>·</span>
-                <span>{customer?.name || "Loading..."}</span>
-              </div>
-            </div>
+      <SheetContent className="w-full sm:max-w-[420px] p-0 flex flex-col">
+        {/* Fixed Header */}
+        <SheetHeader className="px-5 pt-5 pb-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <SheetTitle className="text-base font-semibold">
+              {invoice.invoice_number}
+            </SheetTitle>
+            <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+              <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
+              {statusBadge.label}
+            </Badge>
           </div>
+          <p className="text-sm text-muted-foreground">{customer?.name || "Loading..."}</p>
         </SheetHeader>
 
         <Separator />
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <div className="flex flex-col items-center justify-center py-16 gap-3 flex-1">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Loading settlement details…</span>
+            <span className="text-sm text-muted-foreground">Loading…</span>
           </div>
         ) : (
-          <div className="flex flex-col h-[calc(100%-73px)]">
-            <div className="flex-1 px-6 py-4 space-y-6 overflow-y-auto">
-            {/* (A) Summary Section */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                  Original Amount
-                </div>
-                <div className="text-lg font-semibold">
-                  {formatCurrency(invoice.total_amount)}
-                </div>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-4">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-                  Remaining Balance
-                </div>
-                {getBalanceDisplay()}
-              </div>
-            </div>
-
-            {/* (B) Settlement Breakdown */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                Settlement Breakdown
-              </h3>
-
-              {/* Credit Notes Applied */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Credit Notes Applied</h4>
-                {creditNotes.length > 0 ? (
-                  <div className="space-y-2">
-                    {creditNotes.map((cn) => (
-                      <div
-                        key={cn.id}
-                        className="flex justify-between items-start p-3 bg-muted/30 rounded-lg border border-border/50"
-                      >
-                        <div>
-                          <div className="text-sm font-medium">
-                            {cn.credit_note_number} · {format(new Date(cn.credit_note_date), "dd MMM yyyy")}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {cn.reason}
-                          </div>
-                        </div>
-                        <span className="text-sm font-medium text-destructive">
-                          – {formatCurrency(getCreditNoteGrossAmount(cn))}
-                        </span>
-                      </div>
-                    ))}
+          <>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* 1. Line Items (TOP) */}
+              {invoiceItems.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Line Items
+                  </h3>
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="text-left px-2.5 py-1.5 font-medium text-muted-foreground">Description</th>
+                          <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-10">Qty</th>
+                          <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-16">Price</th>
+                          <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-12">VAT</th>
+                          <th className="text-right px-2.5 py-1.5 font-medium text-muted-foreground w-18">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoiceItems.map((item, idx) => {
+                          const lineTotal = item.quantity * item.unit_price * (1 + item.vat_rate);
+                          return (
+                            <tr key={item.id} className={idx !== invoiceItems.length - 1 ? "border-b border-border/50" : ""}>
+                              <td className="px-2.5 py-1.5 text-foreground truncate max-w-[100px]" title={item.description}>
+                                {item.description}
+                              </td>
+                              <td className="text-right px-2 py-1.5 text-muted-foreground">{item.quantity}</td>
+                              <td className="text-right px-2 py-1.5 text-muted-foreground">{formatCurrency(item.unit_price)}</td>
+                              <td className="text-right px-2 py-1.5 text-muted-foreground">{(item.vat_rate * 100).toFixed(0)}%</td>
+                              <td className="text-right px-2.5 py-1.5 font-medium">{formatCurrency(lineTotal)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">
-                    No credit notes applied to this invoice.
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
 
-              <Separator />
-
-              {/* Payments Received */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Payments Received</h4>
-                {payments.length > 0 ? (
-                  <div className="space-y-2">
-                    {payments.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex justify-between items-start p-3 bg-muted/30 rounded-lg border border-border/50"
-                      >
-                        <div>
-                          <div className="text-sm font-medium">
-                            {format(new Date(p.payment_date!), "dd MMM yyyy")}
-                            {p.method && (
-                              <span className="text-muted-foreground"> · {p.method.charAt(0).toUpperCase() + p.method.slice(1)}</span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-sm font-medium text-green-600">
-                          {formatCurrency(Number(p.amount))}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">
-                    No payments recorded yet.
-                  </p>
-                )}
-              </div>
-
-              {/* Summary Line */}
-              <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground pt-2">
-                <span>Credit Notes: <span className="font-medium text-destructive">– {formatCurrency(totalCredits)}</span></span>
-                <span>·</span>
-                <span>Payments: <span className="font-medium text-green-600">{formatCurrency(totalPayments)}</span></span>
-              </div>
-            </div>
-
-            {/* (C) Line Items */}
-            {invoiceItems.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  Line Items
+              {/* 2. Invoice Financial Summary */}
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  Invoice Summary
                 </h3>
-                <div className="border border-border rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Description</th>
-                        <th className="text-right px-2 py-2 font-medium text-muted-foreground w-12">Qty</th>
-                        <th className="text-right px-2 py-2 font-medium text-muted-foreground w-20">Price</th>
-                        <th className="text-right px-2 py-2 font-medium text-muted-foreground w-14">VAT</th>
-                        <th className="text-right px-3 py-2 font-medium text-muted-foreground w-20">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {invoiceItems.map((item) => {
-                        const lineTotal = item.quantity * item.unit_price * (1 + item.vat_rate);
-                        return (
-                          <tr key={item.id}>
-                            <td className="px-3 py-2 text-foreground truncate max-w-[120px]" title={item.description}>
-                              {item.description}
-                            </td>
-                            <td className="text-right px-2 py-2 text-muted-foreground">{item.quantity}</td>
-                            <td className="text-right px-2 py-2 text-muted-foreground">{formatCurrency(item.unit_price)}</td>
-                            <td className="text-right px-2 py-2 text-muted-foreground">{(item.vat_rate * 100).toFixed(0)}%</td>
-                            <td className="text-right px-3 py-2 font-medium">{formatCurrency(lineTotal)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="bg-muted/40 rounded-lg p-3 space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Original Amount</span>
+                    <span className="font-medium">{formatCurrency(invoice.total_amount)}</span>
+                  </div>
+                  {totalCredits > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Credit Notes</span>
+                      <span className="text-destructive">– {formatCurrency(totalCredits)}</span>
+                    </div>
+                  )}
+                  {totalPayments > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Payments</span>
+                      <span className="text-green-600">– {formatCurrency(totalPayments)}</span>
+                    </div>
+                  )}
+                  <Separator className="my-1.5" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Remaining Balance</span>
+                    {getBalanceDisplay()}
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* (D) Activity Timeline */}
-            {timelineEvents.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                  Activity Timeline
-                </h3>
-                <div className="relative">
-                  {/* Timeline line */}
-                  <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
-                  
+              {/* 3. Settlement Breakdown */}
+              {(creditNotes.length > 0 || payments.length > 0) && (
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Settlement Breakdown
+                  </h3>
                   <div className="space-y-3">
-                    {timelineEvents.map((event) => (
-                      <div key={event.id} className="flex items-start gap-3 relative">
-                        {/* Icon */}
-                        <div className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full ${getTimelineColor(event.type)}`}>
-                          {getTimelineIcon(event.type)}
-                        </div>
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 pt-0.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm truncate">{event.title}</div>
-                            {event.amount && (
-                              <span className={`text-xs font-medium ${event.type === "credit_note" ? "text-destructive" : "text-green-600"}`}>
-                                {event.type === "credit_note" ? "–" : ""}{formatCurrency(event.amount)}
+                    {/* Credit Notes */}
+                    {creditNotes.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h4 className="text-xs font-medium text-muted-foreground">Credit Notes Applied</h4>
+                        <div className="space-y-1.5">
+                          {creditNotes.map((cn) => (
+                            <div
+                              key={cn.id}
+                              className="flex justify-between items-center py-2 px-2.5 bg-muted/30 rounded-md text-xs"
+                            >
+                              <div className="min-w-0">
+                                <span className="font-medium">{cn.credit_note_number}</span>
+                                <span className="text-muted-foreground"> · {format(new Date(cn.credit_note_date), "dd MMM")}</span>
+                              </div>
+                              <span className="font-medium text-destructive shrink-0 ml-2">
+                                – {formatCurrency(getCreditNoteGrossAmount(cn))}
                               </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {format(new Date(event.date), "dd/MM/yyyy HH:mm")}
-                          </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Payments */}
+                    {payments.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h4 className="text-xs font-medium text-muted-foreground">Payments Received</h4>
+                        <div className="space-y-1.5">
+                          {payments.map((p) => (
+                            <div
+                              key={p.id}
+                              className="flex justify-between items-center py-2 px-2.5 bg-muted/30 rounded-md text-xs"
+                            >
+                              <div className="min-w-0">
+                                <span>{format(new Date(p.payment_date!), "dd MMM yyyy")}</span>
+                                {p.method && (
+                                  <span className="text-muted-foreground"> · {p.method.charAt(0).toUpperCase() + p.method.slice(1)}</span>
+                                )}
+                              </div>
+                              <span className="font-medium text-green-600 shrink-0 ml-2">
+                                {formatCurrency(Number(p.amount))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* 4. Activity Timeline (Collapsible) */}
+              {timelineEvents.length > 0 && (
+                <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Activity Timeline
+                    </h3>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${timelineOpen ? "rotate-180" : ""}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <div className="relative">
+                      <div className="absolute left-[9px] top-2 bottom-2 w-px bg-border" />
+                      <div className="space-y-2">
+                        {timelineEvents.map((event) => (
+                          <div key={event.id} className="flex items-start gap-2.5 relative">
+                            <div className={`relative z-10 flex items-center justify-center w-5 h-5 rounded-full ${getTimelineColor(event.type)}`}>
+                              {getTimelineIcon(event.type)}
+                            </div>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs truncate">{event.title}</span>
+                                {event.amount && (
+                                  <span className={`text-[10px] font-medium ${event.type === "credit_note" ? "text-destructive" : "text-green-600"}`}>
+                                    {event.type === "credit_note" ? "–" : ""}{formatCurrency(event.amount)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {format(new Date(event.date), "dd/MM/yyyy HH:mm")}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
 
-            {/* Action Buttons - Fixed at bottom */}
-            <div className="shrink-0 px-6 py-4 border-t border-border bg-background">
+            {/* Fixed Footer Actions */}
+            <div className="shrink-0 px-5 py-3 border-t border-border bg-background">
               <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   className="w-full sm:w-auto order-2 sm:order-1"
                   onClick={handleDownloadPdf}
                   disabled={downloadingPdf || invoiceItems.length === 0}
                 >
                   {downloadingPdf ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                   ) : (
-                    <Download className="h-4 w-4 mr-2" />
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
                   )}
                   {downloadingPdf ? "Generating..." : "Download PDF"}
                 </Button>
                 <Button
+                  size="sm"
                   className="w-full sm:w-auto order-1 sm:order-2"
                   onClick={handleViewInvoice}
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                   View Full Invoice
                 </Button>
               </div>
             </div>
-          </div>
+          </>
         )}
       </SheetContent>
     </Sheet>
