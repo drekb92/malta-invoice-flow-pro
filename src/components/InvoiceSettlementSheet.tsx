@@ -44,9 +44,18 @@ interface Payment {
   method: string | null;
 }
 
+interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  vat_rate: number;
+  unit: string | null;
+}
+
 interface TimelineEvent {
   id: string;
-  type: "invoice" | "credit_note" | "payment";
+  type: "invoice_created" | "invoice_issued" | "credit_note" | "payment" | "paid";
   date: string;
   title: string;
   subtitle?: string;
@@ -112,7 +121,10 @@ export const InvoiceSettlementSheet = ({
   const { settings: companySettings } = useCompanySettings();
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [customer, setCustomer] = useState<{ id: string; name: string; email: string | null; address: string | null; vat_number: string | null } | null>(null);
+  const [invoiceCreatedAt, setInvoiceCreatedAt] = useState<string | null>(null);
+  const [invoiceIssuedAt, setInvoiceIssuedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -219,31 +231,27 @@ export const InvoiceSettlementSheet = ({
     
     setLoading(true);
     try {
-      // Build customer query - need to fetch customer if not embedded
-      const customerQuery = invoice.customer_id
-        ? supabase
-            .from("customers")
-            .select("id, name, email, address, vat_number")
-            .eq("id", invoice.customer_id)
-            .maybeSingle()
-        : supabase
-            .from("invoices")
-            .select("customer_id, customers(id, name, email, address, vat_number)")
-            .eq("id", invoice.id)
-            .maybeSingle();
-
-      const [creditNotesResult, paymentsResult, customerResult] = await Promise.all([
+      const [creditNotesResult, paymentsResult, invoiceItemsResult, invoiceDetailsResult] = await Promise.all([
         supabase
           .from("credit_notes")
           .select("id, credit_note_number, credit_note_date, amount, reason")
           .eq("original_invoice_id", invoice.id)
-          .order("credit_note_date", { ascending: false }),
+          .order("credit_note_date", { ascending: true }),
         supabase
           .from("payments")
           .select("id, payment_date, amount, method")
           .eq("invoice_id", invoice.id)
-          .order("payment_date", { ascending: false }),
-        customerQuery,
+          .order("payment_date", { ascending: true }),
+        supabase
+          .from("invoice_items")
+          .select("id, description, quantity, unit_price, vat_rate, unit")
+          .eq("invoice_id", invoice.id)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("invoices")
+          .select("created_at, issued_at, customer_id, customers(id, name, email, address, vat_number)")
+          .eq("id", invoice.id)
+          .maybeSingle(),
       ]);
 
       if (creditNotesResult.data) {
@@ -252,18 +260,22 @@ export const InvoiceSettlementSheet = ({
       if (paymentsResult.data) {
         setPayments(paymentsResult.data);
       }
+      if (invoiceItemsResult.data) {
+        setInvoiceItems(invoiceItemsResult.data.map(item => ({
+          ...item,
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unit_price),
+          vat_rate: Number(item.vat_rate),
+        })));
+      }
       
-      // Handle customer data based on query type
-      if (customerResult.data) {
-        if (invoice.customer_id) {
-          // Direct customer query
-          setCustomer(customerResult.data as { id: string; name: string; email: string | null; address: string | null; vat_number: string | null });
-        } else {
-          // Nested query via invoice
-          const invoiceData = customerResult.data as { customers: { id: string; name: string; email: string | null; address: string | null; vat_number: string | null } | null };
-          if (invoiceData.customers) {
-            setCustomer(invoiceData.customers);
-          }
+      // Handle invoice details and customer
+      if (invoiceDetailsResult.data) {
+        setInvoiceCreatedAt(invoiceDetailsResult.data.created_at);
+        setInvoiceIssuedAt(invoiceDetailsResult.data.issued_at);
+        const invoiceData = invoiceDetailsResult.data as { customers: { id: string; name: string; email: string | null; address: string | null; vat_number: string | null } | null };
+        if (invoiceData.customers) {
+          setCustomer(invoiceData.customers);
         }
       }
     } catch (error) {
@@ -273,28 +285,51 @@ export const InvoiceSettlementSheet = ({
     }
   };
 
+  // Calculate totals first (needed by timeline)
+  const totalCredits = creditNotes.reduce((sum, cn) => sum + Number(cn.amount), 0);
+  const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const remainingBalance = invoice ? invoice.total_amount - totalCredits - totalPayments : 0;
+
   // Build timeline events
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
     if (!invoice) return [];
 
-    const events: TimelineEvent[] = [
-      {
-        id: `invoice-${invoice.id}`,
-        type: "invoice",
+    const events: TimelineEvent[] = [];
+
+    // Invoice created event
+    if (invoiceCreatedAt) {
+      events.push({
+        id: `invoice-created-${invoice.id}`,
+        type: "invoice_created",
+        date: invoiceCreatedAt,
+        title: "Invoice created",
+      });
+    }
+
+    // Invoice issued event
+    if (invoice.is_issued && invoiceIssuedAt) {
+      events.push({
+        id: `invoice-issued-${invoice.id}`,
+        type: "invoice_issued",
+        date: invoiceIssuedAt,
+        title: "Invoice issued",
+      });
+    } else if (invoice.is_issued) {
+      // Fallback to invoice_date if issued_at not available
+      events.push({
+        id: `invoice-issued-${invoice.id}`,
+        type: "invoice_issued",
         date: invoice.invoice_date,
-        title: "Invoice Issued",
-        subtitle: invoice.invoice_number,
-        amount: invoice.total_amount,
-      },
-    ];
+        title: "Invoice issued",
+      });
+    }
 
     creditNotes.forEach((cn) => {
       events.push({
         id: `cn-${cn.id}`,
         type: "credit_note",
         date: cn.credit_note_date,
-        title: cn.credit_note_number,
-        subtitle: cn.reason,
+        title: `Credit Note ${cn.credit_note_number} created`,
         amount: Number(cn.amount),
       });
     });
@@ -304,25 +339,34 @@ export const InvoiceSettlementSheet = ({
         id: `payment-${p.id}`,
         type: "payment",
         date: p.payment_date,
-        title: "Payment Received",
-        subtitle: p.method ? p.method.charAt(0).toUpperCase() + p.method.slice(1) : undefined,
+        title: `Payment${p.method ? ` (${p.method.charAt(0).toUpperCase() + p.method.slice(1)})` : ""}`,
         amount: Number(p.amount),
       });
     });
 
+    // If paid in full, add a paid event (use last payment date)
+    const calcBalance = invoice.total_amount - totalCredits - totalPayments;
+    if (calcBalance === 0 && payments.length > 0) {
+      const lastPayment = [...payments].sort((a, b) => 
+        new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+      )[0];
+      events.push({
+        id: `paid-${invoice.id}`,
+        type: "paid",
+        date: lastPayment.payment_date,
+        title: "Invoice marked as paid",
+      });
+    }
+
     // Sort by date ascending
     events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     return events;
-  }, [invoice, creditNotes, payments]);
+  }, [invoice, creditNotes, payments, invoiceCreatedAt, invoiceIssuedAt, totalCredits, totalPayments]);
 
   if (!invoice) return null;
 
   const statusBadge = getStatusBadge(invoice.status);
   const StatusIcon = statusBadge.icon;
-
-  const totalCredits = creditNotes.reduce((sum, cn) => sum + Number(cn.amount), 0);
-  const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const remainingBalance = invoice.total_amount - totalCredits - totalPayments;
 
   const getBalanceDisplay = () => {
     if (remainingBalance === 0) {
@@ -349,24 +393,32 @@ export const InvoiceSettlementSheet = ({
     }
   };
 
-  const getTimelineIcon = (type: "invoice" | "credit_note" | "payment") => {
+  const getTimelineIcon = (type: TimelineEvent["type"]) => {
     switch (type) {
-      case "invoice":
+      case "invoice_created":
+        return <FileText className="h-3.5 w-3.5" />;
+      case "invoice_issued":
         return <FileText className="h-3.5 w-3.5" />;
       case "credit_note":
         return <Receipt className="h-3.5 w-3.5" />;
       case "payment":
         return <Banknote className="h-3.5 w-3.5" />;
+      case "paid":
+        return <CheckCircle className="h-3.5 w-3.5" />;
     }
   };
 
-  const getTimelineColor = (type: "invoice" | "credit_note" | "payment") => {
+  const getTimelineColor = (type: TimelineEvent["type"]) => {
     switch (type) {
-      case "invoice":
+      case "invoice_created":
+        return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
+      case "invoice_issued":
         return "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300";
       case "credit_note":
         return "bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-300";
       case "payment":
+        return "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300";
+      case "paid":
         return "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300";
     }
   };
@@ -498,8 +550,46 @@ export const InvoiceSettlementSheet = ({
               </div>
             </div>
 
-            {/* (C) Activity Timeline */}
-            {timelineEvents.length > 1 && (
+            {/* (C) Line Items */}
+            {invoiceItems.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                  Line Items
+                </h3>
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium text-muted-foreground">Description</th>
+                        <th className="text-right px-2 py-2 font-medium text-muted-foreground w-12">Qty</th>
+                        <th className="text-right px-2 py-2 font-medium text-muted-foreground w-20">Price</th>
+                        <th className="text-right px-2 py-2 font-medium text-muted-foreground w-14">VAT</th>
+                        <th className="text-right px-3 py-2 font-medium text-muted-foreground w-20">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {invoiceItems.map((item) => {
+                        const lineTotal = item.quantity * item.unit_price * (1 + item.vat_rate);
+                        return (
+                          <tr key={item.id}>
+                            <td className="px-3 py-2 text-foreground truncate max-w-[120px]" title={item.description}>
+                              {item.description}
+                            </td>
+                            <td className="text-right px-2 py-2 text-muted-foreground">{item.quantity}</td>
+                            <td className="text-right px-2 py-2 text-muted-foreground">{formatCurrency(item.unit_price)}</td>
+                            <td className="text-right px-2 py-2 text-muted-foreground">{(item.vat_rate * 100).toFixed(0)}%</td>
+                            <td className="text-right px-3 py-2 font-medium">{formatCurrency(lineTotal)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* (D) Activity Timeline */}
+            {timelineEvents.length > 0 && (
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                   Activity Timeline
@@ -509,7 +599,7 @@ export const InvoiceSettlementSheet = ({
                   <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
                   
                   <div className="space-y-3">
-                    {timelineEvents.map((event, index) => (
+                    {timelineEvents.map((event) => (
                       <div key={event.id} className="flex items-start gap-3 relative">
                         {/* Icon */}
                         <div className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full ${getTimelineColor(event.type)}`}>
@@ -518,26 +608,15 @@ export const InvoiceSettlementSheet = ({
                         {/* Content */}
                         <div className="flex-1 min-w-0 pt-0.5">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-medium truncate">{event.title}</div>
-                            {event.amount && event.type !== "invoice" && (
+                            <div className="text-sm truncate">{event.title}</div>
+                            {event.amount && (
                               <span className={`text-xs font-medium ${event.type === "credit_note" ? "text-destructive" : "text-green-600"}`}>
-                                {event.type === "credit_note" ? "–" : "+"} {formatCurrency(event.amount)}
-                              </span>
-                            )}
-                            {event.type === "invoice" && event.amount && (
-                              <span className="text-xs font-medium">
-                                {formatCurrency(event.amount)}
+                                {event.type === "credit_note" ? "–" : ""}{formatCurrency(event.amount)}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <span>{format(new Date(event.date), "dd MMM yyyy")}</span>
-                            {event.subtitle && (
-                              <>
-                                <span>·</span>
-                                <span className="truncate">{event.subtitle}</span>
-                              </>
-                            )}
+                          <div className="text-xs text-muted-foreground">
+                            {format(new Date(event.date), "dd/MM/yyyy HH:mm")}
                           </div>
                         </div>
                       </div>
