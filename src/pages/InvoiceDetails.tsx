@@ -154,7 +154,7 @@ const InvoiceSummaryCard = ({
       {/* Status Badge & Original Total */}
       <div className="text-center pb-4 border-b border-[#f1f5f9] dark:border-border">
         <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5 mb-2`}>
-          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+          {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
         </Badge>
         <p className="text-xs text-muted-foreground mb-1">Original Total</p>
         <p className="text-2xl font-bold text-foreground">€{formatNumber(total, 2)}</p>
@@ -835,7 +835,7 @@ const InvoiceDetails = () => {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{invoice.invoice_number}</p>
                         <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
-                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                          {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                         </Badge>
                       </div>
                     </div>
