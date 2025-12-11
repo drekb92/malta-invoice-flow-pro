@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, Receipt, FileText, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { 
@@ -33,7 +33,7 @@ export const TransactionSummaryCard = ({
   const getBalanceDisplay = () => {
     if (remainingBalance === 0) {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200">
+        <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-0.5">
           Paid in full
         </Badge>
       );
@@ -49,47 +49,54 @@ export const TransactionSummaryCard = ({
     return <span className="text-base font-semibold text-destructive">{formatCurrency(remainingBalance)}</span>;
   };
 
-  const title = type === "invoice" ? "Invoice" : type === "credit_note" ? "Credit Note" : "Quote";
+  const getIcon = () => {
+    if (type === "invoice") return <FileText className="h-3.5 w-3.5" />;
+    if (type === "credit_note") return <Receipt className="h-3.5 w-3.5" />;
+    return <ClipboardList className="h-3.5 w-3.5" />;
+  };
+
+  const title = type === "invoice" ? "Summary" : type === "credit_note" ? "Summary" : "Summary";
 
   return (
-    <div className="mt-3">
-      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-        {title} Summary
+    <div className="mt-5">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+        {getIcon()}
+        {title}
       </h3>
-      <div className="bg-muted/40 rounded-lg p-3 space-y-2">
+      <div className="bg-card border border-border/60 rounded-lg p-4 space-y-3 shadow-sm">
         {/* INVOICE SUMMARY */}
         {type === "invoice" && (
           <>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Original Amount</span>
-              <span className="font-medium">{formatCurrency(totalAmount)}</span>
+              <span className="font-semibold text-foreground">{formatCurrency(totalAmount)}</span>
             </div>
             
             {totalCredits > 0 && (
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Credit Notes Applied</span>
                 <span className="text-destructive font-medium">– {formatCurrency(totalCredits)}</span>
               </div>
             )}
 
             {totalPayments > 0 && (
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Payments Received</span>
                 <span className="text-green-600 font-medium">– {formatCurrency(totalPayments)}</span>
               </div>
             )}
 
-            <Separator className="my-1.5" />
+            <Separator className="my-2" />
             <div
-              className={`flex justify-between items-center -mx-3 px-3 py-2 rounded-md ${
+              className={`flex justify-between items-center -mx-4 -mb-4 px-4 py-3 rounded-b-lg ${
                 remainingBalance === 0
-                  ? "bg-green-50 dark:bg-green-950/30"
+                  ? "bg-green-50/80 dark:bg-green-950/30"
                   : remainingBalance > 0
-                  ? "bg-red-50 dark:bg-red-950/30"
-                  : "bg-green-50 dark:bg-green-950/30"
+                  ? "bg-red-50/80 dark:bg-red-950/30"
+                  : "bg-green-50/80 dark:bg-green-950/30"
               }`}
             >
-              <span className="text-sm font-medium">Remaining Balance</span>
+              <span className="text-sm font-semibold">Remaining Balance</span>
               {getBalanceDisplay()}
             </div>
           </>
@@ -100,31 +107,31 @@ export const TransactionSummaryCard = ({
           const cn = transaction as CreditNoteTransaction;
           return (
             <>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Credit Note Amount</span>
-                <span className="font-medium">{formatCurrency(totalAmount)}</span>
+                <span className="font-semibold text-foreground">{formatCurrency(totalAmount)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Net Amount</span>
-                <span>{formatCurrency(cn.amount)}</span>
+                <span className="text-foreground">{formatCurrency(cn.amount)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">VAT ({(cn.vat_rate * 100).toFixed(0)}%)</span>
-                <span>{formatCurrency(cn.amount * cn.vat_rate)}</span>
+                <span className="text-foreground">{formatCurrency(cn.amount * cn.vat_rate)}</span>
               </div>
               
-              <Separator className="my-1.5" />
+              <Separator className="my-2" />
               
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Reason</span>
-                <span className="text-right max-w-[180px] truncate" title={cn.reason}>
+                <span className="text-right max-w-[180px] truncate text-foreground" title={cn.reason}>
                   {cn.reason}
                 </span>
               </div>
               
-              <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
-                <span className="text-sm font-medium">Status</span>
-                <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+              <div className="-mx-4 -mb-4 px-4 py-3 mt-2 rounded-b-lg bg-muted/40 flex justify-between items-center">
+                <span className="text-sm font-semibold">Status</span>
+                <Badge className={`${statusBadge.className} text-xs px-2 py-0.5`}>
                   {statusBadge.label}
                 </Badge>
               </div>
@@ -144,50 +151,50 @@ export const TransactionSummaryCard = ({
           
           return (
             <>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Total Quote Value</span>
-                <span className="font-semibold">{formatCurrency(totalAmount)}</span>
+                <span className="font-semibold text-foreground">{formatCurrency(totalAmount)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Net Amount</span>
-                <span>{formatCurrency(quote.amount || 0)}</span>
+                <span className="text-foreground">{formatCurrency(quote.amount || 0)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">VAT Amount</span>
-                <span>{formatCurrency(quote.vat_amount || 0)}</span>
+                <span className="text-foreground">{formatCurrency(quote.vat_amount || 0)}</span>
               </div>
               
-              <Separator className="my-1.5" />
+              <Separator className="my-2" />
               
               <div className="flex justify-between text-sm items-center">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
                   Issue Date
                 </span>
-                <span className="font-medium">
+                <span className="font-medium text-foreground">
                   {format(issueDate, "dd MMM yyyy")}
                 </span>
               </div>
               <div className="flex justify-between text-sm items-center">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
                   Valid Until
                 </span>
-                <span className={`font-medium ${isExpired ? "text-destructive" : ""}`}>
+                <span className={`font-medium ${isExpired ? "text-destructive" : "text-foreground"}`}>
                   {validUntil ? format(validUntil, "dd MMM yyyy") : "—"}
                   {isExpired && <span className="text-[10px] ml-1">(Expired)</span>}
                 </span>
               </div>
               {validityDays && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Validity Period</span>
-                  <span>{validityDays} days</span>
+                  <span className="text-foreground">{validityDays} days</span>
                 </div>
               )}
               
-              <div className="-mx-3 px-3 py-2 mt-1 rounded-md bg-muted/50 flex justify-between items-center">
-                <span className="text-sm font-medium">Quote Status</span>
-                <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+              <div className="-mx-4 -mb-4 px-4 py-3 mt-2 rounded-b-lg bg-muted/40 flex justify-between items-center">
+                <span className="text-sm font-semibold">Quote Status</span>
+                <Badge className={`${statusBadge.className} text-xs px-2 py-0.5`}>
                   {statusBadge.label}
                 </Badge>
               </div>
