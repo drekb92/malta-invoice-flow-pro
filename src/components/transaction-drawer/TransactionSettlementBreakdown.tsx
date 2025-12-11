@@ -106,6 +106,7 @@ interface CreditNoteApplicationBreakdownProps {
   originalInvoiceId: string | null;
   totalAmount: number;
   appliedDate: string | null;
+  remainingCredit?: number;
   onClose: () => void;
 }
 
@@ -114,9 +115,22 @@ export const CreditNoteApplicationBreakdown = ({
   originalInvoiceId,
   totalAmount,
   appliedDate,
+  remainingCredit = originalInvoice ? 0 : totalAmount,
   onClose,
 }: CreditNoteApplicationBreakdownProps) => {
   const navigate = useNavigate();
+  
+  const totalApplied = totalAmount - remainingCredit;
+  
+  const getContextualNote = () => {
+    if (remainingCredit === 0 && totalApplied > 0) {
+      return "This credit note has been fully applied to invoices.";
+    }
+    if (remainingCredit > 0 && totalApplied > 0) {
+      return "This credit note is partially applied. Remaining credit may be allocated to other invoices.";
+    }
+    return "This credit note has not been applied yet.";
+  };
 
   return (
     <div className="mt-5">
@@ -143,7 +157,7 @@ export const CreditNoteApplicationBreakdown = ({
                     {originalInvoice.invoice_number}
                   </button>
                   <span className="font-medium text-destructive shrink-0 ml-2">
-                    – {formatCurrency(totalAmount)}
+                    – {formatCurrency(totalApplied)}
                   </span>
                 </div>
                 {appliedDate && (
@@ -153,14 +167,20 @@ export const CreditNoteApplicationBreakdown = ({
                 )}
               </div>
             </div>
-            <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/60 text-sm">
+            
+            {/* Contextual note */}
+            <p className="text-[11px] text-muted-foreground mt-3 mb-3">
+              {getContextualNote()}
+            </p>
+            
+            <div className="flex justify-between items-center pt-3 border-t border-border/60 text-sm">
               <span className="text-muted-foreground">Remaining Credit:</span>
-              <span className="font-medium text-foreground">€0.00</span>
+              <span className="font-medium text-foreground">{formatCurrency(remainingCredit)}</span>
             </div>
           </>
         ) : (
           <p className="text-sm text-muted-foreground italic text-center py-3">
-            This credit note has not been applied to any invoice.
+            {getContextualNote()}
           </p>
         )}
       </div>
