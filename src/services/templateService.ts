@@ -28,7 +28,7 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
       .from('invoice_templates')
       .select('*')
       .eq('is_default', true)
-      .single();
+      .maybeSingle();
 
     if (error || !data) {
       // Return a fallback default template
