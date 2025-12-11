@@ -26,6 +26,7 @@ import {
   Shield,
   Plus,
   CreditCard,
+  Clock,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -92,6 +93,99 @@ interface Payment {
   method: string | null;
   created_at: string;
 }
+
+// Invoice Summary Card Component
+interface InvoiceSummaryCardProps {
+  invoice: Invoice;
+  invoiceTotals: InvoiceTotals | null;
+  computedTotals: { net: number; vat: number; total: number };
+  totalPaid: number;
+  remainingBalance: number;
+  getStatusBadge: (status: string) => string;
+}
+
+const InvoiceSummaryCard = ({
+  invoice,
+  invoiceTotals,
+  computedTotals,
+  totalPaid,
+  remainingBalance,
+  getStatusBadge,
+}: InvoiceSummaryCardProps) => {
+  const total = invoiceTotals?.total_amount ?? computedTotals.total;
+  const isOverdue = invoice.status === "overdue" || (new Date(invoice.due_date) < new Date() && invoice.status !== "paid");
+  const isPaidInFull = remainingBalance <= 0;
+
+  return (
+    <div 
+      className="bg-white dark:bg-card border border-[#e5e7eb] dark:border-border rounded-[10px] p-5 max-w-[320px]"
+      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}
+    >
+      {/* Overdue Banner */}
+      {isOverdue && !isPaidInFull && (
+        <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md px-3 py-1.5 mb-4 flex items-center gap-2">
+          <Clock className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+          <span className="text-xs font-medium text-red-700 dark:text-red-300">Overdue: Please settle payment.</span>
+        </div>
+      )}
+
+      {/* Total Amount */}
+      <div className="text-center pb-4 border-b border-[#f1f5f9] dark:border-border">
+        <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
+        <p className="text-2xl font-bold text-foreground">€{formatNumber(total, 2)}</p>
+        <div className="mt-2">
+          <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
+            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Customer */}
+      <div className="py-4 border-b border-[#f1f5f9] dark:border-border">
+        <p className="text-xs font-medium text-muted-foreground mb-1">Customer</p>
+        <p className="text-sm font-medium text-foreground">{invoice.customers?.name || "Unknown Customer"}</p>
+      </div>
+
+      {/* Invoice Dates */}
+      <div className="py-4 border-b border-[#f1f5f9] dark:border-border space-y-2">
+        <div className="flex justify-between">
+          <span className="text-xs text-muted-foreground">Issue Date</span>
+          <span className="text-sm text-foreground">
+            {format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy")}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-xs text-muted-foreground">Due Date</span>
+          <span className={`text-sm font-medium ${isOverdue && !isPaidInFull ? "text-orange-600 dark:text-orange-400" : "text-foreground"}`}>
+            {format(new Date(invoice.due_date), "dd/MM/yyyy")}
+          </span>
+        </div>
+      </div>
+
+      {/* Payment Summary */}
+      <div className="pt-4 space-y-2">
+        <div className="flex justify-between">
+          <span className="text-xs text-muted-foreground">Total Paid</span>
+          <span className="text-sm font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-muted-foreground">Remaining Balance</span>
+          <span className={`text-sm font-bold ${isPaidInFull ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+            €{formatNumber(Math.max(0, remainingBalance), 2)}
+          </span>
+        </div>
+        {isPaidInFull && (
+          <div className="flex justify-end mt-2">
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Paid in Full
+            </Badge>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const InvoiceDetails = () => {
   // 🔑 IMPORTANT: use `id`, not `invoice_id`
@@ -607,17 +701,17 @@ const InvoiceDetails = () => {
           </div>
         </header>
 
-        <main className="p-4 space-y-4">
+        <main className="p-4">
           {/* Malta VAT Compliance Alert */}
           {(invoice as any).is_issued ? (
-            <div className="flex items-center gap-2 bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800 rounded-md px-3 py-1.5">
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 dark:bg-green-950 dark:border-green-800 rounded-md px-3 py-1.5 mb-4">
               <Shield className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
               <p className="text-xs text-green-700 dark:text-green-400">
                 <span className="font-medium text-green-800 dark:text-green-300">VAT Compliant</span> — Issued {format(new Date((invoice as any).issued_at), "dd/MM/yyyy HH:mm")}. Immutable. Use credit note to correct.
               </p>
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800 rounded-md px-3 py-1.5">
+            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800 rounded-md px-3 py-1.5 mb-4">
               <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
               <p className="text-xs text-yellow-700 dark:text-yellow-400">
                 <span className="font-medium text-yellow-800 dark:text-yellow-300">Draft</span> — Editable. Once issued, becomes immutable per Malta VAT.
@@ -625,213 +719,244 @@ const InvoiceDetails = () => {
             </div>
           )}
 
-          {/* Invoice Header */}
-          <Card>
-            <CardHeader className="py-2 px-4">
-              <CardTitle className="text-sm font-semibold">Invoice Information</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 pt-0">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Invoice Number</label>
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold">{invoice.invoice_number}</p>
-                    <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
-                      {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Customer</label>
-                  <p>{invoice.customers?.name || "Unknown Customer"}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Issue Date</label>
-                  <p>{format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy")}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Due Date</label>
-                  <p>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</p>
-                </div>
+          {/* Two-column layout */}
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Main Content */}
+            <div className="flex-1 space-y-4 min-w-0">
+              {/* Mobile Summary Card - shown above Line Items on mobile/tablet */}
+              <div className="lg:hidden">
+                <InvoiceSummaryCard 
+                  invoice={invoice}
+                  invoiceTotals={invoiceTotals}
+                  computedTotals={computedTotals}
+                  totalPaid={totalPaid}
+                  remainingBalance={remainingBalance}
+                  getStatusBadge={getStatusBadge}
+                />
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Line Items */}
-          <Card>
-            <CardHeader className="py-2 px-4">
-              <CardTitle className="text-sm font-semibold">Line Items</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 pt-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#f1f5f9] dark:bg-muted/50">
-                    <TableHead className="py-1.5 text-xs">Description</TableHead>
-                    <TableHead className="py-1.5 text-xs text-right">Qty</TableHead>
-                    <TableHead className="py-1.5 text-xs text-right">Unit</TableHead>
-                    <TableHead className="py-1.5 text-xs text-right">Price</TableHead>
-                    <TableHead className="py-1.5 text-xs text-right">VAT</TableHead>
-                    <TableHead className="py-1.5 text-xs text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoiceItems.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-3 text-sm">
-                        No line items found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    invoiceItems.map((item, index) => {
-                      const lineTotal = item.quantity * item.unit_price;
-                      return (
-                        <TableRow key={item.id} className={index % 2 === 0 ? "bg-[#fafafa] dark:bg-muted/20" : ""}>
-                          <TableCell className="py-1.5 font-medium text-sm">{item.description}</TableCell>
-                          <TableCell className="py-1.5 text-sm text-right">{item.quantity}</TableCell>
-                          <TableCell className="py-1.5 text-sm text-right">{item.unit || "-"}</TableCell>
-                          <TableCell className="py-1.5 text-sm text-right">€{formatNumber(item.unit_price, 2)}</TableCell>
-                          <TableCell className="py-1.5 text-sm text-right">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
-                          <TableCell className="py-1.5 text-sm text-right font-medium">€{formatNumber(lineTotal, 2)}</TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Totals */}
-          <Card>
-            <CardHeader className="py-2 px-4">
-              <CardTitle className="text-sm font-semibold">Invoice Totals</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-2 pt-0">
-              <div className="space-y-0.5 max-w-xs ml-auto text-sm">
-                <div className="flex justify-between py-0.5">
-                  <span className="text-muted-foreground">Net Amount:</span>
-                  <span className="font-medium">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
-                </div>
-                {discountInfo.amount > 0 && (
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-muted-foreground">Discount:</span>
-                    <span className="font-medium">
-                      —€{formatNumber(discountInfo.amount, 2)}
-                      {discountInfo.isPercent && <> ({formatNumber(discountInfo.percentValue, 2)}%)</>}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between py-0.5">
-                  <span className="text-muted-foreground">VAT Amount:</span>
-                  <span className="font-medium">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
-                </div>
-                <div className="bg-[#eefbf3] dark:bg-green-950/30 -mx-2 px-2 py-1 rounded mt-1">
-                  <div className="flex justify-between">
-                    <span className="font-bold text-base">Total Amount:</span>
-                    <span className="font-bold text-base">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
-                  </div>
-                </div>
-                {/* Payment Summary */}
-                <div className="border-t pt-1 mt-1 space-y-0.5">
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-muted-foreground">Total Paid:</span>
-                    <span className="font-medium text-muted-foreground">€{formatNumber(totalPaid, 2)}</span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span className="text-muted-foreground">Remaining:</span>
-                    <span className={`font-bold ${remainingBalance <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                      €{formatNumber(Math.max(0, remainingBalance), 2)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Payment History */}
-          <Card>
-            <CardHeader className="py-2 px-4 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Payment History
-              </CardTitle>
-              <Button onClick={() => setShowPaymentDialog(true)} size="sm" className="h-6 text-[10px] px-2">
-                <Plus className="h-3 w-3 mr-1" />
-                Add Payment
-              </Button>
-            </CardHeader>
-            <CardContent className="px-4 pb-3 pt-0">
-              {payments.length === 0 ? (
-                <p className="text-muted-foreground text-center py-3 text-sm">No payments recorded yet.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="py-2 text-xs">Date</TableHead>
-                      <TableHead className="py-2 text-xs">Amount</TableHead>
-                      <TableHead className="py-2 text-xs">Method</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="py-2 text-sm">{format(new Date(payment.payment_date), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="py-2 text-sm font-medium">€{formatNumber(payment.amount, 2)}</TableCell>
-                        <TableCell className="py-2 text-sm">{getMethodLabel(payment.method)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-
-            </CardContent>
-          </Card>
-
-          {/* Audit Trail */}
-          {(invoice as any).is_issued && auditTrail.length > 0 && (
-            <Card>
-              <CardHeader className="py-2 px-4">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Audit Trail (Malta VAT Compliance)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-2 pt-0">
-                <div className="relative ml-2">
-                  {/* Vertical timeline line */}
-                  <div className="absolute left-0 top-1 bottom-1 w-px bg-border" />
-                  <div className="space-y-1">
-                    {auditTrail.map((entry, index) => (
-                      <div key={entry.id || index} className="relative pl-4 py-0.5">
-                        {/* Timeline dot */}
-                        <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-primary -translate-x-[3px]" />
-                        <div className="flex items-baseline gap-2">
-                          <p className="font-medium text-xs">
-                            {entry.action === "issued" && "Invoice Issued"}
-                            {entry.action === "credit_note_created" && "Credit Note Created"}
-                            {entry.action === "created" && "Invoice Created"}
-                            {entry.action === "correction_note_added" && "Correction Note Added"}
-                          </p>
-                          <span className="text-[10px] text-muted-foreground">
-                            {format(new Date(entry.timestamp), "dd/MM/yyyy HH:mm")}
-                          </span>
-                        </div>
-                        {entry.new_data && (
-                          <p className="text-[10px] text-muted-foreground">
-                            {entry.action === "issued" && `Invoice #${entry.new_data.invoice_number} locked`}
-                            {entry.action === "credit_note_created" && `${entry.new_data.credit_note_number} for €${formatNumber(entry.new_data.amount, 2)}`}
-                          </p>
-                        )}
+              {/* Invoice Header */}
+              <Card>
+                <CardHeader className="py-2 px-4">
+                  <CardTitle className="text-sm font-semibold">Invoice Information</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 pt-0">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Invoice Number</label>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{invoice.invoice_number}</p>
+                        <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
+                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        </Badge>
                       </div>
-                    ))}
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Customer</label>
+                      <p>{invoice.customers?.name || "Unknown Customer"}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Issue Date</label>
+                      <p>{format(new Date((invoice as any).invoice_date || invoice.created_at), "dd/MM/yyyy")}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Due Date</label>
+                      <p>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</p>
+                    </div>
                   </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2 pt-1 border-t">
-                  Maintained for Malta VAT compliance.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+
+              {/* Line Items */}
+              <Card>
+                <CardHeader className="py-2 px-4">
+                  <CardTitle className="text-sm font-semibold">Line Items</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 pt-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-[#f1f5f9] dark:bg-muted/50">
+                        <TableHead className="py-1.5 text-xs">Description</TableHead>
+                        <TableHead className="py-1.5 text-xs text-right">Qty</TableHead>
+                        <TableHead className="py-1.5 text-xs text-right">Unit</TableHead>
+                        <TableHead className="py-1.5 text-xs text-right">Price</TableHead>
+                        <TableHead className="py-1.5 text-xs text-right">VAT</TableHead>
+                        <TableHead className="py-1.5 text-xs text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invoiceItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-3 text-sm">
+                            No line items found.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        invoiceItems.map((item, index) => {
+                          const lineTotal = item.quantity * item.unit_price;
+                          return (
+                            <TableRow key={item.id} className={index % 2 === 0 ? "bg-[#fafafa] dark:bg-muted/20" : ""}>
+                              <TableCell className="py-1.5 font-medium text-sm">{item.description}</TableCell>
+                              <TableCell className="py-1.5 text-sm text-right">{item.quantity}</TableCell>
+                              <TableCell className="py-1.5 text-sm text-right">{item.unit || "-"}</TableCell>
+                              <TableCell className="py-1.5 text-sm text-right">€{formatNumber(item.unit_price, 2)}</TableCell>
+                              <TableCell className="py-1.5 text-sm text-right">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
+                              <TableCell className="py-1.5 text-sm text-right font-medium">€{formatNumber(lineTotal, 2)}</TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Totals */}
+              <Card>
+                <CardHeader className="py-2 px-4">
+                  <CardTitle className="text-sm font-semibold">Invoice Totals</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-2 pt-0">
+                  <div className="space-y-0.5 max-w-xs ml-auto text-sm">
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-muted-foreground">Net Amount:</span>
+                      <span className="font-medium">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
+                    </div>
+                    {discountInfo.amount > 0 && (
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-muted-foreground">Discount:</span>
+                        <span className="font-medium">
+                          —€{formatNumber(discountInfo.amount, 2)}
+                          {discountInfo.isPercent && <> ({formatNumber(discountInfo.percentValue, 2)}%)</>}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-muted-foreground">VAT Amount:</span>
+                      <span className="font-medium">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
+                    </div>
+                    <div className="bg-[#eefbf3] dark:bg-green-950/30 -mx-2 px-2 py-1 rounded mt-1">
+                      <div className="flex justify-between">
+                        <span className="font-bold text-base">Total Amount:</span>
+                        <span className="font-bold text-base">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
+                      </div>
+                    </div>
+                    {/* Payment Summary */}
+                    <div className="border-t pt-1 mt-1 space-y-0.5">
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-muted-foreground">Total Paid:</span>
+                        <span className="font-medium text-muted-foreground">€{formatNumber(totalPaid, 2)}</span>
+                      </div>
+                      <div className="flex justify-between py-0.5">
+                        <span className="text-muted-foreground">Remaining:</span>
+                        <span className={`font-bold ${remainingBalance <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                          €{formatNumber(Math.max(0, remainingBalance), 2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment History */}
+              <Card>
+                <CardHeader className="py-2 px-4 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Payment History
+                  </CardTitle>
+                  <Button onClick={() => setShowPaymentDialog(true)} size="sm" className="h-6 text-[10px] px-2">
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Payment
+                  </Button>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 pt-0">
+                  {payments.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-3 text-sm">No payments recorded yet.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="py-2 text-xs">Date</TableHead>
+                          <TableHead className="py-2 text-xs">Amount</TableHead>
+                          <TableHead className="py-2 text-xs">Method</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.map((payment) => (
+                          <TableRow key={payment.id}>
+                            <TableCell className="py-2 text-sm">{format(new Date(payment.payment_date), "dd/MM/yyyy")}</TableCell>
+                            <TableCell className="py-2 text-sm font-medium">€{formatNumber(payment.amount, 2)}</TableCell>
+                            <TableCell className="py-2 text-sm">{getMethodLabel(payment.method)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Audit Trail */}
+              {(invoice as any).is_issued && auditTrail.length > 0 && (
+                <Card>
+                  <CardHeader className="py-2 px-4">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Audit Trail (Malta VAT Compliance)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-2 pt-0">
+                    <div className="relative ml-2">
+                      {/* Vertical timeline line */}
+                      <div className="absolute left-0 top-1 bottom-1 w-px bg-border" />
+                      <div className="space-y-1">
+                        {auditTrail.map((entry, index) => (
+                          <div key={entry.id || index} className="relative pl-4 py-0.5">
+                            {/* Timeline dot */}
+                            <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-primary -translate-x-[3px]" />
+                            <div className="flex items-baseline gap-2">
+                              <p className="font-medium text-xs">
+                                {entry.action === "issued" && "Invoice Issued"}
+                                {entry.action === "credit_note_created" && "Credit Note Created"}
+                                {entry.action === "created" && "Invoice Created"}
+                                {entry.action === "correction_note_added" && "Correction Note Added"}
+                              </p>
+                              <span className="text-[10px] text-muted-foreground">
+                                {format(new Date(entry.timestamp), "dd/MM/yyyy HH:mm")}
+                              </span>
+                            </div>
+                            {entry.new_data && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {entry.action === "issued" && `Invoice #${entry.new_data.invoice_number} locked`}
+                                {entry.action === "credit_note_created" && `${entry.new_data.credit_note_number} for €${formatNumber(entry.new_data.amount, 2)}`}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2 pt-1 border-t">
+                      Maintained for Malta VAT compliance.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Desktop Floating Summary Card */}
+            <div className="hidden lg:block w-80 flex-shrink-0">
+              <div className="sticky top-[90px]">
+                <InvoiceSummaryCard 
+                  invoice={invoice}
+                  invoiceTotals={invoiceTotals}
+                  computedTotals={computedTotals}
+                  totalPaid={totalPaid}
+                  remainingBalance={remainingBalance}
+                  getStatusBadge={getStatusBadge}
+                />
+              </div>
+            </div>
+          </div>
         </main>
       </div>
 
