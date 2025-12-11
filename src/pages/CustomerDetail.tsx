@@ -248,7 +248,7 @@ const CustomerDetail = () => {
                 <TableCell className="py-2">
                   <Badge className={`${statusBadge.className} text-xs`}>
                     <StatusIcon className="h-3 w-3 mr-1" />
-                    {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                    {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                   </Badge>
                 </TableCell>
                 <TableCell className="py-2 text-right font-medium">
