@@ -254,6 +254,11 @@ export const TransactionDrawer = ({
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remainingBalance = type === "invoice" ? getTotalAmount() - totalCredits - totalPayments : 0;
 
+  // Credit Note-specific calculations (unified logic)
+  const creditNoteAmount = type === "credit_note" ? getTotalAmount() : 0;
+  const creditNoteTotalApplied = type === "credit_note" && originalInvoice ? creditNoteAmount : 0;
+  const creditNoteRemainingCredit = creditNoteAmount - creditNoteTotalApplied;
+
   // Timeline
   const timelineEvents = useMemo<TimelineEvent[]>(() => {
     if (!transaction) return [];
@@ -436,6 +441,8 @@ export const TransactionDrawer = ({
                 totalPayments={totalPayments}
                 remainingBalance={remainingBalance}
                 statusBadge={statusBadge}
+                creditNoteTotalApplied={creditNoteTotalApplied}
+                creditNoteRemainingCredit={creditNoteRemainingCredit}
               />
 
               {/* Settlement Breakdown (Invoice Only) */}
@@ -454,7 +461,9 @@ export const TransactionDrawer = ({
                 <CreditNoteApplicationBreakdown
                   originalInvoice={originalInvoice}
                   originalInvoiceId={(transaction as CreditNoteTransaction).original_invoice_id || null}
-                  totalAmount={getTotalAmount()}
+                  totalAmount={creditNoteAmount}
+                  totalApplied={creditNoteTotalApplied}
+                  remainingCredit={creditNoteRemainingCredit}
                   appliedDate={(transaction as CreditNoteTransaction).credit_note_date}
                   onClose={handleClose}
                 />
