@@ -666,36 +666,36 @@ const InvoiceDetails = () => {
             <CardHeader className="py-2 px-4">
               <CardTitle className="text-sm font-semibold">Line Items</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0">
+            <CardContent className="px-4 pb-3 pt-0">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="py-2 text-xs">Description</TableHead>
-                    <TableHead className="py-2 text-xs">Qty</TableHead>
-                    <TableHead className="py-2 text-xs">Unit</TableHead>
-                    <TableHead className="py-2 text-xs">Price</TableHead>
-                    <TableHead className="py-2 text-xs">VAT</TableHead>
-                    <TableHead className="py-2 text-xs text-right">Total</TableHead>
+                  <TableRow className="bg-[#f1f5f9] dark:bg-muted/50">
+                    <TableHead className="py-1.5 text-xs">Description</TableHead>
+                    <TableHead className="py-1.5 text-xs text-right">Qty</TableHead>
+                    <TableHead className="py-1.5 text-xs text-right">Unit</TableHead>
+                    <TableHead className="py-1.5 text-xs text-right">Price</TableHead>
+                    <TableHead className="py-1.5 text-xs text-right">VAT</TableHead>
+                    <TableHead className="py-1.5 text-xs text-right">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {invoiceItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4 text-sm">
+                      <TableCell colSpan={6} className="text-center py-3 text-sm">
                         No line items found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    invoiceItems.map((item) => {
+                    invoiceItems.map((item, index) => {
                       const lineTotal = item.quantity * item.unit_price;
                       return (
-                        <TableRow key={item.id}>
-                          <TableCell className="py-2 font-medium text-sm">{item.description}</TableCell>
-                          <TableCell className="py-2 text-sm">{item.quantity}</TableCell>
-                          <TableCell className="py-2 text-sm">{item.unit || "-"}</TableCell>
-                          <TableCell className="py-2 text-sm">€{formatNumber(item.unit_price, 2)}</TableCell>
-                          <TableCell className="py-2 text-sm">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
-                          <TableCell className="py-2 text-sm text-right">€{formatNumber(lineTotal, 2)}</TableCell>
+                        <TableRow key={item.id} className={index % 2 === 0 ? "bg-[#fafafa] dark:bg-muted/20" : ""}>
+                          <TableCell className="py-1.5 font-medium text-sm">{item.description}</TableCell>
+                          <TableCell className="py-1.5 text-sm text-right">{item.quantity}</TableCell>
+                          <TableCell className="py-1.5 text-sm text-right">{item.unit || "-"}</TableCell>
+                          <TableCell className="py-1.5 text-sm text-right">€{formatNumber(item.unit_price, 2)}</TableCell>
+                          <TableCell className="py-1.5 text-sm text-right">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
+                          <TableCell className="py-1.5 text-sm text-right font-medium">€{formatNumber(lineTotal, 2)}</TableCell>
                         </TableRow>
                       );
                     })
@@ -710,14 +710,14 @@ const InvoiceDetails = () => {
             <CardHeader className="py-2 px-4">
               <CardTitle className="text-sm font-semibold">Invoice Totals</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-3 pt-0">
-              <div className="space-y-1 max-w-xs ml-auto text-sm">
-                <div className="flex justify-between">
+            <CardContent className="px-4 pb-2 pt-0">
+              <div className="space-y-0.5 max-w-xs ml-auto text-sm">
+                <div className="flex justify-between py-0.5">
                   <span className="text-muted-foreground">Net Amount:</span>
                   <span className="font-medium">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
                 </div>
                 {discountInfo.amount > 0 && (
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5">
                     <span className="text-muted-foreground">Discount:</span>
                     <span className="font-medium">
                       —€{formatNumber(discountInfo.amount, 2)}
@@ -725,23 +725,23 @@ const InvoiceDetails = () => {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between">
+                <div className="flex justify-between py-0.5">
                   <span className="text-muted-foreground">VAT Amount:</span>
                   <span className="font-medium">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
                 </div>
-                <div className="border-t pt-1 mt-1">
+                <div className="bg-[#eefbf3] dark:bg-green-950/30 -mx-2 px-2 py-1 rounded mt-1">
                   <div className="flex justify-between">
-                    <span className="font-semibold">Total Amount:</span>
-                    <span className="font-bold">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
+                    <span className="font-bold text-base">Total Amount:</span>
+                    <span className="font-bold text-base">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
                   </div>
                 </div>
                 {/* Payment Summary */}
-                <div className="border-t pt-1 mt-1 space-y-1">
-                  <div className="flex justify-between">
+                <div className="border-t pt-1 mt-1 space-y-0.5">
+                  <div className="flex justify-between py-0.5">
                     <span className="text-muted-foreground">Total Paid:</span>
                     <span className="font-medium text-muted-foreground">€{formatNumber(totalPaid, 2)}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between py-0.5">
                     <span className="text-muted-foreground">Remaining:</span>
                     <span className={`font-bold ${remainingBalance <= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                       €{formatNumber(Math.max(0, remainingBalance), 2)}
@@ -800,40 +800,38 @@ const InvoiceDetails = () => {
                   Audit Trail (Malta VAT Compliance)
                 </CardTitle>
               </CardHeader>
-              <CardContent className="px-4 pb-3 pt-0">
-                <div className="space-y-2">
-                  {auditTrail.map((entry, index) => (
-                    <div key={entry.id || index} className="border-l-2 border-primary pl-3 py-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-semibold text-xs">
+              <CardContent className="px-4 pb-2 pt-0">
+                <div className="relative ml-2">
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-0 top-1 bottom-1 w-px bg-border" />
+                  <div className="space-y-1">
+                    {auditTrail.map((entry, index) => (
+                      <div key={entry.id || index} className="relative pl-4 py-0.5">
+                        {/* Timeline dot */}
+                        <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-primary -translate-x-[3px]" />
+                        <div className="flex items-baseline gap-2">
+                          <p className="font-medium text-xs">
                             {entry.action === "issued" && "Invoice Issued"}
                             {entry.action === "credit_note_created" && "Credit Note Created"}
                             {entry.action === "created" && "Invoice Created"}
                             {entry.action === "correction_note_added" && "Correction Note Added"}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(entry.timestamp), "dd/MM/yyyy 'at' HH:mm:ss")}
-                          </p>
-                          {entry.new_data && (
-                            <div className="text-xs text-muted-foreground">
-                              {entry.action === "issued" && (
-                                <span>Invoice #{entry.new_data.invoice_number} issued and locked</span>
-                              )}
-                              {entry.action === "credit_note_created" && (
-                                <span>
-                                  {entry.new_data.credit_note_number} for €{formatNumber(entry.new_data.amount, 2)} - {entry.new_data.reason}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(new Date(entry.timestamp), "dd/MM/yyyy HH:mm")}
+                          </span>
                         </div>
+                        {entry.new_data && (
+                          <p className="text-[10px] text-muted-foreground">
+                            {entry.action === "issued" && `Invoice #${entry.new_data.invoice_number} locked`}
+                            {entry.action === "credit_note_created" && `${entry.new_data.credit_note_number} for €${formatNumber(entry.new_data.amount, 2)}`}
+                          </p>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-3 border-t pt-2">
-                  Audit trail maintained for Malta VAT compliance.
+                <p className="text-[10px] text-muted-foreground mt-2 pt-1 border-t">
+                  Maintained for Malta VAT compliance.
                 </p>
               </CardContent>
             </Card>
