@@ -94,13 +94,22 @@ interface Payment {
   created_at: string;
 }
 
+// Credit Note type for summary
+interface CreditNoteSummary {
+  id: string;
+  credit_note_number: string;
+  amount: number;
+  vat_rate: number | null;
+  reason: string;
+}
+
 // Invoice Summary Card Component
 interface InvoiceSummaryCardProps {
   invoice: Invoice;
   invoiceTotals: InvoiceTotals | null;
   computedTotals: { net: number; vat: number; total: number };
   totalPaid: number;
-  remainingBalance: number;
+  creditNotes: CreditNoteSummary[];
   getStatusBadge: (status: string) => string;
 }
 
@@ -109,12 +118,25 @@ const InvoiceSummaryCard = ({
   invoiceTotals,
   computedTotals,
   totalPaid,
-  remainingBalance,
+  creditNotes,
   getStatusBadge,
 }: InvoiceSummaryCardProps) => {
   const total = invoiceTotals?.total_amount ?? computedTotals.total;
   const isOverdue = invoice.status === "overdue" || (new Date(invoice.due_date) < new Date() && invoice.status !== "paid");
-  const isPaidInFull = remainingBalance <= 0;
+  
+  // Calculate total credit notes amount (including VAT)
+  const totalCreditNotesAmount = creditNotes.reduce((sum, cn) => {
+    const netAmount = Number(cn.amount || 0);
+    const vatRate = Number(cn.vat_rate || 0);
+    return sum + netAmount + (netAmount * vatRate);
+  }, 0);
+  
+  // Adjusted total = Original Total - Credit Notes
+  const adjustedTotal = total - totalCreditNotesAmount;
+  
+  // Remaining balance = Adjusted Total - Payments
+  const remainingBalance = adjustedTotal - totalPaid;
+  const isSettled = remainingBalance <= 0;
 
   return (
     <div 
@@ -122,7 +144,7 @@ const InvoiceSummaryCard = ({
       style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}
     >
       {/* Overdue Banner */}
-      {isOverdue && !isPaidInFull && (
+      {isOverdue && !isSettled && (
         <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md px-3 py-1.5 mb-4 flex items-center gap-2">
           <Clock className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
           <span className="text-xs font-medium text-red-700 dark:text-red-300">Overdue: Please settle payment.</span>
@@ -140,6 +162,40 @@ const InvoiceSummaryCard = ({
         </div>
       </div>
 
+      {/* Credit Notes Applied */}
+      {creditNotes.length > 0 && (
+        <div className="py-4 border-b border-[#f1f5f9] dark:border-border">
+          <p className="text-sm font-medium text-foreground mb-2">Credit Notes Applied</p>
+          <div className="space-y-2">
+            {creditNotes.map((cn, index) => {
+              const cnTotal = Number(cn.amount || 0) + (Number(cn.amount || 0) * Number(cn.vat_rate || 0));
+              return (
+                <div key={cn.id}>
+                  {index > 0 && <div className="border-t border-[#f1f5f9] dark:border-border my-2" />}
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-medium text-foreground">{cn.credit_note_number}</span>
+                    <span className="text-xs font-medium text-red-600 dark:text-red-400">– €{formatNumber(cnTotal, 2)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{cn.reason}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Adjusted Total */}
+      {creditNotes.length > 0 && (
+        <div className="py-4 border-b border-[#f1f5f9] dark:border-border">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-foreground">Adjusted Total</span>
+            <span className={`text-lg font-bold ${adjustedTotal > 0 ? "text-foreground" : "text-green-600 dark:text-green-400"}`}>
+              €{formatNumber(Math.max(0, adjustedTotal), 2)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Customer */}
       <div className="py-4 border-b border-[#f1f5f9] dark:border-border">
         <p className="text-xs font-medium text-muted-foreground mb-1">Customer</p>
@@ -156,7 +212,7 @@ const InvoiceSummaryCard = ({
         </div>
         <div className="flex justify-between">
           <span className="text-xs text-muted-foreground">Due Date</span>
-          <span className={`text-sm font-medium ${isOverdue && !isPaidInFull ? "text-orange-600 dark:text-orange-400" : "text-foreground"}`}>
+          <span className={`text-sm font-medium ${isOverdue && !isSettled ? "text-orange-600 dark:text-orange-400" : "text-foreground"}`}>
             {format(new Date(invoice.due_date), "dd/MM/yyyy")}
           </span>
         </div>
@@ -170,15 +226,15 @@ const InvoiceSummaryCard = ({
         </div>
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">Remaining Balance</span>
-          <span className={`text-sm font-bold ${isPaidInFull ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+          <span className={`text-sm font-bold ${isSettled ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
             €{formatNumber(Math.max(0, remainingBalance), 2)}
           </span>
         </div>
-        {isPaidInFull && (
+        {isSettled && (
           <div className="flex justify-end mt-2">
             <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs">
               <CheckCircle className="h-3 w-3 mr-1" />
-              Paid in Full
+              Settled
             </Badge>
           </div>
         )}
@@ -210,6 +266,9 @@ const InvoiceDetails = () => {
     method: "bank_transfer",
   });
 
+  // Credit notes state
+  const [creditNotes, setCreditNotes] = useState<CreditNoteSummary[]>([]);
+
   const { toast } = useToast();
 
   // Load template using unified hook
@@ -232,6 +291,22 @@ const InvoiceDetails = () => {
 
     if (!error && data) {
       setPayments(data as Payment[]);
+    }
+  };
+
+  // Fetch credit notes for this invoice
+  const fetchCreditNotes = async () => {
+    if (!id || !user) return;
+
+    const { data, error } = await supabase
+      .from("credit_notes")
+      .select("id, credit_note_number, amount, vat_rate, reason")
+      .eq("original_invoice_id", id)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setCreditNotes(data as CreditNoteSummary[]);
     }
   };
 
@@ -302,6 +377,7 @@ const InvoiceDetails = () => {
 
     fetchInvoiceDetails();
     fetchPayments();
+    fetchCreditNotes();
   }, [id, user, toast]);
 
   const getStatusBadge = (status: string) => {
@@ -474,9 +550,12 @@ const InvoiceDetails = () => {
       });
     }
 
+    // Refresh credit notes
+    fetchCreditNotes();
+
     const auditResult = await invoiceService.getInvoiceAuditTrail(id);
     if (auditResult.success && auditResult.auditTrail) {
-      setAuditTrail(auditTrail);
+      setAuditTrail(auditResult.auditTrail);
     }
   };
 
@@ -730,7 +809,7 @@ const InvoiceDetails = () => {
                   invoiceTotals={invoiceTotals}
                   computedTotals={computedTotals}
                   totalPaid={totalPaid}
-                  remainingBalance={remainingBalance}
+                  creditNotes={creditNotes}
                   getStatusBadge={getStatusBadge}
                 />
               </div>
@@ -951,7 +1030,7 @@ const InvoiceDetails = () => {
                   invoiceTotals={invoiceTotals}
                   computedTotals={computedTotals}
                   totalPaid={totalPaid}
-                  remainingBalance={remainingBalance}
+                  creditNotes={creditNotes}
                   getStatusBadge={getStatusBadge}
                 />
               </div>
