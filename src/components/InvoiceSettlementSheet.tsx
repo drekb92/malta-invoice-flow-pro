@@ -13,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useToast } from "@/hooks/use-toast";
+import { generateStatementPDF, StatementData } from "@/services/statementPdfService";
 interface Invoice {
   id: string;
   invoice_number: string;
@@ -21,7 +23,10 @@ interface Invoice {
   due_date: string;
   status: string;
   total_amount: number;
+  amount?: number;
+  vat_amount?: number;
   is_issued: boolean;
+  customer_id?: string;
 }
 
 interface CreditNote {
@@ -103,14 +108,103 @@ export const InvoiceSettlementSheet = ({
   invoice,
 }: InvoiceSettlementSheetProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { settings: companySettings } = useCompanySettings();
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [customer, setCustomer] = useState<{ id: string; name: string; email: string | null; address: string | null; vat_number: string | null } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const handleViewInvoice = () => {
     if (invoice) {
       onOpenChange(false);
       navigate(`/invoices/${invoice.id}`);
+    }
+  };
+
+  const handleDownloadStatement = async () => {
+    if (!invoice || !customer || !companySettings) {
+      toast({
+        title: "Cannot generate statement",
+        description: "Missing invoice, customer, or company data.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDownloadingPdf(true);
+    try {
+      const statementData: StatementData = {
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          address: customer.address,
+          vat_number: customer.vat_number,
+        },
+        invoices: [{
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          invoice_date: invoice.invoice_date,
+          due_date: invoice.due_date,
+          status: invoice.status,
+          total_amount: invoice.total_amount,
+          amount: invoice.amount || invoice.total_amount,
+          vat_amount: invoice.vat_amount || 0,
+        }],
+        creditNotes: creditNotes.map(cn => ({
+          id: cn.id,
+          credit_note_number: cn.credit_note_number,
+          credit_note_date: cn.credit_note_date,
+          amount: Number(cn.amount),
+          vat_rate: 0.18, // Default VAT rate
+          reason: cn.reason,
+          original_invoice_id: invoice.id,
+        })),
+        payments: payments.map(p => ({
+          id: p.id,
+          payment_date: p.payment_date,
+          amount: Number(p.amount),
+          method: p.method,
+          invoice_id: invoice.id,
+        })),
+        company: {
+          name: companySettings.company_name || "Your Company",
+          email: companySettings.company_email,
+          phone: companySettings.company_phone,
+          address: companySettings.company_address,
+          city: companySettings.company_city,
+          country: companySettings.company_country,
+          vat_number: companySettings.company_vat_number,
+          logo: companySettings.company_logo,
+        },
+        options: {
+          dateFrom: new Date(invoice.invoice_date),
+          dateTo: new Date(),
+          statementType: "activity",
+          includeCreditNotes: true,
+          includeVatBreakdown: false,
+        },
+        generatedAt: new Date(),
+      };
+
+      const filename = `Statement-${invoice.invoice_number}-${format(new Date(), "yyyy-MM-dd")}`;
+      await generateStatementPDF(statementData, filename);
+
+      toast({
+        title: "Statement downloaded",
+        description: `Statement for ${invoice.invoice_number} has been downloaded.`,
+      });
+    } catch (error) {
+      console.error("Error generating statement PDF:", error);
+      toast({
+        title: "Download failed",
+        description: "Failed to generate the statement PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -125,7 +219,20 @@ export const InvoiceSettlementSheet = ({
     
     setLoading(true);
     try {
-      const [creditNotesResult, paymentsResult] = await Promise.all([
+      // Build customer query - need to fetch customer if not embedded
+      const customerQuery = invoice.customer_id
+        ? supabase
+            .from("customers")
+            .select("id, name, email, address, vat_number")
+            .eq("id", invoice.customer_id)
+            .maybeSingle()
+        : supabase
+            .from("invoices")
+            .select("customer_id, customers(id, name, email, address, vat_number)")
+            .eq("id", invoice.id)
+            .maybeSingle();
+
+      const [creditNotesResult, paymentsResult, customerResult] = await Promise.all([
         supabase
           .from("credit_notes")
           .select("id, credit_note_number, credit_note_date, amount, reason")
@@ -136,6 +243,7 @@ export const InvoiceSettlementSheet = ({
           .select("id, payment_date, amount, method")
           .eq("invoice_id", invoice.id)
           .order("payment_date", { ascending: false }),
+        customerQuery,
       ]);
 
       if (creditNotesResult.data) {
@@ -143,6 +251,20 @@ export const InvoiceSettlementSheet = ({
       }
       if (paymentsResult.data) {
         setPayments(paymentsResult.data);
+      }
+      
+      // Handle customer data based on query type
+      if (customerResult.data) {
+        if (invoice.customer_id) {
+          // Direct customer query
+          setCustomer(customerResult.data as { id: string; name: string; email: string | null; address: string | null; vat_number: string | null });
+        } else {
+          // Nested query via invoice
+          const invoiceData = customerResult.data as { customers: { id: string; name: string; email: string | null; address: string | null; vat_number: string | null } | null };
+          if (invoiceData.customers) {
+            setCustomer(invoiceData.customers);
+          }
+        }
       }
     } catch (error) {
       console.error("Error loading settlement data:", error);
@@ -434,13 +556,15 @@ export const InvoiceSettlementSheet = ({
                 <Button
                   variant="ghost"
                   className="w-full sm:w-auto order-2 sm:order-1"
-                  onClick={() => {
-                    // Placeholder for download statement functionality
-                    console.log("Download statement for invoice:", invoice?.id);
-                  }}
+                  onClick={handleDownloadStatement}
+                  disabled={downloadingPdf || !customer}
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Statement
+                  {downloadingPdf ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {downloadingPdf ? "Generating..." : "Download Statement"}
                 </Button>
                 <Button
                   className="w-full sm:w-auto order-1 sm:order-2"
