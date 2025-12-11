@@ -167,9 +167,10 @@ const CustomerDetail = () => {
     return variants[status] || variants.draft;
   };
 
-  const openInvoices = invoices.filter(
-    (inv) => inv.status !== "paid" && inv.status !== "draft"
+  const outstandingInvoices = invoices.filter(
+    (inv) => inv.status !== "paid" && inv.status !== "draft" && inv.status !== "overdue"
   );
+  const overdueInvoices = invoices.filter((inv) => inv.status === "overdue");
   const paidInvoices = invoices.filter((inv) => inv.status === "paid");
 
   if (!user) {
@@ -387,24 +388,46 @@ const CustomerDetail = () => {
                   <CardDescription>View and manage invoices for this customer</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="open" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 max-w-md">
-                      <TabsTrigger value="open" className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Open ({openInvoices.length})
+                <Tabs defaultValue="outstanding" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4 max-w-xl">
+                      <TabsTrigger value="outstanding" className="flex items-center gap-1.5 text-xs">
+                        <Clock className="h-3.5 w-3.5" />
+                        Outstanding ({outstandingInvoices.length})
                       </TabsTrigger>
-                      <TabsTrigger value="paid" className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
+                      <TabsTrigger value="overdue" className="flex items-center gap-1.5 text-xs">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        Overdue
+                        {overdueInvoices.length > 0 && (
+                          <span className="ml-1 bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5 rounded-full font-medium">
+                            {overdueInvoices.length}
+                          </span>
+                        )}
+                        {overdueInvoices.length === 0 && <span>(0)</span>}
+                      </TabsTrigger>
+                      <TabsTrigger value="paid" className="flex items-center gap-1.5 text-xs">
+                        <CheckCircle className="h-3.5 w-3.5" />
                         Paid ({paidInvoices.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="all" className="flex items-center gap-1.5 text-xs">
+                        <FileText className="h-3.5 w-3.5" />
+                        All ({invoices.length})
                       </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="open" className="mt-4">
-                      <InvoiceTable invoiceList={openInvoices} />
+                    <TabsContent value="outstanding" className="mt-4">
+                      <InvoiceTable invoiceList={outstandingInvoices} />
+                    </TabsContent>
+
+                    <TabsContent value="overdue" className="mt-4">
+                      <InvoiceTable invoiceList={overdueInvoices} />
                     </TabsContent>
 
                     <TabsContent value="paid" className="mt-4">
                       <InvoiceTable invoiceList={paidInvoices} />
+                    </TabsContent>
+
+                    <TabsContent value="all" className="mt-4">
+                      <InvoiceTable invoiceList={invoices} />
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -441,8 +464,12 @@ const CustomerDetail = () => {
                         <span className="font-medium text-green-600 dark:text-green-400">{paidInvoices.length}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Open</span>
-                        <span className="font-medium text-yellow-600 dark:text-yellow-400">{openInvoices.length}</span>
+                        <span className="text-muted-foreground">Outstanding</span>
+                        <span className="font-medium text-yellow-600 dark:text-yellow-400">{outstandingInvoices.length}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Overdue</span>
+                        <span className="font-medium text-destructive">{overdueInvoices.length}</span>
                       </div>
                     </div>
 
