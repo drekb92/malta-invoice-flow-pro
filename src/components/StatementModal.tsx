@@ -302,11 +302,26 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       const totalPayments = data.payments.reduce((sum, pmt) => sum + pmt.amount, 0);
       const balance = totalInvoiced - totalCredits - totalPayments;
 
+      // Count open invoices
+      const openInvoiceCount = data.invoices.filter((inv) => {
+        const remaining = inv.total_amount - (inv.paid_amount || 0);
+        return remaining > 0.01;
+      }).length;
+
+      // Build balance line based on amount
+      let balanceLine = "";
+      if (balance > 0) {
+        balanceLine = `Balance Due: €${balance.toFixed(2)} (${openInvoiceCount} open invoice${openInvoiceCount !== 1 ? "s" : ""})`;
+      } else if (balance < 0) {
+        balanceLine = `Credit Balance: €${Math.abs(balance).toFixed(2)}\nThis is a credit balance in your favour.`;
+      } else {
+        balanceLine = "No balance due";
+      }
+
       const message = encodeURIComponent(
         `Hi ${customer.name},\n\n` +
         `Here is your account statement for the period ${format(dateFrom, "dd/MM/yyyy")} to ${format(dateTo, "dd/MM/yyyy")}.\n\n` +
-        `Total Invoiced: €${balance >= 0 ? balance.toFixed(2) : "0.00"}\n` +
-        `Balance Due: €${balance > 0 ? balance.toFixed(2) : "0.00"}\n\n` +
+        `${balanceLine}\n\n` +
         `Please contact us if you have any questions.\n\n` +
         `Best regards,\n${companySettings?.company_name || "Your Company"}`
       );
