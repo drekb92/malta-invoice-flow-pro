@@ -494,7 +494,13 @@ export const InvoiceSettlementSheet = ({
                     </div>
                   )}
                   <Separator className="my-1.5" />
-                  <div className="flex justify-between items-center">
+                  <div className={`flex justify-between items-center -mx-3 px-3 py-1.5 rounded-md ${
+                    remainingBalance === 0 
+                      ? "bg-green-50 dark:bg-green-950/30" 
+                      : remainingBalance > 0 
+                        ? "bg-red-50 dark:bg-red-950/30" 
+                        : "bg-green-50 dark:bg-green-950/30"
+                  }`}>
                     <span className="text-sm font-medium">Remaining Balance</span>
                     {getBalanceDisplay()}
                   </div>
