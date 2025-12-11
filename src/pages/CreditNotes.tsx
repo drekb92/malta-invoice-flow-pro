@@ -21,6 +21,7 @@ import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { CreditNote as CreditNoteType } from "@/types/invoice-compliance";
+import { TransactionDrawer } from "@/components/TransactionDrawer";
 
 interface CreditNoteWithRelations extends CreditNoteType {
   customers?: {
@@ -39,6 +40,7 @@ const CreditNotes = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [selectedCreditNote, setSelectedCreditNote] = useState<CreditNoteWithRelations | null>(null);
   const { toast } = useToast();
 
   const fetchCreditNotes = async () => {
@@ -323,12 +325,16 @@ const CreditNotes = () => {
                       return (
                         <TableRow key={creditNote.id}>
                           <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {creditNote.credit_note_number}
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 text-left hover:text-primary transition-colors group"
+                              onClick={() => setSelectedCreditNote(creditNote)}
+                            >
+                              <span className="group-hover:underline">{creditNote.credit_note_number}</span>
                               <span title="Malta VAT Compliant">
                                 <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                               </span>
-                            </div>
+                            </button>
                           </TableCell>
                           <TableCell>
                             {creditNote.original_invoice_id ? (
@@ -421,6 +427,24 @@ const CreditNotes = () => {
           </Card>
         </main>
       </div>
+
+      {/* Transaction Drawer */}
+      <TransactionDrawer
+        open={!!selectedCreditNote}
+        onOpenChange={(open) => !open && setSelectedCreditNote(null)}
+        transaction={selectedCreditNote ? {
+          id: selectedCreditNote.id,
+          credit_note_number: selectedCreditNote.credit_note_number,
+          credit_note_date: selectedCreditNote.credit_note_date,
+          amount: selectedCreditNote.amount,
+          vat_rate: selectedCreditNote.vat_rate,
+          reason: selectedCreditNote.reason,
+          status: selectedCreditNote.status,
+          original_invoice_id: selectedCreditNote.original_invoice_id,
+          customer_id: selectedCreditNote.customer_id,
+        } : null}
+        type="credit_note"
+      />
     </div>
   );
 };

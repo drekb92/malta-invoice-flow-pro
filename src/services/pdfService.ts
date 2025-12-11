@@ -6,7 +6,7 @@ export interface InvoiceData {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
-  documentType?: "INVOICE" | "CREDIT NOTE"; // NEW
+  documentType?: "INVOICE" | "CREDIT NOTE" | "QUOTATION";
   customer: {
     name: string;
     email?: string;
