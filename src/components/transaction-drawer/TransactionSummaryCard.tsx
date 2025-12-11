@@ -105,6 +105,33 @@ export const TransactionSummaryCard = ({
         {/* CREDIT NOTE SUMMARY */}
         {type === "credit_note" && (() => {
           const cn = transaction as CreditNoteTransaction;
+          const totalApplied = totalCredits; // totalCredits represents amount applied to invoices
+          const remainingCredit = totalAmount - totalApplied;
+          
+          const getRemainingCreditDisplay = () => {
+            if (remainingCredit === 0) {
+              return {
+                label: "Fully Applied",
+                className: "text-green-600 dark:text-green-400",
+                secondaryText: null,
+              };
+            }
+            if (remainingCredit > 0 && totalApplied > 0) {
+              return {
+                label: "Partially Applied",
+                className: "text-amber-600 dark:text-amber-400",
+                secondaryText: "Available to apply to other invoices.",
+              };
+            }
+            return {
+              label: "Not Applied",
+              className: "text-muted-foreground",
+              secondaryText: "This credit note has not been applied yet.",
+            };
+          };
+          
+          const creditDisplay = getRemainingCreditDisplay();
+          
           return (
             <>
               <div className="flex justify-between items-center text-sm">
@@ -129,11 +156,24 @@ export const TransactionSummaryCard = ({
                 </span>
               </div>
               
-              <div className="-mx-4 -mb-4 px-4 py-3 mt-2 rounded-b-lg bg-muted/40 flex justify-between items-center">
-                <span className="text-sm font-semibold">Status</span>
-                <Badge className={`${statusBadge.className} text-xs px-2 py-0.5`}>
-                  {statusBadge.label}
-                </Badge>
+              {/* Remaining Credit with contextual state */}
+              <div className="-mx-4 -mb-4 px-4 py-3 mt-2 rounded-b-lg bg-muted/40">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">Remaining Credit</span>
+                  <div className="text-right">
+                    <span className="text-base font-semibold text-foreground">
+                      {formatCurrency(remainingCredit)}
+                    </span>
+                    <span className={`text-xs ml-1.5 ${creditDisplay.className}`}>
+                      ({creditDisplay.label})
+                    </span>
+                  </div>
+                </div>
+                {creditDisplay.secondaryText && (
+                  <p className="text-[11px] text-muted-foreground mt-1 text-right">
+                    {creditDisplay.secondaryText}
+                  </p>
+                )}
               </div>
             </>
           );
