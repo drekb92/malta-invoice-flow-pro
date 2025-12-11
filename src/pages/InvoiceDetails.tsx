@@ -151,21 +151,19 @@ const InvoiceSummaryCard = ({
         </div>
       )}
 
-      {/* Original Total */}
+      {/* Status Badge & Original Total */}
       <div className="text-center pb-4 border-b border-[#f1f5f9] dark:border-border">
+        <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5 mb-2`}>
+          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+        </Badge>
         <p className="text-xs text-muted-foreground mb-1">Original Total</p>
         <p className="text-2xl font-bold text-foreground">€{formatNumber(total, 2)}</p>
-        <div className="mt-2">
-          <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
-            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-          </Badge>
-        </div>
       </div>
 
       {/* Credit Notes Applied */}
       {creditNotes.length > 0 && (
         <div className="py-4 pb-2 border-b border-[#f1f5f9] dark:border-border">
-          <p className="text-sm font-medium text-foreground mb-2">Credit Notes Applied</p>
+          <p className="text-sm font-medium text-foreground mb-2">Credit Notes Applied ({creditNotes.length})</p>
           <div className="space-y-1.5">
             {creditNotes.map((cn, index) => {
               const cnTotal = Number(cn.amount || 0) + (Number(cn.amount || 0) * Number(cn.vat_rate || 0));
