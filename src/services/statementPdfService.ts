@@ -319,13 +319,17 @@ export class StatementPDFGenerator {
       this.pdf.text(txn.credit > 0 ? `€${formatNumber(txn.credit, 2)}` : "", currentX, this.currentY + 5);
       currentX += colWidths[4];
 
-      // Color balance based on amount
+      // Color and format balance based on amount
       if (runningBalance > 0) {
         this.pdf.setTextColor(220, 38, 38); // Red for owing
+        this.pdf.text(`€${formatNumber(runningBalance, 2)}`, currentX, this.currentY + 5);
       } else if (runningBalance < 0) {
         this.pdf.setTextColor(22, 163, 74); // Green for credit
+        this.pdf.text(`(€${formatNumber(Math.abs(runningBalance), 2)})`, currentX, this.currentY + 5);
+      } else {
+        this.pdf.setTextColor(100, 100, 100); // Grey for zero
+        this.pdf.text(`€0.00`, currentX, this.currentY + 5);
       }
-      this.pdf.text(`€${formatNumber(Math.abs(runningBalance), 2)}`, currentX, this.currentY + 5);
       this.pdf.setTextColor(0, 0, 0);
 
       this.currentY += rowHeight;
@@ -340,26 +344,27 @@ export class StatementPDFGenerator {
     return runningBalance;
   }
 
-  private addSummary(data: StatementData, balance: number) {
-    this.checkPageBreak(50);
+  private addSummary(data: StatementData, finalBalance: number) {
+    this.checkPageBreak(60);
 
     const summaryX = this.pageWidth - this.margin - 80;
     const labelX = summaryX - 30;
 
-    // Summary box
-    this.setFillColor("#f8fafc");
-    this.pdf.rect(labelX - 5, this.currentY - 2, 115, 40, "F");
-
-    this.pdf.setFontSize(9);
-    this.pdf.setFont("helvetica", "normal");
-    this.pdf.setTextColor(100, 100, 100);
-
-    // Calculate totals
+    // Calculate totals using correct accounting rules
     const totalInvoiced = data.invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
     const totalCreditNotes = data.options.includeCreditNotes
       ? data.creditNotes.reduce((sum, cn) => sum + cn.amount + cn.amount * cn.vat_rate, 0)
       : 0;
     const totalPayments = data.payments.reduce((sum, pmt) => sum + pmt.amount, 0);
+
+    // Summary box - adjust height based on whether we need the credit note
+    const boxHeight = finalBalance < 0 ? 50 : 40;
+    this.setFillColor("#f8fafc");
+    this.pdf.rect(labelX - 5, this.currentY - 2, 115, boxHeight, "F");
+
+    this.pdf.setFontSize(9);
+    this.pdf.setFont("helvetica", "normal");
+    this.pdf.setTextColor(100, 100, 100);
 
     this.pdf.text("Total Invoiced:", labelX, this.currentY + 5);
     this.pdf.text(`€${formatNumber(totalInvoiced, 2)}`, summaryX + 30, this.currentY + 5, { align: "right" });
@@ -377,11 +382,32 @@ export class StatementPDFGenerator {
     this.pdf.line(labelX, this.currentY, summaryX + 35, this.currentY);
 
     this.currentY += 6;
-    this.setColor(balance > 0 ? "#dc2626" : "#16a34a");
     this.pdf.setFontSize(12);
     this.pdf.setFont("helvetica", "bold");
-    this.pdf.text("Balance Due:", labelX, this.currentY + 2);
-    this.pdf.text(`€${formatNumber(Math.abs(balance), 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
+
+    // Display final balance with correct labeling
+    if (finalBalance > 0) {
+      // Customer owes money
+      this.setColor("#dc2626"); // Red
+      this.pdf.text("Balance Due:", labelX, this.currentY + 2);
+      this.pdf.text(`€${formatNumber(finalBalance, 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
+    } else if (finalBalance < 0) {
+      // Customer has credit
+      this.setColor("#16a34a"); // Green
+      this.pdf.text("Credit Balance:", labelX, this.currentY + 2);
+      this.pdf.text(`€${formatNumber(Math.abs(finalBalance), 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
+      
+      // Add credit note
+      this.currentY += 8;
+      this.pdf.setFontSize(8);
+      this.pdf.setFont("helvetica", "italic");
+      this.pdf.text("This is a credit balance in your favour.", labelX, this.currentY + 2);
+    } else {
+      // No balance due
+      this.pdf.setTextColor(100, 100, 100); // Neutral grey
+      this.pdf.text("Balance:", labelX, this.currentY + 2);
+      this.pdf.text("No balance due", summaryX + 30, this.currentY + 2, { align: "right" });
+    }
 
     this.currentY += 15;
   }
