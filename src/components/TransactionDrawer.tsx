@@ -685,7 +685,7 @@ export const TransactionDrawer = ({
                   {type === "invoice" ? "Invoice" : type === "credit_note" ? "Credit Note" : "Quote"} Summary
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-3 space-y-2">
-                  {/* INVOICE SUMMARY */}
+                  {/* INVOICE SUMMARY - Clean numbers only */}
                   {type === "invoice" && (
                     <>
                       <div className="flex justify-between text-sm">
@@ -694,54 +694,16 @@ export const TransactionDrawer = ({
                       </div>
                       
                       {totalCredits > 0 && (
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Credit Notes Applied</span>
-                            <span className="text-destructive font-medium">– {formatCurrency(totalCredits)}</span>
-                          </div>
-                          <div className="ml-1.5 space-y-1">
-                            {creditNotes.map(cn => (
-                              <div
-                                key={cn.id}
-                                className="flex justify-between items-center py-1.5 px-2 bg-muted/50 rounded text-xs"
-                              >
-                                <div className="min-w-0">
-                                  <span className="font-medium">{cn.credit_note_number}</span>
-                                  <span className="text-muted-foreground"> · {format(new Date(cn.credit_note_date), "dd MMM")}</span>
-                                </div>
-                                <span className="text-destructive shrink-0 ml-2">
-                                  – {formatCurrency(getCreditNoteGrossAmount(cn))}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Credit Notes Applied</span>
+                          <span className="text-destructive font-medium">– {formatCurrency(totalCredits)}</span>
                         </div>
                       )}
 
                       {totalPayments > 0 && (
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Payments Received</span>
-                            <span className="text-green-600 font-medium">– {formatCurrency(totalPayments)}</span>
-                          </div>
-                          <div className="ml-1.5 space-y-1">
-                            {payments.map(p => (
-                              <div
-                                key={p.id}
-                                className="flex justify-between items-center py-1.5 px-2 bg-muted/50 rounded text-xs"
-                              >
-                                <div className="min-w-0">
-                                  <span>{format(new Date(p.payment_date!), "dd MMM yyyy")}</span>
-                                  {p.method && (
-                                    <span className="text-muted-foreground">
-                                      {" "}· {p.method.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-green-600 shrink-0 ml-2">{formatCurrency(Number(p.amount))}</span>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Payments Received</span>
+                          <span className="text-green-600 font-medium">– {formatCurrency(totalPayments)}</span>
                         </div>
                       )}
 
@@ -778,24 +740,6 @@ export const TransactionDrawer = ({
                       </div>
                       
                       <Separator className="my-1.5" />
-                      
-                      {originalInvoice && (
-                        <div className="flex justify-between text-sm items-center">
-                          <span className="text-muted-foreground">Applied to Invoice</span>
-                          <button
-                            className="font-medium text-primary hover:underline cursor-pointer"
-                            onClick={() => {
-                              const invId = (transaction as CreditNoteTransaction).original_invoice_id;
-                              if (invId) {
-                                onOpenChange(false);
-                                navigate(`/invoices/${invId}`);
-                              }
-                            }}
-                          >
-                            {originalInvoice.invoice_number}
-                          </button>
-                        </div>
-                      )}
                       
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Reason</span>
@@ -857,6 +801,126 @@ export const TransactionDrawer = ({
                 </div>
               </div>
 
+              {/* ═══════════════════════════════════════════════════════════════
+                  SETTLEMENT BREAKDOWN (INVOICE ONLY)
+                  ═══════════════════════════════════════════════════════════════ */}
+              {type === "invoice" && (creditNotes.length > 0 || payments.length > 0) && (
+                <div className="mt-4">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Settlement Breakdown
+                  </h3>
+                  <div className="space-y-3">
+                    {/* Credit Notes Applied */}
+                    {creditNotes.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h4 className="text-xs font-medium text-muted-foreground">Credit Notes Applied</h4>
+                        <div className="space-y-1 ml-1.5">
+                          {creditNotes.map(cn => (
+                            <div
+                              key={cn.id}
+                              className="flex justify-between items-center py-1.5 px-2.5 bg-muted/30 rounded-md text-xs"
+                            >
+                              <div className="min-w-0">
+                                <span className="font-medium">{cn.credit_note_number}</span>
+                                <span className="text-muted-foreground"> · {format(new Date(cn.credit_note_date), "dd MMM")}</span>
+                              </div>
+                              <span className="font-medium text-destructive shrink-0 ml-2">
+                                – {formatCurrency(getCreditNoteGrossAmount(cn))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payments Received */}
+                    {payments.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h4 className="text-xs font-medium text-muted-foreground">Payments Received</h4>
+                        <div className="space-y-1 ml-1.5">
+                          {payments.map(p => (
+                            <div
+                              key={p.id}
+                              className="flex justify-between items-center py-1.5 px-2.5 bg-muted/30 rounded-md text-xs"
+                            >
+                              <div className="min-w-0">
+                                <span>{format(new Date(p.payment_date!), "dd MMM yyyy")}</span>
+                                {p.method && (
+                                  <span className="text-muted-foreground">
+                                    {" "}· {p.method.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="font-medium text-green-600 shrink-0 ml-2">{formatCurrency(Number(p.amount))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Totals */}
+                    <div className="border-t border-border pt-2 space-y-1">
+                      {totalCredits > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Total Credits</span>
+                          <span className="font-medium text-destructive">– {formatCurrency(totalCredits)}</span>
+                        </div>
+                      )}
+                      {totalPayments > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Total Payments</span>
+                          <span className="font-medium text-green-600">{formatCurrency(totalPayments)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ═══════════════════════════════════════════════════════════════
+                  CREDIT NOTE APPLICATION BREAKDOWN (CN ONLY)
+                  ═══════════════════════════════════════════════════════════════ */}
+              {type === "credit_note" && (
+                <div className="mt-4">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                    Application Breakdown
+                  </h3>
+                  <div className="bg-muted/30 rounded-lg p-3">
+                    {originalInvoice ? (
+                      <>
+                        <h4 className="text-xs font-medium text-muted-foreground mb-2">Applied To:</h4>
+                        <div className="space-y-1.5 ml-1.5">
+                          <div className="flex justify-between items-center py-1.5 px-2.5 bg-muted/50 rounded-md text-xs">
+                            <button
+                              className="font-medium text-primary hover:underline cursor-pointer"
+                              onClick={() => {
+                                const invId = (transaction as CreditNoteTransaction).original_invoice_id;
+                                if (invId) {
+                                  onOpenChange(false);
+                                  navigate(`/invoices/${invId}`);
+                                }
+                              }}
+                            >
+                              {originalInvoice.invoice_number}
+                            </button>
+                            <span className="font-medium text-destructive shrink-0 ml-2">
+                              – {formatCurrency(getTotalAmount())}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center mt-3 pt-2 border-t border-border text-xs">
+                          <span className="text-muted-foreground">Remaining Credit:</span>
+                          <span className="font-medium">€0.00</span>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic text-center py-2">
+                        This credit note has not been applied to any invoice.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               {/* ═══════════════════════════════════════════════════════════════
                   C. ACTIVITY TIMELINE (shared, collapsible)
                   ═══════════════════════════════════════════════════════════════ */}
