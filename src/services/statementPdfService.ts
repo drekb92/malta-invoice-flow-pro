@@ -139,14 +139,18 @@ export class StatementPDFGenerator {
   }
 
   private addHeader(data: StatementData) {
-    // Company info (left side)
+    const rightX = this.pageWidth - this.margin;
+    const leftStartY = this.currentY;
+
+    // --- LEFT SIDE: Company info with logo placeholder ---
+    // Company name (prominent)
     this.setColor(this.primaryColor);
-    this.pdf.setFontSize(16);
+    this.pdf.setFontSize(18);
     this.pdf.setFont("helvetica", "bold");
     this.pdf.text(data.company.name || "Your Company", this.margin, this.currentY);
 
-    this.currentY += 6;
-    this.pdf.setTextColor(100, 100, 100);
+    this.currentY += 7;
+    this.pdf.setTextColor(80, 80, 80);
     this.pdf.setFontSize(9);
     this.pdf.setFont("helvetica", "normal");
 
@@ -162,6 +166,10 @@ export class StatementPDFGenerator {
       );
       this.currentY += 4;
     }
+    if (data.company.phone) {
+      this.pdf.text(`Tel: ${data.company.phone}`, this.margin, this.currentY);
+      this.currentY += 4;
+    }
     if (data.company.email) {
       this.pdf.text(data.company.email, this.margin, this.currentY);
       this.currentY += 4;
@@ -171,63 +179,70 @@ export class StatementPDFGenerator {
       this.currentY += 4;
     }
 
-    // Statement title (right side)
-    const titleY = 20;
+    const leftEndY = this.currentY;
+
+    // --- RIGHT SIDE: Statement title and details ---
+    const typeLabel = data.options.statementType === "outstanding" 
+      ? "OUTSTANDING STATEMENT" 
+      : "ACTIVITY STATEMENT";
+
     this.setColor(this.primaryColor);
-    this.pdf.setFontSize(24);
+    this.pdf.setFontSize(20);
     this.pdf.setFont("helvetica", "bold");
-    this.pdf.text("STATEMENT", this.pageWidth - this.margin, titleY, { align: "right" });
+    this.pdf.text(typeLabel, rightX, leftStartY, { align: "right" });
 
     this.pdf.setFontSize(10);
     this.pdf.setFont("helvetica", "normal");
-    this.pdf.setTextColor(100, 100, 100);
-    this.pdf.text(
-      `Date: ${format(data.generatedAt, "dd/MM/yyyy")}`,
-      this.pageWidth - this.margin,
-      titleY + 8,
-      { align: "right" }
-    );
-    this.pdf.text(
-      `Period: ${format(data.options.dateFrom, "dd/MM/yyyy")} - ${format(data.options.dateTo, "dd/MM/yyyy")}`,
-      this.pageWidth - this.margin,
-      titleY + 14,
-      { align: "right" }
-    );
+    this.pdf.setTextColor(80, 80, 80);
 
-    const typeLabel = data.options.statementType === "outstanding" ? "Outstanding Only" : "Activity Statement";
-    this.pdf.text(`Type: ${typeLabel}`, this.pageWidth - this.margin, titleY + 20, { align: "right" });
+    let rightY = leftStartY + 10;
+    this.pdf.text(`Statement Date: ${format(data.generatedAt, "dd/MM/yyyy")}`, rightX, rightY, { align: "right" });
 
-    this.currentY = Math.max(this.currentY, titleY + 30) + 10;
+    rightY += 6;
+    this.pdf.text(`Period: ${format(data.options.dateFrom, "dd/MM/yyyy")} → ${format(data.options.dateTo, "dd/MM/yyyy")}`, rightX, rightY, { align: "right" });
+
+    // Move to below both columns
+    this.currentY = Math.max(leftEndY, rightY + 8) + 8;
+
+    // --- Thin divider line ---
+    this.pdf.setDrawColor(200, 200, 200);
+    this.pdf.setLineWidth(0.3);
+    this.pdf.line(this.margin, this.currentY, this.pageWidth - this.margin, this.currentY);
+    this.currentY += 8;
   }
 
   private addCustomerInfo(data: StatementData) {
-    // Customer box
-    this.setFillColor("#f8fafc");
-    this.pdf.rect(this.margin, this.currentY, this.pageWidth - this.margin * 2, 25, "F");
+    // Customer "Bill To" section (matching invoice style)
+    this.setColor(this.accentColor);
+    this.pdf.setFontSize(11);
+    this.pdf.setFont("helvetica", "bold");
+    this.pdf.text("Statement For:", this.margin, this.currentY);
 
     this.currentY += 6;
-    this.setColor(this.accentColor);
-    this.pdf.setFontSize(10);
-    this.pdf.setFont("helvetica", "bold");
-    this.pdf.text("Statement For:", this.margin + 4, this.currentY);
-
-    this.currentY += 5;
     this.pdf.setTextColor(0, 0, 0);
     this.pdf.setFontSize(11);
-    this.pdf.text(data.customer.name, this.margin + 4, this.currentY);
+    this.pdf.setFont("helvetica", "normal");
+    this.pdf.text(data.customer.name, this.margin, this.currentY);
 
     this.currentY += 5;
     this.pdf.setFontSize(9);
-    this.pdf.setFont("helvetica", "normal");
+
     if (data.customer.address) {
-      this.pdf.text(data.customer.address, this.margin + 4, this.currentY);
-      this.currentY += 4;
-    }
-    if (data.customer.vat_number) {
-      this.pdf.text(`VAT: ${data.customer.vat_number}`, this.margin + 4, this.currentY);
+      // Handle multi-line addresses
+      const addressLines = data.customer.address.split("\n");
+      addressLines.forEach((line) => {
+        this.pdf.text(line.trim(), this.margin, this.currentY);
+        this.currentY += 4;
+      });
     }
 
-    this.currentY += 15;
+    if (data.customer.vat_number) {
+      this.currentY += 1;
+      this.pdf.text(`VAT Number: ${data.customer.vat_number}`, this.margin, this.currentY);
+      this.currentY += 4;
+    }
+
+    this.currentY += 8;
   }
 
   private addOutstandingTable(data: StatementData): number {
