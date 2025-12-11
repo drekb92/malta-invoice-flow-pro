@@ -280,8 +280,16 @@ const CustomerDetail = () => {
                 </Button>
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">{customer.name}</h1>
-                  <p className="text-muted-foreground">
-                    {customer.client_type === "Business" ? customer.business_name : "Individual Client"}
+                  <p className="text-sm text-muted-foreground">
+                    Customer since {new Date(customer.created_at).getFullYear()}
+                    <span className="mx-2">·</span>
+                    {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
+                    {outstandingAmount > 0 && (
+                      <>
+                        <span className="mx-2">·</span>
+                        <span className="text-destructive font-medium">{formatCurrency(outstandingAmount)} outstanding</span>
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -321,21 +329,10 @@ const CustomerDetail = () => {
                       <Building className="h-5 w-5" />
                       Customer Information
                     </CardTitle>
+                    <Badge variant="outline">
+                      {customer.client_type === "Business" ? "Business" : "Individual"}
+                    </Badge>
                   </div>
-                  {/* Customer Summary Line */}
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {customer.name} ({customer.client_type === "Business" ? "Business" : "Individual Client"})
-                    <span className="mx-2">•</span>
-                    Customer since {new Date(customer.created_at).getFullYear()}
-                    <span className="mx-2">•</span>
-                    {invoices.length} invoice{invoices.length !== 1 ? "s" : ""}
-                    {outstandingAmount > 0 && (
-                      <>
-                        <span className="mx-2">•</span>
-                        <span className="text-destructive font-medium">{formatCurrency(outstandingAmount)} outstanding</span>
-                      </>
-                    )}
-                  </p>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-3">
