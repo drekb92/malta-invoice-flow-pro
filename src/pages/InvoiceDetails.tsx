@@ -225,7 +225,7 @@ const InvoiceSummaryCard = ({
           <span className="text-sm font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-xs text-muted-foreground">Remaining Balance</span>
+          <span className="text-xs text-muted-foreground">Balance Due</span>
           <span className={`text-sm font-bold ${isSettled ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
             €{formatNumber(Math.max(0, remainingBalance), 2)}
           </span>
