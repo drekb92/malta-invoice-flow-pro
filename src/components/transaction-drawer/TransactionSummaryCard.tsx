@@ -19,6 +19,9 @@ interface TransactionSummaryCardProps {
   totalPayments: number;
   remainingBalance: number;
   statusBadge: StatusBadgeConfig;
+  // Credit note specific (unified values from parent)
+  creditNoteTotalApplied?: number;
+  creditNoteRemainingCredit?: number;
 }
 
 export const TransactionSummaryCard = ({
@@ -29,6 +32,8 @@ export const TransactionSummaryCard = ({
   totalPayments,
   remainingBalance,
   statusBadge,
+  creditNoteTotalApplied = 0,
+  creditNoteRemainingCredit = 0,
 }: TransactionSummaryCardProps) => {
   const getBalanceDisplay = () => {
     if (remainingBalance === 0) {
@@ -102,25 +107,23 @@ export const TransactionSummaryCard = ({
           </>
         )}
 
-        {/* CREDIT NOTE SUMMARY */}
         {type === "credit_note" && (() => {
           const cn = transaction as CreditNoteTransaction;
-          const totalApplied = totalCredits; // totalCredits represents amount applied to invoices
-          const remainingCredit = totalAmount - totalApplied;
           
+          // Use unified values from parent (no independent calculation)
           const getRemainingCreditDisplay = () => {
-            if (remainingCredit === 0) {
+            if (creditNoteRemainingCredit === 0 && creditNoteTotalApplied > 0) {
               return {
                 label: "Fully Applied",
                 className: "text-green-600 dark:text-green-400",
-                secondaryText: null,
+                secondaryText: "This credit note has been fully applied to invoices.",
               };
             }
-            if (remainingCredit > 0 && totalApplied > 0) {
+            if (creditNoteRemainingCredit > 0 && creditNoteTotalApplied > 0) {
               return {
                 label: "Partially Applied",
                 className: "text-amber-600 dark:text-amber-400",
-                secondaryText: "Available to apply to other invoices.",
+                secondaryText: "Remaining credit can be applied to other invoices.",
               };
             }
             return {
@@ -162,18 +165,16 @@ export const TransactionSummaryCard = ({
                   <span className="text-sm font-semibold">Remaining Credit</span>
                   <div className="text-right">
                     <span className="text-base font-semibold text-foreground">
-                      {formatCurrency(remainingCredit)}
+                      {formatCurrency(creditNoteRemainingCredit)}
                     </span>
                     <span className={`text-xs ml-1.5 ${creditDisplay.className}`}>
                       ({creditDisplay.label})
                     </span>
                   </div>
                 </div>
-                {creditDisplay.secondaryText && (
-                  <p className="text-[11px] text-muted-foreground mt-1 text-right">
-                    {creditDisplay.secondaryText}
-                  </p>
-                )}
+                <p className="text-[11px] text-muted-foreground mt-1 text-right">
+                  {creditDisplay.secondaryText}
+                </p>
               </div>
             </>
           );

@@ -105,8 +105,9 @@ interface CreditNoteApplicationBreakdownProps {
   originalInvoice: { invoice_number: string } | null;
   originalInvoiceId: string | null;
   totalAmount: number;
+  totalApplied: number;
+  remainingCredit: number;
   appliedDate: string | null;
-  remainingCredit?: number;
   onClose: () => void;
 }
 
@@ -114,13 +115,12 @@ export const CreditNoteApplicationBreakdown = ({
   originalInvoice,
   originalInvoiceId,
   totalAmount,
+  totalApplied,
+  remainingCredit,
   appliedDate,
-  remainingCredit = originalInvoice ? 0 : totalAmount,
   onClose,
 }: CreditNoteApplicationBreakdownProps) => {
   const navigate = useNavigate();
-  
-  const totalApplied = totalAmount - remainingCredit;
   
   const getContextualNote = () => {
     if (remainingCredit === 0 && totalApplied > 0) {
