@@ -489,6 +489,11 @@ export class StatementPDFGenerator {
         return sum + remaining;
       }, 0);
 
+      const openInvoiceCount = data.invoices.filter((inv) => {
+        const remaining = inv.total_amount - (inv.paid_amount || 0);
+        return remaining > 0.01;
+      }).length;
+
       const boxHeight = 25;
       this.setFillColor("#f8fafc");
       this.pdf.rect(labelX - 5, this.currentY - 2, 115, boxHeight, "F");
@@ -497,8 +502,8 @@ export class StatementPDFGenerator {
       this.pdf.setFont("helvetica", "normal");
       this.pdf.setTextColor(100, 100, 100);
 
-      this.pdf.text("Outstanding Invoices:", labelX, this.currentY + 5);
-      this.pdf.text(`${data.invoices.length}`, summaryX + 30, this.currentY + 5, { align: "right" });
+      this.pdf.text("Open Invoices:", labelX, this.currentY + 5);
+      this.pdf.text(`${openInvoiceCount}`, summaryX + 30, this.currentY + 5, { align: "right" });
 
       this.currentY += 8;
       this.pdf.setDrawColor(100, 100, 100);
@@ -510,12 +515,12 @@ export class StatementPDFGenerator {
 
       if (totalOutstanding > 0) {
         this.setColor("#dc2626"); // Red
-        this.pdf.text("Total Due:", labelX, this.currentY + 2);
+        this.pdf.text("Balance Due:", labelX, this.currentY + 2);
         this.pdf.text(`€${formatNumber(totalOutstanding, 2)}`, summaryX + 30, this.currentY + 2, { align: "right" });
       } else {
-        this.pdf.setTextColor(100, 100, 100);
-        this.pdf.text("Balance:", labelX, this.currentY + 2);
-        this.pdf.text("No balance due", summaryX + 30, this.currentY + 2, { align: "right" });
+        this.pdf.setTextColor(100, 100, 100); // Grey
+        this.pdf.setFont("helvetica", "normal");
+        this.pdf.text("No balance due", labelX, this.currentY + 2);
       }
 
       this.currentY += 15;
