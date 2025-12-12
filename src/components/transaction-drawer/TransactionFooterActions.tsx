@@ -42,8 +42,8 @@ export const TransactionFooterActions = ({
 
   return (
     <div className="shrink-0 px-5 py-4 border-t border-border/60 bg-background/95 backdrop-blur-sm">
-      <div className="flex flex-wrap justify-end gap-2">
-        {/* Download PDF - Always available */}
+      <div className="flex items-center justify-between gap-2">
+        {/* Left side: Secondary action (Download PDF) */}
         <Button
           variant="outline"
           size="sm"
@@ -56,119 +56,118 @@ export const TransactionFooterActions = ({
           ) : (
             <Download className="h-4 w-4 mr-1.5" />
           )}
-          {downloadingPdf ? "Generating..." : "Download PDF"}
+          {downloadingPdf ? "Generating..." : "PDF"}
         </Button>
 
-        {/* INVOICE ACTIONS */}
-        {type === "invoice" && (
-          <>
-            {remainingBalance > 0 && onAddPayment && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                onClick={() => {
-                  onClose();
-                  onAddPayment(transaction.id);
-                }}
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Payment
-              </Button>
-            )}
-            
-            {onIssueCreditNote && (transaction as InvoiceTransaction).is_issued && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                onClick={() => {
-                  onClose();
-                  onIssueCreditNote(transaction.id);
-                }}
-              >
-                <Receipt className="h-4 w-4 mr-1.5" />
-                Issue Credit Note
-              </Button>
-            )}
-            
-            {remainingBalance > 0 && onSendReminder && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                onClick={() => {
-                  onClose();
-                  onSendReminder(transaction.id);
-                }}
-              >
-                <Bell className="h-4 w-4 mr-1.5" />
-                Send Reminder
-              </Button>
-            )}
-          </>
-        )}
+        {/* Right side: Context actions + Primary action */}
+        <div className="flex items-center gap-2">
+          {/* INVOICE ACTIONS */}
+          {type === "invoice" && (
+            <>
+              {remainingBalance > 0 && onAddPayment && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => {
+                    onClose();
+                    onAddPayment(transaction.id);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Payment
+                </Button>
+              )}
+              
+              {onIssueCreditNote && (transaction as InvoiceTransaction).is_issued && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm hidden sm:flex"
+                  onClick={() => {
+                    onClose();
+                    onIssueCreditNote(transaction.id);
+                  }}
+                >
+                  <Receipt className="h-4 w-4 mr-1.5" />
+                  Credit Note
+                </Button>
+              )}
+              
+              {remainingBalance > 0 && onSendReminder && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm hidden sm:flex"
+                  onClick={() => {
+                    onClose();
+                    onSendReminder(transaction.id);
+                  }}
+                >
+                  <Bell className="h-4 w-4 mr-1.5" />
+                  Remind
+                </Button>
+              )}
+            </>
+          )}
 
-        {/* CREDIT NOTE ACTIONS */}
-        {type === "credit_note" && (
-          <>
-            {!originalInvoice && onApplyCreditNote && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                onClick={() => {
-                  onClose();
-                  onApplyCreditNote(transaction.id);
-                }}
-              >
-                <ArrowRight className="h-4 w-4 mr-1.5" />
-                Apply to Invoice
-              </Button>
-            )}
-          </>
-        )}
+          {/* CREDIT NOTE ACTIONS */}
+          {type === "credit_note" && !originalInvoice && onApplyCreditNote && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-sm"
+              onClick={() => {
+                onClose();
+                onApplyCreditNote(transaction.id);
+              }}
+            >
+              <ArrowRight className="h-4 w-4 mr-1.5" />
+              Apply
+            </Button>
+          )}
 
-        {/* QUOTATION ACTIONS */}
-        {type === "quotation" && (
-          <>
-            {transaction.status === "draft" && onSendQuote && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                onClick={() => {
-                  onClose();
-                  onSendQuote(transaction.id);
-                }}
-              >
-                <Send className="h-4 w-4 mr-1.5" />
-                Send Quote
-              </Button>
-            )}
-            
-            {transaction.status !== "converted" && onConvertQuotation && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-sm"
-                onClick={() => {
-                  onClose();
-                  onConvertQuotation(transaction.id);
-                }}
-              >
-                <ArrowRight className="h-4 w-4 mr-1.5" />
-                Convert to Invoice
-              </Button>
-            )}
-          </>
-        )}
+          {/* QUOTATION ACTIONS */}
+          {type === "quotation" && (
+            <>
+              {transaction.status === "draft" && onSendQuote && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => {
+                    onClose();
+                    onSendQuote(transaction.id);
+                  }}
+                >
+                  <Send className="h-4 w-4 mr-1.5" />
+                  Send
+                </Button>
+              )}
+              
+              {transaction.status !== "converted" && onConvertQuotation && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => {
+                    onClose();
+                    onConvertQuotation(transaction.id);
+                  }}
+                >
+                  <ArrowRight className="h-4 w-4 mr-1.5" />
+                  Convert
+                </Button>
+              )}
+            </>
+          )}
 
-        {/* View Full - Always available */}
-        <Button size="sm" className="text-sm" onClick={onViewFull}>
-          <ExternalLink className="h-4 w-4 mr-1.5" />
-          View Full {typeLabel}
-        </Button>
+          {/* Primary action: View Full - Always available, right-most */}
+          <Button size="sm" className="text-sm" onClick={onViewFull}>
+            <ExternalLink className="h-4 w-4 mr-1.5" />
+            View
+          </Button>
+        </div>
       </div>
     </div>
   );

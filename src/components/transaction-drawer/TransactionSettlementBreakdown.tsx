@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { Receipt, Banknote, ArrowDownRight } from "lucide-react";
+import { Receipt, Banknote, ArrowDownRight, FileText, ArrowRight } from "lucide-react";
 import type { CreditNote, Payment } from "./types";
 import { formatCurrency, getCreditNoteGrossAmount } from "./utils";
 
@@ -101,6 +101,10 @@ export const InvoiceSettlementBreakdown = ({
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Credit Note Reference Section - Uses same layout as Invoice Settlement
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface CreditNoteApplicationBreakdownProps {
   originalInvoice: { invoice_number: string } | null;
   originalInvoiceId: string | null;
@@ -114,7 +118,6 @@ interface CreditNoteApplicationBreakdownProps {
 export const CreditNoteApplicationBreakdown = ({
   originalInvoice,
   originalInvoiceId,
-  totalAmount,
   totalApplied,
   remainingCredit,
   appliedDate,
@@ -122,67 +125,113 @@ export const CreditNoteApplicationBreakdown = ({
 }: CreditNoteApplicationBreakdownProps) => {
   const navigate = useNavigate();
   
-  const getContextualNote = () => {
-    if (remainingCredit === 0 && totalApplied > 0) {
-      return "This credit note has been fully applied to invoices.";
-    }
-    if (remainingCredit > 0 && totalApplied > 0) {
-      return "This credit note is partially applied. Remaining credit may be allocated to other invoices.";
-    }
-    return "This credit note has not been applied yet.";
-  };
+  if (!originalInvoice) return null;
 
   return (
     <div className="mt-5">
       <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         <ArrowDownRight className="h-3.5 w-3.5" />
-        Applied To Invoices
+        Applied To
       </h3>
-      <div className="bg-card border border-border/60 rounded-lg p-4 shadow-sm">
-        {originalInvoice ? (
-          <>
-            <h4 className="text-xs font-medium text-muted-foreground mb-2">Applied To:</h4>
-            <div className="space-y-1.5">
-              <div className="py-2.5 px-3 bg-muted/30 rounded-md">
-                <div className="flex justify-between items-center text-sm">
-                  <button
-                    className="font-medium text-primary hover:underline cursor-pointer text-left"
-                    onClick={() => {
-                      if (originalInvoiceId) {
-                        onClose();
-                        navigate(`/invoices/${originalInvoiceId}`);
-                      }
-                    }}
-                  >
-                    {originalInvoice.invoice_number}
-                  </button>
-                  <span className="font-medium text-destructive shrink-0 ml-2 bg-red-50 dark:bg-red-950/40 rounded-md px-1.5 py-0.5">
-                    – {formatCurrency(totalApplied)}
-                  </span>
-                </div>
+      <div className="bg-card border border-border/60 rounded-lg p-4 space-y-4 shadow-sm">
+        {/* Applied Invoice - Same structure as credit notes in Invoice Settlement */}
+        <div className="space-y-2">
+          <h4 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <FileText className="h-3.5 w-3.5" />
+            Invoice
+          </h4>
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center py-2 px-3 bg-muted/30 rounded-md text-sm">
+              <div className="min-w-0">
+                <button
+                  className="font-medium text-primary hover:underline cursor-pointer text-left"
+                  onClick={() => {
+                    if (originalInvoiceId) {
+                      onClose();
+                      navigate(`/invoices/${originalInvoiceId}`);
+                    }
+                  }}
+                >
+                  {originalInvoice.invoice_number}
+                </button>
                 {appliedDate && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Applied on: {format(new Date(appliedDate), "dd MMM yyyy")}
-                  </p>
+                  <span className="text-muted-foreground text-xs"> · {format(new Date(appliedDate), "dd MMM")}</span>
+                )}
+              </div>
+              <span className="font-medium text-destructive shrink-0 ml-2">
+                – {formatCurrency(totalApplied)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Totals - Same structure as Invoice Settlement */}
+        <div className="border-t border-border/60 pt-3 space-y-1.5">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Amount Applied</span>
+            <span className="font-medium text-destructive">– {formatCurrency(totalApplied)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Remaining Credit</span>
+            <span className="font-medium text-foreground">{formatCurrency(remainingCredit)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quotation Reference Section - For converted quotes
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface QuotationConversionBreakdownProps {
+  convertedInvoice: { invoice_number: string; id: string } | null;
+  convertedDate: string | null;
+  onClose: () => void;
+}
+
+export const QuotationConversionBreakdown = ({
+  convertedInvoice,
+  convertedDate,
+  onClose,
+}: QuotationConversionBreakdownProps) => {
+  const navigate = useNavigate();
+  
+  if (!convertedInvoice) return null;
+
+  return (
+    <div className="mt-5">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+        <ArrowRight className="h-3.5 w-3.5" />
+        Converted To
+      </h3>
+      <div className="bg-card border border-border/60 rounded-lg p-4 space-y-4 shadow-sm">
+        {/* Converted Invoice - Same structure as Invoice Settlement */}
+        <div className="space-y-2">
+          <h4 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <FileText className="h-3.5 w-3.5" />
+            Invoice
+          </h4>
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center py-2 px-3 bg-muted/30 rounded-md text-sm">
+              <div className="min-w-0">
+                <button
+                  className="font-medium text-primary hover:underline cursor-pointer text-left"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/invoices/${convertedInvoice.id}`);
+                  }}
+                >
+                  {convertedInvoice.invoice_number}
+                </button>
+                {convertedDate && (
+                  <span className="text-muted-foreground text-xs"> · {format(new Date(convertedDate), "dd MMM")}</span>
                 )}
               </div>
             </div>
-            
-            {/* Contextual note */}
-            <p className="text-[11px] text-muted-foreground mt-3 mb-3">
-              {getContextualNote()}
-            </p>
-            
-            <div className="flex justify-between items-center pt-3 border-t border-border/60 text-sm">
-              <span className="text-muted-foreground">Remaining Credit:</span>
-              <span className="font-medium text-foreground">{formatCurrency(remainingCredit)}</span>
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground italic text-center py-3">
-            {getContextualNote()}
-          </p>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   );
