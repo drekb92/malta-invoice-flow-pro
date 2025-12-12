@@ -1,15 +1,14 @@
 import { format } from "date-fns";
 import { Calendar, Clock, Receipt, FileText, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import type { 
   TransactionType, 
   InvoiceTransaction, 
   CreditNoteTransaction, 
   QuotationTransaction,
-  StatusBadgeConfig
 } from "./types";
 import { formatCurrency } from "./utils";
+import { TransactionTotalsCard } from "./TransactionTotalsCard";
 
 interface TransactionSummaryCardProps {
   type: TransactionType;
@@ -18,7 +17,6 @@ interface TransactionSummaryCardProps {
   totalCredits: number;
   totalPayments: number;
   remainingBalance: number;
-  statusBadge: StatusBadgeConfig;
   // Credit note specific (unified values from parent)
   creditNoteTotalApplied?: number;
   creditNoteRemainingCredit?: number;
@@ -31,192 +29,145 @@ export const TransactionSummaryCard = ({
   totalCredits,
   totalPayments,
   remainingBalance,
-  statusBadge,
   creditNoteTotalApplied = 0,
   creditNoteRemainingCredit = 0,
 }: TransactionSummaryCardProps) => {
-  const getBalanceDisplay = () => {
-    if (remainingBalance === 0) {
-      return (
-        <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-0.5">
-          Paid in full
-        </Badge>
-      );
-    }
-    if (remainingBalance < 0) {
-      return (
-        <div className="text-right">
-          <span className="text-base font-semibold text-green-600">{formatCurrency(Math.abs(remainingBalance))}</span>
-          <div className="text-[10px] text-green-600">Credit in favour</div>
-        </div>
-      );
-    }
-    return <span className="text-base font-semibold text-destructive">{formatCurrency(remainingBalance)}</span>;
-  };
-
   const getIcon = () => {
     if (type === "invoice") return <FileText className="h-3.5 w-3.5" />;
     if (type === "credit_note") return <Receipt className="h-3.5 w-3.5" />;
     return <ClipboardList className="h-3.5 w-3.5" />;
   };
 
-  const title = type === "invoice" ? "Summary" : type === "credit_note" ? "Summary" : "Summary";
+  // Build rows and final row for each type
+  const buildInvoiceTotals = () => {
+    const rows: Array<{ label: string; value: number; type: "default" | "credit" | "payment" | "highlight" }> = [
+      { label: "Original Amount", value: totalAmount, type: "highlight" },
+    ];
+    
+    if (totalCredits > 0) {
+      rows.push({ label: "Credit Notes Applied", value: totalCredits, type: "credit" });
+    }
+    if (totalPayments > 0) {
+      rows.push({ label: "Payments Received", value: totalPayments, type: "payment" });
+    }
+
+    const finalStatus = remainingBalance === 0 ? "paid" : remainingBalance > 0 ? "due" : "credit";
+    
+    const finalValue = remainingBalance === 0 ? (
+      <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-0.5">
+        Paid in full
+      </Badge>
+    ) : remainingBalance < 0 ? (
+      <div className="text-right">
+        <span className="text-base font-bold text-green-600 tabular-nums">{formatCurrency(Math.abs(remainingBalance))}</span>
+        <div className="text-[10px] text-green-600">Credit balance</div>
+      </div>
+    ) : remainingBalance;
+
+    return { rows, finalRow: { label: "Balance Due", value: finalValue, status: finalStatus as "paid" | "due" | "credit" } };
+  };
+
+  const buildCreditNoteTotals = () => {
+    const cn = transaction as CreditNoteTransaction;
+    const rows = [
+      { label: "Net Amount", value: cn.amount, type: "default" as const },
+      { label: `VAT (${(cn.vat_rate * 100).toFixed(0)}%)`, value: cn.amount * cn.vat_rate, type: "default" as const },
+    ];
+
+    // Determine application status
+    const isFullyApplied = creditNoteRemainingCredit === 0 && creditNoteTotalApplied > 0;
+    const isPartiallyApplied = creditNoteRemainingCredit > 0 && creditNoteTotalApplied > 0;
+    
+    let statusLabel = "Not Applied";
+    let statusClass = "text-muted-foreground";
+    
+    if (isFullyApplied) {
+      statusLabel = "Fully Applied";
+      statusClass = "text-green-600 dark:text-green-400";
+    } else if (isPartiallyApplied) {
+      statusLabel = "Partially Applied";
+      statusClass = "text-amber-600 dark:text-amber-400";
+    }
+
+    const finalValue = (
+      <div className="text-right">
+        <span className="text-base font-bold tabular-nums text-foreground">
+          {formatCurrency(creditNoteRemainingCredit)}
+        </span>
+        <span className={`text-[10px] ml-1.5 ${statusClass}`}>({statusLabel})</span>
+      </div>
+    );
+
+    return { 
+      rows, 
+      finalRow: { 
+        label: "Remaining Credit", 
+        value: finalValue, 
+        status: isFullyApplied ? "paid" : isPartiallyApplied ? "credit" : "neutral" as "paid" | "credit" | "neutral"
+      },
+      reason: cn.reason,
+    };
+  };
+
+  const buildQuotationTotals = () => {
+    const quote = transaction as QuotationTransaction;
+    const rows = [
+      { label: "Net Amount", value: quote.amount || 0, type: "default" as const },
+      { label: "VAT Amount", value: quote.vat_amount || 0, type: "default" as const },
+    ];
+
+    return { 
+      rows, 
+      finalRow: { label: "Quote Total", value: totalAmount, status: "neutral" as const },
+      quote,
+    };
+  };
 
   return (
     <div className="mt-5">
       <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
         {getIcon()}
-        {title}
+        Summary
       </h3>
-      <div className="bg-card border border-border/60 rounded-lg p-4 space-y-3 shadow-sm">
-        {/* INVOICE SUMMARY */}
-        {type === "invoice" && (
-          <>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Original Amount</span>
-              <span className="font-semibold text-foreground">{formatCurrency(totalAmount)}</span>
-            </div>
-            
-            {totalCredits > 0 && (
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Credit Notes Applied</span>
-                <span className="text-destructive font-medium">– {formatCurrency(totalCredits)}</span>
+      
+      {type === "invoice" && (() => {
+        const { rows, finalRow } = buildInvoiceTotals();
+        return <TransactionTotalsCard rows={rows} finalRow={finalRow} />;
+      })()}
+
+      {type === "credit_note" && (() => {
+        const { rows, finalRow, reason } = buildCreditNoteTotals();
+        return (
+          <div className="space-y-3">
+            <TransactionTotalsCard rows={rows} finalRow={finalRow} />
+            {reason && (
+              <div className="bg-muted/30 border border-border/40 rounded-lg p-3">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Reason</span>
+                <p className="text-sm text-foreground mt-1">{reason}</p>
               </div>
             )}
+          </div>
+        );
+      })()}
 
-            {totalPayments > 0 && (
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Payments Received</span>
-                <span className="text-green-600 font-medium">– {formatCurrency(totalPayments)}</span>
-              </div>
-            )}
-
-            <Separator className="my-2" />
-            <div
-              className={`flex justify-between items-center -mx-4 -mb-4 px-4 py-3 rounded-b-lg ${
-                remainingBalance === 0
-                  ? "bg-green-50/80 dark:bg-green-950/30"
-                  : remainingBalance > 0
-                  ? "bg-red-50/80 dark:bg-red-950/30"
-                  : "bg-green-50/80 dark:bg-green-950/30"
-              }`}
-            >
-              <span className="text-sm font-semibold">Remaining Balance</span>
-              {getBalanceDisplay()}
-            </div>
-          </>
-        )}
-
-        {type === "credit_note" && (() => {
-          const cn = transaction as CreditNoteTransaction;
-          
-          // Use unified values from parent (no independent calculation)
-          const getRemainingCreditDisplay = () => {
-            if (creditNoteRemainingCredit === 0 && creditNoteTotalApplied > 0) {
-              return {
-                label: "Fully Applied",
-                className: "text-green-600 dark:text-green-400",
-                secondaryText: "This credit note has been fully applied to invoices.",
-              };
-            }
-            if (creditNoteRemainingCredit > 0 && creditNoteTotalApplied > 0) {
-              return {
-                label: "Partially Applied",
-                className: "text-amber-600 dark:text-amber-400",
-                secondaryText: "Remaining credit can be applied to other invoices.",
-              };
-            }
-            return {
-              label: "Not Applied",
-              className: "text-muted-foreground",
-              secondaryText: "This credit note has not been applied yet.",
-            };
-          };
-          
-          const creditDisplay = getRemainingCreditDisplay();
-          
-          return (
-            <>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Credit Note Amount</span>
-                <span className="font-semibold text-foreground">{formatCurrency(totalAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Net Amount</span>
-                <span className="text-foreground">{formatCurrency(cn.amount)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">VAT ({(cn.vat_rate * 100).toFixed(0)}%)</span>
-                <span className="text-foreground">{formatCurrency(cn.amount * cn.vat_rate)}</span>
-              </div>
-              
-              <Separator className="my-2" />
-              
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Reason</span>
-                <span className="text-right max-w-[180px] truncate text-foreground" title={cn.reason}>
-                  {cn.reason}
-                </span>
-              </div>
-              
-              {/* Remaining Credit with contextual state */}
-              <div className="-mx-4 -mb-4 px-4 py-3 mt-2 rounded-b-lg bg-muted/40">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold">Remaining Credit</span>
-                  <div className="text-right">
-                    <span className="text-base font-semibold text-foreground">
-                      {formatCurrency(creditNoteRemainingCredit)}
-                    </span>
-                    <span className={`text-xs ml-1.5 ${creditDisplay.className}`}>
-                      ({creditDisplay.label})
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1 text-right">
-                  {creditDisplay.secondaryText}
-                </p>
-              </div>
-            </>
-          );
-        })()}
-
-        {/* QUOTATION SUMMARY */}
-        {type === "quotation" && (() => {
-          const quote = transaction as QuotationTransaction;
-          const issueDate = new Date(quote.issue_date);
-          const validUntil = quote.valid_until ? new Date(quote.valid_until) : null;
-          const validityDays = validUntil
-            ? Math.ceil((validUntil.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24))
-            : null;
-          const isExpired = validUntil && new Date() > validUntil;
-          
-          return (
-            <>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Total Quote Value</span>
-                <span className="font-semibold text-foreground">{formatCurrency(totalAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Net Amount</span>
-                <span className="text-foreground">{formatCurrency(quote.amount || 0)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">VAT Amount</span>
-                <span className="text-foreground">{formatCurrency(quote.vat_amount || 0)}</span>
-              </div>
-              
-              <Separator className="my-2" />
-              
-              <div className="flex justify-between text-sm items-center">
+      {type === "quotation" && (() => {
+        const { rows, finalRow, quote } = buildQuotationTotals();
+        const issueDate = new Date(quote.issue_date);
+        const validUntil = quote.valid_until ? new Date(quote.valid_until) : null;
+        const isExpired = validUntil && new Date() > validUntil;
+        
+        return (
+          <div className="space-y-3">
+            <TransactionTotalsCard rows={rows} finalRow={finalRow} />
+            <div className="bg-muted/30 border border-border/40 rounded-lg p-3 space-y-2">
+              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
                   Issue Date
                 </span>
-                <span className="font-medium text-foreground">
-                  {format(issueDate, "dd MMM yyyy")}
-                </span>
+                <span className="font-medium text-foreground">{format(issueDate, "dd MMM yyyy")}</span>
               </div>
-              <div className="flex justify-between text-sm items-center">
+              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5" />
                   Valid Until
@@ -226,23 +177,10 @@ export const TransactionSummaryCard = ({
                   {isExpired && <span className="text-[10px] ml-1">(Expired)</span>}
                 </span>
               </div>
-              {validityDays && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Validity Period</span>
-                  <span className="text-foreground">{validityDays} days</span>
-                </div>
-              )}
-              
-              <div className="-mx-4 -mb-4 px-4 py-3 mt-2 rounded-b-lg bg-muted/40 flex justify-between items-center">
-                <span className="text-sm font-semibold">Quote Status</span>
-                <Badge className={`${statusBadge.className} text-xs px-2 py-0.5`}>
-                  {statusBadge.label}
-                </Badge>
-              </div>
-            </>
-          );
-        })()}
-      </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
