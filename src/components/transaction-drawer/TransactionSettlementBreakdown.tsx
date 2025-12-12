@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { Receipt, Banknote, ArrowDownRight, FileText, ArrowRight } from "lucide-react";
+import { Receipt, Banknote, FileText } from "lucide-react";
 import type { CreditNote, Payment } from "./types";
 import { formatCurrency, getCreditNoteGrossAmount } from "./utils";
 
@@ -22,8 +22,7 @@ export const InvoiceSettlementBreakdown = ({
 
   return (
     <div className="mt-5">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        <ArrowDownRight className="h-3.5 w-3.5" />
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
         Settlement Breakdown
       </h3>
       <div className="bg-card border border-border/60 rounded-lg p-4 space-y-4 shadow-sm">
@@ -129,8 +128,7 @@ export const CreditNoteApplicationBreakdown = ({
 
   return (
     <div className="mt-5">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        <ArrowDownRight className="h-3.5 w-3.5" />
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
         Applied To
       </h3>
       <div className="bg-card border border-border/60 rounded-lg p-4 space-y-4 shadow-sm">
@@ -202,8 +200,7 @@ export const QuotationConversionBreakdown = ({
 
   return (
     <div className="mt-5">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        <ArrowRight className="h-3.5 w-3.5" />
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
         Converted To
       </h3>
       <div className="bg-card border border-border/60 rounded-lg p-4 space-y-4 shadow-sm">

@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Calendar, Clock, Receipt, FileText, ClipboardList } from "lucide-react";
+import { Calendar, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { 
   TransactionType, 
@@ -32,11 +32,6 @@ export const TransactionSummaryCard = ({
   creditNoteTotalApplied = 0,
   creditNoteRemainingCredit = 0,
 }: TransactionSummaryCardProps) => {
-  const getIcon = () => {
-    if (type === "invoice") return <FileText className="h-3.5 w-3.5" />;
-    if (type === "credit_note") return <Receipt className="h-3.5 w-3.5" />;
-    return <ClipboardList className="h-3.5 w-3.5" />;
-  };
 
   // Build rows and final row for each type
   const buildInvoiceTotals = () => {
@@ -123,11 +118,16 @@ export const TransactionSummaryCard = ({
     };
   };
 
+  const getSummaryLabel = () => {
+    if (type === "invoice") return "Invoice Summary";
+    if (type === "credit_note") return "Summary";
+    return "Summary";
+  };
+
   return (
     <div className="mt-5">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        {getIcon()}
-        Summary
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+        {getSummaryLabel()}
       </h3>
       
       {type === "invoice" && (() => {
@@ -142,7 +142,7 @@ export const TransactionSummaryCard = ({
             <TransactionTotalsCard rows={rows} finalRow={finalRow} />
             {reason && (
               <div className="bg-muted/30 border border-border/40 rounded-lg p-3">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Reason</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reason</span>
                 <p className="text-sm text-foreground mt-1">{reason}</p>
               </div>
             )}

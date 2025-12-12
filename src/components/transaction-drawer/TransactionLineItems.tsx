@@ -1,4 +1,3 @@
-import { FileText } from "lucide-react";
 import type { LineItem } from "./types";
 import { formatCurrency } from "./utils";
 
@@ -11,19 +10,18 @@ export const TransactionLineItems = ({ items }: TransactionLineItemsProps) => {
 
   return (
     <div className="mb-5">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-        <FileText className="h-3.5 w-3.5" />
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
         Line Items
       </h3>
       <div className="border border-border/60 rounded-lg overflow-hidden bg-card/50">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 border-b border-border/40">
             <tr>
-              <th className="text-left px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Description</th>
-              <th className="text-right px-2 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-10">Qty</th>
-              <th className="text-right px-2 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-16">Price</th>
-              <th className="text-right px-2 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-12">VAT</th>
-              <th className="text-right px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-18">Total</th>
+              <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Description</th>
+              <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-10">Qty</th>
+              <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-16">Price</th>
+              <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-12">VAT</th>
+              <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-18">Total</th>
             </tr>
           </thead>
           <tbody>
