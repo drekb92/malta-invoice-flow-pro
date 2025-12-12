@@ -43,7 +43,7 @@ export const InvoiceSettlementBreakdown = ({
                     <span className="font-medium text-foreground">{cn.credit_note_number}</span>
                     <span className="text-muted-foreground text-xs"> · {format(new Date(cn.credit_note_date), "dd MMM")}</span>
                   </div>
-                  <span className="font-medium text-destructive shrink-0 ml-2">
+                  <span className="text-sm font-medium tabular-nums text-destructive shrink-0 ml-2">
                     – {formatCurrency(getCreditNoteGrossAmount(cn))}
                   </span>
                 </div>
@@ -73,7 +73,7 @@ export const InvoiceSettlementBreakdown = ({
                       </span>
                     )}
                   </div>
-                  <span className="font-medium text-green-600 shrink-0 ml-2">{formatCurrency(Number(p.amount))}</span>
+                  <span className="text-sm font-medium tabular-nums text-green-600 shrink-0 ml-2">{formatCurrency(Number(p.amount))}</span>
                 </div>
               ))}
             </div>
@@ -85,13 +85,13 @@ export const InvoiceSettlementBreakdown = ({
           {totalCredits > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total Credits</span>
-              <span className="font-medium text-destructive">– {formatCurrency(totalCredits)}</span>
+              <span className="text-sm font-medium tabular-nums text-destructive">– {formatCurrency(totalCredits)}</span>
             </div>
           )}
           {totalPayments > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total Payments</span>
-              <span className="font-medium text-green-600">{formatCurrency(totalPayments)}</span>
+              <span className="text-sm font-medium tabular-nums text-green-600">{formatCurrency(totalPayments)}</span>
             </div>
           )}
         </div>
@@ -156,7 +156,7 @@ export const CreditNoteApplicationBreakdown = ({
                   <span className="text-muted-foreground text-xs"> · {format(new Date(appliedDate), "dd MMM")}</span>
                 )}
               </div>
-              <span className="font-medium text-destructive shrink-0 ml-2">
+              <span className="text-sm font-medium tabular-nums text-destructive shrink-0 ml-2">
                 – {formatCurrency(totalApplied)}
               </span>
             </div>
@@ -167,11 +167,11 @@ export const CreditNoteApplicationBreakdown = ({
         <div className="border-t border-border/60 pt-3 space-y-1.5">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Amount Applied</span>
-            <span className="font-medium text-destructive">– {formatCurrency(totalApplied)}</span>
+            <span className="text-sm font-medium tabular-nums text-destructive">– {formatCurrency(totalApplied)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Remaining Credit</span>
-            <span className="font-medium text-foreground">{formatCurrency(remainingCredit)}</span>
+            <span className="text-sm font-medium tabular-nums text-foreground">{formatCurrency(remainingCredit)}</span>
           </div>
         </div>
       </div>

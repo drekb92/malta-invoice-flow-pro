@@ -83,7 +83,7 @@ export const TransactionActivityTimeline = ({
                     <span className="text-sm text-foreground truncate">{event.title}</span>
                     {event.amount && (
                       <span
-                        className={`text-[11px] font-medium shrink-0 ${
+                        className={`text-sm font-medium tabular-nums shrink-0 ${
                           event.type === "credit_note" ? "text-destructive" : "text-green-600"
                         }`}
                       >

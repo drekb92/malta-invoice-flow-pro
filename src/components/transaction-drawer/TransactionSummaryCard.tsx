@@ -65,7 +65,7 @@ export const TransactionSummaryCard = ({
   const buildCreditNoteTotals = () => {
     const cn = transaction as CreditNoteTransaction;
     const rows = [
-      { label: "Net Amount", value: cn.amount, type: "default" as const },
+      { label: "Net Amount", value: cn.amount, type: "highlight" as const },
       { label: `VAT (${(cn.vat_rate * 100).toFixed(0)}%)`, value: cn.amount * cn.vat_rate, type: "default" as const },
     ];
 
@@ -107,7 +107,7 @@ export const TransactionSummaryCard = ({
   const buildQuotationTotals = () => {
     const quote = transaction as QuotationTransaction;
     const rows = [
-      { label: "Net Amount", value: quote.amount || 0, type: "default" as const },
+      { label: "Net Amount", value: quote.amount || 0, type: "highlight" as const },
       { label: "VAT Amount", value: quote.vat_amount || 0, type: "default" as const },
     ];
 

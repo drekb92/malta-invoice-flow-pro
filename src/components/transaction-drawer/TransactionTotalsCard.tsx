@@ -27,9 +27,9 @@ export const TransactionTotalsCard = ({ rows, finalRow }: TransactionTotalsCardP
       case "payment":
         return "text-green-600 dark:text-green-400 font-medium";
       case "highlight":
-        return "font-semibold text-foreground";
+        return "font-medium text-foreground";
       default:
-        return "text-foreground";
+        return "font-medium text-foreground";
     }
   };
 
