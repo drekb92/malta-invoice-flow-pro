@@ -54,7 +54,7 @@ export const StatusBadge = ({ status, isIssued, className }: StatusBadgeProps) =
     <Badge 
       variant="outline"
       className={cn(
-        "text-[10px] px-2 py-0.5 font-medium border",
+        "text-[11px] px-2 py-0.5 font-medium border",
         styles,
         className
       )}
@@ -87,7 +87,7 @@ export const TypeBadge = ({ type, className }: TypeBadgeProps) => {
     <Badge 
       variant="outline"
       className={cn(
-        "text-[10px] px-2 py-0.5 font-semibold border",
+        "text-[11px] px-2 py-0.5 font-medium border",
         TYPE_STYLES[type],
         className
       )}

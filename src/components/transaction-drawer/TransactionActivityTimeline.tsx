@@ -84,7 +84,7 @@ export const TransactionActivityTimeline = ({
                     <span className="text-sm text-foreground truncate">{event.title}</span>
                     {event.amount && (
                       <span
-                        className={`text-xs font-medium shrink-0 ${
+                        className={`text-[11px] font-medium shrink-0 ${
                           event.type === "credit_note" ? "text-destructive" : "text-green-600"
                         }`}
                       >
@@ -93,7 +93,7 @@ export const TransactionActivityTimeline = ({
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
                     {format(new Date(event.date), "dd/MM/yyyy HH:mm")}
                   </div>
                 </div>

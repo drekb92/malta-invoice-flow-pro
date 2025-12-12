@@ -71,7 +71,7 @@ export const TransactionTotalsCard = ({ rows, finalRow }: TransactionTotalsCardP
       <div className={`px-4 py-3 flex justify-between items-center ${getFinalRowBgClass(finalRow.status)}`}>
         <span className="text-sm font-semibold text-foreground">{finalRow.label}</span>
         {typeof finalRow.value === "number" ? (
-          <span className="text-base font-bold tabular-nums text-foreground">
+          <span className="text-sm font-bold tabular-nums text-foreground">
             {formatCurrency(finalRow.value)}
           </span>
         ) : (
