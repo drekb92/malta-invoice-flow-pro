@@ -54,13 +54,13 @@ export const TransactionSummaryCard = ({
     const finalStatus = remainingBalance === 0 ? "paid" : remainingBalance > 0 ? "due" : "credit";
     
     const finalValue = remainingBalance === 0 ? (
-      <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-0.5">
+      <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-200 text-[11px] px-2 py-0.5 font-medium">
         Paid in full
       </Badge>
     ) : remainingBalance < 0 ? (
       <div className="text-right">
-        <span className="text-base font-bold text-green-600 tabular-nums">{formatCurrency(Math.abs(remainingBalance))}</span>
-        <div className="text-[10px] text-green-600">Credit balance</div>
+        <span className="text-sm font-bold text-green-600 tabular-nums">{formatCurrency(Math.abs(remainingBalance))}</span>
+        <div className="text-[11px] text-green-600">Credit balance</div>
       </div>
     ) : remainingBalance;
 
@@ -91,10 +91,10 @@ export const TransactionSummaryCard = ({
 
     const finalValue = (
       <div className="text-right">
-        <span className="text-base font-bold tabular-nums text-foreground">
+        <span className="text-sm font-bold tabular-nums text-foreground">
           {formatCurrency(creditNoteRemainingCredit)}
         </span>
-        <span className={`text-[10px] ml-1.5 ${statusClass}`}>({statusLabel})</span>
+        <span className={`text-[11px] ml-1.5 ${statusClass}`}>({statusLabel})</span>
       </div>
     );
 
@@ -174,7 +174,7 @@ export const TransactionSummaryCard = ({
                 </span>
                 <span className={`font-medium ${isExpired ? "text-destructive" : "text-foreground"}`}>
                   {validUntil ? format(validUntil, "dd MMM yyyy") : "—"}
-                  {isExpired && <span className="text-[10px] ml-1">(Expired)</span>}
+                  {isExpired && <span className="text-[11px] ml-1">(Expired)</span>}
                 </span>
               </div>
             </div>
