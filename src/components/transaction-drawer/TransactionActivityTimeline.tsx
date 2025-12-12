@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { FileText, CheckCircle, Receipt, Banknote, ChevronDown, History } from "lucide-react";
+import { FileText, CheckCircle, Receipt, Banknote, ChevronDown } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -60,8 +60,7 @@ export const TransactionActivityTimeline = ({
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mt-5">
       <CollapsibleTrigger className="flex items-center justify-between w-full group py-1">
-        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-          <History className="h-3.5 w-3.5" />
+        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Activity Timeline
         </h3>
         <ChevronDown
