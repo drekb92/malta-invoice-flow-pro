@@ -20,9 +20,6 @@ import {
   Payment,
   TimelineEvent,
   getCreditNoteGrossAmount,
-  getInvoiceStatusBadge,
-  getCreditNoteStatusBadge,
-  getQuotationStatusBadge,
 } from "./transaction-drawer";
 
 import { TransactionDrawerHeader } from "./transaction-drawer/TransactionDrawerHeader";
@@ -238,17 +235,7 @@ export const TransactionDrawer = ({
     return (transaction as QuotationTransaction).total_amount || (transaction as QuotationTransaction).amount;
   };
 
-  const getStatusBadge = () => {
-    if (!transaction) return { className: "", label: "", icon: undefined };
-    if (type === "invoice") {
-      const inv = transaction as InvoiceTransaction;
-      return getInvoiceStatusBadge(inv.status, inv.is_issued);
-    }
-    if (type === "credit_note") {
-      return { ...getCreditNoteStatusBadge(transaction.status), icon: undefined };
-    }
-    return { ...getQuotationStatusBadge(transaction.status), icon: undefined };
-  };
+
 
   // Invoice-specific calculations
   const totalCredits = creditNotes.reduce((sum, cn) => sum + getCreditNoteGrossAmount(cn), 0);
@@ -408,7 +395,7 @@ export const TransactionDrawer = ({
 
   if (!transaction) return null;
 
-  const statusBadge = getStatusBadge();
+  
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -418,7 +405,8 @@ export const TransactionDrawer = ({
           type={type}
           transactionNumber={getTransactionNumber()}
           customerName={customer?.name || "Loading..."}
-          statusBadge={statusBadge}
+          status={transaction.status}
+          isIssued={type === "invoice" ? (transaction as InvoiceTransaction).is_issued : undefined}
         />
 
         {loading ? (
@@ -441,7 +429,6 @@ export const TransactionDrawer = ({
                 totalCredits={totalCredits}
                 totalPayments={totalPayments}
                 remainingBalance={remainingBalance}
-                statusBadge={statusBadge}
                 creditNoteTotalApplied={creditNoteTotalApplied}
                 creditNoteRemainingCredit={creditNoteRemainingCredit}
               />
