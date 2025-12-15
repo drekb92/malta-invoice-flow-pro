@@ -294,29 +294,29 @@ const Customers = () => {
         status: "no-invoices", 
         label: "No Invoices",
         variant: "outline" as const,
-        color: "text-muted-foreground"
+        className: "text-muted-foreground"
       };
     }
 
     const outstanding = customer.outstanding_amount || 0;
     
-    // Red: Has overdue invoices
+    // Red: Has overdue invoices (past due date)
     if (customer.has_overdue && outstanding > 0) {
       return { 
         status: "overdue", 
         label: "Overdue",
-        variant: "destructive" as const,
-        color: "text-destructive"
+        variant: "outline" as const,
+        className: "bg-red-50 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-700"
       };
     }
 
-    // Yellow: Has outstanding but not overdue
+    // Amber: Has outstanding but not overdue (not yet past due date)
     if (outstanding > 0) {
       return { 
         status: "outstanding", 
         label: "Outstanding",
-        variant: "default" as const,
-        color: "text-yellow-600"
+        variant: "outline" as const,
+        className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
       };
     }
 
@@ -325,7 +325,7 @@ const Customers = () => {
       status: "paid", 
       label: "Paid Up",
       variant: "outline" as const,
-      color: "text-green-600"
+      className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800"
     };
   };
 
@@ -640,7 +640,7 @@ const Customers = () => {
                             </TooltipProvider>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={paymentStatus.variant} className={paymentStatus.color}>
+                            <Badge variant={paymentStatus.variant} className={paymentStatus.className}>
                               {paymentStatus.label}
                             </Badge>
                           </TableCell>
