@@ -300,12 +300,11 @@ const NewInvoice = () => {
         })));
       }
       
-      // Show warning if invoice cannot be edited
+      // Show info message if invoice cannot be edited (non-draft)
       if (!editCheckResult.canEdit) {
         toast({
-          title: "Invoice is Immutable",
+          title: "Invoice Issued",
           description: editCheckResult.reason || "This invoice has been issued and cannot be modified. Use credit notes for corrections.",
-          variant: "destructive",
         });
       }
     } catch (error) {
@@ -495,12 +494,11 @@ const NewInvoice = () => {
   const handleSubmit = async (e: React.FormEvent, shouldIssue: boolean = false) => {
     e.preventDefault();
     
-    // Prevent submission if invoice is issued
-    if (isIssued && isEditMode) {
+    // Prevent submission if invoice is not a draft
+    if (status !== 'draft' && isEditMode) {
       toast({
-        title: "Cannot Modify Issued Invoice",
-        description: "This invoice has been issued and is immutable per Malta VAT regulations. Please create a credit note to make corrections.",
-        variant: "destructive",
+        title: "Invoice Already Issued",
+        description: "This invoice has been issued and cannot be modified. To make corrections, please create a credit note.",
       });
       return;
     }
@@ -840,10 +838,10 @@ if (validationError) {
         <main className="p-6">
           <form 
             onSubmit={(e) => handleSubmit(e, false)} 
-            className={`space-y-6 ${isIssued ? 'opacity-75 pointer-events-none' : ''}`}
+            className={`space-y-6 ${status !== 'draft' ? 'opacity-75 pointer-events-none' : ''}`}
           >
             {/* Malta VAT Compliance Alert */}
-            {!isIssued && (
+            {status === 'draft' && (
               <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
                 <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <AlertDescription className="text-blue-900 dark:text-blue-100">
@@ -854,35 +852,27 @@ if (validationError) {
               </Alert>
             )}
             
-            {/* Issued Invoice Warning */}
-            {isIssued && isEditMode && (
-              <Alert variant="destructive" className="border-2 border-red-500 bg-red-50 dark:bg-red-950 shadow-lg">
+            {/* Issued Invoice Info Banner */}
+            {status !== 'draft' && isEditMode && (
+              <Alert className="border-2 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 shadow-lg">
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
-                    <Shield className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <Info className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex-1">
-                    <AlertDescription className="text-red-900 dark:text-red-100">
-                      <div className="text-lg font-bold mb-2">🔒 Invoice Issued - Immutable</div>
+                    <AlertDescription className="text-blue-900 dark:text-blue-100">
+                      <div className="text-lg font-bold mb-2">Invoice Issued</div>
                       <p className="mb-3">
-                        This invoice has been officially issued on {issuedAt ? format(new Date(issuedAt), "PPP 'at' p") : 'N/A'} and 
-                        <strong> cannot be modified</strong> in accordance with Malta VAT regulations (VAT Act, Chapter 406). 
-                        All issued invoices must remain unchanged to ensure tax compliance and audit integrity.
+                        This invoice was issued on {issuedAt ? format(new Date(issuedAt), "PPP 'at' p") : 'N/A'} and 
+                        <strong> cannot be modified</strong> in accordance with Malta VAT regulations. 
+                        To make corrections, please create a credit note.
                       </p>
-                      <div className="bg-white dark:bg-red-900 p-3 rounded-md mb-3 border border-red-200 dark:border-red-700">
-                        <p className="text-sm font-semibold mb-1">✓ What you can view:</p>
+                      <div className="bg-white dark:bg-blue-900 p-3 rounded-md mb-3 border border-blue-200 dark:border-blue-700">
+                        <p className="text-sm font-semibold mb-1">What you can do:</p>
                         <ul className="text-sm space-y-1 ml-4 list-disc">
-                          <li>All invoice details and items</li>
+                          <li>View all invoice details and items</li>
                           <li>Download and print the invoice</li>
                           <li>View audit history</li>
-                        </ul>
-                      </div>
-                      <div className="bg-white dark:bg-red-900 p-3 rounded-md border border-red-200 dark:border-red-700">
-                        <p className="text-sm font-semibold mb-1">✗ What you cannot do:</p>
-                        <ul className="text-sm space-y-1 ml-4 list-disc">
-                          <li>Edit customer or invoice details</li>
-                          <li>Modify, add, or remove line items</li>
-                          <li>Change amounts, dates, or VAT rates</li>
                         </ul>
                       </div>
                       <div className="mt-4 flex gap-2">
@@ -891,19 +881,17 @@ if (validationError) {
                           variant="default"
                           size="default"
                           onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
-                          className="bg-red-600 hover:bg-red-700 text-white font-semibold"
                         >
                           <FileText className="h-4 w-4 mr-2" />
-                          Create Credit Note for Corrections
+                          Create Credit Note
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
                           size="default"
                           onClick={() => navigate(`/invoices/${id}`)}
-                          className="border-red-300 dark:border-red-700"
                         >
-                          View Full Invoice Details
+                          View Full Invoice
                         </Button>
                       </div>
                     </AlertDescription>
