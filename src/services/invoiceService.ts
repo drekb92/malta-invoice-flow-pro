@@ -134,10 +134,11 @@ export const invoiceService = {
       if (!invoice) throw new Error("Invoice not found");
 
       const invoiceData = invoice as InvoiceWithCompliance;
-      if (invoiceData.is_issued) {
+      // Only draft invoices can be edited - check status instead of is_issued
+      if (invoiceData.status !== 'draft') {
         return {
           canEdit: false,
-          reason: `Invoice ${invoiceData.invoice_number} was issued on ${new Date(invoiceData.issued_at!).toLocaleDateString()} and cannot be edited. Create a credit note to make corrections.`,
+          reason: `Invoice ${invoiceData.invoice_number || 'Draft'} has been issued and cannot be edited. To make corrections, please create a credit note.`,
         };
       }
 
