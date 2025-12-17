@@ -7,15 +7,23 @@ export interface CompanySettings {
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
   taxId?: string;
+  registrationNumber?: string;
   logo?: string;
 }
 
 export interface BankingSettings {
   bankName?: string;
   accountName?: string;
+  accountNumber?: string;
+  routingNumber?: string;
   swiftCode?: string;
   iban?: string;
+  branch?: string;
 }
 
 export interface InvoiceItem {
@@ -33,6 +41,7 @@ export interface InvoiceData {
     name: string;
     email?: string;
     address?: string;
+    vat_number?: string;
   };
   items: InvoiceItem[];
   totals: {
@@ -40,17 +49,47 @@ export interface InvoiceData {
     vatTotal: number;
     grandTotal: number;
   };
+  discount?: {
+    type?: string;
+    value?: number;
+    amount?: number;
+    reason?: string;
+  };
 }
 
 export type DocumentType = "INVOICE" | "CREDIT NOTE" | "QUOTATION";
+
+export interface TemplateSettings {
+  primaryColor?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  layout?: string;
+  headerLayout?: string;
+  tableStyle?: string;
+  totalsStyle?: string;
+  companyPosition?: string;
+  bankingVisibility?: boolean;
+  bankingPosition?: string;
+  bankingStyle?: string;
+  marginTop?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
+  logoXOffset?: number;
+  logoYOffset?: number;
+}
 
 export interface UnifiedInvoiceLayoutProps {
   invoiceData: InvoiceData;
   companySettings?: CompanySettings;
   bankingSettings?: BankingSettings;
+  templateSettings?: TemplateSettings;
   variant?: "preview" | "pdf";
   id?: string;
   documentType?: DocumentType;
+  templateId?: string;
+  debug?: boolean;
 }
 
 /* ===================== UTILITIES ===================== */
