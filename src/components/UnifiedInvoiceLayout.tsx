@@ -372,41 +372,66 @@ export const UnifiedInvoiceLayout = ({
         {/* Enhanced Debug Panel */}
         {renderDebugPanel()}
 
-        {/* Header Section */}
-        <div className="flex justify-between items-start mb-16">
-          {/* Logo */}
-          {logoUrl && (
-            <div>
+        {/* Header Section - Two Column */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+          {/* Left: Logo + Company Block */}
+          <div>
+            {logoUrl && (
               <img
                 src={logoUrl}
                 alt="Company Logo"
                 crossOrigin="anonymous"
                 style={{
-                  maxHeight: '60px',
+                  maxHeight: '52px',
                   width: 'auto',
                   objectFit: 'contain',
+                  marginBottom: companySettings ? '8px' : '0',
                 }}
               />
-            </div>
-          )}
+            )}
+            {companySettings && (
+              <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
+                {companySettings.name && <div style={{ fontWeight: 500 }}>{companySettings.name}</div>}
+                {companySettings.address && <div style={{ whiteSpace: 'pre-line' }}>{companySettings.address}</div>}
+                {companySettings.city && (
+                  <div>{companySettings.city}{companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}</div>
+                )}
+                {companySettings.phone && <div>Tel: {companySettings.phone}</div>}
+                {companySettings.email && <div>{companySettings.email}</div>}
+                {companySettings.taxId && <div>VAT: {companySettings.taxId}</div>}
+              </div>
+            )}
+          </div>
 
-          {/* Document Title and Meta */}
-          <div className="text-right">
+          {/* Right: Document Title + Meta in bordered box */}
+          <div
+            style={{
+              textAlign: 'right',
+              padding: '12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+            }}
+          >
             <h1
-              className="text-4xl font-light tracking-wider mb-6"
-              style={{ color: primaryColor }}
+              style={{
+                fontSize: '28px',
+                fontWeight: 300,
+                letterSpacing: '0.08em',
+                marginBottom: '8px',
+                color: primaryColor,
+              }}
             >
               {getDocumentTitle()}
             </h1>
-            <div className="space-y-1 text-sm" style={{ color: '#6b7280' }}>
+            <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6 }}>
               <div>
-                <span className="font-medium">{getNumberLabel()}</span> {invoiceData.invoiceNumber}
+                <span style={{ fontWeight: 500 }}>{getNumberLabel()}</span> {invoiceData.invoiceNumber}
               </div>
               <div>
-                <span className="font-medium">Date:</span> {formatDate(invoiceData.invoiceDate)}
+                <span style={{ fontWeight: 500 }}>Date:</span> {formatDate(invoiceData.invoiceDate)}
               </div>
               <div>
-                <span className="font-medium">{documentType === 'QUOTATION' ? 'Valid Until:' : 'Due:'}</span> {formatDate(invoiceData.dueDate)}
+                <span style={{ fontWeight: 500 }}>{documentType === 'QUOTATION' ? 'Valid Until:' : 'Due:'}</span> {formatDate(invoiceData.dueDate)}
               </div>
             </div>
           </div>
@@ -729,141 +754,74 @@ export const UnifiedInvoiceLayout = ({
       {/* Top spacer */}
       {variant === 'pdf' && <div style={{ height: '4mm' }} />}
 
-      {/* Header */}
+      {/* Header - Two Column */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'start',
-          marginBottom: '2rem',
+          alignItems: 'flex-start',
+          marginBottom: '24px',
         }}
       >
-        {/* Left side: Company Logo + Company Info (if position is 'left') */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div>
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Company Logo"
-                crossOrigin="anonymous"
-                style={{
-                  maxHeight: '64px',
-                  width: 'auto',
-                  objectFit: 'contain',
-                  marginBottom: companyPosition === 'left' && companySettings ? '1rem' : '0',
-                }}
-              />
-            )}
-            {/* Company Info below logo on left side */}
-            {companyPosition === 'left' && companySettings && (
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                {companySettings.name && (
-                  <div style={{ fontWeight: 600, marginBottom: '4px' }}>
-                    {companySettings.name}
-                  </div>
-                )}
-                {companySettings.address && (
-                  <div style={{ whiteSpace: 'pre-line', marginBottom: '4px' }}>
-                    {companySettings.address}
-                  </div>
-                )}
-                {companySettings.city && (
-                  <div style={{ marginBottom: '4px' }}>
-                    {companySettings.city}
-                    {companySettings.state && `, ${companySettings.state}`}{' '}
-                    {companySettings.zipCode}
-                  </div>
-                )}
-                {companySettings.phone && (
-                  <div style={{ marginBottom: '4px' }}>
-                    <strong>Tel:</strong> {companySettings.phone}
-                  </div>
-                )}
-                {companySettings.email && (
-                  <div style={{ marginBottom: '4px' }}>
-                    <strong>Email:</strong> {companySettings.email}
-                  </div>
-                )}
-                {companySettings.taxId && (
-                  <div>
-                    <strong>VAT:</strong> {companySettings.taxId}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Right side: Document Details + Company Info (if position is 'right' or 'top-right') */}
-        <div style={{ textAlign: 'right' }}>
-          {/* Document Meta Information */}
-          <div style={{ marginBottom: '1rem' }}>
-            <h1
+        {/* Left: Logo + Company Block */}
+        <div>
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt="Company Logo"
+              crossOrigin="anonymous"
               style={{
-                fontSize: '32px',
-                fontWeight: 'bold',
-                marginBottom: '0.5rem',
-                color: primaryColor,
+                maxHeight: '52px',
+                width: 'auto',
+                objectFit: 'contain',
+                marginBottom: companySettings ? '8px' : '0',
               }}
-            >
-              {getDocumentTitle()}
-            </h1>
-            <div style={{ fontSize: '13px', color: '#374151' }}>
-              <div style={{ marginBottom: '4px' }}>
-                <strong>{getNumberLabel()}</strong> {invoiceData.invoiceNumber}
-              </div>
-              <div style={{ marginBottom: '4px' }}>
-                <strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}
-              </div>
-              <div>
-                <strong>{documentType === 'QUOTATION' ? 'Valid Until:' : 'Due Date:'}</strong> {formatDate(invoiceData.dueDate)}
-              </div>
-            </div>
-          </div>
-          
-          {/* Company Details - Below invoice meta with border separator */}
-          {companySettings && (companyPosition === 'right' || companyPosition === 'top-right') && (
-            <div
-              style={{
-                fontSize: '12px',
-                paddingTop: '1rem',
-                borderTop: '1px solid #e5e7eb',
-              }}
-            >
-              {companySettings.name && (
-                <div style={{ fontWeight: 600, marginBottom: '4px' }}>
-                  {companySettings.name}
-                </div>
-              )}
-              {companySettings.address && (
-                <div style={{ whiteSpace: 'pre-line', marginBottom: '4px', color: '#6b7280' }}>
-                  {companySettings.address}
-                </div>
-              )}
+            />
+          )}
+          {companySettings && (
+            <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
+              {companySettings.name && <div style={{ fontWeight: 500 }}>{companySettings.name}</div>}
+              {companySettings.address && <div style={{ whiteSpace: 'pre-line' }}>{companySettings.address}</div>}
               {companySettings.city && (
-                <div style={{ marginBottom: '4px', color: '#6b7280' }}>
-                  {companySettings.city}
-                  {companySettings.state && `, ${companySettings.state}`}{' '}
-                  {companySettings.zipCode}
-                </div>
+                <div>{companySettings.city}{companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}</div>
               )}
-              {companySettings.phone && (
-                <div style={{ marginBottom: '4px', color: '#6b7280' }}>
-                  <strong>Tel:</strong> {companySettings.phone}
-                </div>
-              )}
-              {companySettings.email && (
-                <div style={{ marginBottom: '4px', color: '#6b7280' }}>
-                  <strong>Email:</strong> {companySettings.email}
-                </div>
-              )}
-              {companySettings.taxId && (
-                <div style={{ color: '#6b7280' }}>
-                  <strong>VAT:</strong> {companySettings.taxId}
-                </div>
-              )}
+              {companySettings.phone && <div>Tel: {companySettings.phone}</div>}
+              {companySettings.email && <div>{companySettings.email}</div>}
+              {companySettings.taxId && <div>VAT: {companySettings.taxId}</div>}
             </div>
           )}
+        </div>
+
+        {/* Right: Document Title + Meta in bordered box */}
+        <div
+          style={{
+            textAlign: 'right',
+            padding: '12px',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+          }}
+        >
+          <h1
+            style={{
+              fontSize: '30px',
+              fontWeight: 600,
+              marginBottom: '8px',
+              color: primaryColor,
+            }}
+          >
+            {getDocumentTitle()}
+          </h1>
+          <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6 }}>
+            <div>
+              <span style={{ fontWeight: 500 }}>{getNumberLabel()}</span> {invoiceData.invoiceNumber}
+            </div>
+            <div>
+              <span style={{ fontWeight: 500 }}>Date:</span> {formatDate(invoiceData.invoiceDate)}
+            </div>
+            <div>
+              <span style={{ fontWeight: 500 }}>{documentType === 'QUOTATION' ? 'Valid Until:' : 'Due Date:'}</span> {formatDate(invoiceData.dueDate)}
+            </div>
+          </div>
         </div>
       </div>
 

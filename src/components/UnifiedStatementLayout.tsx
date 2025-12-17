@@ -217,38 +217,58 @@ export const UnifiedStatementLayout = ({
       {/* PDF Print Styles */}
       {variant === 'pdf' && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
 
-      {/* Header Section - matching invoice layout */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-        {/* Logo */}
-        {logoUrl && (
-          <div>
+      {/* Header Section - Two Column */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        {/* Left: Logo + Company Block */}
+        <div>
+          {logoUrl && (
             <img
               src={logoUrl}
               alt="Company Logo"
               crossOrigin="anonymous"
               style={{
-                maxHeight: '60px',
+                maxHeight: '52px',
                 width: 'auto',
                 objectFit: 'contain',
+                marginBottom: companySettings ? '8px' : '0',
               }}
             />
-          </div>
-        )}
+          )}
+          {companySettings && (
+            <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
+              {companySettings.name && <div style={{ fontWeight: 500 }}>{companySettings.name}</div>}
+              {companySettings.address && <div style={{ whiteSpace: 'pre-line' }}>{companySettings.address}</div>}
+              {companySettings.city && (
+                <div>{companySettings.city}{companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}</div>
+              )}
+              {companySettings.phone && <div>Tel: {companySettings.phone}</div>}
+              {companySettings.email && <div>{companySettings.email}</div>}
+              {companySettings.taxId && <div>VAT: {companySettings.taxId}</div>}
+            </div>
+          )}
+        </div>
 
-        {/* Document Title and Meta */}
-        <div style={{ textAlign: 'right' }}>
+        {/* Right: Document Title + Meta in bordered box */}
+        <div
+          style={{
+            textAlign: 'right',
+            padding: '10px 12px',
+            border: '1px solid #e5e7eb',
+            borderRadius: '8px',
+          }}
+        >
           <h1
             style={{
-              fontSize: '28px',
+              fontSize: '26px',
               fontWeight: 300,
-              letterSpacing: '0.1em',
-              marginBottom: '1rem',
+              letterSpacing: '0.06em',
+              marginBottom: '8px',
               color: 'var(--invoice-primary-color)',
             }}
           >
             {statementType === 'outstanding' ? 'OUTSTANDING STATEMENT' : 'ACTIVITY STATEMENT'}
           </h1>
-          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+          <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6 }}>
             <div>
               <span style={{ fontWeight: 500 }}>Statement Date:</span> {format(new Date(), 'dd/MM/yyyy')}
             </div>
@@ -262,58 +282,28 @@ export const UnifiedStatementLayout = ({
       {/* Divider */}
       <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: '1.5rem' }} />
 
-      {/* Two Column: Company Info + Customer Info */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-        {/* Company Info */}
-        <div>
-          <div
-            style={{
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: '#6b7280',
-              marginBottom: '0.5rem',
-            }}
-          >
-            From
-          </div>
-          <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
-            {companySettings?.name || 'Your Company'}
-          </div>
-          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
-            {companySettings?.address && <div>{companySettings.address}</div>}
-            {(companySettings?.city || companySettings?.country) && (
-              <div>{[companySettings.city, companySettings.state, companySettings.zipCode, companySettings.country].filter(Boolean).join(', ')}</div>
-            )}
-            {companySettings?.phone && <div>Tel: {companySettings.phone}</div>}
-            {companySettings?.email && <div>{companySettings.email}</div>}
-            {companySettings?.taxId && <div>VAT: {companySettings.taxId}</div>}
-          </div>
+      {/* Customer Info */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div
+          style={{
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: '#6b7280',
+            marginBottom: '0.5rem',
+          }}
+        >
+          Statement For
         </div>
-
-        {/* Customer Info */}
-        <div>
-          <div
-            style={{
-              fontSize: '11px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: '#6b7280',
-              marginBottom: '0.5rem',
-            }}
-          >
-            Statement For
-          </div>
-          <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
-            {customer.name}
-          </div>
-          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
-            {customer.email && <div>{customer.email}</div>}
-            {customer.address && (
-              <div style={{ whiteSpace: 'pre-line' }}>{customer.address}</div>
-            )}
-            {customer.vat_number && <div>VAT: {customer.vat_number}</div>}
-          </div>
+        <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+          {customer.name}
+        </div>
+        <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+          {customer.email && <div>{customer.email}</div>}
+          {customer.address && (
+            <div style={{ whiteSpace: 'pre-line' }}>{customer.address}</div>
+          )}
+          {customer.vat_number && <div>VAT: {customer.vat_number}</div>}
         </div>
       </div>
 
