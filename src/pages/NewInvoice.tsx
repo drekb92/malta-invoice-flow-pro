@@ -1539,7 +1539,6 @@ if (validationError) {
             <UnifiedInvoiceLayout
               id="invoice-preview-root"
               variant="pdf"
-              templateId={templateForPreview?.id}
               debug={false}
               invoiceData={{
                 invoiceNumber: invoiceNumber,

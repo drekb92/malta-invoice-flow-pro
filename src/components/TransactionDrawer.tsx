@@ -544,11 +544,8 @@ export const TransactionDrawer = ({
             bankingSettings={bankingSettings ? {
               bankName: bankingSettings.bank_name,
               accountName: bankingSettings.bank_account_name,
-              accountNumber: bankingSettings.bank_account_number,
-              routingNumber: bankingSettings.bank_routing_number,
               swiftCode: bankingSettings.bank_swift_code,
               iban: bankingSettings.bank_iban,
-              branch: bankingSettings.bank_branch,
             } : undefined}
             templateSettings={template ? {
               primaryColor: template.primary_color,
@@ -561,8 +558,6 @@ export const TransactionDrawer = ({
               totalsStyle: template.totals_style as any,
               bankingVisibility: template.banking_visibility,
               bankingStyle: template.banking_style as any,
-              companyPosition: template.company_position as any,
-              bankingPosition: template.banking_position as any,
               marginTop: template.margin_top,
               marginRight: template.margin_right,
               marginBottom: template.margin_bottom,
