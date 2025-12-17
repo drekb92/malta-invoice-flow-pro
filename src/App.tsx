@@ -199,6 +199,14 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/invoice-templates"
+                element={
+                  <ProtectedRoute>
+                    <InvoiceTemplates />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Settings */}
               <Route
