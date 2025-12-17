@@ -202,13 +202,14 @@ export const invoiceService = {
       // Create credit note
       const newCreditNote: CreditNoteInsert = {
         credit_note_number: creditNoteNumber,
-        original_invoice_id: originalInvoiceId,
+        invoice_id: originalInvoiceId,
         user_id: userId,
         customer_id: invoiceData.customer_id,
         amount: amount,
         vat_rate: invoiceData.vat_rate,
         reason: reason,
         status: "issued",
+        type: "invoice_adjustment",
         credit_note_date: new Date().toISOString().split("T")[0],
       };
 

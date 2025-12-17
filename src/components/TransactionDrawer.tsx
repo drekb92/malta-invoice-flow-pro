@@ -106,7 +106,7 @@ export const TransactionDrawer = ({
       supabase
         .from("credit_notes")
         .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason")
-        .eq("original_invoice_id", invoice.id)
+        .eq("invoice_id", invoice.id)
         .order("credit_note_date", { ascending: true }),
       supabase
         .from("payments")
@@ -160,11 +160,11 @@ export const TransactionDrawer = ({
         .select("created_at, customer_id, customers(id, name, email, address, vat_number)")
         .eq("id", creditNote.id)
         .maybeSingle(),
-      creditNote.original_invoice_id
+      creditNote.invoice_id
         ? supabase
             .from("invoices")
             .select("invoice_number")
-            .eq("id", creditNote.original_invoice_id)
+            .eq("id", creditNote.invoice_id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
@@ -448,7 +448,7 @@ export const TransactionDrawer = ({
               {type === "credit_note" && (
                 <CreditNoteApplicationBreakdown
                   originalInvoice={originalInvoice}
-                  originalInvoiceId={(transaction as CreditNoteTransaction).original_invoice_id || null}
+                  originalInvoiceId={(transaction as CreditNoteTransaction).invoice_id || null}
                   totalAmount={creditNoteAmount}
                   totalApplied={creditNoteTotalApplied}
                   remainingCredit={creditNoteRemainingCredit}

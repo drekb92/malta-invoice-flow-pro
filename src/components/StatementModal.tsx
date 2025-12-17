@@ -102,7 +102,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       if (includeCreditNotes) {
         const { data: cnData, error: cnError } = await supabase
           .from("credit_notes")
-          .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason, original_invoice_id")
+          .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason, invoice_id")
           .eq("customer_id", customer.id)
           .eq("user_id", user.id)
           .gte("credit_note_date", format(dateFrom, "yyyy-MM-dd"))
@@ -118,7 +118,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           amount: Number(cn.amount) || 0,
           vat_rate: Number(cn.vat_rate) || 0,
           reason: cn.reason,
-          original_invoice_id: cn.original_invoice_id,
+          invoice_id: cn.invoice_id,
         }));
       }
 
@@ -132,10 +132,10 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       // Calculate credits per invoice
       const creditsByInvoice = new Map<string, number>();
       creditNotes.forEach((cn) => {
-        if (cn.original_invoice_id) {
+        if (cn.invoice_id) {
           const totalAmount = cn.amount + cn.amount * cn.vat_rate;
-          const current = creditsByInvoice.get(cn.original_invoice_id) || 0;
-          creditsByInvoice.set(cn.original_invoice_id, current + totalAmount);
+          const current = creditsByInvoice.get(cn.invoice_id) || 0;
+          creditsByInvoice.set(cn.invoice_id, current + totalAmount);
         }
       });
 

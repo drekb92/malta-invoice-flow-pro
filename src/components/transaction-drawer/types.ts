@@ -24,7 +24,7 @@ export interface CreditNoteTransaction extends BaseTransaction {
   amount: number;
   vat_rate: number;
   reason: string;
-  original_invoice_id?: string;
+  invoice_id?: string;
   customer_id?: string;
 }
 

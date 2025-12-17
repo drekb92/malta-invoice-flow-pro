@@ -42,7 +42,7 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
-import { CreateCreditNoteDialog } from "@/components/CreateCreditNoteDialog";
+import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
 
 interface Invoice {
   id: string;
@@ -299,7 +299,7 @@ const InvoiceDetails = () => {
     const { data, error } = await supabase
       .from("credit_notes")
       .select("id, credit_note_number, amount, vat_rate, reason")
-      .eq("original_invoice_id", id)
+      .eq("invoice_id", id)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -1250,15 +1250,14 @@ const InvoiceDetails = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Credit Note Dialog */}
+      {/* Credit Note Drawer */}
       {invoice && (
-        <CreateCreditNoteDialog
+        <CreateCreditNoteDrawer
           open={showCreditNoteDialog}
           onOpenChange={setShowCreditNoteDialog}
           invoiceId={invoice.id}
           invoiceNumber={invoice.invoice_number}
-          originalAmount={computedTotals.net}
-          vatRate={invoice.vat_rate}
+          customerId={invoice.customer_id}
           onSuccess={handleCreditNoteSuccess}
         />
       )}
