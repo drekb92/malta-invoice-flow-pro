@@ -198,7 +198,7 @@ export const UnifiedInvoiceLayout = ({
           }}
         >
           <thead>
-            <tr style={{ backgroundColor: "#f9fafb" }}>
+            <tr>
               {["Description", "Qty", "Unit Price", "VAT", "Total"].map((h, i) => (
                 <th
                   key={h}
@@ -207,8 +207,8 @@ export const UnifiedInvoiceLayout = ({
                     padding: "10px 8px",
                     fontSize: TYPE.tableHeader,
                     fontWeight: 600,
-                    borderBottom: "2px solid #e5e7eb",
-                    color: "#374151",
+                    borderBottom: "1px solid #e5e7eb",
+                    color: "#6b7280",
                     textTransform: "uppercase",
                     letterSpacing: "0.05em",
                   }}
@@ -220,7 +220,7 @@ export const UnifiedInvoiceLayout = ({
           </thead>
           <tbody>
             {invoiceData.items.map((item, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid #f3f4f6" }}>
+              <tr key={i}>
                 <td style={{ padding: "10px 8px", color: "#374151" }}>{item.description}</td>
                 <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280" }}>{item.quantity}</td>
                 <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280" }}>{money(item.unit_price)}</td>
@@ -239,7 +239,7 @@ export const UnifiedInvoiceLayout = ({
             ))}
 
             {/* Totals rows */}
-            <tr style={{ borderTop: "2px solid #e5e7eb" }}>
+            <tr style={{ borderTop: "1px solid #e5e7eb" }}>
               <td
                 colSpan={4}
                 style={{
@@ -247,6 +247,7 @@ export const UnifiedInvoiceLayout = ({
                   textAlign: "right",
                   fontSize: TYPE.totals,
                   color: "#6b7280",
+                  paddingTop: "16px",
                 }}
               >
                 Subtotal:
@@ -258,6 +259,7 @@ export const UnifiedInvoiceLayout = ({
                   fontSize: TYPE.totals,
                   fontWeight: 600,
                   color: "#111827",
+                  paddingTop: "16px",
                 }}
               >
                 {money(invoiceData.totals.netTotal)}
@@ -287,7 +289,7 @@ export const UnifiedInvoiceLayout = ({
                 {money(invoiceData.totals.vatTotal)}
               </td>
             </tr>
-            <tr style={{ backgroundColor: "#f9fafb" }}>
+            <tr>
               <td
                 colSpan={4}
                 style={{
