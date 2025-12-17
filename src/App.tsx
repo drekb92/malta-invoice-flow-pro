@@ -16,6 +16,7 @@ import ServiceLibrary from "./pages/ServiceLibrary";
 import Quotations from "./pages/Quotations";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
+import EditCustomer from "./pages/EditCustomer";
 import Reports from "./pages/Reports";
 import ReminderSettings from "./pages/ReminderSettings";
 import InvoiceTemplates from "./pages/InvoiceTemplates";
@@ -166,6 +167,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <CustomerDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/customers/edit/:id"
+                element={
+                  <ProtectedRoute>
+                    <EditCustomer />
                   </ProtectedRoute>
                 }
               />
