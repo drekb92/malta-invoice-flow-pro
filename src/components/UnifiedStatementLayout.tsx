@@ -1,8 +1,83 @@
 import { format } from 'date-fns';
 
+// Re-use types from UnifiedInvoiceLayout for consistency
+export interface CompanySettings {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  taxId?: string;
+  registrationNumber?: string;
+  logo?: string;
+}
+
+export interface BankingSettings {
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  routingNumber?: string;
+  swiftCode?: string;
+  iban?: string;
+  branch?: string;
+}
+
+export interface TemplateSettings {
+  primaryColor?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  bankingVisibility?: boolean;
+}
+
+export interface StatementCustomer {
+  id: string;
+  name: string;
+  email: string | null;
+  address: string | null;
+  vat_number: string | null;
+}
+
+export interface StatementLine {
+  id: string;
+  date: string;
+  description: string;
+  type: 'invoice' | 'credit_note' | 'payment';
+  reference: string;
+  debit: number;
+  credit: number;
+}
+
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
+
+export interface UnifiedStatementLayoutProps {
+  customer: StatementCustomer;
+  companySettings?: CompanySettings;
+  bankingSettings?: BankingSettings;
+  templateSettings?: TemplateSettings;
+  statementLines: StatementLine[];
+  dateRange: DateRange;
+  openingBalance: number;
+  closingBalance: number;
+  statementType?: 'outstanding' | 'activity';
+  variant?: 'preview' | 'pdf' | 'print';
+  id?: string;
+  templateId?: string;
+}
+
 // Format currency with thousands separators: €X,XXX.XX
 const formatCurrency = (amount: number): string => {
-  return `€${amount.toLocaleString('en-IE', { 
+  return `€${Math.abs(amount).toLocaleString('en-IE', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   })}`;
@@ -27,96 +102,32 @@ const formatBalance = (amount: number): string => {
   return `(${formatCurrency(Math.abs(amount))})`;
 };
 
-export interface StatementCompanySettings {
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  country?: string;
-  vat_number?: string;
-  logo?: string;
-}
-
-export interface StatementCustomer {
-  id: string;
-  name: string;
-  email: string | null;
-  address: string | null;
-  vat_number: string | null;
-}
-
-export interface StatementInvoice {
-  id: string;
-  invoice_number: string;
-  invoice_date: string;
-  due_date: string;
-  status: string;
-  total_amount: number;
-  amount: number;
-  vat_amount: number;
-  paid_amount?: number;
-}
-
-export interface StatementCreditNote {
-  id: string;
-  credit_note_number: string;
-  credit_note_date: string;
-  amount: number;
-  vat_rate: number;
-  reason: string;
-  invoice_id?: string | null;
-}
-
-export interface StatementPayment {
-  id: string;
-  payment_date: string;
-  amount: number;
-  method: string | null;
-  invoice_id: string;
-}
-
-export interface StatementOptions {
-  dateFrom: Date;
-  dateTo: Date;
-  statementType: "outstanding" | "activity";
-  includeCreditNotes: boolean;
-  includeVatBreakdown: boolean;
-}
-
-export interface StatementTemplateSettings {
-  primaryColor?: string;
-  accentColor?: string;
-  fontFamily?: string;
-}
-
-export interface StatementData {
-  customer: StatementCustomer;
-  invoices: StatementInvoice[];
-  creditNotes: StatementCreditNote[];
-  payments: StatementPayment[];
-  company: StatementCompanySettings;
-  options: StatementOptions;
-  generatedAt: Date;
-}
-
-export interface UnifiedStatementLayoutProps {
-  statementData: StatementData;
-  templateSettings?: StatementTemplateSettings;
-  id?: string;
-}
-
 export const UnifiedStatementLayout = ({
-  statementData,
+  customer,
+  companySettings,
+  bankingSettings,
   templateSettings,
-  id = 'statement-preview-root',
+  statementLines,
+  dateRange,
+  openingBalance,
+  closingBalance,
+  statementType = 'activity',
+  variant = 'pdf',
+  id = 'invoice-preview-root',
+  templateId,
 }: UnifiedStatementLayoutProps) => {
-  const primaryColor = templateSettings?.primaryColor || '#1a365d';
-  const accentColor = templateSettings?.accentColor || '#2563eb';
+  // Default template settings - matching invoice defaults
+  const primaryColor = templateSettings?.primaryColor || '#26A65B';
+  const accentColor = templateSettings?.accentColor || '#1F2D3D';
   const fontFamily = templateSettings?.fontFamily || 'Inter';
+  const fontSize = templateSettings?.fontSize || '14px';
+  const bankingVisibility = templateSettings?.bankingVisibility !== false;
 
-  const { customer, invoices, creditNotes, payments, company, options, generatedAt } = statementData;
-  const isOutstanding = options.statementType === 'outstanding';
+  // Margins for PDF variant
+  const marginTop = templateSettings?.marginTop || 20;
+  const marginRight = templateSettings?.marginRight || 20;
+  const marginBottom = templateSettings?.marginBottom || 20;
+  const marginLeft = templateSettings?.marginLeft || 20;
 
   // Get absolute logo URL
   const getAbsoluteLogoUrl = (url?: string): string | undefined => {
@@ -128,141 +139,118 @@ export const UnifiedStatementLayout = ({
     return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${url}`;
   };
 
-  const logoUrl = getAbsoluteLogoUrl(company.logo);
-
-  // Calculate payments and credits per invoice
-  const paymentsByInvoice = new Map<string, number>();
-  payments.forEach((pmt) => {
-    const current = paymentsByInvoice.get(pmt.invoice_id) || 0;
-    paymentsByInvoice.set(pmt.invoice_id, current + pmt.amount);
-  });
-
-  const creditsByInvoice = new Map<string, number>();
-  creditNotes.forEach((cn) => {
-    if (cn.invoice_id) {
-      const totalAmount = cn.amount + cn.amount * cn.vat_rate;
-      const current = creditsByInvoice.get(cn.invoice_id) || 0;
-      creditsByInvoice.set(cn.invoice_id, current + totalAmount);
-    }
-  });
-
-  // Filter invoices for outstanding view
-  const displayInvoices = isOutstanding
-    ? invoices.filter((inv) => {
-        const paid = paymentsByInvoice.get(inv.id) || 0;
-        const credits = creditsByInvoice.get(inv.id) || 0;
-        return inv.total_amount - paid - credits > 0.01;
-      })
-    : invoices;
-
-  // Build activity transactions
-  interface Transaction {
-    date: Date;
-    description: string;
-    type: string;
-    debit: number;
-    credit: number;
-  }
-
-  const transactions: Transaction[] = [];
-  if (!isOutstanding) {
-    invoices.forEach((inv) => {
-      transactions.push({
-        date: new Date(inv.invoice_date),
-        description: `Invoice ${inv.invoice_number}`,
-        type: "INV",
-        debit: inv.total_amount,
-        credit: 0,
-      });
-    });
-
-    if (options.includeCreditNotes) {
-      creditNotes.forEach((cn) => {
-        const totalAmount = cn.amount + cn.amount * cn.vat_rate;
-        transactions.push({
-          date: new Date(cn.credit_note_date),
-          description: `Credit Note ${cn.credit_note_number}`,
-          type: "CN",
-          debit: 0,
-          credit: totalAmount,
-        });
-      });
-    }
-
-    payments.forEach((pmt) => {
-      transactions.push({
-        date: new Date(pmt.payment_date),
-        description: `Payment${pmt.method ? ` (${pmt.method})` : ""}`,
-        type: "PMT",
-        debit: 0,
-        credit: pmt.amount,
-      });
-    });
-
-    transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }
+  const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
   // Calculate totals
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
-  const totalCredits = creditNotes.reduce((sum, cn) => sum + cn.amount + cn.amount * cn.vat_rate, 0);
-  const totalPayments = payments.reduce((sum, pmt) => sum + pmt.amount, 0);
-  const finalBalance = totalInvoiced - totalCredits - totalPayments;
+  const totalDebits = statementLines.reduce((sum, line) => sum + line.debit, 0);
+  const totalCredits = statementLines.reduce((sum, line) => sum + line.credit, 0);
 
-  // Outstanding totals
-  const totalOutstanding = displayInvoices.reduce((sum, inv) => {
-    const paid = paymentsByInvoice.get(inv.id) || 0;
-    const credits = creditsByInvoice.get(inv.id) || 0;
-    return sum + (inv.total_amount - paid - credits);
-  }, 0);
+  // CSS variables for consistent styling (matching invoice layout)
+  const cssVariables = {
+    '--invoice-font-family': `'${fontFamily}', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`,
+    '--invoice-font-size': fontSize,
+    '--invoice-primary-color': primaryColor,
+    '--invoice-accent-color': accentColor,
+    '--invoice-margin-top': `${marginTop}mm`,
+    '--invoice-margin-right': `${marginRight}mm`,
+    '--invoice-margin-bottom': `${marginBottom}mm`,
+    '--invoice-margin-left': `${marginLeft}mm`,
+  } as React.CSSProperties;
 
-  const containerStyle: React.CSSProperties = {
-    width: '21cm',
-    minHeight: '29.7cm',
-    backgroundColor: 'white',
-    padding: '20mm',
-    boxSizing: 'border-box',
-    fontFamily: `'${fontFamily}', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`,
-    fontSize: '14px',
-    color: '#111827',
-    position: 'relative',
-  };
+  // Container styling based on variant using CSS variables
+  const containerStyle: React.CSSProperties = variant === 'pdf'
+    ? {
+        ...cssVariables,
+        width: '21cm',
+        minHeight: '29.7cm',
+        backgroundColor: 'white',
+        paddingTop: 'var(--invoice-margin-top)',
+        paddingRight: 'var(--invoice-margin-right)',
+        paddingBottom: 'var(--invoice-margin-bottom)',
+        paddingLeft: 'var(--invoice-margin-left)',
+        boxSizing: 'border-box',
+        fontFamily: 'var(--invoice-font-family)',
+        fontSize: 'var(--invoice-font-size)',
+        color: 'var(--invoice-accent-color)',
+        position: 'relative',
+      }
+    : variant === 'print'
+    ? {
+        ...cssVariables,
+        width: '21cm',
+        minHeight: '29.7cm',
+        backgroundColor: 'white',
+        padding: '1.5cm',
+        boxSizing: 'border-box',
+        fontFamily: 'var(--invoice-font-family)',
+        fontSize: 'var(--invoice-font-size)',
+        color: 'var(--invoice-accent-color)',
+      }
+    : {
+        ...cssVariables,
+        fontFamily: 'var(--invoice-font-family)',
+        fontSize: 'var(--invoice-font-size)',
+        color: 'var(--invoice-accent-color)',
+        backgroundColor: 'white',
+        padding: '2rem',
+      };
+
+  const containerClassName = variant === 'pdf'
+    ? 'bg-white'
+    : variant === 'print'
+    ? 'bg-white print:shadow-none'
+    : 'bg-white max-w-4xl mx-auto shadow-lg';
+
+  // Row style helper for alternating colors
+  const getRowStyle = (index: number): React.CSSProperties => ({
+    backgroundColor: index % 2 === 0 ? '#f8fafc' : 'white',
+    pageBreakInside: 'avoid',
+  });
 
   return (
-    <div id={id} style={containerStyle}>
-      {/* Header */}
+    <div
+      id={id}
+      className={containerClassName}
+      style={containerStyle}
+    >
+      {/* Header Section - matching invoice layout */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-        {/* Left: Company Info */}
-        <div>
-          {logoUrl && (
+        {/* Logo */}
+        {logoUrl && (
+          <div>
             <img
               src={logoUrl}
               alt="Company Logo"
               crossOrigin="anonymous"
-              style={{ maxHeight: '50px', width: 'auto', objectFit: 'contain', marginBottom: '0.75rem' }}
+              style={{
+                maxHeight: '60px',
+                width: 'auto',
+                objectFit: 'contain',
+              }}
             />
-          )}
-          <div style={{ color: primaryColor, fontSize: '18px', fontWeight: 700, marginBottom: '0.25rem' }}>
-            {company.name || 'Your Company'}
           </div>
-          <div style={{ fontSize: '9px', color: '#6b7280', lineHeight: 1.5 }}>
-            {company.address && <div>{company.address}</div>}
-            {(company.city || company.country) && (
-              <div>{[company.city, company.country].filter(Boolean).join(', ')}</div>
-            )}
-            {company.phone && <div>Tel: {company.phone}</div>}
-            {company.email && <div>{company.email}</div>}
-            {company.vat_number && <div>VAT: {company.vat_number}</div>}
-          </div>
-        </div>
+        )}
 
-        {/* Right: Statement Title */}
+        {/* Document Title and Meta */}
         <div style={{ textAlign: 'right' }}>
-          <div style={{ color: primaryColor, fontSize: '20px', fontWeight: 700, marginBottom: '0.5rem' }}>
-            {isOutstanding ? 'OUTSTANDING STATEMENT' : 'ACTIVITY STATEMENT'}
-          </div>
-          <div style={{ fontSize: '10px', color: '#6b7280' }}>
-            <div>Statement Date: {format(generatedAt, 'dd/MM/yyyy')}</div>
-            <div>Period: {format(options.dateFrom, 'dd/MM/yyyy')} → {format(options.dateTo, 'dd/MM/yyyy')}</div>
+          <h1
+            style={{
+              fontSize: '28px',
+              fontWeight: 300,
+              letterSpacing: '0.1em',
+              marginBottom: '1rem',
+              color: 'var(--invoice-primary-color)',
+            }}
+          >
+            {statementType === 'outstanding' ? 'OUTSTANDING STATEMENT' : 'ACTIVITY STATEMENT'}
+          </h1>
+          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
+            <div>
+              <span style={{ fontWeight: 500 }}>Statement Date:</span> {format(new Date(), 'dd/MM/yyyy')}
+            </div>
+            <div>
+              <span style={{ fontWeight: 500 }}>Period:</span> {format(dateRange.from, 'dd/MM/yyyy')} → {format(dateRange.to, 'dd/MM/yyyy')}
+            </div>
           </div>
         </div>
       </div>
@@ -270,177 +258,385 @@ export const UnifiedStatementLayout = ({
       {/* Divider */}
       <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: '1.5rem' }} />
 
-      {/* Customer Info */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ color: accentColor, fontSize: '11px', fontWeight: 700, marginBottom: '0.25rem' }}>
-          Statement For:
+      {/* Two Column: Company Info + Customer Info */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+        {/* Company Info */}
+        <div>
+          <div
+            style={{
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: '#6b7280',
+              marginBottom: '0.5rem',
+            }}
+          >
+            From
+          </div>
+          <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+            {companySettings?.name || 'Your Company'}
+          </div>
+          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+            {companySettings?.address && <div>{companySettings.address}</div>}
+            {(companySettings?.city || companySettings?.country) && (
+              <div>{[companySettings.city, companySettings.state, companySettings.zipCode, companySettings.country].filter(Boolean).join(', ')}</div>
+            )}
+            {companySettings?.phone && <div>Tel: {companySettings.phone}</div>}
+            {companySettings?.email && <div>{companySettings.email}</div>}
+            {companySettings?.taxId && <div>VAT: {companySettings.taxId}</div>}
+          </div>
         </div>
-        <div style={{ fontSize: '11px', fontWeight: 500 }}>{customer.name}</div>
-        {customer.address && (
-          <div style={{ fontSize: '9px', color: '#6b7280', whiteSpace: 'pre-line' }}>{customer.address}</div>
-        )}
-        {customer.vat_number && (
-          <div style={{ fontSize: '9px', color: '#6b7280' }}>VAT Number: {customer.vat_number}</div>
-        )}
+
+        {/* Customer Info */}
+        <div>
+          <div
+            style={{
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: '#6b7280',
+              marginBottom: '0.5rem',
+            }}
+          >
+            Statement For
+          </div>
+          <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+            {customer.name}
+          </div>
+          <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.5 }}>
+            {customer.email && <div>{customer.email}</div>}
+            {customer.address && (
+              <div style={{ whiteSpace: 'pre-line' }}>{customer.address}</div>
+            )}
+            {customer.vat_number && <div>VAT: {customer.vat_number}</div>}
+          </div>
+        </div>
       </div>
 
-      {/* Outstanding Table */}
-      {isOutstanding && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
-            <thead>
-              <tr style={{ backgroundColor: primaryColor }}>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'left', fontWeight: 600 }}>Invoice #</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'left', fontWeight: 600 }}>Date</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'left', fontWeight: 600 }}>Due Date</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>Amount</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>Paid</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>Remaining</th>
+      {/* Statement Table */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ backgroundColor: 'var(--invoice-primary-color)' }}>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'center', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '60px' }}>Type</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '100px' }}>Debit</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '100px' }}>Credit</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '100px' }}>Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Opening Balance Row */}
+            {statementType === 'activity' && (
+              <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 500 }}>
+                <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }}>{format(dateRange.from, 'dd/MM/yyyy')}</td>
+                <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }} colSpan={4}>Opening Balance</td>
+                <td style={{ 
+                  padding: '8px', 
+                  borderBottom: '1px solid #e5e7eb', 
+                  textAlign: 'right',
+                  color: openingBalance > 0 ? '#dc2626' : openingBalance < 0 ? '#16a34a' : '#6b7280',
+                  fontWeight: 600,
+                }}>
+                  {formatBalance(openingBalance)}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {displayInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
-                    No outstanding invoices for this period.
-                  </td>
-                </tr>
-              ) : (
-                displayInvoices.map((inv, index) => {
-                  const paidAmount = (paymentsByInvoice.get(inv.id) || 0) + (creditsByInvoice.get(inv.id) || 0);
-                  const remaining = inv.total_amount - paidAmount;
+            )}
+
+            {/* Transaction Rows */}
+            {statementLines.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280' }}>
+                  No transactions for this period.
+                </td>
+              </tr>
+            ) : (
+              (() => {
+                let runningBalance = openingBalance;
+                return statementLines.map((line, index) => {
+                  runningBalance += line.debit - line.credit;
+                  const balanceColor = runningBalance > 0 ? '#dc2626' : runningBalance < 0 ? '#16a34a' : '#6b7280';
+                  const typeLabel = line.type === 'invoice' ? 'INV' : line.type === 'credit_note' ? 'CN' : 'PMT';
+                  
                   return (
-                    <tr key={inv.id} style={{ backgroundColor: index % 2 === 0 ? '#f8fafc' : 'white' }}>
-                      <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb' }}>{inv.invoice_number}</td>
-                      <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb' }}>{format(new Date(inv.invoice_date), 'dd/MM/yyyy')}</td>
-                      <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb' }}>{format(new Date(inv.due_date), 'dd/MM/yyyy')}</td>
-                      <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>{formatCurrency(inv.total_amount)}</td>
-                      <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>{formatCurrency(paidAmount)}</td>
-                      <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', color: '#dc2626', fontWeight: 600 }}>{formatCurrency(remaining)}</td>
+                    <tr key={line.id} style={getRowStyle(index)}>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }}>
+                        {format(new Date(line.date), 'dd/MM/yyyy')}
+                      </td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }}>
+                        {line.description}
+                        {line.reference && (
+                          <span style={{ color: '#9ca3af', marginLeft: '0.5rem' }}>({line.reference})</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
+                        <span style={{ 
+                          padding: '2px 6px', 
+                          borderRadius: '4px', 
+                          fontSize: '10px',
+                          fontWeight: 500,
+                          backgroundColor: line.type === 'invoice' ? '#dbeafe' : line.type === 'credit_note' ? '#fef3c7' : '#d1fae5',
+                          color: line.type === 'invoice' ? '#1e40af' : line.type === 'credit_note' ? '#92400e' : '#065f46',
+                        }}>
+                          {typeLabel}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>
+                        {formatDebit(line.debit)}
+                      </td>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>
+                        {formatCredit(line.credit)}
+                      </td>
+                      <td style={{ 
+                        padding: '8px', 
+                        borderBottom: '1px solid #e5e7eb', 
+                        textAlign: 'right',
+                        color: balanceColor,
+                        fontWeight: 600,
+                      }}>
+                        {formatBalance(runningBalance)}
+                      </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                });
+              })()
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Activity Table */}
-      {!isOutstanding && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
-            <thead>
-              <tr style={{ backgroundColor: primaryColor }}>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'left', fontWeight: 600 }}>Date</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'left', fontWeight: 600 }}>Description</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'center', fontWeight: 600 }}>Type</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>Debit</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>Credit</th>
-                <th style={{ color: 'white', padding: '8px 6px', textAlign: 'right', fontWeight: 600 }}>Balance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
-                    No transactions for this period.
-                  </td>
-                </tr>
-              ) : (
-                (() => {
-                  let runningBalance = 0;
-                  return transactions.map((txn, index) => {
-                    runningBalance += txn.debit - txn.credit;
-                    const balanceColor = runningBalance > 0 ? '#dc2626' : runningBalance < 0 ? '#16a34a' : '#6b7280';
-                    return (
-                      <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#f8fafc' : 'white' }}>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb' }}>{format(txn.date, 'dd/MM/yyyy')}</td>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb' }}>{txn.description}</td>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>{txn.type}</td>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>{formatDebit(txn.debit)}</td>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>{formatCredit(txn.credit)}</td>
-                        <td style={{ padding: '6px', borderBottom: '1px solid #e5e7eb', textAlign: 'right', color: balanceColor, fontWeight: 600 }}>{formatBalance(runningBalance)}</td>
-                      </tr>
-                    );
-                  });
-                })()
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Summary Section - avoid page break */}
+      {/* Totals Section - avoid page break */}
       <div style={{ pageBreakInside: 'avoid' }}>
-        <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '1rem', marginTop: '1rem' }}>
-          {isOutstanding ? (
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <div style={{ width: '200px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '10px' }}>
-                  <span>Open Invoices:</span>
-                  <span>{displayInvoices.length}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700, color: '#dc2626', borderTop: '2px solid #dc2626', paddingTop: '0.5rem' }}>
-                  <span>Total Due:</span>
-                  <span>{formatCurrency(totalOutstanding)}</span>
-                </div>
-              </div>
+        <div style={{ 
+          borderTop: '2px solid #e5e7eb', 
+          paddingTop: '1rem',
+          display: 'flex',
+          justifyContent: 'flex-end',
+        }}>
+          <div style={{ width: '280px' }}>
+            {/* Summary rows */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '13px' }}>
+              <span style={{ color: '#6b7280' }}>Total Debits:</span>
+              <span style={{ fontWeight: 500 }}>{formatCurrency(totalDebits)}</span>
             </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <div style={{ width: '220px', fontSize: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span>Total Invoiced:</span>
-                  <span>{formatCurrency(totalInvoiced)}</span>
-                </div>
-                {options.includeCreditNotes && totalCredits > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <span>Total Credits:</span>
-                    <span>{formatCredit(totalCredits)}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span>Total Payments:</span>
-                  <span>{formatCredit(totalPayments)}</span>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  fontSize: '14px', 
-                  fontWeight: 700, 
-                  color: finalBalance > 0 ? '#dc2626' : finalBalance < 0 ? '#16a34a' : '#6b7280',
-                  borderTop: `2px solid ${finalBalance > 0 ? '#dc2626' : finalBalance < 0 ? '#16a34a' : '#6b7280'}`,
-                  paddingTop: '0.5rem'
-                }}>
-                  <span>{finalBalance > 0 ? 'Balance Due:' : finalBalance < 0 ? 'Credit Balance:' : 'Balance:'}</span>
-                  <span>{formatBalance(finalBalance)}</span>
-                </div>
-                {finalBalance < 0 && (
-                  <div style={{ fontSize: '8px', color: '#16a34a', marginTop: '0.25rem', textAlign: 'right' }}>
-                    This is a credit balance in your favour.
-                  </div>
-                )}
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '13px' }}>
+              <span style={{ color: '#6b7280' }}>Total Credits:</span>
+              <span style={{ fontWeight: 500 }}>{formatCredit(totalCredits)}</span>
             </div>
-          )}
+
+            {/* Closing Balance - prominent */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              marginTop: '0.75rem',
+              paddingTop: '0.75rem',
+              borderTop: `2px solid ${closingBalance > 0 ? '#dc2626' : closingBalance < 0 ? '#16a34a' : '#6b7280'}`,
+              fontSize: '16px',
+              fontWeight: 700,
+              color: closingBalance > 0 ? '#dc2626' : closingBalance < 0 ? '#16a34a' : '#6b7280',
+            }}>
+              <span>{closingBalance > 0 ? 'Balance Due:' : closingBalance < 0 ? 'Credit Balance:' : 'Balance:'}</span>
+              <span>{formatBalance(closingBalance)}</span>
+            </div>
+
+            {/* Credit balance note */}
+            {closingBalance < 0 && (
+              <div style={{ fontSize: '10px', color: '#16a34a', marginTop: '0.25rem', textAlign: 'right' }}>
+                This is a credit balance in your favour.
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Banking Details - if visible */}
+      {bankingVisibility && bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && (
+        <div style={{ 
+          marginTop: '2rem', 
+          paddingTop: '1rem', 
+          borderTop: '1px solid #e5e7eb',
+          pageBreakInside: 'avoid',
+        }}>
+          <div
+            style={{
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: '#6b7280',
+              marginBottom: '0.5rem',
+            }}
+          >
+            Payment Details
+          </div>
+          <div style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>
+            {bankingSettings.bankName && <div><span style={{ color: '#6b7280' }}>Bank:</span> {bankingSettings.bankName}</div>}
+            {bankingSettings.accountName && <div><span style={{ color: '#6b7280' }}>Account Name:</span> {bankingSettings.accountName}</div>}
+            {bankingSettings.iban && <div><span style={{ color: '#6b7280' }}>IBAN:</span> {bankingSettings.iban}</div>}
+            {bankingSettings.swiftCode && <div><span style={{ color: '#6b7280' }}>SWIFT/BIC:</span> {bankingSettings.swiftCode}</div>}
+            {bankingSettings.accountNumber && <div><span style={{ color: '#6b7280' }}>Account Number:</span> {bankingSettings.accountNumber}</div>}
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div style={{ 
         position: 'absolute', 
-        bottom: '20mm', 
-        left: '20mm', 
-        right: '20mm', 
+        bottom: 'var(--invoice-margin-bottom)', 
+        left: 'var(--invoice-margin-left)', 
+        right: 'var(--invoice-margin-right)', 
         borderTop: '1px solid #e5e7eb', 
         paddingTop: '0.75rem',
-        fontSize: '8px',
+        fontSize: '10px',
         color: '#9ca3af',
-        textAlign: 'center'
+        textAlign: 'center',
       }}>
-        Statement generated on {format(generatedAt, 'dd MMMM yyyy')} • {company.name}
+        Statement generated on {format(new Date(), 'dd MMMM yyyy')} • {companySettings?.name || 'Your Company'}
       </div>
     </div>
   );
 };
+
+// Legacy interface for backward compatibility with StatementModal
+export interface LegacyStatementData {
+  customer: StatementCustomer;
+  invoices: Array<{
+    id: string;
+    invoice_number: string;
+    invoice_date: string;
+    due_date: string;
+    status: string;
+    total_amount: number;
+    amount: number;
+    vat_amount: number;
+    paid_amount?: number;
+  }>;
+  creditNotes: Array<{
+    id: string;
+    credit_note_number: string;
+    credit_note_date: string;
+    amount: number;
+    vat_rate: number;
+    reason: string;
+    invoice_id?: string | null;
+  }>;
+  payments: Array<{
+    id: string;
+    payment_date: string;
+    amount: number;
+    method: string | null;
+    invoice_id: string;
+  }>;
+  company: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+    vat_number?: string;
+    logo?: string;
+  };
+  options: {
+    dateFrom: Date;
+    dateTo: Date;
+    statementType: 'outstanding' | 'activity';
+    includeCreditNotes: boolean;
+    includeVatBreakdown: boolean;
+  };
+  generatedAt: Date;
+}
+
+// Helper function to convert legacy data to new format
+export function convertLegacyStatementData(data: LegacyStatementData): {
+  customer: StatementCustomer;
+  companySettings: CompanySettings;
+  statementLines: StatementLine[];
+  dateRange: DateRange;
+  openingBalance: number;
+  closingBalance: number;
+  statementType: 'outstanding' | 'activity';
+} {
+  const { customer, company, invoices, creditNotes, payments, options } = data;
+
+  // Build statement lines from transactions
+  const lines: StatementLine[] = [];
+
+  // Add invoices (debits)
+  invoices.forEach((inv) => {
+    lines.push({
+      id: inv.id,
+      date: inv.invoice_date,
+      description: `Invoice ${inv.invoice_number}`,
+      type: 'invoice',
+      reference: inv.invoice_number,
+      debit: inv.total_amount,
+      credit: 0,
+    });
+  });
+
+  // Add credit notes (credits)
+  if (options.includeCreditNotes) {
+    creditNotes.forEach((cn) => {
+      const totalAmount = cn.amount + cn.amount * cn.vat_rate;
+      lines.push({
+        id: cn.id,
+        date: cn.credit_note_date,
+        description: `Credit Note ${cn.credit_note_number}`,
+        type: 'credit_note',
+        reference: cn.credit_note_number,
+        debit: 0,
+        credit: totalAmount,
+      });
+    });
+  }
+
+  // Add payments (credits)
+  payments.forEach((pmt) => {
+    lines.push({
+      id: pmt.id,
+      date: pmt.payment_date,
+      description: `Payment${pmt.method ? ` (${pmt.method})` : ''}`,
+      type: 'payment',
+      reference: '',
+      debit: 0,
+      credit: pmt.amount,
+    });
+  });
+
+  // Sort by date
+  lines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Calculate balances
+  const totalDebits = lines.reduce((sum, line) => sum + line.debit, 0);
+  const totalCredits = lines.reduce((sum, line) => sum + line.credit, 0);
+  const closingBalance = totalDebits - totalCredits;
+
+  return {
+    customer,
+    companySettings: {
+      name: company.name,
+      email: company.email,
+      phone: company.phone,
+      address: company.address,
+      city: company.city,
+      country: company.country,
+      taxId: company.vat_number,
+      logo: company.logo,
+    },
+    statementLines: lines,
+    dateRange: {
+      from: options.dateFrom,
+      to: options.dateTo,
+    },
+    openingBalance: 0, // Could be calculated from historical data if needed
+    closingBalance,
+    statementType: options.statementType,
+  };
+}
+
+// Re-export types for backward compatibility
+export type { LegacyStatementData as StatementData };
+export type StatementInvoice = LegacyStatementData['invoices'][0];
+export type StatementCreditNote = LegacyStatementData['creditNotes'][0];
+export type StatementPayment = LegacyStatementData['payments'][0];

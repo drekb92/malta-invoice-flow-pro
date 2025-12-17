@@ -29,6 +29,7 @@ import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { 
   UnifiedStatementLayout, 
+  convertLegacyStatementData,
   StatementData,
   StatementInvoice,
   StatementCreditNote,
@@ -538,30 +539,40 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       </Dialog>
 
       {/* Hidden container for PDF generation - uses same id pattern as invoices */}
-      {isGeneratingPdf && statementData && (
-        <div 
-          ref={statementContainerRef}
-          style={{ 
-            position: 'fixed',
-            left: '-9999px',
-            top: 0,
-            width: '21cm',
-            background: 'white',
-            zIndex: -1,
-          }}
-        >
-          <div id="invoice-preview-root">
-            <UnifiedStatementLayout
-              statementData={statementData}
-              templateSettings={{
-                primaryColor: template?.primary_color || '#1a365d',
-                accentColor: template?.accent_color || '#2563eb',
-                fontFamily: template?.font_family || 'Inter',
-              }}
-            />
+      {isGeneratingPdf && statementData && (() => {
+        const converted = convertLegacyStatementData(statementData);
+        return (
+          <div 
+            ref={statementContainerRef}
+            style={{ 
+              position: 'fixed',
+              left: '-9999px',
+              top: 0,
+              width: '21cm',
+              background: 'white',
+              zIndex: -1,
+            }}
+          >
+            <div id="invoice-preview-root">
+              <UnifiedStatementLayout
+                customer={converted.customer}
+                companySettings={converted.companySettings}
+                templateSettings={{
+                  primaryColor: template?.primary_color || '#26A65B',
+                  accentColor: template?.accent_color || '#1F2D3D',
+                  fontFamily: template?.font_family || 'Inter',
+                }}
+                statementLines={converted.statementLines}
+                dateRange={converted.dateRange}
+                openingBalance={converted.openingBalance}
+                closingBalance={converted.closingBalance}
+                statementType={converted.statementType}
+                variant="pdf"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 };
