@@ -572,7 +572,9 @@ const Invoices = () => {
                                 </Button>
                               )}
 
-                              {(invoice as any).is_issued && invoice.status !== "credited" && (
+                              {/* Show Credit button only for issued or partially_paid invoices */}
+                              {(invoice.status === "issued" || invoice.status === "partially_paid" || 
+                                ((invoice as any).is_issued && invoice.status !== "paid" && invoice.status !== "draft" && invoice.status !== "cancelled" && invoice.status !== "credited")) && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
