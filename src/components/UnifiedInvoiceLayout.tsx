@@ -116,8 +116,6 @@ export const UnifiedInvoiceLayout = ({
     fontFamily,
     fontSize: TYPE.body,
     color: "#1f2937",
-    display: "flex",
-    flexDirection: "column",
     position: "relative",
   };
 
@@ -130,8 +128,10 @@ export const UnifiedInvoiceLayout = ({
 
   return (
     <div id={id} style={containerStyle}>
-      {/* ================= TOP CONTENT (grows to push bottom down) ================= */}
-      <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column" }}>
+      {/* ================= MAIN CONTENT ================= */}
+      <div style={{ paddingBottom: "180px" }}>
+        {" "}
+        {/* Reserve space for footer */}
         {/* ================= HEADER ================= */}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
           <div style={{ maxWidth: "55%", minHeight: logoUrl ? "60px" : "auto" }}>
@@ -167,9 +167,7 @@ export const UnifiedInvoiceLayout = ({
             </div>
           </div>
         </div>
-
         <hr style={{ margin: "16px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
-
         {/* ================= BILL TO ================= */}
         <div style={{ marginBottom: "24px" }}>
           <div
@@ -191,7 +189,6 @@ export const UnifiedInvoiceLayout = ({
             {invoiceData.customer.address && <div>{invoiceData.customer.address}</div>}
           </div>
         </div>
-
         {/* ================= TABLE ================= */}
         <table
           style={{
@@ -240,124 +237,134 @@ export const UnifiedInvoiceLayout = ({
                 </td>
               </tr>
             ))}
+
+            {/* Totals rows */}
+            <tr style={{ borderTop: "2px solid #e5e7eb" }}>
+              <td
+                colSpan={4}
+                style={{
+                  padding: "8px",
+                  textAlign: "right",
+                  fontSize: TYPE.totals,
+                  color: "#6b7280",
+                }}
+              >
+                Subtotal:
+              </td>
+              <td
+                style={{
+                  padding: "8px",
+                  textAlign: "right",
+                  fontSize: TYPE.totals,
+                  fontWeight: 600,
+                  color: "#111827",
+                }}
+              >
+                {money(invoiceData.totals.netTotal)}
+              </td>
+            </tr>
+            <tr>
+              <td
+                colSpan={4}
+                style={{
+                  padding: "8px",
+                  textAlign: "right",
+                  fontSize: TYPE.totals,
+                  color: "#6b7280",
+                }}
+              >
+                VAT:
+              </td>
+              <td
+                style={{
+                  padding: "8px",
+                  textAlign: "right",
+                  fontSize: TYPE.totals,
+                  fontWeight: 600,
+                  color: "#111827",
+                }}
+              >
+                {money(invoiceData.totals.vatTotal)}
+              </td>
+            </tr>
+            <tr style={{ backgroundColor: "#f9fafb" }}>
+              <td
+                colSpan={4}
+                style={{
+                  padding: "12px 8px",
+                  textAlign: "right",
+                  fontSize: TYPE.total,
+                  fontWeight: 700,
+                  color: "#111827",
+                }}
+              >
+                Total:
+              </td>
+              <td
+                style={{
+                  padding: "12px 8px",
+                  textAlign: "right",
+                  fontSize: TYPE.total,
+                  fontWeight: 700,
+                  color: primaryColor,
+                }}
+              >
+                {money(invoiceData.totals.grandTotal)}
+              </td>
+            </tr>
           </tbody>
         </table>
-
-        {/* SPACER - pushes footer to bottom */}
-        <div style={{ flex: "1 1 auto" }} />
       </div>
 
-      {/* ================= BOTTOM SECTION (always at bottom) ================= */}
+      {/* ================= FOOTER (ABSOLUTE POSITIONED) ================= */}
       <div
         style={{
-          flex: "0 0 auto",
-          marginTop: "auto",
+          position: "absolute",
+          bottom: "20mm",
+          left: "20mm",
+          right: "20mm",
         }}
       >
+        {/* Banking Details */}
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "40px",
+            fontSize: TYPE.muted,
+            lineHeight: 1.6,
+            color: "#4b5563",
             marginBottom: "20px",
           }}
         >
-          {/* Banking Details */}
           <div
             style={{
-              fontSize: TYPE.muted,
-              lineHeight: 1.6,
-              color: "#4b5563",
-              flex: "1",
+              fontSize: TYPE.section,
+              fontWeight: 600,
+              marginBottom: "8px",
+              color: "#374151",
+              letterSpacing: "0.05em",
             }}
           >
-            <div
-              style={{
-                fontSize: TYPE.section,
-                fontWeight: 600,
-                marginBottom: "8px",
-                color: "#374151",
-                letterSpacing: "0.05em",
-              }}
-            >
-              BANKING DETAILS
-            </div>
-            {bankingSettings?.bankName && (
-              <div>
-                <strong>Bank:</strong> {bankingSettings.bankName}
-              </div>
-            )}
-            {bankingSettings?.accountName && (
-              <div>
-                <strong>Account:</strong> {bankingSettings.accountName}
-              </div>
-            )}
-            {bankingSettings?.iban && (
-              <div>
-                <strong>IBAN:</strong> {bankingSettings.iban}
-              </div>
-            )}
-            {bankingSettings?.swiftCode && (
-              <div>
-                <strong>SWIFT:</strong> {bankingSettings.swiftCode}
-              </div>
-            )}
+            BANKING DETAILS
           </div>
-
-          {/* Totals */}
-          <div style={{ width: "280px", flex: "0 0 auto" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "6px 0",
-                fontSize: TYPE.totals,
-                color: "#6b7280",
-              }}
-            >
-              <span>Subtotal:</span>
-              <span>{money(invoiceData.totals.netTotal)}</span>
+          {bankingSettings?.bankName && (
+            <div>
+              <strong>Bank:</strong> {bankingSettings.bankName}
             </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "6px 0",
-                fontSize: TYPE.totals,
-                color: "#6b7280",
-              }}
-            >
-              <span>VAT:</span>
-              <span>{money(invoiceData.totals.vatTotal)}</span>
+          )}
+          {bankingSettings?.accountName && (
+            <div>
+              <strong>Account:</strong> {bankingSettings.accountName}
             </div>
-            <div
-              style={{
-                borderTop: "1px solid #e5e7eb",
-                margin: "8px 0",
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: TYPE.total,
-                fontWeight: 700,
-                color: "#111827",
-                padding: "4px 0",
-              }}
-            >
-              <span>Total:</span>
-              <span>{money(invoiceData.totals.grandTotal)}</span>
+          )}
+          {bankingSettings?.iban && (
+            <div>
+              <strong>IBAN:</strong> {bankingSettings.iban}
             </div>
-            <div
-              style={{
-                height: "3px",
-                background: primaryColor,
-                marginTop: "8px",
-                borderRadius: "2px",
-              }}
-            />
-          </div>
+          )}
+          {bankingSettings?.swiftCode && (
+            <div>
+              <strong>SWIFT:</strong> {bankingSettings.swiftCode}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
