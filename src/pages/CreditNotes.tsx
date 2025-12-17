@@ -39,6 +39,7 @@ const CreditNotes = () => {
   const [filteredCreditNotes, setFilteredCreditNotes] = useState<CreditNoteWithRelations[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [selectedCreditNote, setSelectedCreditNote] = useState<CreditNoteWithRelations | null>(null);
   const { toast } = useToast();
@@ -62,7 +63,7 @@ const CreditNotes = () => {
 
       // Fetch original invoice numbers separately
       const creditNotesWithInvoices = await Promise.all(
-        (data || []).map(async (cn) => {
+        (data || []).map(async (cn: any) => {
           if (cn.invoice_id) {
             const { data: invoiceData } = await supabase
               .from("invoices")
@@ -101,11 +102,12 @@ const CreditNotes = () => {
 
     // Filter by search term
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (creditNote) =>
-          creditNote.credit_note_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          creditNote.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          creditNote.invoices?.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()),
+          creditNote.credit_note_number.toLowerCase().includes(term) ||
+          creditNote.customers?.name.toLowerCase().includes(term) ||
+          creditNote.invoices?.invoice_number?.toLowerCase().includes(term),
       );
     }
 
@@ -114,8 +116,24 @@ const CreditNotes = () => {
       filtered = filtered.filter((creditNote) => creditNote.status === statusFilter);
     }
 
+    // Filter by type
+    if (typeFilter !== "all") {
+      filtered = filtered.filter((creditNote) => creditNote.type === typeFilter);
+    }
+
     setFilteredCreditNotes(filtered);
-  }, [searchTerm, statusFilter, creditNotes]);
+  }, [searchTerm, statusFilter, typeFilter, creditNotes]);
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "invoice_adjustment":
+        return "Invoice Adjustment";
+      case "customer_credit":
+        return "Customer Credit";
+      default:
+        return type;
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -256,11 +274,11 @@ const CreditNotes = () => {
           </Alert>
 
           {/* Filters and Search */}
-          <div className="flex items-center space-x-4 mb-6">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Search credit notes..."
+                placeholder="Search by number, client, invoice..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -270,15 +288,26 @@ const CreditNotes = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filter (
-                  {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
+                  Status: {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-background border border-border z-50">
-                <DropdownMenuItem onClick={() => setStatusFilter("all")}>All Credit Notes</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("all")}>All Statuses</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("issued")}>Issued</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("applied")}>Applied</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Type: {typeFilter === "all" ? "All" : getTypeLabel(typeFilter)}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-background border border-border z-50">
+                <DropdownMenuItem onClick={() => setTypeFilter("all")}>All Types</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTypeFilter("invoice_adjustment")}>Invoice Adjustment</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTypeFilter("customer_credit")}>Customer Credit</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -293,12 +322,12 @@ const CreditNotes = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Credit Note #</TableHead>
-                    <TableHead>Original Invoice</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Linked Invoice</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Issue Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -312,9 +341,9 @@ const CreditNotes = () => {
                   ) : filteredCreditNotes.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-6">
-                        {searchTerm || statusFilter !== "all"
+                        {searchTerm || statusFilter !== "all" || typeFilter !== "all"
                           ? "No credit notes found matching your criteria."
-                          : "No credit notes found. Credit notes are created to correct issued invoices."}
+                          : "No credit notes found. Credit notes are created to correct issued invoices or as standalone customer credits."}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -336,6 +365,12 @@ const CreditNotes = () => {
                               </span>
                             </button>
                           </TableCell>
+                          <TableCell>{creditNote.customers?.name || "Unknown Customer"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="font-normal">
+                              {getTypeLabel(creditNote.type || "invoice_adjustment")}
+                            </Badge>
+                          </TableCell>
                           <TableCell>
                             {creditNote.invoice_id ? (
                               <Link
@@ -349,24 +384,17 @@ const CreditNotes = () => {
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell>{creditNote.customers?.name || "Unknown Customer"}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{formatCurrency(total)}</span>
-                              <span className="text-xs text-muted-foreground">
-                                Net: {formatCurrency(creditNote.amount)} + VAT ({(creditNote.vat_rate * 100).toFixed(0)}
-                                %)
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm max-w-[200px] truncate block" title={creditNote.reason}>
-                              {creditNote.reason}
-                            </span>
-                          </TableCell>
-                          <TableCell>{format(new Date(creditNote.credit_note_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell>
                             <Badge className={statusBadge.className}>{statusBadge.label}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(total)}
+                          </TableCell>
+                          <TableCell>
+                            {creditNote.issued_at 
+                              ? format(new Date(creditNote.issued_at), "dd/MM/yyyy")
+                              : <span className="text-muted-foreground">—</span>
+                            }
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
