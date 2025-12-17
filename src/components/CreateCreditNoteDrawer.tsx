@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Loader2, Trash2, Info, Plus } from "lucide-react";
+import { Shield, Loader2, Trash2, Info, Plus, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNumber } from "@/lib/utils";
@@ -25,6 +25,7 @@ interface LineItem {
 interface CreateCreditNoteDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  creditNoteId?: string | null; // For viewing/editing existing credit notes
   invoiceId?: string | null;
   invoiceNumber?: string | null;
   customerId: string;
@@ -59,6 +60,7 @@ const DEFAULT_VAT_RATE = 0.18;
 export function CreateCreditNoteDrawer({
   open,
   onOpenChange,
+  creditNoteId,
   invoiceId,
   invoiceNumber,
   customerId,
@@ -69,7 +71,7 @@ export function CreateCreditNoteDrawer({
   const { toast } = useToast();
   
   // Mode: invoice-linked vs standalone
-  const isStandalone = !invoiceId;
+  const isStandalone = !invoiceId && !creditNoteId;
   
   // Form state
   const [reason, setReason] = useState<string>("");
@@ -93,27 +95,155 @@ export function CreateCreditNoteDrawer({
   // Validation state
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [showValidation, setShowValidation] = useState(false);
+  
+  // Existing credit note state (for edit/view mode)
+  const [existingCreditNote, setExistingCreditNote] = useState<{
+    id: string;
+    credit_note_number: string;
+    status: string;
+    issued_at: string | null;
+    invoice_id: string | null;
+    type: string;
+  } | null>(null);
+  
+  // Determine if the credit note is locked (issued)
+  const isLocked = existingCreditNote?.status === "issued";
+  const isEditMode = !!creditNoteId;
 
   // Reset form when drawer opens
   useEffect(() => {
     if (open) {
-      setReason("");
-      setDescription("");
-      setSingleAmount("");
-      setSingleDescription("");
       setValidationErrors({});
       setShowValidation(false);
-      setSingleAmountMode(isStandalone);
+      setExistingCreditNote(null);
       
-      if (invoiceId) {
-        loadInvoiceData();
+      if (creditNoteId) {
+        // Load existing credit note
+        loadExistingCreditNote();
       } else {
-        setLineItems([]);
-        setOriginalItems([]);
-        setLoading(false);
+        // Create mode - reset form
+        setReason("");
+        setDescription("");
+        setSingleAmount("");
+        setSingleDescription("");
+        setSingleAmountMode(isStandalone);
+        
+        if (invoiceId) {
+          loadInvoiceData();
+        } else {
+          setLineItems([]);
+          setOriginalItems([]);
+          setLoading(false);
+        }
       }
     }
-  }, [open, invoiceId]);
+  }, [open, creditNoteId, invoiceId]);
+
+  const loadExistingCreditNote = async () => {
+    if (!creditNoteId) return;
+    
+    setLoading(true);
+    try {
+      const [creditNoteResult, itemsResult] = await Promise.all([
+        (supabase as any)
+          .from("credit_notes")
+          .select("*")
+          .eq("id", creditNoteId)
+          .single(),
+        supabase
+          .from("credit_note_items")
+          .select("*")
+          .eq("credit_note_id", creditNoteId)
+          .order("id", { ascending: true }),
+      ]);
+
+      if (creditNoteResult.error) throw creditNoteResult.error;
+
+      const cn = creditNoteResult.data;
+      setExistingCreditNote({
+        id: cn.id,
+        credit_note_number: cn.credit_note_number,
+        status: cn.status,
+        issued_at: cn.issued_at,
+        invoice_id: cn.invoice_id,
+        type: cn.type,
+      });
+
+      // Parse reason to extract the reason code
+      const reasonMatch = CREDIT_NOTE_REASONS.find(r => cn.reason?.startsWith(r.label));
+      if (reasonMatch) {
+        setReason(reasonMatch.value);
+        const afterLabel = cn.reason.substring(reasonMatch.label.length);
+        setDescription(afterLabel.startsWith(": ") ? afterLabel.substring(2) : "");
+      } else {
+        setReason("other");
+        setDescription(cn.reason || "");
+      }
+
+      const items = (itemsResult.data || []).map((item: any) => ({
+        id: item.id,
+        description: item.description,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+        vat_rate: Number(item.vat_rate),
+        unit: item.unit,
+      }));
+
+      // Check if it's single amount mode (one item with unit="credit")
+      if (items.length === 1 && items[0].unit === "credit") {
+        setSingleAmountMode(true);
+        setSingleAmount(String(items[0].unit_price));
+        setSingleDescription(items[0].description);
+        setSingleVatRate(items[0].vat_rate);
+      } else {
+        setSingleAmountMode(false);
+        setLineItems(items);
+        setOriginalItems(items);
+      }
+
+      // Load invoice data if linked
+      if (cn.invoice_id) {
+        const [invoiceResult, creditsResult, paymentsResult] = await Promise.all([
+          supabase
+            .from("invoices")
+            .select("total_amount")
+            .eq("id", cn.invoice_id)
+            .single(),
+          supabase
+            .from("credit_notes")
+            .select("amount, vat_rate")
+            .eq("invoice_id", cn.invoice_id)
+            .neq("id", creditNoteId), // Exclude current credit note
+          supabase
+            .from("payments")
+            .select("amount")
+            .eq("invoice_id", cn.invoice_id),
+        ]);
+
+        if (invoiceResult.data) {
+          setInvoiceTotal(Number(invoiceResult.data.total_amount) || 0);
+        }
+        
+        const totalCredits = (creditsResult.data || []).reduce((sum: number, c: any) => {
+          const gross = Number(c.amount) * (1 + Number(c.vat_rate || 0));
+          return sum + gross;
+        }, 0);
+        setExistingCredits(totalCredits);
+        
+        const totalPayments = (paymentsResult.data || []).reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+        setExistingPayments(totalPayments);
+      }
+    } catch (error) {
+      console.error("Error loading credit note:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load credit note",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadInvoiceData = async () => {
     if (!invoiceId) return;
@@ -454,20 +584,33 @@ export function CreateCreditNoteDrawer({
         ) : (
           <>
             <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+              {/* Issued Lock Banner */}
+              {isLocked && (
+                <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertTitle className="text-amber-800 dark:text-amber-300">Issued Credit Note</AlertTitle>
+                  <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+                    Issued credit notes cannot be edited. This ensures compliance with Malta VAT regulations.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {/* Malta VAT Compliance Alert */}
-              <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
-                <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertTitle className="text-blue-800 dark:text-blue-300">Malta VAT Compliance</AlertTitle>
-                <AlertDescription className="text-blue-700 dark:text-blue-400 text-sm">
-                  {isStandalone 
-                    ? "Customer credits are tracked for accounting and can be applied to future invoices."
-                    : "Credit notes correct issued invoices per Malta VAT regulations. This action will be logged in the audit trail."
-                  }
-                </AlertDescription>
-              </Alert>
+              {!isLocked && (
+                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                  <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <AlertTitle className="text-blue-800 dark:text-blue-300">Malta VAT Compliance</AlertTitle>
+                  <AlertDescription className="text-blue-700 dark:text-blue-400 text-sm">
+                    {isStandalone 
+                      ? "Customer credits are tracked for accounting and can be applied to future invoices."
+                      : "Credit notes correct issued invoices per Malta VAT regulations. This action will be logged in the audit trail."
+                    }
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Remaining Balance Info (only for invoice-linked) */}
-              {!isStandalone && remainingAmount > 0 && (
+              {(invoiceId || existingCreditNote?.invoice_id) && remainingAmount > 0 && !isLocked && (
                 <div className="bg-muted/50 p-3 rounded-md text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Invoice Total:</span>
@@ -495,10 +638,10 @@ export function CreateCreditNoteDrawer({
               {/* Reason Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  Reason <span className="text-destructive">*</span>
+                  Reason {!isLocked && <span className="text-destructive">*</span>}
                 </Label>
-                <Select value={reason} onValueChange={handleReasonChange} disabled={submitting}>
-                  <SelectTrigger className={`bg-background ${showValidation && validationErrors.reason ? 'border-amber-500' : ''}`}>
+                <Select value={reason} onValueChange={handleReasonChange} disabled={submitting || isLocked}>
+                  <SelectTrigger className={`bg-background ${showValidation && validationErrors.reason ? 'border-amber-500' : ''} ${isLocked ? 'opacity-70' : ''}`}>
                     <SelectValue placeholder="Select a reason..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
@@ -519,16 +662,17 @@ export function CreateCreditNoteDrawer({
                   placeholder="Optional details for the credit note..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-[60px] resize-none"
-                  disabled={submitting}
+                  className={`min-h-[60px] resize-none ${isLocked ? 'opacity-70' : ''}`}
+                  disabled={submitting || isLocked}
                   maxLength={500}
+                  readOnly={isLocked}
                 />
               </div>
 
               <Separator />
 
               {/* Single Amount Toggle (for standalone mode) */}
-              {isStandalone && (
+              {isStandalone && !isLocked && (
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-medium">Single amount credit</Label>
@@ -549,7 +693,7 @@ export function CreateCreditNoteDrawer({
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">
-                      Description <span className="text-destructive">*</span>
+                      Description {!isLocked && <span className="text-destructive">*</span>}
                     </Label>
                     <Input
                       placeholder="e.g., Goodwill credit for delayed delivery"
@@ -560,8 +704,9 @@ export function CreateCreditNoteDrawer({
                           setValidationErrors(prev => ({ ...prev, description: undefined }));
                         }
                       }}
-                      className={showValidation && validationErrors.description ? 'border-amber-500' : ''}
-                      disabled={submitting}
+                      className={`${showValidation && validationErrors.description ? 'border-amber-500' : ''} ${isLocked ? 'opacity-70' : ''}`}
+                      disabled={submitting || isLocked}
+                      readOnly={isLocked}
                     />
                     {showValidation && <ValidationMessage message={validationErrors.description} />}
                   </div>
@@ -577,8 +722,9 @@ export function CreateCreditNoteDrawer({
                           placeholder="0.00"
                           value={singleAmount}
                           onChange={(e) => setSingleAmount(e.target.value)}
-                          className="pl-7"
-                          disabled={submitting}
+                          className={`pl-7 ${isLocked ? 'opacity-70' : ''}`}
+                          disabled={submitting || isLocked}
+                          readOnly={isLocked}
                         />
                       </div>
                     </div>
@@ -587,9 +733,9 @@ export function CreateCreditNoteDrawer({
                       <Select 
                         value={String(singleVatRate)} 
                         onValueChange={(v) => setSingleVatRate(parseFloat(v))}
-                        disabled={submitting}
+                        disabled={submitting || isLocked}
                       >
-                        <SelectTrigger className="bg-background">
+                        <SelectTrigger className={`bg-background ${isLocked ? 'opacity-70' : ''}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-background z-50">
@@ -606,31 +752,33 @@ export function CreateCreditNoteDrawer({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Line Items</Label>
-                    <div className="flex items-center gap-2">
-                      {!isStandalone && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={resetItems}
-                          disabled={submitting}
-                          className="text-xs h-7"
-                        >
-                          Reset to Original
-                        </Button>
-                      )}
-                      {isStandalone && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={addLineItem}
-                          disabled={submitting}
-                          className="text-xs h-7"
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add Item
-                        </Button>
-                      )}
-                    </div>
+                    {!isLocked && (
+                      <div className="flex items-center gap-2">
+                        {!isStandalone && !isEditMode && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={resetItems}
+                            disabled={submitting}
+                            className="text-xs h-7"
+                          >
+                            Reset to Original
+                          </Button>
+                        )}
+                        {(isStandalone || (isEditMode && !existingCreditNote?.invoice_id)) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={addLineItem}
+                            disabled={submitting}
+                            className="text-xs h-7"
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Item
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {lineItems.length === 0 ? (
@@ -642,7 +790,7 @@ export function CreateCreditNoteDrawer({
                       {lineItems.map((item, index) => (
                         <div key={item.id} className="bg-muted/50 rounded-lg p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
-                            {isStandalone ? (
+                            {(isStandalone || (isEditMode && !existingCreditNote?.invoice_id)) && !isLocked ? (
                               <Input
                                 placeholder="Description"
                                 value={item.description}
@@ -653,40 +801,50 @@ export function CreateCreditNoteDrawer({
                             ) : (
                               <p className="text-sm font-medium flex-1 line-clamp-2">{item.description}</p>
                             )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
-                              onClick={() => removeLineItem(index)}
-                              disabled={submitting}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {!isLocked && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                onClick={() => removeLineItem(index)}
+                                disabled={submitting}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             <div>
                               <Label className="text-xs text-muted-foreground">Qty</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.quantity}
-                                onChange={(e) => updateLineItem(index, "quantity", parseFloat(e.target.value) || 0)}
-                                className="h-8 text-sm"
-                                disabled={submitting}
-                              />
+                              {isLocked ? (
+                                <div className="h-8 flex items-center text-sm">{item.quantity}</div>
+                              ) : (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.quantity}
+                                  onChange={(e) => updateLineItem(index, "quantity", parseFloat(e.target.value) || 0)}
+                                  className="h-8 text-sm"
+                                  disabled={submitting}
+                                />
+                              )}
                             </div>
                             <div>
                               <Label className="text-xs text-muted-foreground">Unit Price</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.unit_price}
-                                onChange={(e) => updateLineItem(index, "unit_price", parseFloat(e.target.value) || 0)}
-                                className="h-8 text-sm"
-                                disabled={submitting}
-                              />
+                              {isLocked ? (
+                                <div className="h-8 flex items-center text-sm">€{formatNumber(item.unit_price, 2)}</div>
+                              ) : (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.unit_price}
+                                  onChange={(e) => updateLineItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                  className="h-8 text-sm"
+                                  disabled={submitting}
+                                />
+                              )}
                             </div>
                             <div>
                               <Label className="text-xs text-muted-foreground">Line Total</Label>
@@ -730,25 +888,27 @@ export function CreateCreditNoteDrawer({
                   onClick={() => onOpenChange(false)}
                   disabled={submitting}
                 >
-                  Cancel
+                  {isLocked ? "Close" : "Cancel"}
                 </Button>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleSubmit("draft")}
-                    disabled={submitting}
-                  >
-                    {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
-                    Save Draft
-                  </Button>
-                  <Button
-                    onClick={() => handleSubmit("issue")}
-                    disabled={submitting}
-                  >
-                    {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
-                    Issue Credit Note
-                  </Button>
-                </div>
+                {!isLocked && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSubmit("draft")}
+                      disabled={submitting}
+                    >
+                      {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                      Save Draft
+                    </Button>
+                    <Button
+                      onClick={() => handleSubmit("issue")}
+                      disabled={submitting}
+                    >
+                      {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                      Issue Credit Note
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </>
