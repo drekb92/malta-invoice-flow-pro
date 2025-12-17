@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { PDF_PRINT_STYLES } from '@/lib/pdfPrintStyles';
 
 // Re-use types from UnifiedInvoiceLayout for consistency
 export interface CompanySettings {
@@ -213,6 +214,9 @@ export const UnifiedStatementLayout = ({
       className={containerClassName}
       style={containerStyle}
     >
+      {/* PDF Print Styles */}
+      {variant === 'pdf' && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
+
       {/* Header Section - matching invoice layout */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
         {/* Logo */}

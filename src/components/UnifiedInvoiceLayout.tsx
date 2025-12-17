@@ -1,4 +1,5 @@
 import { formatDate, money, percent, mul } from '@/lib/invoiceUtils';
+import { PDF_PRINT_STYLES } from '@/lib/pdfPrintStyles';
 
 // Type definitions for all required data
 export interface CompanySettings {
@@ -365,6 +366,9 @@ export const UnifiedInvoiceLayout = ({
         className={containerClassName}
         style={containerStyle}
       >
+        {/* PDF Print Styles */}
+        {variant === 'pdf' && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
+
         {/* Enhanced Debug Panel */}
         {renderDebugPanel()}
 
@@ -716,6 +720,9 @@ export const UnifiedInvoiceLayout = ({
   // Default layout
   return (
     <div id={id} className={containerClassName} style={containerStyle}>
+      {/* PDF Print Styles */}
+      {variant === 'pdf' && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
+
       {/* Enhanced Debug Panel */}
       {renderDebugPanel()}
 
