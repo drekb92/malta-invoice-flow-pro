@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Trash2,
   Calendar as CalendarIcon,
+  Download,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -43,6 +44,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/lib/utils";
 import { TransactionDrawer } from "@/components/TransactionDrawer";
+import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLayout";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 
 interface Quotation {
   id: string;
@@ -78,8 +84,15 @@ const Quotations = () => {
   const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
   const [isConverting, setIsConverting] = useState(false);
   const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
+  const [pdfQuotationData, setPdfQuotationData] = useState<InvoiceData | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const navigate = useNavigate();
+  
+  // Hooks for PDF generation
+  const { template } = useInvoiceTemplate();
+  const { settings: companySettings } = useCompanySettings();
+  const { settings: bankingSettings } = useBankingSettings();
 
   const fetchQuotations = async () => {
     if (!user) {
@@ -160,6 +173,67 @@ const Quotations = () => {
       fetchQuotations();
     } catch {
       toast({ title: "Error", description: "Failed to delete quotation", variant: "destructive" });
+    }
+  };
+
+  const handleDownloadPdf = async (quotation: Quotation) => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+
+    try {
+      // Fetch quotation items
+      const { data: items, error: itemsError } = await supabase
+        .from("quotation_items")
+        .select("*")
+        .eq("quotation_id", quotation.id);
+
+      if (itemsError) throw itemsError;
+
+      // Prepare invoice data for UnifiedInvoiceLayout
+      const quotationData: InvoiceData = {
+        invoiceNumber: quotation.quotation_number,
+        invoiceDate: quotation.issue_date || quotation.created_at,
+        dueDate: quotation.valid_until || quotation.issue_date || quotation.created_at,
+        customer: {
+          name: quotation.customers?.name || "Unknown Customer",
+          email: quotation.customers?.email,
+          address: quotation.customers?.address,
+          vat_number: quotation.customers?.vat_number,
+        },
+        items: (items || []).map((item) => ({
+          description: item.description,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate || 0.18,
+          unit: item.unit || "unit",
+        })),
+        totals: {
+          netTotal: quotation.amount || 0,
+          vatTotal: quotation.vat_amount || 0,
+          grandTotal: quotation.total_amount || quotation.amount || 0,
+        },
+      };
+
+      setPdfQuotationData(quotationData);
+
+      // Wait for the layout to render
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Generate PDF
+      const filename = `Quotation-${quotation.quotation_number}`;
+      await downloadPdfFromFunction(filename, template?.font_family);
+
+      toast({ title: "Success", description: "PDF downloaded successfully." });
+    } catch (err: any) {
+      console.error("PDF download error:", err);
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to download PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfQuotationData(null);
     }
   };
 
@@ -444,6 +518,10 @@ const Quotations = () => {
                                     Edit
                                   </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDownloadPdf(q)} disabled={isGeneratingPdf}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  {isGeneratingPdf ? "Generating..." : "Download PDF"}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem>
                                   <Mail className="h-4 w-4 mr-2" />
                                   Send Email
@@ -574,6 +652,57 @@ const Quotations = () => {
           if (q) openConvertDialog(q);
         }}
       />
+
+      {/* Hidden PDF preview for quotation download */}
+      {pdfQuotationData && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <UnifiedInvoiceLayout
+            id="invoice-preview-root"
+            variant="pdf"
+            invoiceData={pdfQuotationData}
+            companySettings={companySettings ? {
+              name: companySettings.company_name,
+              email: companySettings.company_email,
+              phone: companySettings.company_phone,
+              address: companySettings.company_address,
+              city: companySettings.company_city,
+              state: companySettings.company_state,
+              zipCode: companySettings.company_zip_code,
+              country: companySettings.company_country,
+              taxId: companySettings.company_vat_number,
+              registrationNumber: companySettings.company_registration_number,
+              logo: companySettings.company_logo,
+            } : undefined}
+            bankingSettings={bankingSettings ? {
+              bankName: bankingSettings.bank_name,
+              accountName: bankingSettings.bank_account_name,
+              accountNumber: bankingSettings.bank_account_number,
+              routingNumber: bankingSettings.bank_routing_number,
+              swiftCode: bankingSettings.bank_swift_code,
+              iban: bankingSettings.bank_iban,
+              branch: bankingSettings.bank_branch,
+            } : undefined}
+            templateSettings={template ? {
+              primaryColor: template.primary_color,
+              accentColor: template.accent_color,
+              fontFamily: template.font_family,
+              fontSize: template.font_size,
+              layout: template.layout as any,
+              headerLayout: template.header_layout as any,
+              tableStyle: template.table_style as any,
+              totalsStyle: template.totals_style as any,
+              bankingVisibility: template.banking_visibility,
+              bankingStyle: template.banking_style as any,
+              companyPosition: template.company_position as any,
+              bankingPosition: template.banking_position as any,
+              marginTop: template.margin_top,
+              marginRight: template.margin_right,
+              marginBottom: template.margin_bottom,
+              marginLeft: template.margin_left,
+            } : undefined}
+          />
+        </div>
+      )}
     </div>
   );
 };
