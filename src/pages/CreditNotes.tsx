@@ -63,11 +63,11 @@ const CreditNotes = () => {
       // Fetch original invoice numbers separately
       const creditNotesWithInvoices = await Promise.all(
         (data || []).map(async (cn) => {
-          if (cn.original_invoice_id) {
+          if (cn.invoice_id) {
             const { data: invoiceData } = await supabase
               .from("invoices")
               .select("invoice_number")
-              .eq("id", cn.original_invoice_id)
+              .eq("id", cn.invoice_id)
               .maybeSingle();
 
             return {
@@ -337,9 +337,9 @@ const CreditNotes = () => {
                             </button>
                           </TableCell>
                           <TableCell>
-                            {creditNote.original_invoice_id ? (
+                            {creditNote.invoice_id ? (
                               <Link
-                                to={`/invoices/${creditNote.original_invoice_id}`}
+                                to={`/invoices/${creditNote.invoice_id}`}
                                 className="text-primary hover:underline flex items-center gap-1"
                               >
                                 <FileText className="h-3.5 w-3.5" />
@@ -380,9 +380,9 @@ const CreditNotes = () => {
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                {creditNote.original_invoice_id && (
+                                {creditNote.invoice_id && (
                                   <DropdownMenuItem asChild>
-                                    <Link to={`/invoices/${creditNote.original_invoice_id}`}>
+                                    <Link to={`/invoices/${creditNote.invoice_id}`}>
                                       <FileText className="h-4 w-4 mr-2" />
                                       View Original Invoice
                                     </Link>
@@ -440,7 +440,7 @@ const CreditNotes = () => {
           vat_rate: selectedCreditNote.vat_rate,
           reason: selectedCreditNote.reason,
           status: selectedCreditNote.status,
-          original_invoice_id: selectedCreditNote.original_invoice_id,
+          invoice_id: selectedCreditNote.invoice_id,
           customer_id: selectedCreditNote.customer_id,
         } : null}
         type="credit_note"

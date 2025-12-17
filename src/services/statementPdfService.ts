@@ -63,7 +63,7 @@ export interface StatementCreditNote {
   amount: number;
   vat_rate: number;
   reason: string;
-  original_invoice_id?: string | null;
+  invoice_id?: string | null;
 }
 
 export interface StatementPayment {
@@ -284,10 +284,10 @@ export class StatementPDFGenerator {
     const creditsByInvoice = new Map<string, number>();
     if (data.options.includeCreditNotes) {
       data.creditNotes.forEach((cn) => {
-        if (cn.original_invoice_id) {
+        if (cn.invoice_id) {
           const totalAmount = cn.amount + cn.amount * cn.vat_rate;
-          const current = creditsByInvoice.get(cn.original_invoice_id) || 0;
-          creditsByInvoice.set(cn.original_invoice_id, current + totalAmount);
+          const current = creditsByInvoice.get(cn.invoice_id) || 0;
+          creditsByInvoice.set(cn.invoice_id, current + totalAmount);
         }
       });
     }

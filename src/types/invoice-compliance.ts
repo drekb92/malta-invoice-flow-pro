@@ -19,7 +19,7 @@ export type InvoiceInsert = TablesInsert<'invoices'>;
 export interface CreditNote {
   id: string;
   credit_note_number: string;
-  original_invoice_id: string;
+  invoice_id?: string | null;
   user_id: string;
   customer_id: string;
   amount: number;
@@ -27,6 +27,8 @@ export interface CreditNote {
   reason: string;
   status: string;
   credit_note_date: string;
+  type?: string;
+  issued_at?: string | null;
   created_at?: string;
 }
 
@@ -53,7 +55,11 @@ export interface InvoiceAuditLog {
 }
 
 // Insert types for custom tables
-export type CreditNoteInsert = Omit<CreditNote, 'id' | 'created_at'>;
+export type CreditNoteInsert = Omit<CreditNote, 'id' | 'created_at'> & {
+  invoice_id?: string | null;
+  type?: string;
+  issued_at?: string | null;
+};
 export type CreditNoteItemInsert = Omit<CreditNoteItem, 'id'>;
 export type InvoiceAuditLogInsert = Omit<InvoiceAuditLog, 'id' | 'timestamp' | 'ip_address' | 'user_agent'>;
 

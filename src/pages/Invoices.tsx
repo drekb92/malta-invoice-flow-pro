@@ -49,7 +49,7 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
-import { CreateCreditNoteDialog } from "@/components/CreateCreditNoteDialog";
+import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
 import { InvoiceSettlementSheet } from "@/components/InvoiceSettlementSheet";
 
 interface Invoice {
@@ -833,14 +833,13 @@ const Invoices = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Credit Note Dialog */}
-        <CreateCreditNoteDialog
+        {/* Credit Note Drawer */}
+        <CreateCreditNoteDrawer
           open={!!creditNoteInvoice}
           onOpenChange={(open) => !open && setCreditNoteInvoice(null)}
           invoiceId={creditNoteInvoice?.id || ""}
           invoiceNumber={creditNoteInvoice?.invoice_number || ""}
-          originalAmount={creditNoteInvoice?.amount || 0}
-          vatRate={creditNoteInvoice?.vat_rate || 0.18}
+          customerId={creditNoteInvoice?.customer_id || ""}
           onSuccess={() => {
             setCreditNoteInvoice(null);
             fetchInvoices();

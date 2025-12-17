@@ -129,13 +129,14 @@ export const creditNotesService = {
       .from("credit_notes")
       .insert({
         credit_note_number: creditNoteNumber,
-        original_invoice_id: typedInvoice.id,
+        invoice_id: typedInvoice.id,
         user_id: userId, // <- important for RLS
         customer_id: typedInvoice.customer_id,
         amount: netAmount,
         vat_rate: vatRate,
         reason: `Full credit for invoice ${typedInvoice.invoice_number}`,
         status: "issued",
+        type: "invoice_adjustment",
       })
       .select("id")
       .maybeSingle();

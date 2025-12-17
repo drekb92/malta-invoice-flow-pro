@@ -221,7 +221,7 @@ export const InvoiceSettlementSheet = ({
         supabase
           .from("credit_notes")
           .select("id, credit_note_number, credit_note_date, amount, vat_rate, reason")
-          .eq("original_invoice_id", invoice.id)
+          .eq("invoice_id", invoice.id)
           .order("credit_note_date", { ascending: true }),
         supabase
           .from("payments")
