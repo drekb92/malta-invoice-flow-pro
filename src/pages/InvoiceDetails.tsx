@@ -1110,7 +1110,6 @@ const InvoiceDetails = () => {
             <UnifiedInvoiceLayout
               id="invoice-preview-root"
               variant="pdf"
-              templateId={template.id}
               debug={false}
               invoiceData={{
                 invoiceNumber: invoice.invoice_number,
