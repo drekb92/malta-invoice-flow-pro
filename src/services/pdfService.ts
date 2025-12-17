@@ -81,7 +81,8 @@ export class PDFGenerator {
     this.pdf.setTextColor(0, 0, 0);
     this.pdf.setFontSize(12);
     this.pdf.setFont("helvetica", "normal");
-    this.pdf.text(`Invoice #: ${invoiceData.invoiceNumber}`, rightX, this.currentY);
+    const numberLabel = invoiceData.documentType === "CREDIT NOTE" ? "Credit Note #:" : "Invoice #:";
+    this.pdf.text(`${numberLabel} ${invoiceData.invoiceNumber}`, rightX, this.currentY);
 
     this.currentY += 6;
     this.pdf.text(`Date: ${invoiceData.invoiceDate}`, rightX, this.currentY);
