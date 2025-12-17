@@ -89,6 +89,7 @@ export function CreateCreditNoteDrawer({
   
   // Invoice data for validation (only for invoice-linked)
   const [invoiceTotal, setInvoiceTotal] = useState<number>(0);
+  const [invoiceStatus, setInvoiceStatus] = useState<string | null>(null);
   const [existingCredits, setExistingCredits] = useState<number>(0);
   const [existingPayments, setExistingPayments] = useState<number>(0);
   
@@ -258,7 +259,7 @@ export function CreateCreditNoteDrawer({
           .order("created_at", { ascending: true }),
         supabase
           .from("invoices")
-          .select("total_amount")
+          .select("total_amount, status")
           .eq("id", invoiceId)
           .single(),
         supabase
@@ -272,6 +273,20 @@ export function CreateCreditNoteDrawer({
       ]);
 
       if (itemsResult.error) throw itemsResult.error;
+
+      // Check invoice status - block credit note creation for invalid statuses
+      const status = invoiceResult.data?.status;
+      setInvoiceStatus(status || null);
+      
+      if (status === "paid" || status === "draft" || status === "cancelled") {
+        toast({
+          title: "Cannot create credit note",
+          description: "Credit notes can only be created for issued unpaid invoices.",
+          variant: "destructive",
+        });
+        onOpenChange(false);
+        return;
+      }
 
       const items = (itemsResult.data || []).map(item => ({
         ...item,
