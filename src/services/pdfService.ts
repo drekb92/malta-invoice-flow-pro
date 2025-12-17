@@ -1,3 +1,19 @@
+/**
+ * @deprecated LEGACY jsPDF SERVICE - DO NOT USE FOR PRODUCTION
+ * 
+ * This jsPDF-based PDF generator is deprecated for production use.
+ * For production PDF exports, use the Edge HTML engine via:
+ * 
+ * ```typescript
+ * import { downloadPdfFromFunction } from "@/lib/edgePdf";
+ * import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
+ * ```
+ * 
+ * This file is kept for dev/testing purposes only.
+ * All production document exports (Invoice, Credit Note, Quotation, Statement)
+ * should use the Edge HTML → PDF pipeline for WYSIWYG consistency.
+ */
+
 import jsPDF from "jspdf";
 import { InvoiceTemplate } from "./templateService";
 import { formatNumber } from "@/lib/utils";

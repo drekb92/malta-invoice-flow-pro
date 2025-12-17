@@ -1,5 +1,3 @@
-import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
-import type { InvoiceData } from "@/services/pdfService";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,16 +15,24 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { CreditNote as CreditNoteType } from "@/types/invoice-compliance";
 import { TransactionDrawer } from "@/components/TransactionDrawer";
+import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLayout";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
 
 interface CreditNoteWithRelations extends CreditNoteType {
   customers?: {
     name: string;
     email?: string;
+    address?: string;
+    vat_number?: string;
   };
   invoices?: {
     invoice_number: string;
@@ -35,6 +41,7 @@ interface CreditNoteWithRelations extends CreditNoteType {
 
 const CreditNotes = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [creditNotes, setCreditNotes] = useState<CreditNoteWithRelations[]>([]);
   const [filteredCreditNotes, setFilteredCreditNotes] = useState<CreditNoteWithRelations[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,7 +49,14 @@ const CreditNotes = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [selectedCreditNote, setSelectedCreditNote] = useState<CreditNoteWithRelations | null>(null);
+  const [pdfCreditNoteData, setPdfCreditNoteData] = useState<InvoiceData | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { toast } = useToast();
+
+  // Hooks for PDF generation (Edge HTML engine)
+  const { template } = useInvoiceTemplate();
+  const { settings: companySettings } = useCompanySettings();
+  const { settings: bankingSettings } = useBankingSettings();
 
   const fetchCreditNotes = async () => {
     try {
@@ -161,6 +175,9 @@ const CreditNotes = () => {
   };
 
   const handleDownloadPDF = async (creditNoteId: string) => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+
     try {
       // 1) Load credit note + customer
       const { data: cn, error: cnError } = await (supabase as any)
@@ -195,10 +212,10 @@ const CreditNotes = () => {
 
       const items = (itemsData || []).map((item: any) => ({
         description: item.description,
-        quantity: Number(item.quantity || 0),
+        quantity: Number(item.quantity || 1),
         unit_price: Number(item.unit_price || 0),
         vat_rate: Number(item.vat_rate ?? cn.vat_rate ?? 0.18),
-        unit: item.unit || undefined,
+        unit: item.unit || "unit",
       }));
 
       // 3) Totals from header (your column `amount` is NET)
@@ -207,11 +224,11 @@ const CreditNotes = () => {
       const vat = net * vatRate;
       const total = net + vat;
 
-      const invoiceData: InvoiceData = {
+      // Prepare data for UnifiedInvoiceLayout (Edge HTML engine)
+      const creditNoteData: InvoiceData = {
         invoiceNumber: cn.credit_note_number,
         invoiceDate: cn.credit_note_date,
         dueDate: cn.credit_note_date,
-        documentType: "CREDIT NOTE",
         customer: {
           name: cn.customers?.name || "Unknown Customer",
           email: cn.customers?.email || "",
@@ -226,7 +243,15 @@ const CreditNotes = () => {
         },
       };
 
-      await generateInvoicePDFWithTemplate(invoiceData, cn.credit_note_number || "credit-note");
+      // Set data for hidden PDF preview
+      setPdfCreditNoteData(creditNoteData);
+
+      // Wait for layout to render
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Generate PDF via Edge Function
+      const filename = `CreditNote-${cn.credit_note_number || "credit-note"}`;
+      await downloadPdfFromFunction(filename, template?.font_family);
 
       toast({
         title: "PDF generated",
@@ -239,6 +264,9 @@ const CreditNotes = () => {
         description: error.message || "Could not generate credit note PDF.",
         variant: "destructive",
       });
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfCreditNoteData(null);
     }
   };
 
@@ -473,6 +501,58 @@ const CreditNotes = () => {
         } : null}
         type="credit_note"
       />
+
+      {/* Hidden PDF preview for credit note download (Edge HTML engine) */}
+      {pdfCreditNoteData && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <UnifiedInvoiceLayout
+            id="invoice-preview-root"
+            variant="pdf"
+            invoiceData={pdfCreditNoteData}
+            documentType="CREDIT NOTE"
+            companySettings={companySettings ? {
+              name: companySettings.company_name,
+              email: companySettings.company_email,
+              phone: companySettings.company_phone,
+              address: companySettings.company_address,
+              city: companySettings.company_city,
+              state: companySettings.company_state,
+              zipCode: companySettings.company_zip_code,
+              country: companySettings.company_country,
+              taxId: companySettings.company_vat_number,
+              registrationNumber: companySettings.company_registration_number,
+              logo: companySettings.company_logo,
+            } : undefined}
+            bankingSettings={bankingSettings ? {
+              bankName: bankingSettings.bank_name,
+              accountName: bankingSettings.bank_account_name,
+              accountNumber: bankingSettings.bank_account_number,
+              routingNumber: bankingSettings.bank_routing_number,
+              swiftCode: bankingSettings.bank_swift_code,
+              iban: bankingSettings.bank_iban,
+              branch: bankingSettings.bank_branch,
+            } : undefined}
+            templateSettings={template ? {
+              primaryColor: template.primary_color,
+              accentColor: template.accent_color,
+              fontFamily: template.font_family,
+              fontSize: template.font_size,
+              layout: template.layout as any,
+              headerLayout: template.header_layout as any,
+              tableStyle: template.table_style as any,
+              totalsStyle: template.totals_style as any,
+              bankingVisibility: template.banking_visibility,
+              bankingStyle: template.banking_style as any,
+              companyPosition: template.company_position as any,
+              bankingPosition: template.banking_position as any,
+              marginTop: template.margin_top,
+              marginRight: template.margin_right,
+              marginBottom: template.margin_bottom,
+              marginLeft: template.margin_left,
+            } : undefined}
+          />
+        </div>
+      )}
     </div>
   );
 };

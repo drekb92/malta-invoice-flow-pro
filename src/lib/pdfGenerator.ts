@@ -1,7 +1,27 @@
+/**
+ * @deprecated LEGACY PDF GENERATORS - DO NOT USE FOR PRODUCTION
+ * 
+ * These jsPDF-based generators are deprecated and should only be used for
+ * dev/testing purposes. For production PDF exports, use the Edge HTML engine:
+ * 
+ * ```typescript
+ * import { downloadPdfFromFunction } from "@/lib/edgePdf";
+ * import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
+ * 
+ * // Render UnifiedInvoiceLayout in a hidden container with id="invoice-preview-root"
+ * // Then call: await downloadPdfFromFunction(filename, fontFamily);
+ * ```
+ * 
+ * The Edge HTML engine provides:
+ * - WYSIWYG rendering matching the on-screen preview
+ * - Consistent fonts, colors, and layout
+ * - Support for all document types (Invoice, Credit Note, Quotation, Statement)
+ */
+
 import { generateInvoicePDF, InvoiceData } from '@/services/pdfService';
 import { getDefaultTemplate } from '@/services/templateService';
 
-// Legacy PDF generation using html2canvas (kept for compatibility)
+// Legacy PDF generation using html2canvas (kept for compatibility/testing only)
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 

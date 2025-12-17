@@ -1,3 +1,19 @@
+/**
+ * @deprecated LEGACY jsPDF STATEMENT SERVICE - DO NOT USE FOR PRODUCTION
+ * 
+ * This jsPDF-based statement generator is deprecated for production use.
+ * For production statement exports, use the Edge HTML engine via:
+ * 
+ * ```typescript
+ * import { downloadPdfFromFunction } from "@/lib/edgePdf";
+ * import { UnifiedStatementLayout } from "@/components/UnifiedStatementLayout";
+ * ```
+ * 
+ * This file is kept for dev/testing purposes only.
+ * Statement PDF generation in production uses UnifiedStatementLayout
+ * rendered to HTML and converted via the Edge Function.
+ */
+
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 
