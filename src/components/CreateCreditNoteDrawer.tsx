@@ -397,25 +397,23 @@ export function CreateCreditNoteDrawer({
     }
   };
 
-  // Generate credit note number
+  // Generate credit note number using database function
   const generateCreditNoteNumber = async (userId: string): Promise<string> => {
-    const { data } = await supabase
-      .from("credit_notes")
-      .select("credit_note_number, created_at")
-      .eq("user_id", userId)
-      .not("credit_note_number", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    const { data, error } = await supabase.rpc("next_credit_note_number", {
+      p_business_id: userId,
+      p_prefix: "CN-",
+    });
 
-    let next = 1;
-    if (data && data.length > 0 && data[0].credit_note_number) {
-      const match = data[0].credit_note_number.match(/(\d+)$/);
-      if (match) {
-        const current = parseInt(match[1], 10);
-        if (!isNaN(current)) next = current + 1;
-      }
+    if (error) {
+      console.error("Error generating credit note number:", error);
+      // Fallback to timestamp-based number if RPC fails
+      const now = new Date();
+      const year = now.getFullYear();
+      const seq = String(now.getTime()).slice(-4);
+      return `CN-${year}-${seq}`;
     }
-    return `CN-${String(next).padStart(6, "0")}`;
+
+    return data as string;
   };
 
   // Submit handler
@@ -564,14 +562,21 @@ export function CreateCreditNoteDrawer({
         <SheetHeader className="px-5 py-4 border-b border-border/60">
           <SheetTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            {isStandalone ? "New Customer Credit" : "Create Credit Note"}
+            {existingCreditNote?.credit_note_number 
+              ? `Credit Note ${existingCreditNote.credit_note_number}`
+              : isStandalone 
+                ? "New Customer Credit" 
+                : "Create Credit Note"
+            }
           </SheetTitle>
           <SheetDescription>
-            {invoiceNumber 
-              ? `For invoice ${invoiceNumber} (Malta VAT Compliant)`
-              : customerName 
-                ? `For ${customerName} (Malta VAT Compliant)`
-                : "Malta VAT Compliant"
+            {existingCreditNote?.credit_note_number
+              ? `${customerName || "Customer"} • ${isLocked ? "Issued" : "Draft"}`
+              : invoiceNumber 
+                ? `For invoice ${invoiceNumber} (Malta VAT Compliant)`
+                : customerName 
+                  ? `For ${customerName} (Malta VAT Compliant)`
+                  : "Malta VAT Compliant"
             }
           </SheetDescription>
         </SheetHeader>
