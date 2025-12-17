@@ -1286,43 +1286,23 @@ export const UnifiedInvoiceLayout = ({
       )}
 
       {/* Footer */}
-      {variant === 'pdf' ? (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            textAlign: 'center',
-            fontSize: '9pt',
-            color: '#6b7280',
-            borderTop: '1px solid #e5e7eb',
-            paddingTop: '10pt',
-            paddingBottom: '10pt',
-          }}
-        >
-          <p style={{ margin: 0 }}>Thank you for your business!</p>
-          <p style={{ margin: '4pt 0 0 0', fontSize: '8pt' }}>
-            Payment due within 30 days. All amounts in EUR.
-          </p>
-        </div>
-      ) : (
-        <div
-          style={{
-            marginTop: '3rem',
-            paddingTop: '1rem',
-            borderTop: '1px solid #e5e7eb',
-            textAlign: 'center',
-            fontSize: '12px',
-            color: '#6b7280',
-          }}
-        >
-          <p style={{ margin: 0 }}>Thank you for your business!</p>
-          <p style={{ margin: '4px 0 0 0', fontSize: '11px' }}>
-            Payment due within 30 days. All amounts in EUR.
-          </p>
-        </div>
-      )}
+      <div
+        style={{
+          marginTop: '2rem',
+          paddingTop: '0.75rem',
+          borderTop: '1px solid #e5e7eb',
+          textAlign: 'center',
+          fontSize: '10px',
+          color: '#6b7280',
+          breakInside: 'avoid',
+          pageBreakInside: 'avoid',
+        }}
+      >
+        <p style={{ margin: 0 }}>Thank you for your business!</p>
+        <p style={{ margin: '4px 0 0 0', fontSize: '9px', color: '#9ca3af' }}>
+          Payment due within 30 days. All amounts in EUR.
+        </p>
+      </div>
     </div>
   );
 };
