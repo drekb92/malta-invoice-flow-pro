@@ -1,10 +1,14 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import type { InvoiceData } from "@/services/pdfService";
 
 // Import reusable components
@@ -72,6 +76,12 @@ export const TransactionDrawer = ({
 
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfData, setPdfData] = useState<InvoiceData | null>(null);
+
+  // Load template, company, and banking settings for PDF generation
+  const { template } = useInvoiceTemplate();
+  const { settings: companySettings } = useCompanySettings();
+  const { settings: bankingSettings } = useBankingSettings();
 
   // ─────────────────────────────────────────────────────────────────────────
   // Data Loading
@@ -324,9 +334,18 @@ export const TransactionDrawer = ({
     else navigate(`/quotations/${transaction.id}`);
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = useCallback(async () => {
     if (!transaction || !customer || lineItems.length === 0) {
       toast({ title: "Cannot generate PDF", description: "Missing data.", variant: "destructive" });
+      return;
+    }
+
+    if (!companySettings?.company_name) {
+      toast({
+        title: "Company Settings Required",
+        description: "Please complete your company information in Settings before downloading PDFs.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -339,28 +358,32 @@ export const TransactionDrawer = ({
       let docNumber = "";
       let docDate = "";
       let docType: InvoiceData["documentType"] = "INVOICE";
+      let dueDate = "";
 
       if (type === "invoice") {
         const inv = transaction as InvoiceTransaction;
         docNumber = inv.invoice_number;
         docDate = inv.invoice_date;
+        dueDate = inv.due_date;
         docType = "INVOICE";
       } else if (type === "credit_note") {
         const cn = transaction as CreditNoteTransaction;
         docNumber = cn.credit_note_number;
         docDate = cn.credit_note_date;
+        dueDate = cn.credit_note_date;
         docType = "CREDIT NOTE";
       } else {
         const q = transaction as QuotationTransaction;
         docNumber = q.quotation_number;
         docDate = q.issue_date;
+        dueDate = q.valid_until || q.issue_date;
         docType = "QUOTATION";
       }
 
       const invoiceData: InvoiceData = {
         invoiceNumber: docNumber,
         invoiceDate: docDate,
-        dueDate: type === "invoice" ? (transaction as InvoiceTransaction).due_date : docDate,
+        dueDate: dueDate,
         documentType: docType,
         customer: {
           name: customer.name,
@@ -378,8 +401,15 @@ export const TransactionDrawer = ({
         totals: { netTotal, vatTotal, grandTotal },
       };
 
+      // Set PDF data to trigger hidden container render
+      setPdfData(invoiceData);
+
+      // Wait for next frame to ensure DOM is updated
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const filename = `${docType.replace(" ", "-")}-${docNumber}`;
-      await generateInvoicePDFWithTemplate(invoiceData, filename);
+      await downloadPdfFromFunction(filename, template?.font_family);
 
       toast({ title: "PDF downloaded", description: `${docType} ${docNumber} has been downloaded.` });
     } catch (error) {
@@ -387,8 +417,9 @@ export const TransactionDrawer = ({
       toast({ title: "Download failed", description: "Failed to generate PDF.", variant: "destructive" });
     } finally {
       setDownloadingPdf(false);
+      setPdfData(null);
     }
-  };
+  }, [transaction, customer, lineItems, type, companySettings, template, toast]);
 
   const handleClose = () => onOpenChange(false);
 
@@ -401,91 +432,145 @@ export const TransactionDrawer = ({
   
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[420px] p-0 flex flex-col">
-        {/* Shared Header */}
-        <TransactionDrawerHeader
-          type={type}
-          transactionNumber={getTransactionNumber()}
-          customerName={customer?.name || "Loading..."}
-          status={transaction.status}
-          isIssued={type === "invoice" ? (transaction as InvoiceTransaction).is_issued : undefined}
-        />
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full sm:max-w-[420px] p-0 flex flex-col">
+          {/* Shared Header */}
+          <TransactionDrawerHeader
+            type={type}
+            transactionNumber={getTransactionNumber()}
+            customerName={customer?.name || "Loading..."}
+            status={transaction.status}
+            isIssued={type === "invoice" ? (transaction as InvoiceTransaction).is_issued : undefined}
+          />
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 flex-1">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Loading…</span>
-          </div>
-        ) : (
-          <>
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-1">
-              {/* A. Shared Line Items */}
-              <TransactionLineItems items={lineItems} />
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 flex-1">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Loading…</span>
+            </div>
+          ) : (
+            <>
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-5 py-5 space-y-1">
+                {/* A. Shared Line Items */}
+                <TransactionLineItems items={lineItems} />
 
-              {/* B. Shared Summary Card (adapts per type) */}
-              <TransactionSummaryCard
-                type={type}
-                transaction={transaction}
-                totalAmount={getTotalAmount()}
-                totalCredits={totalCredits}
-                totalPayments={totalPayments}
-                remainingBalance={remainingBalance}
-                outstandingAmount={outstandingAmount}
-                creditNoteTotalApplied={creditNoteTotalApplied}
-                creditNoteRemainingCredit={creditNoteRemainingCredit}
-              />
-
-              {/* Settlement Breakdown (Invoice Only) */}
-              {type === "invoice" && (
-                <InvoiceSettlementBreakdown
-                  creditNotes={creditNotes}
-                  payments={payments}
+                {/* B. Shared Summary Card (adapts per type) */}
+                <TransactionSummaryCard
+                  type={type}
+                  transaction={transaction}
+                  totalAmount={getTotalAmount()}
                   totalCredits={totalCredits}
                   totalPayments={totalPayments}
-                  onClose={handleClose}
+                  remainingBalance={remainingBalance}
+                  outstandingAmount={outstandingAmount}
+                  creditNoteTotalApplied={creditNoteTotalApplied}
+                  creditNoteRemainingCredit={creditNoteRemainingCredit}
                 />
-              )}
 
-              {/* Credit Note Application Breakdown (CN Only) */}
-              {type === "credit_note" && (
-                <CreditNoteApplicationBreakdown
-                  originalInvoice={originalInvoice}
-                  originalInvoiceId={(transaction as CreditNoteTransaction).invoice_id || null}
-                  totalAmount={creditNoteAmount}
-                  totalApplied={creditNoteTotalApplied}
-                  remainingCredit={creditNoteRemainingCredit}
-                  appliedDate={(transaction as CreditNoteTransaction).credit_note_date}
-                  onClose={handleClose}
-                />
-              )}
+                {/* Settlement Breakdown (Invoice Only) */}
+                {type === "invoice" && (
+                  <InvoiceSettlementBreakdown
+                    creditNotes={creditNotes}
+                    payments={payments}
+                    totalCredits={totalCredits}
+                    totalPayments={totalPayments}
+                    onClose={handleClose}
+                  />
+                )}
 
-              {/* C. Shared Activity Timeline */}
-              <TransactionActivityTimeline events={timelineEvents} />
-            </div>
+                {/* Credit Note Application Breakdown (CN Only) */}
+                {type === "credit_note" && (
+                  <CreditNoteApplicationBreakdown
+                    originalInvoice={originalInvoice}
+                    originalInvoiceId={(transaction as CreditNoteTransaction).invoice_id || null}
+                    totalAmount={creditNoteAmount}
+                    totalApplied={creditNoteTotalApplied}
+                    remainingCredit={creditNoteRemainingCredit}
+                    appliedDate={(transaction as CreditNoteTransaction).credit_note_date || null}
+                    onClose={handleClose}
+                  />
+                )}
 
-            {/* Shared Footer Actions (dynamic per type) */}
-            <TransactionFooterActions
-              type={type}
-              transaction={transaction}
-              downloadingPdf={downloadingPdf}
-              lineItemsCount={lineItems.length}
-              remainingBalance={remainingBalance}
-              originalInvoice={originalInvoice}
-              onDownloadPdf={handleDownloadPdf}
-              onViewFull={handleViewFull}
-              onAddPayment={onAddPayment}
-              onIssueCreditNote={onIssueCreditNote}
-              onSendReminder={onSendReminder}
-              onConvertQuotation={onConvertQuotation}
-              onSendQuote={onSendQuote}
-              onApplyCreditNote={onApplyCreditNote}
-              onClose={handleClose}
-            />
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
+                {/* Activity Timeline (always last in scrollable area) */}
+                <TransactionActivityTimeline events={timelineEvents} />
+              </div>
+
+              {/* Footer Actions */}
+              <TransactionFooterActions
+                type={type}
+                transaction={transaction}
+                downloadingPdf={downloadingPdf}
+                lineItemsCount={lineItems.length}
+                remainingBalance={remainingBalance}
+                originalInvoice={originalInvoice}
+                onDownloadPdf={handleDownloadPdf}
+                onViewFull={handleViewFull}
+                onAddPayment={onAddPayment}
+                onIssueCreditNote={onIssueCreditNote}
+                onSendReminder={onSendReminder}
+                onConvertQuotation={onConvertQuotation}
+                onSendQuote={onSendQuote}
+                onApplyCreditNote={onApplyCreditNote}
+                onClose={handleClose}
+              />
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Hidden PDF preview for Edge HTML engine */}
+      {pdfData && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <UnifiedInvoiceLayout
+            id="invoice-preview-root"
+            variant="pdf"
+            invoiceData={pdfData}
+            documentType={pdfData.documentType}
+            companySettings={companySettings ? {
+              name: companySettings.company_name,
+              email: companySettings.company_email,
+              phone: companySettings.company_phone,
+              address: companySettings.company_address,
+              city: companySettings.company_city,
+              state: companySettings.company_state,
+              zipCode: companySettings.company_zip_code,
+              country: companySettings.company_country,
+              taxId: companySettings.company_vat_number,
+              registrationNumber: companySettings.company_registration_number,
+              logo: companySettings.company_logo,
+            } : undefined}
+            bankingSettings={bankingSettings ? {
+              bankName: bankingSettings.bank_name,
+              accountName: bankingSettings.bank_account_name,
+              accountNumber: bankingSettings.bank_account_number,
+              routingNumber: bankingSettings.bank_routing_number,
+              swiftCode: bankingSettings.bank_swift_code,
+              iban: bankingSettings.bank_iban,
+              branch: bankingSettings.bank_branch,
+            } : undefined}
+            templateSettings={template ? {
+              primaryColor: template.primary_color,
+              accentColor: template.accent_color,
+              fontFamily: template.font_family,
+              fontSize: template.font_size,
+              layout: template.layout as any,
+              headerLayout: template.header_layout as any,
+              tableStyle: template.table_style as any,
+              totalsStyle: template.totals_style as any,
+              bankingVisibility: template.banking_visibility,
+              bankingStyle: template.banking_style as any,
+              companyPosition: template.company_position as any,
+              bankingPosition: template.banking_position as any,
+              marginTop: template.margin_top,
+              marginRight: template.margin_right,
+              marginBottom: template.margin_bottom,
+              marginLeft: template.margin_left,
+            } : undefined}
+          />
+        </div>
+      )}
+    </>
   );
 };
