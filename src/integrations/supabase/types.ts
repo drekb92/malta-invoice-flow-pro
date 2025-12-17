@@ -199,11 +199,13 @@ export type Database = {
           created_at: string | null
           credit_note_date: string | null
           credit_note_number: string
-          customer_id: string | null
+          customer_id: string
           id: string
-          original_invoice_id: string | null
+          invoice_id: string | null
+          issued_at: string | null
           reason: string
           status: string | null
+          type: string
           user_id: string | null
           vat_rate: number | null
         }
@@ -212,11 +214,13 @@ export type Database = {
           created_at?: string | null
           credit_note_date?: string | null
           credit_note_number: string
-          customer_id?: string | null
+          customer_id: string
           id?: string
-          original_invoice_id?: string | null
+          invoice_id?: string | null
+          issued_at?: string | null
           reason: string
           status?: string | null
+          type?: string
           user_id?: string | null
           vat_rate?: number | null
         }
@@ -225,11 +229,13 @@ export type Database = {
           created_at?: string | null
           credit_note_date?: string | null
           credit_note_number?: string
-          customer_id?: string | null
+          customer_id?: string
           id?: string
-          original_invoice_id?: string | null
+          invoice_id?: string | null
+          issued_at?: string | null
           reason?: string
           status?: string | null
+          type?: string
           user_id?: string | null
           vat_rate?: number | null
         }
@@ -243,14 +249,14 @@ export type Database = {
           },
           {
             foreignKeyName: "credit_notes_original_invoice_id_fkey"
-            columns: ["original_invoice_id"]
+            columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoice_totals"
             referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "credit_notes_original_invoice_id_fkey"
-            columns: ["original_invoice_id"]
+            columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
