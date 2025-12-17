@@ -65,3 +65,15 @@ export const getTypeLabel = (type: "invoice" | "credit_note" | "quotation") => {
   if (type === "credit_note") return "Credit Note";
   return "Quote";
 };
+
+/**
+ * Compute outstanding amount for an invoice.
+ * outstanding_amount = grand_total - sum(payments)
+ * Note: This does NOT subtract credits - credits adjust the invoice, payments settle it.
+ */
+export const computeOutstandingAmount = (
+  grandTotal: number,
+  totalPayments: number
+): number => {
+  return Math.max(0, grandTotal - totalPayments);
+};

@@ -338,8 +338,14 @@ export function CreateCreditNoteDrawer({
     return { netTotal, vatTotal, grandTotal };
   }, [lineItems, singleAmountMode, singleAmount, singleVatRate]);
 
-  // Calculate remaining invoice amount
-  const remainingAmount = useMemo(() => {
+  // Calculate outstanding amount = grand_total - payments (NOT including credits)
+  const outstandingAmount = useMemo(() => {
+    if (!invoiceId) return Infinity;
+    return Math.max(0, invoiceTotal - existingPayments);
+  }, [invoiceId, invoiceTotal, existingPayments]);
+
+  // Calculate remaining invoice balance (including credits already applied)
+  const remainingBalance = useMemo(() => {
     if (!invoiceId) return Infinity;
     return Math.max(0, invoiceTotal - existingCredits - existingPayments);
   }, [invoiceId, invoiceTotal, existingCredits, existingPayments]);
@@ -360,11 +366,17 @@ export function CreateCreditNoteDrawer({
       errors.description = "Please enter a description for this credit";
     }
     
-    // Only check remaining for invoice-linked credits
-    if (invoiceId && totals.grandTotal > remainingAmount && remainingAmount > 0) {
-      errors.exceedsRemaining = `Credit amount (€${formatNumber(totals.grandTotal, 2)}) exceeds the remaining invoice balance of €${formatNumber(remainingAmount, 2)}`;
-    } else if (invoiceId && totals.grandTotal > invoiceTotal && remainingAmount === 0) {
-      errors.exceedsRemaining = `Credit amount (€${formatNumber(totals.grandTotal, 2)}) exceeds the invoice total of €${formatNumber(invoiceTotal, 2)}`;
+    // For partially_paid invoices, cap credit note at outstanding_amount (grand_total - payments)
+    // For issued invoices, cap at remaining balance (grand_total - credits - payments)
+    if (invoiceId) {
+      const maxCreditAmount = invoiceStatus === "partially_paid" ? outstandingAmount : remainingBalance;
+      
+      if (totals.grandTotal > maxCreditAmount && maxCreditAmount > 0) {
+        const label = invoiceStatus === "partially_paid" ? "outstanding amount" : "remaining balance";
+        errors.exceedsRemaining = `Credit amount (€${formatNumber(totals.grandTotal, 2)}) exceeds the ${label} of €${formatNumber(maxCreditAmount, 2)}`;
+      } else if (totals.grandTotal > invoiceTotal && maxCreditAmount === 0) {
+        errors.exceedsRemaining = `Credit amount (€${formatNumber(totals.grandTotal, 2)}) exceeds the invoice total of €${formatNumber(invoiceTotal, 2)}`;
+      }
     }
     
     return errors;
@@ -630,18 +642,12 @@ export function CreateCreditNoteDrawer({
               )}
 
               {/* Remaining Balance Info (only for invoice-linked) */}
-              {(invoiceId || existingCreditNote?.invoice_id) && remainingAmount > 0 && !isLocked && (
+              {(invoiceId || existingCreditNote?.invoice_id) && remainingBalance > 0 && !isLocked && (
                 <div className="bg-muted/50 p-3 rounded-md text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Invoice Total:</span>
                     <span>€{formatNumber(invoiceTotal, 2)}</span>
                   </div>
-                  {existingCredits > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Existing Credits:</span>
-                      <span className="text-amber-600">-€{formatNumber(existingCredits, 2)}</span>
-                    </div>
-                  )}
                   {existingPayments > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Payments Received:</span>
@@ -649,9 +655,15 @@ export function CreateCreditNoteDrawer({
                     </div>
                   )}
                   <div className="flex justify-between font-medium border-t pt-1 mt-1">
-                    <span>Remaining Balance:</span>
-                    <span>€{formatNumber(remainingAmount, 2)}</span>
+                    <span>Outstanding Amount:</span>
+                    <span>€{formatNumber(outstandingAmount, 2)}</span>
                   </div>
+                  {existingCredits > 0 && (
+                    <div className="flex justify-between text-muted-foreground text-xs mt-1">
+                      <span>Credits Applied:</span>
+                      <span>-€{formatNumber(existingCredits, 2)}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

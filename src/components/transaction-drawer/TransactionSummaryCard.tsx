@@ -17,6 +17,7 @@ interface TransactionSummaryCardProps {
   totalCredits: number;
   totalPayments: number;
   remainingBalance: number;
+  outstandingAmount?: number; // grand_total - payments (not credits)
   // Credit note specific (unified values from parent)
   creditNoteTotalApplied?: number;
   creditNoteRemainingCredit?: number;
@@ -29,6 +30,7 @@ export const TransactionSummaryCard = ({
   totalCredits,
   totalPayments,
   remainingBalance,
+  outstandingAmount,
   creditNoteTotalApplied = 0,
   creditNoteRemainingCredit = 0,
 }: TransactionSummaryCardProps) => {
@@ -44,6 +46,12 @@ export const TransactionSummaryCard = ({
     }
     if (totalPayments > 0) {
       rows.push({ label: "Payments Received", value: totalPayments, type: "payment" });
+    }
+
+    // Show outstanding amount (before credits) if different from balance due
+    const displayOutstanding = outstandingAmount ?? (totalAmount - totalPayments);
+    if (totalCredits > 0 && displayOutstanding !== remainingBalance) {
+      rows.push({ label: "Outstanding Amount", value: displayOutstanding, type: "default" });
     }
 
     const finalStatus = remainingBalance === 0 ? "paid" : remainingBalance > 0 ? "due" : "credit";

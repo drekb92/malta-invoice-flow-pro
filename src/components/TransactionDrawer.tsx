@@ -20,6 +20,7 @@ import {
   Payment,
   TimelineEvent,
   getCreditNoteGrossAmount,
+  computeOutstandingAmount,
 } from "./transaction-drawer";
 
 import { TransactionDrawerHeader } from "./transaction-drawer/TransactionDrawerHeader";
@@ -240,7 +241,9 @@ export const TransactionDrawer = ({
   // Invoice-specific calculations
   const totalCredits = creditNotes.reduce((sum, cn) => sum + getCreditNoteGrossAmount(cn), 0);
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const remainingBalance = type === "invoice" && transaction ? getTotalAmount() - totalCredits - totalPayments : 0;
+  const invoiceTotal = type === "invoice" && transaction ? getTotalAmount() : 0;
+  const outstandingAmount = computeOutstandingAmount(invoiceTotal, totalPayments);
+  const remainingBalance = type === "invoice" && transaction ? invoiceTotal - totalCredits - totalPayments : 0;
 
   // Credit Note-specific calculations (unified logic)
   const creditNoteAmount = type === "credit_note" && transaction ? getTotalAmount() : 0;
@@ -429,6 +432,7 @@ export const TransactionDrawer = ({
                 totalCredits={totalCredits}
                 totalPayments={totalPayments}
                 remainingBalance={remainingBalance}
+                outstandingAmount={outstandingAmount}
                 creditNoteTotalApplied={creditNoteTotalApplied}
                 creditNoteRemainingCredit={creditNoteRemainingCredit}
               />
