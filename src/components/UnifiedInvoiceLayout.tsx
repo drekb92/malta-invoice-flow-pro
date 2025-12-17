@@ -2,7 +2,8 @@ import React from "react";
 import { formatDate, money, percent, mul } from "@/lib/invoiceUtils";
 import { PDF_PRINT_STYLES } from "@/lib/pdfPrintStyles";
 
-// Type definitions
+/* ===================== TYPES ===================== */
+
 export interface CompanySettings {
   name?: string;
   email?: string;
@@ -13,33 +14,14 @@ export interface CompanySettings {
   zipCode?: string;
   country?: string;
   taxId?: string;
-  registrationNumber?: string;
   logo?: string;
 }
 
 export interface BankingSettings {
   bankName?: string;
   accountName?: string;
-  accountNumber?: string;
-  routingNumber?: string;
   swiftCode?: string;
   iban?: string;
-  branch?: string;
-}
-
-export interface TemplateSettings {
-  primaryColor?: string;
-  accentColor?: string;
-  fontFamily?: string;
-  fontSize?: string;
-
-  // NOTE: user-editable margins are intentionally ignored (standard margins only)
-  marginTop?: number;
-  marginRight?: number;
-  marginBottom?: number;
-  marginLeft?: number;
-
-  bankingVisibility?: boolean;
 }
 
 export interface InvoiceItem {
@@ -66,11 +48,6 @@ export interface InvoiceData {
     vatTotal: number;
     grandTotal: number;
   };
-  discount?: {
-    type: "amount" | "percent";
-    value: number;
-    amount: number;
-  };
 }
 
 export type DocumentType = "INVOICE" | "CREDIT NOTE" | "QUOTATION";
@@ -79,44 +56,24 @@ export interface UnifiedInvoiceLayoutProps {
   invoiceData: InvoiceData;
   companySettings?: CompanySettings;
   bankingSettings?: BankingSettings;
-  templateSettings?: TemplateSettings;
   variant?: "preview" | "pdf" | "print";
   id?: string;
-  debug?: boolean;
-  templateId?: string;
   documentType?: DocumentType;
 }
+
+/* ===================== COMPONENT ===================== */
 
 export const UnifiedInvoiceLayout = ({
   invoiceData,
   companySettings,
   bankingSettings,
-  templateSettings,
   variant = "preview",
   id = "unified-invoice",
-  debug = false,
-  templateId,
   documentType = "INVOICE",
 }: UnifiedInvoiceLayoutProps) => {
-  // Labels
-  const getDocumentTitle = () => documentType;
-  const getNumberLabel = () => {
-    switch (documentType) {
-      case "CREDIT NOTE":
-        return "Credit Note #";
-      case "QUOTATION":
-        return "Quotation #";
-      default:
-        return "Invoice #";
-    }
-  };
+  const primaryColor = "#26A65B";
+  const fontFamily = "Inter";
 
-  // Branding (kept)
-  const primaryColor = templateSettings?.primaryColor || "#26A65B";
-  const accentColor = templateSettings?.accentColor || "#1F2D3D";
-  const fontFamily = templateSettings?.fontFamily || "Inter";
-
-  // Consistent typography scale (single system)
   const TYPE = {
     body: "12px",
     muted: "11px",
@@ -126,613 +83,158 @@ export const UnifiedInvoiceLayout = ({
     totals: "12px",
     total: "16px",
     h1: "28px",
-  } as const;
-
-  const bankingVisibility = templateSettings?.bankingVisibility !== false;
-
-  // ✅ Standard margins only (not user-editable)
-  const STD_MARGINS_MM = {
-    top: 20,
-    right: 20,
-    bottom: 20,
-    left: 20,
   };
 
-  const getAbsoluteLogoUrl = (url?: string): string | undefined => {
+  const getAbsoluteLogoUrl = (url?: string) => {
     if (!url) return undefined;
-    if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    if (url.startsWith("/")) {
-      return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos${url}`;
-    }
+    if (url.startsWith("http")) return url;
     return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${url}`;
   };
+
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
-  const validateCompanySettings = () => {
-    if (!companySettings) return { valid: false, missing: ["All company settings"] };
-    const missing: string[] = [];
-    if (!companySettings.name) missing.push("name");
-    if (!companySettings.email) missing.push("email");
-    if (!companySettings.address) missing.push("address");
-    if (!companySettings.logo) missing.push("logo");
-    return { valid: missing.length === 0, missing };
+  /* ===================== CONTAINER ===================== */
+
+  const baseContainer: React.CSSProperties = {
+    width: "21cm",
+    height: "29.7cm", // ✅ FIXED HEIGHT
+    minHeight: "29.7cm",
+    backgroundColor: "white",
+    padding: "20mm",
+    boxSizing: "border-box",
+    fontFamily,
+    fontSize: TYPE.body,
+    color: "#1f2937",
+    display: "flex",
+    flexDirection: "column",
   };
 
-  const validateBankingSettings = () => {
-    if (!bankingSettings) return { valid: false, missing: ["All banking settings"] };
-    const missing: string[] = [];
-    if (!bankingSettings.bankName) missing.push("bankName");
-    if (!bankingSettings.accountName) missing.push("accountName");
-    if (!bankingSettings.iban && !bankingSettings.accountNumber) missing.push("iban/accountNumber");
-    return { valid: missing.length === 0, missing };
-  };
+  const containerStyle =
+    variant === "pdf" || variant === "print"
+      ? baseContainer
+      : { ...baseContainer, maxWidth: "900px", margin: "0 auto" };
 
-  const validateInvoiceData = () => {
-    const missing: string[] = [];
-    if (!invoiceData.invoiceNumber) missing.push("invoiceNumber");
-    if (!invoiceData.customer?.name) missing.push("customer.name");
-    if (!invoiceData.items || invoiceData.items.length === 0) missing.push("items");
-    return { valid: missing.length === 0, missing };
-  };
+  /* ===================== RENDER ===================== */
 
-  const renderDebugPanel = () => {
-    if (!debug) return null;
+  return (
+    <div id={id} style={containerStyle}>
+      {variant === "pdf" && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
 
-    const companyValidation = validateCompanySettings();
-    const bankingValidation = validateBankingSettings();
-    const invoiceValidation = validateInvoiceData();
-
-    return (
-      <div
-        style={{
-          position: variant === "pdf" ? "relative" : "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
-          border: "2px solid #f59e0b",
-          borderRadius: "4px",
-          padding: "12px 16px",
-          fontSize: "11px",
-          fontFamily: "monospace",
-          zIndex: 1000,
-          marginBottom: variant === "pdf" ? "1rem" : "0",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        }}
-      >
-        <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "bold", color: "#92400e" }}>
-          🔍 DEBUG MODE - Invoice Template Rendering
-        </div>
-        <div style={{ marginBottom: "8px", paddingBottom: "8px", borderBottom: "1px solid #fbbf24" }}>
-          <strong style={{ color: "#92400e" }}>Template:</strong>
-          <div style={{ marginLeft: "8px", color: "#78350f" }}>
-            {templateId ? `ID: ${templateId}` : "ID: Not provided"}
-          </div>
-          <div style={{ marginLeft: "8px", color: "#78350f" }}>
-            Variant: <strong>{variant}</strong> | Forced Layout: <strong>cleanMinimal</strong>
+      {/* ================= HEADER ================= */}
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div style={{ maxWidth: "55%" }}>
+          {logoUrl && <img src={logoUrl} alt="Logo" style={{ maxHeight: "60px", marginBottom: "8px" }} />}
+          <div style={{ fontSize: TYPE.muted, lineHeight: 1.35 }}>
+            <strong>{companySettings?.name}</strong>
+            <div>{companySettings?.address}</div>
+            <div>{companySettings?.email}</div>
+            <div>VAT: {companySettings?.taxId}</div>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
-          <div
-            style={{
-              padding: "6px",
-              background: companyValidation.valid ? "#d1fae5" : "#fee2e2",
-              borderRadius: "4px",
-              border: `1px solid ${companyValidation.valid ? "#10b981" : "#ef4444"}`,
-            }}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                marginBottom: "4px",
-                color: companyValidation.valid ? "#065f46" : "#991b1b",
-              }}
-            >
-              {companyValidation.valid ? "✓" : "⚠"} Company
-            </div>
-            {companyValidation.valid ? (
-              <div style={{ color: "#065f46" }}>{companySettings?.name || "N/A"}</div>
-            ) : (
-              <div style={{ color: "#991b1b", fontSize: "10px" }}>Missing: {companyValidation.missing.join(", ")}</div>
-            )}
-          </div>
-          <div
-            style={{
-              padding: "6px",
-              background: bankingValidation.valid ? "#d1fae5" : "#fee2e2",
-              borderRadius: "4px",
-              border: `1px solid ${bankingValidation.valid ? "#10b981" : "#ef4444"}`,
-            }}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                marginBottom: "4px",
-                color: bankingValidation.valid ? "#065f46" : "#991b1b",
-              }}
-            >
-              {bankingValidation.valid ? "✓" : "⚠"} Banking
-            </div>
-            {bankingValidation.valid ? (
-              <div style={{ color: "#065f46" }}>{bankingSettings?.bankName || "N/A"}</div>
-            ) : (
-              <div style={{ color: "#991b1b", fontSize: "10px" }}>Missing: {bankingValidation.missing.join(", ")}</div>
-            )}
-          </div>
-          <div
-            style={{
-              padding: "6px",
-              background: invoiceValidation.valid ? "#d1fae5" : "#fee2e2",
-              borderRadius: "4px",
-              border: `1px solid ${invoiceValidation.valid ? "#10b981" : "#ef4444"}`,
-            }}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                marginBottom: "4px",
-                color: invoiceValidation.valid ? "#065f46" : "#991b1b",
-              }}
-            >
-              {invoiceValidation.valid ? "✓" : "⚠"} Invoice
-            </div>
-            {invoiceValidation.valid ? (
-              <div style={{ color: "#065f46" }}>{invoiceData.invoiceNumber}</div>
-            ) : (
-              <div style={{ color: "#991b1b", fontSize: "10px" }}>Missing: {invoiceValidation.missing.join(", ")}</div>
-            )}
+
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: TYPE.h1, color: primaryColor, letterSpacing: "0.08em" }}>{documentType}</div>
+          <div style={{ fontSize: TYPE.muted, lineHeight: 1.35 }}>
+            Invoice #: {invoiceData.invoiceNumber}
+            <br />
+            Date: {formatDate(invoiceData.invoiceDate)}
+            <br />
+            Due Date: {formatDate(invoiceData.dueDate)}
           </div>
         </div>
       </div>
-    );
-  };
 
-  // CSS variables (margins fixed)
-  const cssVariables = {
-    "--invoice-font-family": `'${fontFamily}', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`,
-    "--invoice-font-size": TYPE.body,
-    "--invoice-primary-color": primaryColor,
-    "--invoice-accent-color": accentColor,
-    "--invoice-margin-top": `${STD_MARGINS_MM.top}mm`,
-    "--invoice-margin-right": `${STD_MARGINS_MM.right}mm`,
-    "--invoice-margin-bottom": `${STD_MARGINS_MM.bottom}mm`,
-    "--invoice-margin-left": `${STD_MARGINS_MM.left}mm`,
-  } as React.CSSProperties;
+      <hr style={{ margin: "18px 0", borderColor: "#e5e7eb" }} />
 
-  // Container styling (✅ flex column so bottom can be pinned)
-  const containerStyle: React.CSSProperties =
-    variant === "pdf"
-      ? {
-          ...cssVariables,
-          width: "21cm",
-          minHeight: "29.7cm",
-          backgroundColor: "white",
-          paddingTop: "var(--invoice-margin-top)",
-          paddingRight: "var(--invoice-margin-right)",
-          paddingBottom: "var(--invoice-margin-bottom)",
-          paddingLeft: "var(--invoice-margin-left)",
-          boxSizing: "border-box",
-          fontFamily: "var(--invoice-font-family)",
-          fontSize: "var(--invoice-font-size)",
-          color: "var(--invoice-accent-color)",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-        }
-      : variant === "print"
-        ? {
-            ...cssVariables,
-            width: "21cm",
-            minHeight: "29.7cm",
-            backgroundColor: "white",
-            padding: "1.5cm",
-            boxSizing: "border-box",
-            fontFamily: "var(--invoice-font-family)",
-            fontSize: "var(--invoice-font-size)",
-            color: "var(--invoice-accent-color)",
-            display: "flex",
-            flexDirection: "column",
-          }
-        : {
-            ...cssVariables,
-            fontFamily: "var(--invoice-font-family)",
-            fontSize: "var(--invoice-font-size)",
-            color: "var(--invoice-accent-color)",
-            backgroundColor: "white",
-            padding: "2rem",
-            display: "flex",
-            flexDirection: "column",
-            minHeight: "calc(29.7cm - 4rem)", // makes preview behave similarly
-          };
-
-  const containerClassName =
-    variant === "pdf"
-      ? "bg-white"
-      : variant === "print"
-        ? "bg-white print:shadow-none"
-        : "bg-white max-w-4xl mx-auto shadow-lg";
-
-  return (
-    <div id={id} className={containerClassName} style={containerStyle}>
-      {variant === "pdf" && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
-      {renderDebugPanel()}
-
-      {/* TOP CONTENT */}
-      <div style={{ flex: "0 0 auto" }}>
-        {/* Header */}
-        <div
-          style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "18px" }}
-        >
-          {/* Left: Logo + Company */}
-          <div style={{ maxWidth: "58%" }}>
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Company Logo"
-                crossOrigin="anonymous"
-                style={{
-                  // ✅ bigger logo
-                  maxHeight: variant === "pdf" ? "58px" : "66px",
-                  width: "auto",
-                  objectFit: "contain",
-                  marginBottom: companySettings ? "8px" : "0",
-                }}
-              />
-            )}
-
-            {companySettings && (
-              <div style={{ fontSize: TYPE.muted, color: "#6b7280", lineHeight: 1.35 }}>
-                {companySettings.name && (
-                  <div style={{ fontWeight: 500, color: "#111827" }}>{companySettings.name}</div>
-                )}
-                {companySettings.address && <div style={{ whiteSpace: "pre-line" }}>{companySettings.address}</div>}
-                {companySettings.city && (
-                  <div>
-                    {companySettings.city}
-                    {companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}
-                  </div>
-                )}
-                {companySettings.phone && <div>Tel: {companySettings.phone}</div>}
-                {companySettings.email && <div>{companySettings.email}</div>}
-                {companySettings.taxId && <div>VAT: {companySettings.taxId}</div>}
-              </div>
-            )}
-          </div>
-
-          {/* Right: Title + Meta (✅ no outline box) */}
-          <div style={{ textAlign: "right", minWidth: "240px" }}>
-            <div
-              style={{
-                fontSize: TYPE.h1,
-                fontWeight: 300,
-                letterSpacing: "0.08em",
-                marginBottom: "6px",
-                color: primaryColor,
-              }}
-            >
-              {getDocumentTitle()}
-            </div>
-
-            <div style={{ fontSize: TYPE.muted, color: "#6b7280", lineHeight: 1.35 }}>
-              <div>
-                <span style={{ fontWeight: 500, color: "#9ca3af" }}>{getNumberLabel()}:</span>{" "}
-                <span style={{ color: "#374151" }}>{invoiceData.invoiceNumber}</span>
-              </div>
-              <div>
-                <span style={{ fontWeight: 500, color: "#9ca3af" }}>Date:</span>{" "}
-                <span style={{ color: "#374151" }}>{formatDate(invoiceData.invoiceDate)}</span>
-              </div>
-              <div>
-                <span style={{ fontWeight: 500, color: "#9ca3af" }}>
-                  {documentType === "QUOTATION" ? "Valid Until:" : "Due Date:"}
-                </span>{" "}
-                <span style={{ color: "#374151" }}>{formatDate(invoiceData.dueDate)}</span>
-              </div>
-            </div>
-          </div>
+      {/* ================= BILL TO ================= */}
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ fontSize: TYPE.section, letterSpacing: "0.08em" }}>BILL TO</div>
+        <div style={{ fontSize: TYPE.customer, fontWeight: 600 }}>{invoiceData.customer.name}</div>
+        <div style={{ fontSize: TYPE.body, lineHeight: 1.35 }}>
+          {invoiceData.customer.email}
+          <br />
+          {invoiceData.customer.address}
         </div>
+      </div>
 
-        {/* Divider */}
-        <div style={{ borderTop: "1px solid #e5e7eb", marginBottom: "22px" }} />
-
-        {/* Bill To (✅ consistent spacing) */}
-        <div style={{ marginBottom: "22px" }}>
-          <div
-            style={{
-              fontSize: TYPE.section,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              color: "#6b7280",
-              marginBottom: "6px",
-            }}
-          >
-            Bill To
-          </div>
-
-          <div style={{ fontSize: TYPE.customer, fontWeight: 600, color: "#111827", lineHeight: 1.25 }}>
-            {invoiceData.customer.name}
-          </div>
-
-          <div style={{ marginTop: "6px", fontSize: TYPE.body, color: "#6b7280", lineHeight: 1.35 }}>
-            {invoiceData.customer.email && <div style={{ marginBottom: "2px" }}>{invoiceData.customer.email}</div>}
-            {invoiceData.customer.address && (
-              <div style={{ marginBottom: "2px", whiteSpace: "pre-line" }}>{invoiceData.customer.address}</div>
-            )}
-            {invoiceData.customer.vat_number && (
-              <div>
-                <span style={{ fontWeight: 500, color: "#9ca3af" }}>VAT:</span> {invoiceData.customer.vat_number}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Items Table (✅ left aligned + consistent padding) */}
-        <div style={{ marginBottom: "16px" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed", marginLeft: 0 }}>
-            <colgroup>
-              <col style={{ width: "46%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "16%" }} />
-            </colgroup>
-
-            <thead>
-              <tr
+      {/* ================= TABLE ================= */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ background: "#f9fafb" }}>
+            {["Description", "Qty", "Unit Price", "VAT", "Total"].map((h, i) => (
+              <th
+                key={h}
                 style={{
-                  backgroundColor: "#f9fafb",
-                  borderTop: "1px solid #e5e7eb",
+                  textAlign: i === 0 ? "left" : "right",
+                  padding: "8px",
+                  fontSize: TYPE.tableHeader,
                   borderBottom: "1px solid #e5e7eb",
                 }}
               >
-                {["Description", "Qty", "Unit Price", "VAT", "Total"].map((h, idx) => (
-                  <th
-                    key={h}
-                    style={{
-                      textAlign: idx === 0 ? "left" : "right",
-                      padding: "9px 8px", // ✅ consistent left padding so table feels aligned
-                      fontSize: TYPE.tableHeader,
-                      fontWeight: 600,
-                      color: "#374151",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {invoiceData.items.map((item, i) => (
+            <tr key={i}>
+              <td style={{ padding: "8px" }}>{item.description}</td>
+              <td style={{ padding: "8px", textAlign: "right" }}>{item.quantity}</td>
+              <td style={{ padding: "8px", textAlign: "right" }}>{money(item.unit_price)}</td>
+              <td style={{ padding: "8px", textAlign: "right" }}>{percent(item.vat_rate)}</td>
+              <td style={{ padding: "8px", textAlign: "right", fontWeight: 600 }}>
+                {money(mul(item.quantity, item.unit_price))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-            <tbody>
-              {invoiceData.items.map((item, index) => {
-                const lineTotal = mul(item.quantity, item.unit_price);
-                return (
-                  <tr
-                    key={index}
-                    style={{ borderBottom: "1px solid #f3f4f6", breakInside: "avoid", pageBreakInside: "avoid" }}
-                  >
-                    <td
-                      style={{
-                        padding: "10px 8px",
-                        color: "#111827",
-                        fontSize: TYPE.body,
-                        whiteSpace: "normal",
-                        overflowWrap: "anywhere",
-                        wordBreak: "break-word",
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {item.description}
-                    </td>
+      {/* 🔥 FLEX SPACER — THIS IS THE KEY FIX */}
+      <div style={{ flexGrow: 1 }} />
 
-                    <td
-                      style={{
-                        padding: "10px 8px",
-                        textAlign: "right",
-                        color: "#6b7280",
-                        fontSize: TYPE.body,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {item.quantity} {item.unit || ""}
-                    </td>
+      {/* ================= BOTTOM ================= */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div style={{ fontSize: TYPE.body, lineHeight: 1.25 }}>
+            <div style={{ fontSize: TYPE.section }}>BANKING DETAILS</div>
+            <div>Bank: {bankingSettings?.bankName}</div>
+            <div>Account Name: {bankingSettings?.accountName}</div>
+            <div>IBAN: {bankingSettings?.iban}</div>
+            <div>SWIFT: {bankingSettings?.swiftCode}</div>
+          </div>
 
-                    <td
-                      style={{
-                        padding: "10px 8px",
-                        textAlign: "right",
-                        color: "#6b7280",
-                        fontSize: TYPE.body,
-                        whiteSpace: "nowrap",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {money(item.unit_price)}
-                    </td>
-
-                    <td
-                      style={{
-                        padding: "10px 8px",
-                        textAlign: "right",
-                        color: "#6b7280",
-                        fontSize: TYPE.body,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {percent(item.vat_rate)}
-                    </td>
-
-                    <td
-                      style={{
-                        padding: "10px 8px",
-                        textAlign: "right",
-                        fontWeight: 600,
-                        fontSize: TYPE.body,
-                        whiteSpace: "nowrap",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {money(lineTotal)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* BOTTOM (✅ pinned to bottom of page always) */}
-      <div style={{ marginTop: "auto" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "24px",
-            breakInside: "avoid",
-            pageBreakInside: "avoid",
-          }}
-        >
-          {/* Banking Details (single column, tight) */}
-          {bankingVisibility &&
-            bankingSettings &&
-            (bankingSettings.bankName ||
-              bankingSettings.iban ||
-              bankingSettings.swiftCode ||
-              bankingSettings.accountName) && (
-              <div style={{ width: "52%" }}>
-                <div
-                  style={{
-                    fontSize: TYPE.section,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: "#6b7280",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Banking Details
-                </div>
-
-                <div style={{ fontSize: TYPE.body, color: "#374151", lineHeight: 1.25 }}>
-                  {bankingSettings.bankName && (
-                    <div style={{ marginBottom: "3px" }}>
-                      <span style={{ color: "#9ca3af", fontWeight: 500 }}>Bank:</span> {bankingSettings.bankName}
-                    </div>
-                  )}
-                  {bankingSettings.accountName && (
-                    <div style={{ marginBottom: "3px" }}>
-                      <span style={{ color: "#9ca3af", fontWeight: 500 }}>Account Name:</span>{" "}
-                      {bankingSettings.accountName}
-                    </div>
-                  )}
-                  {bankingSettings.iban && (
-                    <div style={{ marginBottom: "3px" }}>
-                      <span style={{ color: "#9ca3af", fontWeight: 500 }}>IBAN:</span> {bankingSettings.iban}
-                    </div>
-                  )}
-                  {bankingSettings.swiftCode && (
-                    <div>
-                      <span style={{ color: "#9ca3af", fontWeight: 500 }}>SWIFT:</span> {bankingSettings.swiftCode}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-          {/* Totals */}
           <div style={{ width: "280px" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: TYPE.totals,
-                color: "#6b7280",
-                lineHeight: 1.25,
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span>Subtotal:</span>
-              <span style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                {money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}
-              </span>
+              <span>{money(invoiceData.totals.netTotal)}</span>
             </div>
-
-            {invoiceData.discount && invoiceData.discount.amount > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: TYPE.totals,
-                  color: "#6b7280",
-                  marginTop: "6px",
-                  lineHeight: 1.25,
-                }}
-              >
-                <span>
-                  Discount
-                  {invoiceData.discount.type === "percent" ? ` (${percent(invoiceData.discount.value / 100)})` : ""}:
-                </span>
-                <span style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                  —{money(invoiceData.discount.amount)}
-                </span>
-              </div>
-            )}
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: TYPE.totals,
-                color: "#6b7280",
-                marginTop: "6px",
-                lineHeight: 1.25,
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span>VAT:</span>
-              <span style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                {money(invoiceData.totals.vatTotal)}
-              </span>
+              <span>{money(invoiceData.totals.vatTotal)}</span>
             </div>
-
-            <div style={{ borderTop: "1px solid #e5e7eb", margin: "10px 0" }} />
-
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: TYPE.total,
-                fontWeight: 700,
-                color: "#111827",
-                lineHeight: 1.2,
-              }}
-            >
+            <div style={{ borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: TYPE.total, fontWeight: 700 }}>
               <span>Total:</span>
-              <span style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                {money(invoiceData.totals.grandTotal)}
-              </span>
+              <span>{money(invoiceData.totals.grandTotal)}</span>
             </div>
-
-            <div style={{ height: "2px", background: primaryColor, marginTop: "8px" }} />
+            <div style={{ height: "2px", background: primaryColor, marginTop: "6px" }} />
           </div>
         </div>
 
-        {/* Footer (always bottom) */}
         <div
           style={{
-            marginTop: "18px",
-            paddingTop: "12px",
+            marginTop: "16px",
+            paddingTop: "10px",
             borderTop: "1px solid #e5e7eb",
             textAlign: "center",
             fontSize: TYPE.muted,
-            color: "#6b7280",
-            opacity: 0.9,
-            lineHeight: 1.35,
           }}
         >
-          <div style={{ margin: 0 }}>Thank you for your business</div>
-          <div style={{ marginTop: "6px", fontSize: TYPE.muted, color: "#9ca3af" }}>All amounts in EUR.</div>
+          Thank you for your business
+          <br />
+          All amounts in EUR.
         </div>
       </div>
     </div>
