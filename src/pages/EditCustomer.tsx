@@ -6,9 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ArrowLeft, Save, Building, User } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -34,6 +44,9 @@ const EditCustomer = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const pendingNavigationRef = useRef<string | null>(null);
   const [formData, setFormData] = useState<CustomerFormData>({
     name: "",
     email: "",
@@ -46,6 +59,35 @@ const EditCustomer = () => {
     client_type: "Business",
     notes: "",
   });
+  const [originalData, setOriginalData] = useState<CustomerFormData | null>(null);
+
+  // Block navigation when form is dirty
+  const blocker = useBlocker(
+    useCallback(
+      ({ currentLocation, nextLocation }) =>
+        isDirty && currentLocation.pathname !== nextLocation.pathname,
+      [isDirty]
+    )
+  );
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      setShowExitDialog(true);
+    }
+  }, [blocker.state]);
+
+  // Handle browser back/refresh
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     if (user && id) {
@@ -76,7 +118,7 @@ const EditCustomer = () => {
         return;
       }
 
-      setFormData({
+      const customerData = {
         name: data.name || "",
         email: data.email || "",
         phone: data.phone || "",
@@ -87,7 +129,9 @@ const EditCustomer = () => {
         business_name: data.business_name || "",
         client_type: data.client_type || "Business",
         notes: data.notes || "",
-      });
+      };
+      setFormData(customerData);
+      setOriginalData(customerData);
     } catch (error) {
       console.error("Error fetching customer:", error);
       toast({
@@ -101,7 +145,45 @@ const EditCustomer = () => {
   };
 
   const handleChange = (field: keyof CustomerFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+      // Check if form is dirty by comparing with original
+      if (originalData) {
+        const hasChanges = Object.keys(newData).some(
+          (key) => newData[key as keyof CustomerFormData] !== originalData[key as keyof CustomerFormData]
+        );
+        setIsDirty(hasChanges);
+      }
+      return newData;
+    });
+  };
+
+  const handleNavigateBack = () => {
+    if (isDirty) {
+      pendingNavigationRef.current = `/customers/${id}`;
+      setShowExitDialog(true);
+    } else {
+      navigate(`/customers/${id}`);
+    }
+  };
+
+  const handleConfirmExit = () => {
+    setIsDirty(false);
+    setShowExitDialog(false);
+    if (blocker.state === "blocked") {
+      blocker.proceed();
+    } else if (pendingNavigationRef.current) {
+      navigate(pendingNavigationRef.current);
+      pendingNavigationRef.current = null;
+    }
+  };
+
+  const handleCancelExit = () => {
+    setShowExitDialog(false);
+    pendingNavigationRef.current = null;
+    if (blocker.state === "blocked") {
+      blocker.reset();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -145,6 +227,7 @@ const EditCustomer = () => {
         description: "Customer details have been saved successfully.",
       });
 
+      setIsDirty(false);
       navigate(`/customers/${id}`);
     } catch (error) {
       console.error("Error updating customer:", error);
@@ -189,7 +272,7 @@ const EditCustomer = () => {
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate(`/customers/${id}`)}>
+                <Button variant="ghost" size="icon" onClick={handleNavigateBack}>
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div>
@@ -198,7 +281,7 @@ const EditCustomer = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={() => navigate(`/customers/${id}`)}>
+                <Button variant="outline" onClick={handleNavigateBack}>
                   Cancel
                 </Button>
                 <Button onClick={handleSubmit} disabled={saving}>
@@ -375,6 +458,21 @@ const EditCustomer = () => {
           </form>
         </main>
       </div>
+
+      <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelExit}>Stay</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExit}>Leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
