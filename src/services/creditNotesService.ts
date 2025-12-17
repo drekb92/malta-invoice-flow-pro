@@ -83,6 +83,7 @@ export const creditNotesService = {
         vat_amount,
         total_amount,
         vat_rate,
+        status,
         invoice_items (
           id,
           description,
@@ -107,7 +108,14 @@ export const creditNotesService = {
 
     const typedInvoice = invoice as InvoiceRow & {
       invoice_items: InvoiceItemRow[];
+      status: string | null;
     };
+
+    // Validate invoice status - only allow credit notes for issued/partially_paid invoices
+    const status = typedInvoice.status;
+    if (status === "paid" || status === "draft" || status === "cancelled") {
+      throw new Error("Credit notes can only be created for issued unpaid invoices.");
+    }
 
     const items = typedInvoice.invoice_items || [];
 
