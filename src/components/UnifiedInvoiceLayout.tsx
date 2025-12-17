@@ -439,7 +439,14 @@ export const UnifiedInvoiceLayout = ({
 
         {/* Items Table */}
         <div className="mb-12">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '46%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '16%' }} />
+            </colgroup>
             <thead>
               <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <th
@@ -465,6 +472,7 @@ export const UnifiedInvoiceLayout = ({
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                     width: '80px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Qty
@@ -479,6 +487,7 @@ export const UnifiedInvoiceLayout = ({
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                     width: '120px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Unit Price
@@ -493,6 +502,7 @@ export const UnifiedInvoiceLayout = ({
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                     width: '80px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   VAT
@@ -507,6 +517,7 @@ export const UnifiedInvoiceLayout = ({
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                     width: '120px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Total
@@ -517,17 +528,43 @@ export const UnifiedInvoiceLayout = ({
               {invoiceData.items.map((item, index) => {
                 const lineTotal = mul(item.quantity, item.unit_price);
                 return (
-                  <tr key={index} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '16px 0', color: '#111827' }}>
+                  <tr key={index} style={{ 
+                    borderBottom: '1px solid #f3f4f6',
+                    breakInside: 'avoid',
+                    pageBreakInside: 'avoid',
+                  }}>
+                    <td style={{ 
+                      padding: '16px 0', 
+                      color: '#111827',
+                      whiteSpace: 'normal',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
+                    }}>
                       {item.description}
                     </td>
-                    <td style={{ padding: '16px 0', textAlign: 'right', color: '#6b7280' }}>
+                    <td style={{ 
+                      padding: '16px 0', 
+                      textAlign: 'right', 
+                      color: '#6b7280',
+                      whiteSpace: 'nowrap',
+                    }}>
                       {item.quantity} {item.unit || ''}
                     </td>
-                    <td style={{ padding: '16px 0', textAlign: 'right', color: '#6b7280' }}>
+                    <td style={{ 
+                      padding: '16px 0', 
+                      textAlign: 'right', 
+                      color: '#6b7280',
+                      whiteSpace: 'nowrap',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
                       {money(item.unit_price)}
                     </td>
-                    <td style={{ padding: '16px 0', textAlign: 'right', color: '#6b7280' }}>
+                    <td style={{ 
+                      padding: '16px 0', 
+                      textAlign: 'right', 
+                      color: '#6b7280',
+                      whiteSpace: 'nowrap',
+                    }}>
                       {percent(item.vat_rate)}
                     </td>
                     <td
@@ -535,6 +572,8 @@ export const UnifiedInvoiceLayout = ({
                         padding: '16px 0',
                         textAlign: 'right',
                         fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        fontVariantNumeric: 'tabular-nums',
                       }}
                     >
                       {money(lineTotal)}
@@ -546,13 +585,15 @@ export const UnifiedInvoiceLayout = ({
           </table>
         </div>
 
-        {/* Bottom Section: Bank Details and Totals */}
+        {/* Bottom Section: Bank Details and Totals - Keep together */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'start',
             marginTop: '4rem',
+            breakInside: 'avoid',
+            pageBreakInside: 'avoid',
           }}
         >
           {/* Bank Details */}
@@ -602,7 +643,7 @@ export const UnifiedInvoiceLayout = ({
                 }}
               >
                 <span>Subtotal:</span>
-                <span>
+                <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                   {money(
                     invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0)
                   )}
@@ -624,7 +665,7 @@ export const UnifiedInvoiceLayout = ({
                       : ''}
                     :
                   </span>
-                  <span>—{money(invoiceData.discount.amount)}</span>
+                  <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>—{money(invoiceData.discount.amount)}</span>
                 </div>
               )}
               <div
@@ -636,7 +677,7 @@ export const UnifiedInvoiceLayout = ({
                 }}
               >
                 <span>VAT:</span>
-                <span>{money(invoiceData.totals.vatTotal)}</span>
+                <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{money(invoiceData.totals.vatTotal)}</span>
               </div>
               <div style={{ borderTop: '1px solid #e5e7eb', margin: '8px 0' }} />
               <div
@@ -649,7 +690,7 @@ export const UnifiedInvoiceLayout = ({
                 }}
               >
                 <span>Total:</span>
-                <span>{money(invoiceData.totals.grandTotal)}</span>
+                <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{money(invoiceData.totals.grandTotal)}</span>
               </div>
             </div>
           </div>
@@ -853,6 +894,7 @@ export const UnifiedInvoiceLayout = ({
             borderCollapse: 'collapse',
             marginTop: '1cm',
             fontSize: '10pt',
+            tableLayout: 'fixed', // Fixed table layout for consistent columns
           }}
         >
           <colgroup>
@@ -884,6 +926,7 @@ export const UnifiedInvoiceLayout = ({
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
+                  whiteSpace: 'nowrap',
                   border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
@@ -895,6 +938,7 @@ export const UnifiedInvoiceLayout = ({
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
+                  whiteSpace: 'nowrap',
                   border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
@@ -906,6 +950,7 @@ export const UnifiedInvoiceLayout = ({
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
+                  whiteSpace: 'nowrap',
                   border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
@@ -917,6 +962,7 @@ export const UnifiedInvoiceLayout = ({
                   padding: '12pt 10pt',
                   textAlign: 'right',
                   fontWeight: 600,
+                  whiteSpace: 'nowrap',
                   border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                 }}
               >
@@ -930,12 +976,17 @@ export const UnifiedInvoiceLayout = ({
                 key={index}
                 style={{
                   backgroundColor: tableStyle === 'striped' && index % 2 === 0 ? '#f9fafb' : 'white',
+                  breakInside: 'avoid',
+                  pageBreakInside: 'avoid',
                 }}
               >
                 <td style={{ 
                   padding: '12px 16px', 
                   border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                   borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
                 }}>
                   {item.description}
                 </td>
@@ -944,7 +995,8 @@ export const UnifiedInvoiceLayout = ({
                     padding: '12px 16px',
                     border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                     borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
-                    textAlign: 'center',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {item.quantity} {item.unit || ''}
@@ -955,6 +1007,7 @@ export const UnifiedInvoiceLayout = ({
                     border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                     borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
                     textAlign: 'right',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {money(item.unit_price)}
@@ -964,7 +1017,8 @@ export const UnifiedInvoiceLayout = ({
                     padding: '12px 16px',
                     border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                     borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
-                    textAlign: 'center',
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {percent(item.vat_rate)}
@@ -975,6 +1029,8 @@ export const UnifiedInvoiceLayout = ({
                     border: tableStyle === 'bordered' ? '1px solid #e5e7eb' : tableStyle === 'minimal' ? 'none' : '1px solid #e5e7eb',
                     borderBottom: tableStyle === 'minimal' ? '1px solid #e5e7eb' : undefined,
                     textAlign: 'right',
+                    whiteSpace: 'nowrap',
+                    fontWeight: 500,
                   }}
                 >
                   {money(mul(item.quantity, item.unit_price))}
@@ -985,8 +1041,14 @@ export const UnifiedInvoiceLayout = ({
         </table>
       </div>
 
-      {/* Totals */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2rem' }}>
+      {/* Totals and Banking - Keep together */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        marginBottom: '2rem',
+        breakInside: 'avoid',
+        pageBreakInside: 'avoid',
+      }}>
         <div 
           style={{ 
             width: '300px',
@@ -1004,7 +1066,7 @@ export const UnifiedInvoiceLayout = ({
             }}
           >
             <span>Subtotal:</span>
-            <span>
+            <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
               {money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}
             </span>
           </div>
@@ -1023,7 +1085,7 @@ export const UnifiedInvoiceLayout = ({
                   : ''}
                 :
               </span>
-              <span>—{money(invoiceData.discount.amount)}</span>
+              <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>—{money(invoiceData.discount.amount)}</span>
             </div>
           )}
           <div
@@ -1034,7 +1096,7 @@ export const UnifiedInvoiceLayout = ({
             }}
           >
             <span>VAT Total:</span>
-            <span>{money(invoiceData.totals.vatTotal)}</span>
+            <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{money(invoiceData.totals.vatTotal)}</span>
           </div>
           <div
             style={{
@@ -1053,7 +1115,7 @@ export const UnifiedInvoiceLayout = ({
             }}
           >
             <span>Total:</span>
-            <span>{money(invoiceData.totals.grandTotal)}</span>
+            <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{money(invoiceData.totals.grandTotal)}</span>
           </div>
         </div>
       </div>
