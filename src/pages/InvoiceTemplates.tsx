@@ -49,12 +49,12 @@ interface InvoiceTemplate {
   accent_color: string;
   font_family: string;
   font_size: string;
-  layout?: 'default' | 'cleanMinimal' | 'compact';
-  header_layout?: 'default' | 'centered' | 'split';
-  table_style?: 'default' | 'striped' | 'bordered' | 'minimal';
-  totals_style?: 'default' | 'boxed' | 'highlighted';
+  layout?: "default" | "cleanMinimal" | "compact";
+  header_layout?: "default" | "centered" | "split";
+  table_style?: "default" | "striped" | "bordered" | "minimal";
+  totals_style?: "default" | "boxed" | "highlighted";
   banking_visibility?: boolean;
-  banking_style?: 'default' | 'boxed' | 'minimal';
+  banking_style?: "default" | "boxed" | "minimal";
   margin_top?: number;
   margin_right?: number;
   margin_bottom?: number;
@@ -64,89 +64,94 @@ interface InvoiceTemplate {
 
 const designPresets = [
   {
-    id: 'malta-professional',
-    name: 'Malta Professional',
-    description: 'Optimized for Malta business standards. Features clean layout with proper VAT display and local compliance requirements. Best for registered businesses in Malta.',
+    id: "malta-professional",
+    name: "Malta Professional",
+    description:
+      "Optimized for Malta business standards. Features clean layout with proper VAT display and local compliance requirements. Best for registered businesses in Malta.",
     settings: {
-      primary_color: '#2563eb',
-      accent_color: '#1e40af',
-      font_family: 'Inter',
-      font_size: '14px',
-      layout: 'default' as const,
-      header_layout: 'default' as const,
-      table_style: 'bordered' as const,
-      totals_style: 'boxed' as const,
+      primary_color: "#2563eb",
+      accent_color: "#1e40af",
+      font_family: "Inter",
+      font_size: "14px",
+      layout: "default" as const,
+      header_layout: "default" as const,
+      table_style: "bordered" as const,
+      totals_style: "boxed" as const,
       banking_visibility: true,
-      banking_style: 'boxed' as const,
-    }
+      banking_style: "boxed" as const,
+    },
   },
   {
-    id: 'service-business',
-    name: 'Service Business',
-    description: 'Perfect for consultants, contractors, and professional services. Emphasizes detailed service descriptions with clean minimal layout. Ideal for hourly work and project-based billing.',
+    id: "service-business",
+    name: "Service Business",
+    description:
+      "Perfect for consultants, contractors, and professional services. Emphasizes detailed service descriptions with clean minimal layout. Ideal for hourly work and project-based billing.",
     settings: {
-      primary_color: '#7c3aed',
-      accent_color: '#6d28d9',
-      font_family: 'Inter',
-      font_size: '14px',
-      layout: 'cleanMinimal' as const,
-      header_layout: 'split' as const,
-      table_style: 'minimal' as const,
-      totals_style: 'highlighted' as const,
+      primary_color: "#7c3aed",
+      accent_color: "#6d28d9",
+      font_family: "Inter",
+      font_size: "14px",
+      layout: "cleanMinimal" as const,
+      header_layout: "split" as const,
+      table_style: "minimal" as const,
+      totals_style: "highlighted" as const,
       banking_visibility: true,
-      banking_style: 'minimal' as const,
-    }
+      banking_style: "minimal" as const,
+    },
   },
   {
-    id: 'retail-products',
-    name: 'Retail/Products',
-    description: 'Designed for product sales and retail businesses. Features striped tables for easy scanning of multiple items, quantities, and prices. Best for shops and e-commerce.',
+    id: "retail-products",
+    name: "Retail/Products",
+    description:
+      "Designed for product sales and retail businesses. Features striped tables for easy scanning of multiple items, quantities, and prices. Best for shops and e-commerce.",
     settings: {
-      primary_color: '#059669',
-      accent_color: '#047857',
-      font_family: 'Inter',
-      font_size: '14px',
-      layout: 'default' as const,
-      header_layout: 'centered' as const,
-      table_style: 'striped' as const,
-      totals_style: 'boxed' as const,
+      primary_color: "#059669",
+      accent_color: "#047857",
+      font_family: "Inter",
+      font_size: "14px",
+      layout: "default" as const,
+      header_layout: "centered" as const,
+      table_style: "striped" as const,
+      totals_style: "boxed" as const,
       banking_visibility: true,
-      banking_style: 'default' as const,
-    }
+      banking_style: "default" as const,
+    },
   },
   {
-    id: 'minimal-clean',
-    name: 'Minimal Clean',
-    description: 'Ultra-simple design for businesses wanting straightforward invoices. Removes visual clutter while maintaining professionalism. Great for freelancers and small businesses.',
+    id: "minimal-clean",
+    name: "Minimal Clean",
+    description:
+      "Ultra-simple design for businesses wanting straightforward invoices. Removes visual clutter while maintaining professionalism. Great for freelancers and small businesses.",
     settings: {
-      primary_color: '#64748b',
-      accent_color: '#475569',
-      font_family: 'Inter',
-      font_size: '14px',
-      layout: 'cleanMinimal' as const,
-      header_layout: 'default' as const,
-      table_style: 'minimal' as const,
-      totals_style: 'default' as const,
+      primary_color: "#64748b",
+      accent_color: "#475569",
+      font_family: "Inter",
+      font_size: "14px",
+      layout: "cleanMinimal" as const,
+      header_layout: "default" as const,
+      table_style: "minimal" as const,
+      totals_style: "default" as const,
       banking_visibility: true,
-      banking_style: 'minimal' as const,
-    }
+      banking_style: "minimal" as const,
+    },
   },
   {
-    id: 'corporate',
-    name: 'Corporate',
-    description: 'Formal and structured design for established companies and B2B relationships. Features traditional layout with prominent branding and detailed breakdowns. Ideal for large contracts.',
+    id: "corporate",
+    name: "Corporate",
+    description:
+      "Formal and structured design for established companies and B2B relationships. Features traditional layout with prominent branding and detailed breakdowns. Ideal for large contracts.",
     settings: {
-      primary_color: '#1e40af',
-      accent_color: '#1e3a8a',
-      font_family: 'Lato',
-      font_size: '14px',
-      layout: 'default' as const,
-      header_layout: 'split' as const,
-      table_style: 'bordered' as const,
-      totals_style: 'boxed' as const,
+      primary_color: "#1e40af",
+      accent_color: "#1e3a8a",
+      font_family: "Lato",
+      font_size: "14px",
+      layout: "default" as const,
+      header_layout: "split" as const,
+      table_style: "bordered" as const,
+      totals_style: "boxed" as const,
       banking_visibility: true,
-      banking_style: 'boxed' as const,
-    }
+      banking_style: "boxed" as const,
+    },
   },
 ];
 
@@ -159,45 +164,58 @@ const InvoiceTemplates = () => {
   const [currentSettings, setCurrentSettings] = useState<Partial<InvoiceTemplate>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
-  
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
+
   // Use hooks to load company and banking settings
-  const { settings: companySettings, isLoading: loadingCompany, isValid: companyValid, validationErrors: companyErrors } = useCompanySettings();
-  const { settings: bankingSettings, isLoading: loadingBanking, isValid: bankingValid, validationErrors: bankingErrors } = useBankingSettings();
+  const {
+    settings: companySettings,
+    isLoading: loadingCompany,
+    isValid: companyValid,
+    validationErrors: companyErrors,
+  } = useCompanySettings();
+  const {
+    settings: bankingSettings,
+    isLoading: loadingBanking,
+    isValid: bankingValid,
+    validationErrors: bankingErrors,
+  } = useBankingSettings();
 
   // Load templates from Supabase
   const loadTemplates = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('invoice_templates')
-        .select('*')
-        .order('is_default', { ascending: false });
+        .from("invoice_templates")
+        .select("*")
+        .order("is_default", { ascending: false });
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const typedData: InvoiceTemplate[] = data.map(t => ({
+        const typedData: InvoiceTemplate[] = data.map((t) => ({
           ...t,
-          layout: (t.layout === 'cleanMinimal' ? 'cleanMinimal' : t.layout === 'compact' ? 'compact' : 'default') as 'default' | 'cleanMinimal' | 'compact',
-          header_layout: (t.header_layout || 'default') as 'default' | 'centered' | 'split',
-          table_style: (t.table_style || 'default') as 'default' | 'striped' | 'bordered' | 'minimal',
-          totals_style: (t.totals_style || 'default') as 'default' | 'boxed' | 'highlighted',
+          layout: (t.layout === "cleanMinimal" ? "cleanMinimal" : t.layout === "compact" ? "compact" : "default") as
+            | "default"
+            | "cleanMinimal"
+            | "compact",
+          header_layout: (t.header_layout || "default") as "default" | "centered" | "split",
+          table_style: (t.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
+          totals_style: (t.totals_style || "default") as "default" | "boxed" | "highlighted",
           banking_visibility: t.banking_visibility !== undefined ? t.banking_visibility : true,
-          banking_style: (t.banking_style || 'default') as 'default' | 'boxed' | 'minimal',
+          banking_style: (t.banking_style || "default") as "default" | "boxed" | "minimal",
           margin_top: t.margin_top || 20,
           margin_right: t.margin_right || 20,
           margin_bottom: t.margin_bottom || 20,
           margin_left: t.margin_left || 20,
         }));
         setTemplates(typedData);
-        const defaultTemplate = typedData.find(t => t.is_default) || typedData[0];
+        const defaultTemplate = typedData.find((t) => t.is_default) || typedData[0];
         setSelectedTemplate(defaultTemplate);
         setCurrentSettings(defaultTemplate);
       } else {
         await createDefaultTemplate();
       }
     } catch (error) {
-      console.error('Error loading templates:', error);
+      console.error("Error loading templates:", error);
       toast({
         title: "Error loading templates",
         description: "Failed to load invoice templates from database.",
@@ -216,18 +234,18 @@ const InvoiceTemplates = () => {
       }
 
       const defaultTemplate = {
-        name: 'Default Template',
+        name: "Default Template",
         is_default: true,
-        primary_color: '#26A65B',
-        accent_color: '#1F2D3D',
-        font_family: 'Inter',
-        font_size: '14px',
-        layout: 'default',
-        header_layout: 'default',
-        table_style: 'default',
-        totals_style: 'default',
+        primary_color: "#26A65B",
+        accent_color: "#1F2D3D",
+        font_family: "Inter",
+        font_size: "14px",
+        layout: "default",
+        header_layout: "default",
+        table_style: "default",
+        totals_style: "default",
         banking_visibility: true,
-        banking_style: 'default',
+        banking_style: "default",
         margin_top: 20,
         margin_right: 20,
         margin_bottom: 20,
@@ -235,28 +253,24 @@ const InvoiceTemplates = () => {
         user_id: user.id,
       };
 
-      const { data, error } = await supabase
-        .from('invoice_templates')
-        .insert([defaultTemplate])
-        .select()
-        .single();
+      const { data, error } = await supabase.from("invoice_templates").insert([defaultTemplate]).select().single();
 
       if (error) throw error;
 
       const typedData = {
         ...data,
-        layout: 'default' as const,
-        header_layout: 'default' as const,
-        table_style: 'default' as const,
-        totals_style: 'default' as const,
+        layout: "default" as const,
+        header_layout: "default" as const,
+        table_style: "default" as const,
+        totals_style: "default" as const,
         banking_visibility: true,
-        banking_style: 'default' as const,
+        banking_style: "default" as const,
       };
       setTemplates([typedData]);
       setSelectedTemplate(typedData);
       setCurrentSettings(typedData);
     } catch (error) {
-      console.error('Error creating default template:', error);
+      console.error("Error creating default template:", error);
     }
   };
 
@@ -266,7 +280,7 @@ const InvoiceTemplates = () => {
   }, [loadTemplates]);
 
   const updateSetting = (key: keyof InvoiceTemplate, value: any) => {
-    setCurrentSettings(prev => ({
+    setCurrentSettings((prev) => ({
       ...prev,
       [key]: value,
     }));
@@ -281,8 +295,8 @@ const InvoiceTemplates = () => {
     });
   };
 
-  const applyPreset = (preset: typeof designPresets[0]) => {
-    setCurrentSettings(prev => ({
+  const applyPreset = (preset: (typeof designPresets)[0]) => {
+    setCurrentSettings((prev) => ({
       ...prev,
       ...preset.settings,
     }));
@@ -302,18 +316,18 @@ const InvoiceTemplates = () => {
     if (!companySettings?.company_logo) warnings.push("Company logo not uploaded");
     if (!companySettings?.company_address) warnings.push("Company address missing");
     if (!companySettings?.company_vat_number) warnings.push("VAT number not set");
-    
+
     // Banking validation (only if banking visibility is enabled)
     if (currentSettings.banking_visibility !== false) {
       if (!bankingSettings?.bank_name) warnings.push("Bank name not set");
       if (!bankingSettings?.bank_account_name) warnings.push("Bank account name missing");
       if (!bankingSettings?.bank_iban) warnings.push("IBAN not provided");
     }
-    
+
     // Template validation
     if (!currentSettings.primary_color) errors.push("Primary color required");
     if (!currentSettings.font_family) errors.push("Font family required");
-    
+
     return { warnings, errors, isValid: errors.length === 0 };
   };
 
@@ -324,7 +338,7 @@ const InvoiceTemplates = () => {
     setIsSaving(true);
     try {
       const { error } = await supabase
-        .from('invoice_templates')
+        .from("invoice_templates")
         .update({
           primary_color: currentSettings.primary_color,
           accent_color: currentSettings.accent_color,
@@ -341,20 +355,20 @@ const InvoiceTemplates = () => {
           margin_bottom: currentSettings.margin_bottom,
           margin_left: currentSettings.margin_left,
         })
-        .eq('id', currentSettings.id);
+        .eq("id", currentSettings.id);
 
       if (error) throw error;
 
-      setTemplates(prev => prev.map(t => 
-        t.id === currentSettings.id ? { ...t, ...currentSettings } as InvoiceTemplate : t
-      ));
+      setTemplates((prev) =>
+        prev.map((t) => (t.id === currentSettings.id ? ({ ...t, ...currentSettings } as InvoiceTemplate) : t)),
+      );
       setSelectedTemplate({ ...selectedTemplate, ...currentSettings } as InvoiceTemplate);
 
       await refreshTemplate();
 
       // Validate after save and show results
       const validation = validateTemplateData();
-      
+
       if (validation.warnings.length > 0) {
         // Show warning toast with list of missing items
         toast({
@@ -370,9 +384,8 @@ const InvoiceTemplates = () => {
           description: "All template settings are complete and ready to use.",
         });
       }
-
     } catch (error) {
-      console.error('Error saving template:', error);
+      console.error("Error saving template:", error);
       toast({
         title: "Save failed",
         description: "Failed to save template. Please try again.",
@@ -385,23 +398,20 @@ const InvoiceTemplates = () => {
 
   const handleSaveAndTest = async () => {
     await handleSave();
-    
+
     try {
       // Pass font_family to ensure proper font loading in PDF
-      await downloadPdfFromFunction(
-        "invoice-template-test",
-        currentSettings.font_family || 'Inter'
-      );
-      toast({ 
-        title: 'Test PDF generated', 
-        description: 'Template PDF with sample data has been downloaded.' 
+      await downloadPdfFromFunction("invoice-template-test", currentSettings.font_family || "Inter");
+      toast({
+        title: "Test PDF generated",
+        description: "Template PDF with sample data has been downloaded.",
       });
     } catch (error: any) {
       console.error("Test failed:", error);
       toast({
-        title: 'Test failed',
-        description: error?.message || 'Could not generate test PDF.',
-        variant: 'destructive',
+        title: "Test failed",
+        description: error?.message || "Could not generate test PDF.",
+        variant: "destructive",
       });
     }
   };
@@ -412,28 +422,30 @@ const InvoiceTemplates = () => {
 
     try {
       await supabase
-        .from('invoice_templates')
+        .from("invoice_templates")
         .update({ is_default: false })
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+        .neq("id", "00000000-0000-0000-0000-000000000000");
 
       const { error } = await supabase
-        .from('invoice_templates')
+        .from("invoice_templates")
         .update({ is_default: true })
-        .eq('id', selectedTemplate.id);
+        .eq("id", selectedTemplate.id);
 
       if (error) throw error;
 
-      setTemplates(prev => prev.map(t => ({
-        ...t,
-        is_default: t.id === selectedTemplate.id
-      })));
+      setTemplates((prev) =>
+        prev.map((t) => ({
+          ...t,
+          is_default: t.id === selectedTemplate.id,
+        })),
+      );
 
       toast({
         title: "Default template set",
         description: "This template has been set as the default.",
       });
     } catch (error) {
-      console.error('Error setting default template:', error);
+      console.error("Error setting default template:", error);
       toast({
         title: "Error",
         description: "Failed to set default template. Please try again.",
@@ -442,12 +454,12 @@ const InvoiceTemplates = () => {
     }
   };
 
-const fontFamilies = [
-    { value: 'Inter', label: 'Inter' },
-    { value: 'Roboto', label: 'Roboto' },
-    { value: 'Lato', label: 'Lato' },
-    { value: 'Open Sans', label: 'Open Sans' },
-    { value: 'Poppins', label: 'Poppins' },
+  const fontFamilies = [
+    { value: "Inter", label: "Inter" },
+    { value: "Roboto", label: "Roboto" },
+    { value: "Lato", label: "Lato" },
+    { value: "Open Sans", label: "Open Sans" },
+    { value: "Poppins", label: "Poppins" },
   ];
 
   const fontSizes = [
@@ -458,39 +470,39 @@ const fontFamilies = [
   ];
 
   const templateForPreview = {
-    id: (currentSettings as any).id || 'preview',
-    name: (selectedTemplate?.name || 'Preview Template'),
+    id: (currentSettings as any).id || "preview",
+    name: selectedTemplate?.name || "Preview Template",
     is_default: !!selectedTemplate?.is_default,
-    primary_color: currentSettings.primary_color || '#26A65B',
-    accent_color: currentSettings.accent_color || '#1F2D3D',
-    font_family: currentSettings.font_family || 'Inter',
-    font_size: currentSettings.font_size || '14px',
-    layout: currentSettings.layout || 'default',
-    header_layout: currentSettings.header_layout || 'default',
-    table_style: currentSettings.table_style || 'default',
-    totals_style: currentSettings.totals_style || 'default',
+    primary_color: currentSettings.primary_color || "#26A65B",
+    accent_color: currentSettings.accent_color || "#1F2D3D",
+    font_family: currentSettings.font_family || "Inter",
+    font_size: currentSettings.font_size || "14px",
+    layout: currentSettings.layout || "default",
+    header_layout: currentSettings.header_layout || "default",
+    table_style: currentSettings.table_style || "default",
+    totals_style: currentSettings.totals_style || "default",
     banking_visibility: currentSettings.banking_visibility !== undefined ? currentSettings.banking_visibility : true,
-    banking_style: currentSettings.banking_style || 'default',
+    banking_style: currentSettings.banking_style || "default",
   };
 
   const rawSampleData = {
-    invoiceNumber: 'INV-2024-001',
-    invoiceDate: '2024-01-15',
-    dueDate: '2024-02-14',
+    invoiceNumber: "INV-2024-001",
+    invoiceDate: "2024-01-15",
+    dueDate: "2024-02-14",
     customer: {
-      name: 'Sample Customer',
-      email: 'customer@example.com',
-      address: '456 Customer Ave\nSliema, Malta SLM 1234',
-      vat_number: 'MT98765432',
+      name: "Sample Customer",
+      email: "customer@example.com",
+      address: "456 Customer Ave\nSliema, Malta SLM 1234",
+      vat_number: "MT98765432",
     },
     items: [
-      { description: 'Professional Services', quantity: 10, unit_price: 50, vat_rate: 0.18, unit: 'hours' },
-      { description: 'Consultation Fee', quantity: 1, unit_price: 150, vat_rate: 0.18, unit: 'service' },
+      { description: "Professional Services", quantity: 10, unit_price: 50, vat_rate: 0.18, unit: "hours" },
+      { description: "Consultation Fee", quantity: 1, unit_price: 150, vat_rate: 0.18, unit: "service" },
     ],
     totals: {
-      netTotal: 650.00,
-      vatTotal: 117.00,
-      grandTotal: 767.00,
+      netTotal: 650.0,
+      vatTotal: 117.0,
+      grandTotal: 767.0,
     },
   };
 
@@ -503,43 +515,36 @@ const fontFamilies = [
 
   const getPreviewDimensions = () => {
     switch (previewMode) {
-      case 'mobile':
-        return 'max-w-sm mx-auto';
-      case 'print':
-        return 'w-[210mm] mx-auto'; // A4 width
-      case 'desktop':
+      case "mobile":
+        return "max-w-sm mx-auto";
+      case "print":
+        return "w-[210mm] mx-auto"; // A4 width
+      case "desktop":
       default:
-        return 'max-w-4xl mx-auto';
+        return "max-w-4xl mx-auto";
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="md:ml-64">
         <header className="bg-card border-b border-border sticky top-0 z-10">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Invoice Template Designer</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Design beautiful invoices with live preview
-                </p>
+                <p className="text-sm text-muted-foreground mt-1">Design beautiful invoices with live preview</p>
               </div>
               <div className="flex items-center gap-2">
                 <PreviewModeSelector mode={previewMode} onModeChange={setPreviewMode} />
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={resetToDefault}
-                  disabled={!selectedTemplate}
-                >
+                <Button variant="outline" size="sm" onClick={resetToDefault} disabled={!selectedTemplate}>
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Reset
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={handleSaveAndTest}
                   disabled={isSaving || !selectedTemplate}
@@ -561,10 +566,20 @@ const fontFamilies = [
                 <strong>Action Required:</strong>
                 <ul className="list-disc list-inside mt-2 text-sm space-y-1">
                   {companyErrors.map((error, i) => (
-                    <li key={`company-${i}`}>{error} - <a href="/settings" className="underline">Go to Settings</a></li>
+                    <li key={`company-${i}`}>
+                      {error} -{" "}
+                      <a href="/settings" className="underline">
+                        Go to Settings
+                      </a>
+                    </li>
                   ))}
                   {bankingErrors.map((error, i) => (
-                    <li key={`banking-${i}`}>{error} - <a href="/settings" className="underline">Go to Settings</a></li>
+                    <li key={`banking-${i}`}>
+                      {error} -{" "}
+                      <a href="/settings" className="underline">
+                        Go to Settings
+                      </a>
+                    </li>
                   ))}
                 </ul>
               </AlertDescription>
@@ -607,10 +622,10 @@ const fontFamilies = [
                     <Card>
                       <CardContent className="pt-6 space-y-3">
                         <Label className="text-sm font-medium">Active Template</Label>
-                        <Select 
-                          value={selectedTemplate.id} 
+                        <Select
+                          value={selectedTemplate.id}
                           onValueChange={(value) => {
-                            const template = templates.find(t => t.id === value);
+                            const template = templates.find((t) => t.id === value);
                             if (template) {
                               setSelectedTemplate(template);
                               setCurrentSettings(template);
@@ -626,7 +641,9 @@ const fontFamilies = [
                                 <div className="flex items-center gap-2">
                                   {template.name}
                                   {template.is_default && (
-                                    <Badge variant="secondary" className="text-xs">Default</Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      Default
+                                    </Badge>
                                   )}
                                 </div>
                               </SelectItem>
@@ -645,8 +662,10 @@ const fontFamilies = [
                         <Settings2 className="h-4 w-4" />
                         <AlertDescription>
                           Company logo and banking details are managed in{" "}
-                          <a href="/settings" className="underline font-medium">Settings</a>.
-                          Template controls below affect visual design only.
+                          <a href="/settings" className="underline font-medium">
+                            Settings
+                          </a>
+                          . Template controls below affect visual design only.
                         </AlertDescription>
                       </Alert>
 
@@ -682,7 +701,7 @@ const fontFamilies = [
                           <Palette className="h-4 w-4" />
                           Colors
                         </Label>
-                        
+
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label className="text-sm">Primary Color</Label>
@@ -693,13 +712,13 @@ const fontFamilies = [
                               />
                               <Input
                                 type="color"
-                                value={currentSettings.primary_color || '#26A65B'}
-                                onChange={(e) => updateSetting('primary_color', e.target.value)}
+                                value={currentSettings.primary_color || "#26A65B"}
+                                onChange={(e) => updateSetting("primary_color", e.target.value)}
                                 className="w-16 h-8 p-0 border-0"
                               />
                             </div>
                           </div>
-                          
+
                           <div className="space-y-2">
                             <Label className="text-sm">Accent Color</Label>
                             <div className="flex items-center gap-2">
@@ -709,8 +728,8 @@ const fontFamilies = [
                               />
                               <Input
                                 type="color"
-                                value={currentSettings.accent_color || '#1F2D3D'}
-                                onChange={(e) => updateSetting('accent_color', e.target.value)}
+                                value={currentSettings.accent_color || "#1F2D3D"}
+                                onChange={(e) => updateSetting("accent_color", e.target.value)}
                                 className="w-16 h-8 p-0 border-0"
                               />
                             </div>
@@ -726,11 +745,14 @@ const fontFamilies = [
                           <Type className="h-4 w-4" />
                           Typography
                         </Label>
-                        
+
                         <div className="space-y-3">
                           <div>
                             <Label className="text-sm">Font Family</Label>
-                            <Select value={currentSettings.font_family || 'Inter'} onValueChange={(value) => updateSetting('font_family', value)}>
+                            <Select
+                              value={currentSettings.font_family || "Inter"}
+                              onValueChange={(value) => updateSetting("font_family", value)}
+                            >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
@@ -743,10 +765,13 @@ const fontFamilies = [
                               </SelectContent>
                             </Select>
                           </div>
-                          
+
                           <div>
                             <Label className="text-sm">Font Size</Label>
-                            <Select value={currentSettings.font_size || '14px'} onValueChange={(value) => updateSetting('font_size', value)}>
+                            <Select
+                              value={currentSettings.font_size || "14px"}
+                              onValueChange={(value) => updateSetting("font_size", value)}
+                            >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
@@ -770,9 +795,9 @@ const fontFamilies = [
                           <Layout className="h-4 w-4" />
                           Layout Style
                         </Label>
-                        <Select 
-                          value={currentSettings.layout || 'default'} 
-                          onValueChange={(value) => updateSetting('layout', value)}
+                        <Select
+                          value={currentSettings.layout || "default"}
+                          onValueChange={(value) => updateSetting("layout", value)}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -790,9 +815,9 @@ const fontFamilies = [
                       {/* Header Layout */}
                       <div className="space-y-3">
                         <Label className="text-sm font-medium">Header Layout</Label>
-                        <Select 
-                          value={currentSettings.header_layout || 'default'} 
-                          onValueChange={(value) => updateSetting('header_layout', value)}
+                        <Select
+                          value={currentSettings.header_layout || "default"}
+                          onValueChange={(value) => updateSetting("header_layout", value)}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -813,9 +838,9 @@ const fontFamilies = [
                           <Table className="h-4 w-4" />
                           Items Table Style
                         </Label>
-                        <Select 
-                          value={currentSettings.table_style || 'default'} 
-                          onValueChange={(value) => updateSetting('table_style', value)}
+                        <Select
+                          value={currentSettings.table_style || "default"}
+                          onValueChange={(value) => updateSetting("table_style", value)}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -837,9 +862,9 @@ const fontFamilies = [
                           <DollarSign className="h-4 w-4" />
                           Totals Section Style
                         </Label>
-                        <Select 
-                          value={currentSettings.totals_style || 'default'} 
-                          onValueChange={(value) => updateSetting('totals_style', value)}
+                        <Select
+                          value={currentSettings.totals_style || "default"}
+                          onValueChange={(value) => updateSetting("totals_style", value)}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -864,13 +889,13 @@ const fontFamilies = [
                           <Label className="text-sm">Show Banking Details</Label>
                           <Switch
                             checked={currentSettings.banking_visibility !== false}
-                            onCheckedChange={(checked) => updateSetting('banking_visibility', checked)}
+                            onCheckedChange={(checked) => updateSetting("banking_visibility", checked)}
                           />
                         </div>
                         {currentSettings.banking_visibility !== false && (
-                          <Select 
-                            value={currentSettings.banking_style || 'default'} 
-                            onValueChange={(value) => updateSetting('banking_style', value)}
+                          <Select
+                            value={currentSettings.banking_style || "default"}
+                            onValueChange={(value) => updateSetting("banking_style", value)}
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -886,90 +911,65 @@ const fontFamilies = [
 
                       <Separator />
 
-                      {/* Margins */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium">Page Margins (mm)</Label>
+                      {/* Margins (Locked) */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Page Margins</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Margins are standard and locked for VAT-compliant consistency.
+                        </p>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label className="text-xs text-muted-foreground">Top</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="50"
-                              value={currentSettings.margin_top || 20}
-                              onChange={(e) => updateSetting('margin_top', parseInt(e.target.value))}
-                            />
+                            <Input type="number" value={20} disabled />
                           </div>
                           <div>
                             <Label className="text-xs text-muted-foreground">Right</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="50"
-                              value={currentSettings.margin_right || 20}
-                              onChange={(e) => updateSetting('margin_right', parseInt(e.target.value))}
-                            />
+                            <Input type="number" value={20} disabled />
                           </div>
                           <div>
                             <Label className="text-xs text-muted-foreground">Bottom</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="50"
-                              value={currentSettings.margin_bottom || 20}
-                              onChange={(e) => updateSetting('margin_bottom', parseInt(e.target.value))}
-                            />
+                            <Input type="number" value={20} disabled />
                           </div>
                           <div>
                             <Label className="text-xs text-muted-foreground">Left</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="50"
-                              value={currentSettings.margin_left || 20}
-                              onChange={(e) => updateSetting('margin_left', parseInt(e.target.value))}
-                            />
+                            <Input type="number" value={20} disabled />
                           </div>
                         </div>
                       </div>
 
                       {/* Action Buttons */}
                       <div className="flex flex-col gap-2 pt-4">
-                        <Button 
-                          className="w-full" 
-                          onClick={handleSave}
-                          disabled={isSaving || !selectedTemplate}
-                        >
+                        <Button className="w-full" onClick={handleSave} disabled={isSaving || !selectedTemplate}>
                           <Save className="h-4 w-4 mr-2" />
-                          {isSaving ? 'Saving...' : 'Save Template'}
+                          {isSaving ? "Saving..." : "Save Template"}
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="w-full"
                           onClick={handleSetDefault}
                           disabled={!selectedTemplate || selectedTemplate?.is_default}
                         >
                           <Star className="h-4 w-4 mr-2" />
-                          {selectedTemplate?.is_default ? 'Default Template' : 'Set as Default'}
+                          {selectedTemplate?.is_default ? "Default Template" : "Set as Default"}
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           className="w-full"
                           onClick={async () => {
                             if (!selectedTemplate) return;
                             try {
-                              const filename = `Template-Preview-${selectedTemplate.name.replace(/\s+/g, '-')}`;
+                              const filename = `Template-Preview-${selectedTemplate.name.replace(/\s+/g, "-")}`;
                               await downloadPdfFromFunction(filename, templateForPreview?.font_family);
                               toast({
-                                title: 'PDF generated',
-                                description: 'Template preview has been downloaded.',
+                                title: "Export opened",
+                                description: 'Print dialog opened. Choose "Save as PDF" to download.',
                               });
                             } catch (error) {
-                              console.error('[InvoiceTemplates] PDF preview error:', error);
+                              console.error("[InvoiceTemplates] PDF preview error:", error);
                               toast({
-                                title: 'PDF error',
-                                description: 'Failed to generate PDF preview.',
-                                variant: 'destructive',
+                                title: "PDF error",
+                                description: "Failed to generate PDF preview.",
+                                variant: "destructive",
                               });
                             }
                           }}
@@ -995,43 +995,53 @@ const fontFamilies = [
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className={`${getPreviewDimensions()} bg-white rounded-lg shadow-lg overflow-auto`}
-                       style={{ 
-                         maxHeight: previewMode === 'print' ? '297mm' : '800px',
-                         fontFamily: currentSettings.font_family || 'Inter'
-                       }}>
-                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || 'Inter')} />
-                    
+                  <div
+                    className={`${getPreviewDimensions()} bg-white rounded-lg shadow-lg overflow-auto`}
+                    style={{
+                      maxHeight: previewMode === "print" ? "297mm" : "800px",
+                      fontFamily: currentSettings.font_family || "Inter",
+                    }}
+                  >
+                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
+
                     <UnifiedInvoiceLayout
                       invoiceData={sampleInvoiceData}
-                      companySettings={companySettings ? {
-                        name: companySettings.company_name || '',
-                        address: companySettings.company_address || '',
-                        city: companySettings.company_city || '',
-                        zipCode: companySettings.company_zip_code || '',
-                        country: companySettings.company_country || '',
-                        phone: companySettings.company_phone || '',
-                        email: companySettings.company_email || '',
-                        taxId: companySettings.company_vat_number || '',
-                        logo: companySettings.company_logo || '',
-                      } : undefined}
-                      bankingSettings={bankingSettings ? {
-                        bankName: bankingSettings.bank_name || '',
-                        accountName: bankingSettings.bank_account_name || '',
-                        iban: bankingSettings.bank_iban || '',
-                        swiftCode: bankingSettings.bank_swift_code || '',
-                      } : undefined}
+                      companySettings={
+                        companySettings
+                          ? {
+                              name: companySettings.company_name || "",
+                              address: companySettings.company_address || "",
+                              city: companySettings.company_city || "",
+                              zipCode: companySettings.company_zip_code || "",
+                              country: companySettings.company_country || "",
+                              phone: companySettings.company_phone || "",
+                              email: companySettings.company_email || "",
+                              taxId: companySettings.company_vat_number || "",
+                              logo: companySettings.company_logo || "",
+                            }
+                          : undefined
+                      }
+                      bankingSettings={
+                        bankingSettings
+                          ? {
+                              bankName: bankingSettings.bank_name || "",
+                              accountName: bankingSettings.bank_account_name || "",
+                              iban: bankingSettings.bank_iban || "",
+                              swiftCode: bankingSettings.bank_swift_code || "",
+                            }
+                          : undefined
+                      }
                       templateSettings={{
                         primaryColor: templateForPreview.primary_color,
                         accentColor: templateForPreview.accent_color,
                         fontFamily: templateForPreview.font_family,
                         fontSize: templateForPreview.font_size,
-                        layout: currentSettings.layout || 'default',
-                        headerLayout: currentSettings.header_layout || 'default',
-                        tableStyle: currentSettings.table_style || 'default',
-                        totalsStyle: currentSettings.totals_style || 'default',
+                        layout: currentSettings.layout || "default",
+                        headerLayout: currentSettings.header_layout || "default",
+                        tableStyle: currentSettings.table_style || "default",
+                        totalsStyle: currentSettings.totals_style || "default",
                         bankingVisibility: currentSettings.banking_visibility !== false,
-                        bankingStyle: currentSettings.banking_style || 'default',
+                        bankingStyle: currentSettings.banking_style || "default",
                         marginTop: currentSettings.margin_top || 20,
                         marginRight: currentSettings.margin_right || 20,
                         marginBottom: currentSettings.margin_bottom || 20,
@@ -1047,11 +1057,11 @@ const fontFamilies = [
       </div>
 
       {/* Hidden Font Injector for Google Font based on template */}
-      <div style={{ display: 'none' }}>
+      <div style={{ display: "none" }}>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(currentSettings.font_family || 'Inter')}:wght@400;600;700&display=swap`}
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(currentSettings.font_family || "Inter")}:wght@400;600;700&display=swap`}
           rel="stylesheet"
         />
       </div>
@@ -1060,15 +1070,15 @@ const fontFamilies = [
       <style>{`
         @page { size: A4; margin: 0; }
         #invoice-preview-root{
-          --font: '${currentSettings.font_family || 'Inter'}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-          --color-primary: ${currentSettings.primary_color || '#111827'};
-          --color-accent: ${currentSettings.accent_color || '#2563EB'};
+          --font: '${currentSettings.font_family || "Inter"}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+          --color-primary: ${currentSettings.primary_color || "#111827"};
+          --color-accent: ${currentSettings.accent_color || "#2563EB"};
 
           /* margins (mm) */
-          --m-top: ${typeof currentSettings.margin_top === 'number' ? `${currentSettings.margin_top}mm` : '20mm'};
-          --m-right: ${typeof currentSettings.margin_right === 'number' ? `${currentSettings.margin_right}mm` : '20mm'};
-          --m-bottom: ${typeof currentSettings.margin_bottom === 'number' ? `${currentSettings.margin_bottom}mm` : '20mm'};
-          --m-left: ${typeof currentSettings.margin_left === 'number' ? `${currentSettings.margin_left}mm` : '20mm'};
+          --m-top: ${typeof currentSettings.margin_top === "number" ? `${currentSettings.margin_top}mm` : "20mm"};
+          --m-right: ${typeof currentSettings.margin_right === "number" ? `${currentSettings.margin_right}mm` : "20mm"};
+          --m-bottom: ${typeof currentSettings.margin_bottom === "number" ? `${currentSettings.margin_bottom}mm` : "20mm"};
+          --m-left: ${typeof currentSettings.margin_left === "number" ? `${currentSettings.margin_left}mm` : "20mm"};
 
           width: 210mm; min-height: 297mm; background:#fff; color: var(--color-primary);
           font-family: var(--font);
@@ -1083,40 +1093,48 @@ const fontFamilies = [
       `}</style>
 
       {/* Hidden A4 DOM used for 1:1 export for PDF testing */}
-      <div style={{ display: 'none' }}>
+      <div style={{ display: "none" }}>
         <UnifiedInvoiceLayout
           id="invoice-preview-root"
           variant="pdf"
           invoiceData={sampleInvoiceData}
-          companySettings={companySettings ? {
-            name: companySettings.company_name || '',
-            address: companySettings.company_address || '',
-            city: companySettings.company_city || '',
-            zipCode: companySettings.company_zip_code || '',
-            country: companySettings.company_country || '',
-            phone: companySettings.company_phone || '',
-            email: companySettings.company_email || '',
-            taxId: companySettings.company_vat_number || '',
-            registrationNumber: companySettings.company_registration_number || '',
-            logo: companySettings.company_logo || '',
-          } : undefined}
-          bankingSettings={bankingSettings ? {
-            bankName: bankingSettings.bank_name || '',
-            accountName: bankingSettings.bank_account_name || '',
-            iban: bankingSettings.bank_iban || '',
-            swiftCode: bankingSettings.bank_swift_code || '',
-          } : undefined}
+          companySettings={
+            companySettings
+              ? {
+                  name: companySettings.company_name || "",
+                  address: companySettings.company_address || "",
+                  city: companySettings.company_city || "",
+                  zipCode: companySettings.company_zip_code || "",
+                  country: companySettings.company_country || "",
+                  phone: companySettings.company_phone || "",
+                  email: companySettings.company_email || "",
+                  taxId: companySettings.company_vat_number || "",
+                  registrationNumber: companySettings.company_registration_number || "",
+                  logo: companySettings.company_logo || "",
+                }
+              : undefined
+          }
+          bankingSettings={
+            bankingSettings
+              ? {
+                  bankName: bankingSettings.bank_name || "",
+                  accountName: bankingSettings.bank_account_name || "",
+                  iban: bankingSettings.bank_iban || "",
+                  swiftCode: bankingSettings.bank_swift_code || "",
+                }
+              : undefined
+          }
           templateSettings={{
             primaryColor: templateForPreview.primary_color,
             accentColor: templateForPreview.accent_color,
             fontFamily: templateForPreview.font_family,
             fontSize: templateForPreview.font_size,
-            layout: currentSettings.layout || 'default',
-            headerLayout: currentSettings.header_layout || 'default',
-            tableStyle: currentSettings.table_style || 'default',
-            totalsStyle: currentSettings.totals_style || 'default',
+            layout: currentSettings.layout || "default",
+            headerLayout: currentSettings.header_layout || "default",
+            tableStyle: currentSettings.table_style || "default",
+            totalsStyle: currentSettings.totals_style || "default",
             bankingVisibility: currentSettings.banking_visibility !== false,
-            bankingStyle: currentSettings.banking_style || 'default',
+            bankingStyle: currentSettings.banking_style || "default",
             marginTop: currentSettings.margin_top || 20,
             marginRight: currentSettings.margin_right || 20,
             marginBottom: currentSettings.margin_bottom || 20,
