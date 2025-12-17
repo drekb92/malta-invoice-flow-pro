@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Shield, Loader2, Trash2, Info } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Shield, Loader2, Trash2, Info, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNumber } from "@/lib/utils";
@@ -24,9 +25,11 @@ interface LineItem {
 interface CreateCreditNoteDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  invoiceId: string;
-  invoiceNumber: string;
+  invoiceId?: string | null;
+  invoiceNumber?: string | null;
   customerId: string;
+  customerName?: string;
+  defaultType?: "invoice_adjustment" | "customer_credit";
   onSuccess?: () => void;
 }
 
@@ -34,6 +37,7 @@ interface ValidationErrors {
   reason?: string;
   total?: string;
   exceedsRemaining?: string;
+  description?: string;
 }
 
 const CREDIT_NOTE_REASONS = [
@@ -45,8 +49,12 @@ const CREDIT_NOTE_REASONS = [
   { value: "service_not_rendered", label: "Service Not Rendered" },
   { value: "overpayment_correction", label: "Overpayment Correction" },
   { value: "discount_applied", label: "Discount Applied" },
+  { value: "goodwill_credit", label: "Goodwill Credit" },
+  { value: "prepayment", label: "Prepayment / Deposit" },
   { value: "other", label: "Other" },
 ];
+
+const DEFAULT_VAT_RATE = 0.18;
 
 export function CreateCreditNoteDrawer({
   open,
@@ -54,9 +62,14 @@ export function CreateCreditNoteDrawer({
   invoiceId,
   invoiceNumber,
   customerId,
+  customerName,
+  defaultType = "invoice_adjustment",
   onSuccess,
 }: CreateCreditNoteDrawerProps) {
   const { toast } = useToast();
+  
+  // Mode: invoice-linked vs standalone
+  const isStandalone = !invoiceId;
   
   // Form state
   const [reason, setReason] = useState<string>("");
@@ -66,7 +79,13 @@ export function CreateCreditNoteDrawer({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
-  // Invoice data for validation
+  // Single amount mode (for standalone credits)
+  const [singleAmountMode, setSingleAmountMode] = useState(isStandalone);
+  const [singleAmount, setSingleAmount] = useState<string>("");
+  const [singleDescription, setSingleDescription] = useState<string>("");
+  const [singleVatRate, setSingleVatRate] = useState<number>(DEFAULT_VAT_RATE);
+  
+  // Invoice data for validation (only for invoice-linked)
   const [invoiceTotal, setInvoiceTotal] = useState<number>(0);
   const [existingCredits, setExistingCredits] = useState<number>(0);
   const [existingPayments, setExistingPayments] = useState<number>(0);
@@ -75,20 +94,32 @@ export function CreateCreditNoteDrawer({
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [showValidation, setShowValidation] = useState(false);
 
-  // Load invoice data when drawer opens
+  // Reset form when drawer opens
   useEffect(() => {
-    if (open && invoiceId) {
-      loadInvoiceData();
-      // Reset validation when drawer opens
+    if (open) {
+      setReason("");
+      setDescription("");
+      setSingleAmount("");
+      setSingleDescription("");
       setValidationErrors({});
       setShowValidation(false);
+      setSingleAmountMode(isStandalone);
+      
+      if (invoiceId) {
+        loadInvoiceData();
+      } else {
+        setLineItems([]);
+        setOriginalItems([]);
+        setLoading(false);
+      }
     }
   }, [open, invoiceId]);
 
   const loadInvoiceData = async () => {
+    if (!invoiceId) return;
+    
     setLoading(true);
     try {
-      // Fetch invoice items, invoice totals, existing credits, and payments in parallel
       const [itemsResult, invoiceResult, creditsResult, paymentsResult] = await Promise.all([
         supabase
           .from("invoice_items")
@@ -122,19 +153,16 @@ export function CreateCreditNoteDrawer({
       setOriginalItems(items);
       setLineItems(items);
       
-      // Set invoice total
       if (invoiceResult.data) {
         setInvoiceTotal(Number(invoiceResult.data.total_amount) || 0);
       }
       
-      // Calculate existing credits (gross amount)
       const totalCredits = (creditsResult.data || []).reduce((sum, cn) => {
         const gross = Number(cn.amount) * (1 + Number(cn.vat_rate || 0));
         return sum + gross;
       }, 0);
       setExistingCredits(totalCredits);
       
-      // Calculate existing payments
       const totalPayments = (paymentsResult.data || []).reduce((sum, p) => sum + Number(p.amount), 0);
       setExistingPayments(totalPayments);
       
@@ -152,32 +180,42 @@ export function CreateCreditNoteDrawer({
 
   // Calculate totals
   const totals = useMemo(() => {
+    if (singleAmountMode) {
+      const netTotal = parseFloat(singleAmount) || 0;
+      const vatTotal = netTotal * singleVatRate;
+      const grandTotal = netTotal + vatTotal;
+      return { netTotal, vatTotal, grandTotal };
+    }
+    
     const netTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
     const vatTotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price * item.vat_rate, 0);
     const grandTotal = netTotal + vatTotal;
     return { netTotal, vatTotal, grandTotal };
-  }, [lineItems]);
+  }, [lineItems, singleAmountMode, singleAmount, singleVatRate]);
 
   // Calculate remaining invoice amount
   const remainingAmount = useMemo(() => {
+    if (!invoiceId) return Infinity;
     return Math.max(0, invoiceTotal - existingCredits - existingPayments);
-  }, [invoiceTotal, existingCredits, existingPayments]);
+  }, [invoiceId, invoiceTotal, existingCredits, existingPayments]);
 
   // Validate form
   const validateForm = (): ValidationErrors => {
     const errors: ValidationErrors = {};
     
-    // Reason validation
     if (!reason) {
       errors.reason = "Please select a reason for this credit note";
     }
     
-    // Total validation
     if (totals.grandTotal <= 0) {
       errors.total = "Credit note total must be greater than zero";
     }
     
-    // Check if exceeds remaining amount (only for invoice adjustments)
+    if (singleAmountMode && !singleDescription.trim()) {
+      errors.description = "Please enter a description for this credit";
+    }
+    
+    // Only check remaining for invoice-linked credits
     if (invoiceId && totals.grandTotal > remainingAmount && remainingAmount > 0) {
       errors.exceedsRemaining = `Credit amount (€${formatNumber(totals.grandTotal, 2)}) exceeds the remaining invoice balance of €${formatNumber(remainingAmount, 2)}`;
     } else if (invoiceId && totals.grandTotal > invoiceTotal && remainingAmount === 0) {
@@ -187,17 +225,11 @@ export function CreateCreditNoteDrawer({
     return errors;
   };
 
-  const isValid = useMemo(() => {
-    const errors = validateForm();
-    return Object.keys(errors).length === 0;
-  }, [reason, totals.grandTotal, remainingAmount, invoiceTotal, invoiceId]);
-
   // Update line item
   const updateLineItem = (index: number, field: keyof LineItem, value: number | string) => {
     setLineItems(prev => prev.map((item, i) => 
       i === index ? { ...item, [field]: value } : item
     ));
-    // Clear total error when items change
     if (showValidation && validationErrors.total) {
       setValidationErrors(prev => ({ ...prev, total: undefined, exceedsRemaining: undefined }));
     }
@@ -206,6 +238,19 @@ export function CreateCreditNoteDrawer({
   // Remove line item
   const removeLineItem = (index: number) => {
     setLineItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Add new line item (for standalone mode)
+  const addLineItem = () => {
+    const newItem: LineItem = {
+      id: `new-${Date.now()}`,
+      description: "",
+      quantity: 1,
+      unit_price: 0,
+      vat_rate: DEFAULT_VAT_RATE,
+      unit: "unit",
+    };
+    setLineItems(prev => [...prev, newItem]);
   };
 
   // Reset to original items
@@ -245,7 +290,6 @@ export function CreateCreditNoteDrawer({
 
   // Submit handler
   const handleSubmit = async (action: "draft" | "issue") => {
-    // For issue, perform validation
     if (action === "issue") {
       const errors = validateForm();
       setValidationErrors(errors);
@@ -256,7 +300,7 @@ export function CreateCreditNoteDrawer({
       }
     } else {
       // For draft, only require basic validation
-      if (totals.grandTotal <= 0 || lineItems.length === 0) {
+      if (totals.grandTotal <= 0) {
         toast({
           title: "Cannot save draft",
           description: "Please add at least one line item with a value.",
@@ -276,16 +320,17 @@ export function CreateCreditNoteDrawer({
         ? `${CREDIT_NOTE_REASONS.find(r => r.value === reason)?.label || reason}${description ? `: ${description}` : ""}`
         : description || "Credit note";
 
-      // Create credit note with new schema fields
+      const creditType = invoiceId ? "invoice_adjustment" : "customer_credit";
+
       const creditNoteData = {
         credit_note_number: creditNoteNumber,
-        invoice_id: invoiceId,
+        invoice_id: invoiceId || null,
         customer_id: customerId,
         user_id: userId,
         amount: totals.netTotal,
-        vat_rate: lineItems[0]?.vat_rate || 0.18,
+        vat_rate: singleAmountMode ? singleVatRate : (lineItems[0]?.vat_rate || DEFAULT_VAT_RATE),
         reason: reasonText,
-        type: "invoice_adjustment" as const,
+        type: creditType,
         status: action === "draft" ? "draft" : "issued",
         issued_at: action === "issue" ? new Date().toISOString() : null,
         credit_note_date: new Date().toISOString().split("T")[0],
@@ -300,25 +345,39 @@ export function CreateCreditNoteDrawer({
       if (creditNoteError) throw creditNoteError;
 
       // Create credit note items
-      const itemsPayload = lineItems
-        .filter(item => item.quantity > 0 && item.unit_price > 0)
-        .map(item => ({
+      let itemsPayload;
+      if (singleAmountMode) {
+        itemsPayload = [{
           credit_note_id: creditNote.id,
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate,
-          unit: item.unit || "unit",
-        }));
+          description: singleDescription || reasonText,
+          quantity: 1,
+          unit_price: parseFloat(singleAmount) || 0,
+          vat_rate: singleVatRate,
+          unit: "credit",
+        }];
+      } else {
+        itemsPayload = lineItems
+          .filter(item => item.quantity > 0 && item.unit_price > 0)
+          .map(item => ({
+            credit_note_id: creditNote.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            vat_rate: item.vat_rate,
+            unit: item.unit || "unit",
+          }));
+      }
 
-      const { error: itemsError } = await supabase
-        .from("credit_note_items")
-        .insert(itemsPayload);
+      if (itemsPayload.length > 0) {
+        const { error: itemsError } = await supabase
+          .from("credit_note_items")
+          .insert(itemsPayload);
 
-      if (itemsError) throw itemsError;
+        if (itemsError) throw itemsError;
+      }
 
-      // Log audit trail if issued
-      if (action === "issue") {
+      // Log audit trail if issued and invoice-linked
+      if (action === "issue" && invoiceId) {
         await supabase.from("invoice_audit_log").insert({
           invoice_id: invoiceId,
           user_id: userId,
@@ -341,6 +400,8 @@ export function CreateCreditNoteDrawer({
       setReason("");
       setDescription("");
       setLineItems([]);
+      setSingleAmount("");
+      setSingleDescription("");
       setValidationErrors({});
       setShowValidation(false);
       onOpenChange(false);
@@ -357,7 +418,6 @@ export function CreateCreditNoteDrawer({
     }
   };
 
-  // Inline validation message component
   const ValidationMessage = ({ message }: { message?: string }) => {
     if (!message) return null;
     return (
@@ -374,17 +434,22 @@ export function CreateCreditNoteDrawer({
         <SheetHeader className="px-5 py-4 border-b border-border/60">
           <SheetTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            Create Credit Note
+            {isStandalone ? "New Customer Credit" : "Create Credit Note"}
           </SheetTitle>
           <SheetDescription>
-            For invoice {invoiceNumber} (Malta VAT Compliant)
+            {invoiceNumber 
+              ? `For invoice ${invoiceNumber} (Malta VAT Compliant)`
+              : customerName 
+                ? `For ${customerName} (Malta VAT Compliant)`
+                : "Malta VAT Compliant"
+            }
           </SheetDescription>
         </SheetHeader>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 flex-1">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Loading invoice items…</span>
+            <span className="text-sm text-muted-foreground">Loading…</span>
           </div>
         ) : (
           <>
@@ -394,12 +459,15 @@ export function CreateCreditNoteDrawer({
                 <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <AlertTitle className="text-blue-800 dark:text-blue-300">Malta VAT Compliance</AlertTitle>
                 <AlertDescription className="text-blue-700 dark:text-blue-400 text-sm">
-                  Credit notes correct issued invoices per Malta VAT regulations. This action will be logged in the audit trail.
+                  {isStandalone 
+                    ? "Customer credits are tracked for accounting and can be applied to future invoices."
+                    : "Credit notes correct issued invoices per Malta VAT regulations. This action will be logged in the audit trail."
+                  }
                 </AlertDescription>
               </Alert>
 
-              {/* Remaining Balance Info */}
-              {remainingAmount > 0 && (
+              {/* Remaining Balance Info (only for invoice-linked) */}
+              {!isStandalone && remainingAmount > 0 && (
                 <div className="bg-muted/50 p-3 rounded-md text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Invoice Total:</span>
@@ -451,7 +519,7 @@ export function CreateCreditNoteDrawer({
                   placeholder="Optional details for the credit note..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-[80px] resize-none"
+                  className="min-h-[60px] resize-none"
                   disabled={submitting}
                   maxLength={500}
                 />
@@ -459,78 +527,180 @@ export function CreateCreditNoteDrawer({
 
               <Separator />
 
-              {/* Line Items */}
-              <div className="space-y-3">
+              {/* Single Amount Toggle (for standalone mode) */}
+              {isStandalone && (
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Line Items</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetItems}
-                    disabled={submitting}
-                    className="text-xs h-7"
-                  >
-                    Reset to Original
-                  </Button>
-                </div>
-
-                {lineItems.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-4 text-center border rounded-md border-dashed">
-                    No items to credit
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Single amount credit</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Enter a single amount instead of line items
+                    </p>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {lineItems.map((item, index) => (
-                      <div key={item.id} className="bg-muted/50 rounded-lg p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium flex-1 line-clamp-2">{item.description}</p>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
-                            onClick={() => removeLineItem(index)}
-                            disabled={submitting}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Qty</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.quantity}
-                              onChange={(e) => updateLineItem(index, "quantity", parseFloat(e.target.value) || 0)}
-                              className="h-8 text-sm"
+                  <Switch
+                    checked={singleAmountMode}
+                    onCheckedChange={setSingleAmountMode}
+                    disabled={submitting}
+                  />
+                </div>
+              )}
+
+              {/* Single Amount Mode */}
+              {singleAmountMode ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">
+                      Description <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      placeholder="e.g., Goodwill credit for delayed delivery"
+                      value={singleDescription}
+                      onChange={(e) => {
+                        setSingleDescription(e.target.value);
+                        if (showValidation && validationErrors.description) {
+                          setValidationErrors(prev => ({ ...prev, description: undefined }));
+                        }
+                      }}
+                      className={showValidation && validationErrors.description ? 'border-amber-500' : ''}
+                      disabled={submitting}
+                    />
+                    {showValidation && <ValidationMessage message={validationErrors.description} />}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Amount (Net)</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">€</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={singleAmount}
+                          onChange={(e) => setSingleAmount(e.target.value)}
+                          className="pl-7"
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">VAT Rate</Label>
+                      <Select 
+                        value={String(singleVatRate)} 
+                        onValueChange={(v) => setSingleVatRate(parseFloat(v))}
+                        disabled={submitting}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          <SelectItem value="0">0% (Zero-rated)</SelectItem>
+                          <SelectItem value="0.05">5% (Reduced)</SelectItem>
+                          <SelectItem value="0.18">18% (Standard)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Line Items Mode */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Line Items</Label>
+                    <div className="flex items-center gap-2">
+                      {!isStandalone && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={resetItems}
+                          disabled={submitting}
+                          className="text-xs h-7"
+                        >
+                          Reset to Original
+                        </Button>
+                      )}
+                      {isStandalone && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={addLineItem}
+                          disabled={submitting}
+                          className="text-xs h-7"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Item
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {lineItems.length === 0 ? (
+                    <div className="text-sm text-muted-foreground py-4 text-center border rounded-md border-dashed">
+                      {isStandalone ? "Click 'Add Item' to add line items" : "No items to credit"}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {lineItems.map((item, index) => (
+                        <div key={item.id} className="bg-muted/50 rounded-lg p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            {isStandalone ? (
+                              <Input
+                                placeholder="Description"
+                                value={item.description}
+                                onChange={(e) => updateLineItem(index, "description", e.target.value)}
+                                className="text-sm h-8"
+                                disabled={submitting}
+                              />
+                            ) : (
+                              <p className="text-sm font-medium flex-1 line-clamp-2">{item.description}</p>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                              onClick={() => removeLineItem(index)}
                               disabled={submitting}
-                            />
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Unit Price</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unit_price}
-                              onChange={(e) => updateLineItem(index, "unit_price", parseFloat(e.target.value) || 0)}
-                              className="h-8 text-sm"
-                              disabled={submitting}
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Line Total</Label>
-                            <div className="h-8 flex items-center text-sm font-medium">
-                              €{formatNumber(item.quantity * item.unit_price, 2)}
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Qty</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.quantity}
+                                onChange={(e) => updateLineItem(index, "quantity", parseFloat(e.target.value) || 0)}
+                                className="h-8 text-sm"
+                                disabled={submitting}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Unit Price</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unit_price}
+                                onChange={(e) => updateLineItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                className="h-8 text-sm"
+                                disabled={submitting}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Line Total</Label>
+                              <div className="h-8 flex items-center text-sm font-medium">
+                                €{formatNumber(item.quantity * item.unit_price, 2)}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Separator />
 
@@ -566,7 +736,7 @@ export function CreateCreditNoteDrawer({
                   <Button
                     variant="outline"
                     onClick={() => handleSubmit("draft")}
-                    disabled={submitting || lineItems.length === 0}
+                    disabled={submitting}
                   >
                     {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
                     Save Draft

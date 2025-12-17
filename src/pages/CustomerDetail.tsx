@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { StatementModal } from "@/components/StatementModal";
 import { InvoiceSettlementSheet } from "@/components/InvoiceSettlementSheet";
+import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
 
 interface Customer {
   id: string;
@@ -74,6 +75,7 @@ const CustomerDetail = () => {
   const [statementModalOpen, setStatementModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [settlementSheetOpen, setSettlementSheetOpen] = useState(false);
+  const [creditNoteDrawerOpen, setCreditNoteDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (user && id) {
@@ -328,6 +330,13 @@ const CustomerDetail = () => {
                   <ScrollText className="h-4 w-4 mr-2" />
                   Issue Statement
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreditNoteDrawerOpen(true)}
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  New Credit Note
+                </Button>
                 <Button onClick={() => navigate(`/invoices/new?client=${customer.id}`)}>
                   <FileText className="h-4 w-4 mr-2" />
                   New Invoice
@@ -545,6 +554,18 @@ const CustomerDetail = () => {
         open={settlementSheetOpen}
         onOpenChange={setSettlementSheetOpen}
         invoice={selectedInvoice}
+      />
+
+      {/* Standalone Credit Note Drawer */}
+      <CreateCreditNoteDrawer
+        open={creditNoteDrawerOpen}
+        onOpenChange={setCreditNoteDrawerOpen}
+        customerId={customer?.id || ""}
+        customerName={customer?.name}
+        defaultType="customer_credit"
+        onSuccess={() => {
+          // Optionally refresh data or show toast
+        }}
       />
     </div>
   );
