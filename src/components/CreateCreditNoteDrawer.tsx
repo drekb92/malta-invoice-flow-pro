@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Shield, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Shield, Loader2, Trash2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNumber } from "@/lib/utils";
@@ -28,6 +28,12 @@ interface CreateCreditNoteDrawerProps {
   invoiceNumber: string;
   customerId: string;
   onSuccess?: () => void;
+}
+
+interface ValidationErrors {
+  reason?: string;
+  total?: string;
+  exceedsRemaining?: string;
 }
 
 const CREDIT_NOTE_REASONS = [
@@ -59,26 +65,54 @@ export function CreateCreditNoteDrawer({
   const [originalItems, setOriginalItems] = useState<LineItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Invoice data for validation
+  const [invoiceTotal, setInvoiceTotal] = useState<number>(0);
+  const [existingCredits, setExistingCredits] = useState<number>(0);
+  const [existingPayments, setExistingPayments] = useState<number>(0);
+  
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [showValidation, setShowValidation] = useState(false);
 
-  // Load invoice line items when drawer opens
+  // Load invoice data when drawer opens
   useEffect(() => {
     if (open && invoiceId) {
-      loadInvoiceItems();
+      loadInvoiceData();
+      // Reset validation when drawer opens
+      setValidationErrors({});
+      setShowValidation(false);
     }
   }, [open, invoiceId]);
 
-  const loadInvoiceItems = async () => {
+  const loadInvoiceData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("invoice_items")
-        .select("id, description, quantity, unit_price, vat_rate, unit")
-        .eq("invoice_id", invoiceId)
-        .order("created_at", { ascending: true });
+      // Fetch invoice items, invoice totals, existing credits, and payments in parallel
+      const [itemsResult, invoiceResult, creditsResult, paymentsResult] = await Promise.all([
+        supabase
+          .from("invoice_items")
+          .select("id, description, quantity, unit_price, vat_rate, unit")
+          .eq("invoice_id", invoiceId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("invoices")
+          .select("total_amount")
+          .eq("id", invoiceId)
+          .single(),
+        supabase
+          .from("credit_notes")
+          .select("amount, vat_rate")
+          .eq("invoice_id", invoiceId),
+        supabase
+          .from("payments")
+          .select("amount")
+          .eq("invoice_id", invoiceId),
+      ]);
 
-      if (error) throw error;
+      if (itemsResult.error) throw itemsResult.error;
 
-      const items = (data || []).map(item => ({
+      const items = (itemsResult.data || []).map(item => ({
         ...item,
         quantity: Number(item.quantity),
         unit_price: Number(item.unit_price),
@@ -87,11 +121,28 @@ export function CreateCreditNoteDrawer({
 
       setOriginalItems(items);
       setLineItems(items);
+      
+      // Set invoice total
+      if (invoiceResult.data) {
+        setInvoiceTotal(Number(invoiceResult.data.total_amount) || 0);
+      }
+      
+      // Calculate existing credits (gross amount)
+      const totalCredits = (creditsResult.data || []).reduce((sum, cn) => {
+        const gross = Number(cn.amount) * (1 + Number(cn.vat_rate || 0));
+        return sum + gross;
+      }, 0);
+      setExistingCredits(totalCredits);
+      
+      // Calculate existing payments
+      const totalPayments = (paymentsResult.data || []).reduce((sum, p) => sum + Number(p.amount), 0);
+      setExistingPayments(totalPayments);
+      
     } catch (error) {
-      console.error("Error loading invoice items:", error);
+      console.error("Error loading invoice data:", error);
       toast({
         title: "Error",
-        description: "Failed to load invoice items",
+        description: "Failed to load invoice data",
         variant: "destructive",
       });
     } finally {
@@ -107,13 +158,49 @@ export function CreateCreditNoteDrawer({
     return { netTotal, vatTotal, grandTotal };
   }, [lineItems]);
 
-  const isValid = reason !== "" && lineItems.length > 0 && totals.netTotal > 0;
+  // Calculate remaining invoice amount
+  const remainingAmount = useMemo(() => {
+    return Math.max(0, invoiceTotal - existingCredits - existingPayments);
+  }, [invoiceTotal, existingCredits, existingPayments]);
+
+  // Validate form
+  const validateForm = (): ValidationErrors => {
+    const errors: ValidationErrors = {};
+    
+    // Reason validation
+    if (!reason) {
+      errors.reason = "Please select a reason for this credit note";
+    }
+    
+    // Total validation
+    if (totals.grandTotal <= 0) {
+      errors.total = "Credit note total must be greater than zero";
+    }
+    
+    // Check if exceeds remaining amount (only for invoice adjustments)
+    if (invoiceId && totals.grandTotal > remainingAmount && remainingAmount > 0) {
+      errors.exceedsRemaining = `Credit amount (€${formatNumber(totals.grandTotal, 2)}) exceeds the remaining invoice balance of €${formatNumber(remainingAmount, 2)}`;
+    } else if (invoiceId && totals.grandTotal > invoiceTotal && remainingAmount === 0) {
+      errors.exceedsRemaining = `Credit amount (€${formatNumber(totals.grandTotal, 2)}) exceeds the invoice total of €${formatNumber(invoiceTotal, 2)}`;
+    }
+    
+    return errors;
+  };
+
+  const isValid = useMemo(() => {
+    const errors = validateForm();
+    return Object.keys(errors).length === 0;
+  }, [reason, totals.grandTotal, remainingAmount, invoiceTotal, invoiceId]);
 
   // Update line item
   const updateLineItem = (index: number, field: keyof LineItem, value: number | string) => {
     setLineItems(prev => prev.map((item, i) => 
       i === index ? { ...item, [field]: value } : item
     ));
+    // Clear total error when items change
+    if (showValidation && validationErrors.total) {
+      setValidationErrors(prev => ({ ...prev, total: undefined, exceedsRemaining: undefined }));
+    }
   };
 
   // Remove line item
@@ -124,6 +211,15 @@ export function CreateCreditNoteDrawer({
   // Reset to original items
   const resetItems = () => {
     setLineItems(originalItems);
+    setValidationErrors(prev => ({ ...prev, total: undefined, exceedsRemaining: undefined }));
+  };
+
+  // Handle reason change
+  const handleReasonChange = (value: string) => {
+    setReason(value);
+    if (showValidation && validationErrors.reason) {
+      setValidationErrors(prev => ({ ...prev, reason: undefined }));
+    }
   };
 
   // Generate credit note number
@@ -149,13 +245,24 @@ export function CreateCreditNoteDrawer({
 
   // Submit handler
   const handleSubmit = async (action: "draft" | "issue") => {
-    if (!isValid) {
-      toast({
-        title: "Validation Error",
-        description: "Please select a reason and ensure at least one line item has a value.",
-        variant: "destructive",
-      });
-      return;
+    // For issue, perform validation
+    if (action === "issue") {
+      const errors = validateForm();
+      setValidationErrors(errors);
+      setShowValidation(true);
+      
+      if (Object.keys(errors).length > 0) {
+        return;
+      }
+    } else {
+      // For draft, only require basic validation
+      if (totals.grandTotal <= 0 || lineItems.length === 0) {
+        toast({
+          title: "Cannot save draft",
+          description: "Please add at least one line item with a value.",
+        });
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -165,7 +272,9 @@ export function CreateCreditNoteDrawer({
       if (!userId) throw new Error("User not authenticated");
 
       const creditNoteNumber = await generateCreditNoteNumber(userId);
-      const reasonText = `${CREDIT_NOTE_REASONS.find(r => r.value === reason)?.label || reason}${description ? `: ${description}` : ""}`;
+      const reasonText = reason 
+        ? `${CREDIT_NOTE_REASONS.find(r => r.value === reason)?.label || reason}${description ? `: ${description}` : ""}`
+        : description || "Credit note";
 
       // Create credit note with new schema fields
       const creditNoteData = {
@@ -232,6 +341,8 @@ export function CreateCreditNoteDrawer({
       setReason("");
       setDescription("");
       setLineItems([]);
+      setValidationErrors({});
+      setShowValidation(false);
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
@@ -244,6 +355,17 @@ export function CreateCreditNoteDrawer({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Inline validation message component
+  const ValidationMessage = ({ message }: { message?: string }) => {
+    if (!message) return null;
+    return (
+      <p className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mt-1.5">
+        <Info className="h-3.5 w-3.5 shrink-0" />
+        {message}
+      </p>
+    );
   };
 
   return (
@@ -276,13 +398,39 @@ export function CreateCreditNoteDrawer({
                 </AlertDescription>
               </Alert>
 
+              {/* Remaining Balance Info */}
+              {remainingAmount > 0 && (
+                <div className="bg-muted/50 p-3 rounded-md text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Invoice Total:</span>
+                    <span>€{formatNumber(invoiceTotal, 2)}</span>
+                  </div>
+                  {existingCredits > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Existing Credits:</span>
+                      <span className="text-amber-600">-€{formatNumber(existingCredits, 2)}</span>
+                    </div>
+                  )}
+                  {existingPayments > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Payments Received:</span>
+                      <span className="text-green-600">-€{formatNumber(existingPayments, 2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-medium border-t pt-1 mt-1">
+                    <span>Remaining Balance:</span>
+                    <span>€{formatNumber(remainingAmount, 2)}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Reason Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
                   Reason <span className="text-destructive">*</span>
                 </Label>
-                <Select value={reason} onValueChange={setReason} disabled={submitting}>
-                  <SelectTrigger className="bg-background">
+                <Select value={reason} onValueChange={handleReasonChange} disabled={submitting}>
+                  <SelectTrigger className={`bg-background ${showValidation && validationErrors.reason ? 'border-amber-500' : ''}`}>
                     <SelectValue placeholder="Select a reason..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
@@ -293,6 +441,7 @@ export function CreateCreditNoteDrawer({
                     ))}
                   </SelectContent>
                 </Select>
+                {showValidation && <ValidationMessage message={validationErrors.reason} />}
               </div>
 
               {/* Description */}
@@ -386,7 +535,7 @@ export function CreateCreditNoteDrawer({
               <Separator />
 
               {/* Totals */}
-              <div className="bg-muted p-4 rounded-lg space-y-2">
+              <div className={`bg-muted p-4 rounded-lg space-y-2 ${showValidation && (validationErrors.total || validationErrors.exceedsRemaining) ? 'ring-1 ring-amber-500' : ''}`}>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Net Total:</span>
                   <span>€{formatNumber(totals.netTotal, 2)}</span>
@@ -399,17 +548,8 @@ export function CreateCreditNoteDrawer({
                   <span>Total Credit:</span>
                   <span className="text-primary">€{formatNumber(totals.grandTotal, 2)}</span>
                 </div>
+                {showValidation && <ValidationMessage message={validationErrors.total || validationErrors.exceedsRemaining} />}
               </div>
-
-              {/* Validation Warning */}
-              {!isValid && (reason !== "" || lineItems.length > 0) && (
-                <Alert className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                  <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-sm">
-                    Please select a reason and ensure at least one line item has a value.
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
 
             {/* Footer Actions */}
@@ -426,14 +566,14 @@ export function CreateCreditNoteDrawer({
                   <Button
                     variant="outline"
                     onClick={() => handleSubmit("draft")}
-                    disabled={!isValid || submitting}
+                    disabled={submitting || lineItems.length === 0}
                   >
                     {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
                     Save Draft
                   </Button>
                   <Button
                     onClick={() => handleSubmit("issue")}
-                    disabled={!isValid || submitting}
+                    disabled={submitting}
                   >
                     {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
                     Issue Credit Note
