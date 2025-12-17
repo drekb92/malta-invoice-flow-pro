@@ -529,15 +529,14 @@ export const UnifiedStatementLayout = ({
 
       {/* Footer */}
       <div style={{ 
-        position: 'absolute', 
-        bottom: 'var(--invoice-margin-bottom)', 
-        left: 'var(--invoice-margin-left)', 
-        right: 'var(--invoice-margin-right)', 
+        marginTop: '2rem',
         borderTop: '1px solid #e5e7eb', 
         paddingTop: '0.75rem',
         fontSize: '10px',
-        color: '#9ca3af',
+        color: '#6b7280',
         textAlign: 'center',
+        breakInside: 'avoid',
+        pageBreakInside: 'avoid',
       }}>
         Statement generated on {format(new Date(), 'dd MMMM yyyy')} • {companySettings?.name || 'Your Company'}
       </div>
