@@ -45,7 +45,17 @@ const handler = async (req: Request): Promise<Response> => {
         },
         body: JSON.stringify({
           html: '<h1>Test</h1>',
-          options: { format: 'A4', margin: '1cm' }
+          options: {
+            format: 'A4',
+            margin: {
+              top: '0mm',
+              right: '0mm',
+              bottom: '0mm',
+              left: '0mm'
+            },
+            printBackground: true,
+            preferCSSPageSize: true,
+          }
         }),
       });
 
@@ -185,8 +195,14 @@ const handler = async (req: Request): Promise<Response> => {
         html: fullHtml,
         options: {
           format: 'A4',
-          margin: '0',
+          margin: {
+            top: '0mm',
+            right: '0mm',
+            bottom: '0mm',
+            left: '0mm'
+          },
           printBackground: true,
+          preferCSSPageSize: true,
         }
       }),
     });
