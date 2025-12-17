@@ -75,6 +75,8 @@ export interface InvoiceData {
   };
 }
 
+export type DocumentType = 'INVOICE' | 'CREDIT NOTE' | 'QUOTATION';
+
 export interface UnifiedInvoiceLayoutProps {
   invoiceData: InvoiceData;
   companySettings?: CompanySettings;
@@ -84,6 +86,7 @@ export interface UnifiedInvoiceLayoutProps {
   id?: string;
   debug?: boolean; // Add debug mode to show data source
   templateId?: string; // Template ID for debugging
+  documentType?: DocumentType; // Document type for dynamic title/labels
 }
 
 export const UnifiedInvoiceLayout = ({
@@ -95,7 +98,17 @@ export const UnifiedInvoiceLayout = ({
   id = 'unified-invoice',
   debug = false,
   templateId,
+  documentType = 'INVOICE',
 }: UnifiedInvoiceLayoutProps) => {
+  // Document type labels
+  const getDocumentTitle = () => documentType;
+  const getNumberLabel = () => {
+    switch (documentType) {
+      case 'CREDIT NOTE': return 'Credit Note #:';
+      case 'QUOTATION': return 'Quotation #:';
+      default: return 'Invoice #:';
+    }
+  };
   // Default template settings
   const primaryColor = templateSettings?.primaryColor || '#26A65B';
   const accentColor = templateSettings?.accentColor || '#1F2D3D';
@@ -373,23 +386,23 @@ export const UnifiedInvoiceLayout = ({
             </div>
           )}
 
-          {/* Invoice Title and Meta */}
+          {/* Document Title and Meta */}
           <div className="text-right">
             <h1
               className="text-4xl font-light tracking-wider mb-6"
               style={{ color: primaryColor }}
             >
-              INVOICE
+              {getDocumentTitle()}
             </h1>
             <div className="space-y-1 text-sm" style={{ color: '#6b7280' }}>
               <div>
-                <span className="font-medium">Invoice #:</span> {invoiceData.invoiceNumber}
+                <span className="font-medium">{getNumberLabel()}</span> {invoiceData.invoiceNumber}
               </div>
               <div>
                 <span className="font-medium">Date:</span> {formatDate(invoiceData.invoiceDate)}
               </div>
               <div>
-                <span className="font-medium">Due:</span> {formatDate(invoiceData.dueDate)}
+                <span className="font-medium">{documentType === 'QUOTATION' ? 'Valid Until:' : 'Due:'}</span> {formatDate(invoiceData.dueDate)}
               </div>
             </div>
           </div>
@@ -733,9 +746,9 @@ export const UnifiedInvoiceLayout = ({
           </div>
         </div>
         
-        {/* Right side: Invoice Details + Company Info (if position is 'right' or 'top-right') */}
+        {/* Right side: Document Details + Company Info (if position is 'right' or 'top-right') */}
         <div style={{ textAlign: 'right' }}>
-          {/* Invoice Meta Information */}
+          {/* Document Meta Information */}
           <div style={{ marginBottom: '1rem' }}>
             <h1
               style={{
@@ -745,17 +758,17 @@ export const UnifiedInvoiceLayout = ({
                 color: primaryColor,
               }}
             >
-              INVOICE
+              {getDocumentTitle()}
             </h1>
             <div style={{ fontSize: '13px', color: '#374151' }}>
               <div style={{ marginBottom: '4px' }}>
-                <strong>Invoice #:</strong> {invoiceData.invoiceNumber}
+                <strong>{getNumberLabel()}</strong> {invoiceData.invoiceNumber}
               </div>
               <div style={{ marginBottom: '4px' }}>
                 <strong>Date:</strong> {formatDate(invoiceData.invoiceDate)}
               </div>
               <div>
-                <strong>Due Date:</strong> {formatDate(invoiceData.dueDate)}
+                <strong>{documentType === 'QUOTATION' ? 'Valid Until:' : 'Due Date:'}</strong> {formatDate(invoiceData.dueDate)}
               </div>
             </div>
           </div>

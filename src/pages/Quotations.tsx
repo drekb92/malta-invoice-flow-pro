@@ -660,6 +660,7 @@ const Quotations = () => {
             id="invoice-preview-root"
             variant="pdf"
             invoiceData={pdfQuotationData}
+            documentType="QUOTATION"
             companySettings={companySettings ? {
               name: companySettings.company_name,
               email: companySettings.company_email,
