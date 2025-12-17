@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { CalendarIcon, Download, Eye, Mail, MessageCircle, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,14 +24,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import {
-  generateStatementPDF,
-  getStatementPDFBlob,
+import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
+import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { 
+  UnifiedStatementLayout, 
   StatementData,
   StatementInvoice,
   StatementCreditNote,
-  StatementPayment,
-} from "@/services/statementPdfService";
+  StatementPayment 
+} from "@/components/UnifiedStatementLayout";
 
 interface StatementModalProps {
   open: boolean;
@@ -49,6 +51,8 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   const { toast } = useToast();
   const { user } = useAuth();
   const { settings: companySettings } = useCompanySettings();
+  const { template } = useInvoiceTemplate();
+  const statementContainerRef = useRef<HTMLDivElement>(null);
   
   const [dateFrom, setDateFrom] = useState<Date>(startOfMonth(subMonths(new Date(), 3)));
   const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
@@ -56,6 +60,8 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   const [includeCreditNotes, setIncludeCreditNotes] = useState(true);
   const [includeVatBreakdown, setIncludeVatBreakdown] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [statementData, setStatementData] = useState<StatementData | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const fetchStatementData = async (): Promise<StatementData | null> => {
     if (!user) return null;
@@ -165,7 +171,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           return true;
         });
 
-      const statementData: StatementData = {
+      const data: StatementData = {
         customer: {
           id: customer.id,
           name: customer.name,
@@ -196,10 +202,27 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         generatedAt: new Date(),
       };
 
-      return statementData;
+      return data;
     } catch (error) {
       console.error("Error fetching statement data:", error);
       throw error;
+    }
+  };
+
+  // Generate PDF using Edge Function
+  const generateEdgePdf = async (data: StatementData, filename: string) => {
+    // Set data and wait for render
+    setStatementData(data);
+    setIsGeneratingPdf(true);
+    
+    // Wait for the layout to render
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+      await downloadPdfFromFunction(filename, template?.font_family || 'Inter');
+    } finally {
+      setIsGeneratingPdf(false);
+      setStatementData(null);
     }
   };
 
@@ -216,19 +239,19 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         return;
       }
 
-      const blob = await getStatementPDFBlob(data);
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
+      const filename = `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
+      await generateEdgePdf(data, filename);
 
       toast({
-        title: "Preview Ready",
-        description: "Statement preview opened in a new tab.",
+        title: "Download Complete",
+        description: "Statement PDF has been downloaded.",
       });
     } catch (error) {
-      console.error("Error previewing statement:", error);
+      console.error("Error generating statement:", error);
       toast({
-        title: "Preview Error",
-        description: "Failed to generate statement preview.",
+        title: "Error",
+        description: "Failed to generate statement PDF.",
         variant: "destructive",
       });
     } finally {
@@ -249,8 +272,9 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         return;
       }
 
-      const filename = `Statement-${customer.name.replace(/\s+/g, "_")}-${format(new Date(), "yyyyMMdd")}`;
-      await generateStatementPDF(data, filename);
+      const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
+      const filename = `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
+      await generateEdgePdf(data, filename);
 
       toast({
         title: "Download Complete",
@@ -345,171 +369,199 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Issue Statement
-          </DialogTitle>
-          <DialogDescription>
-            Generate a statement for {customer.name}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Issue Statement
+            </DialogTitle>
+            <DialogDescription>
+              Generate a statement for {customer.name}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Date Range */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Date Range</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">From</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dateFrom && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateFrom}
-                      onSelect={(date) => date && setDateFrom(date)}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">To</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dateTo && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateTo ? format(dateTo, "dd/MM/yyyy") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateTo}
-                      onSelect={(date) => date && setDateTo(date)}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Statement Type */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Statement Type</Label>
-            <RadioGroup
-              value={statementType}
-              onValueChange={(value) => setStatementType(value as "outstanding" | "activity")}
-              className="space-y-2"
-            >
-              <div className="flex items-center space-x-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
-                <RadioGroupItem value="outstanding" id="outstanding" />
-                <div className="flex-1">
-                  <Label htmlFor="outstanding" className="cursor-pointer font-medium">
-                    Outstanding Only
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Shows only unpaid invoices and balances
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
-                <RadioGroupItem value="activity" id="activity" />
-                <div className="flex-1">
-                  <Label htmlFor="activity" className="cursor-pointer font-medium">
-                    Activity Statement
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Full ledger including all invoices and payments
-                  </p>
-                </div>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <Separator />
-
-          {/* Options */}
-          <div className="space-y-4">
-            <Label className="text-sm font-medium">Options</Label>
+          <div className="space-y-6 py-4">
+            {/* Date Range */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="credit-notes" className="text-sm">Include Credit Notes</Label>
-                  <p className="text-xs text-muted-foreground">Show credit notes in the statement</p>
+              <Label className="text-sm font-medium">Date Range</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">From</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dateFrom && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFrom ? format(dateFrom, "dd/MM/yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateFrom}
+                        onSelect={(date) => date && setDateFrom(date)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <Switch
-                  id="credit-notes"
-                  checked={includeCreditNotes}
-                  onCheckedChange={setIncludeCreditNotes}
-                />
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">To</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dateTo && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateTo ? format(dateTo, "dd/MM/yyyy") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateTo}
+                        onSelect={(date) => date && setDateTo(date)}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="vat-breakdown" className="text-sm">Include VAT Breakdown</Label>
-                  <p className="text-xs text-muted-foreground">Show VAT details for each item</p>
+            </div>
+
+            <Separator />
+
+            {/* Statement Type */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Statement Type</Label>
+              <RadioGroup
+                value={statementType}
+                onValueChange={(value) => setStatementType(value as "outstanding" | "activity")}
+                className="space-y-2"
+              >
+                <div className="flex items-center space-x-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                  <RadioGroupItem value="outstanding" id="outstanding" />
+                  <div className="flex-1">
+                    <Label htmlFor="outstanding" className="cursor-pointer font-medium">
+                      Outstanding Only
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Shows only unpaid invoices and balances
+                    </p>
+                  </div>
                 </div>
-                <Switch
-                  id="vat-breakdown"
-                  checked={includeVatBreakdown}
-                  onCheckedChange={setIncludeVatBreakdown}
-                />
+                <div className="flex items-center space-x-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
+                  <RadioGroupItem value="activity" id="activity" />
+                  <div className="flex-1">
+                    <Label htmlFor="activity" className="cursor-pointer font-medium">
+                      Activity Statement
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Full ledger including all invoices and payments
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            {/* Options */}
+            <div className="space-y-4">
+              <Label className="text-sm font-medium">Options</Label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="credit-notes" className="text-sm">Include Credit Notes</Label>
+                    <p className="text-xs text-muted-foreground">Show credit notes in the statement</p>
+                  </div>
+                  <Switch
+                    id="credit-notes"
+                    checked={includeCreditNotes}
+                    onCheckedChange={setIncludeCreditNotes}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="vat-breakdown" className="text-sm">Include VAT Breakdown</Label>
+                    <p className="text-xs text-muted-foreground">Show VAT details for each item</p>
+                  </div>
+                  <Switch
+                    id="vat-breakdown"
+                    checked={includeVatBreakdown}
+                    onCheckedChange={setIncludeVatBreakdown}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Button variant="outline" onClick={handlePreviewPDF} disabled={isLoading} className="w-full">
+                  {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
+                  Preview PDF
+                </Button>
+                <Button variant="outline" onClick={handleDownload} disabled={isLoading} className="w-full">
+                  {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  Download
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Button onClick={handleSendEmail} disabled={isLoading || !customer.email} className="w-full">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send via Email
+                </Button>
+                <Button variant="secondary" onClick={handleSendWhatsApp} disabled={isLoading} className="w-full">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Send via WhatsApp
+                </Button>
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          <Separator />
-
-          {/* Actions */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" onClick={handlePreviewPDF} disabled={isLoading} className="w-full">
-                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
-                Preview PDF
-              </Button>
-              <Button variant="outline" onClick={handleDownload} disabled={isLoading} className="w-full">
-                {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                Download
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Button onClick={handleSendEmail} disabled={isLoading || !customer.email} className="w-full">
-                <Mail className="h-4 w-4 mr-2" />
-                Send via Email
-              </Button>
-              <Button variant="secondary" onClick={handleSendWhatsApp} disabled={isLoading} className="w-full">
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Send via WhatsApp
-              </Button>
-            </div>
+      {/* Hidden container for PDF generation - uses same id pattern as invoices */}
+      {isGeneratingPdf && statementData && (
+        <div 
+          ref={statementContainerRef}
+          style={{ 
+            position: 'fixed',
+            left: '-9999px',
+            top: 0,
+            width: '21cm',
+            background: 'white',
+            zIndex: -1,
+          }}
+        >
+          <div id="invoice-preview-root">
+            <UnifiedStatementLayout
+              statementData={statementData}
+              templateSettings={{
+                primaryColor: template?.primary_color || '#1a365d',
+                accentColor: template?.accent_color || '#2563eb',
+                fontFamily: template?.font_family || 'Inter',
+              }}
+            />
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   );
 };
