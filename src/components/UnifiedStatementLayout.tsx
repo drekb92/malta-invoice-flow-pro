@@ -315,22 +315,35 @@ export const UnifiedStatementLayout = ({
 
       {/* Statement Table */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <table style={{ 
+          width: '100%', 
+          borderCollapse: 'collapse', 
+          fontSize: '12px',
+          tableLayout: 'fixed', // Fixed table layout for consistent columns
+        }}>
+          <colgroup>
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '38%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
           <thead>
             <tr style={{ backgroundColor: 'var(--invoice-primary-color)' }}>
-              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Date</th>
               <th style={{ color: 'white', padding: '10px 8px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</th>
-              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'center', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '60px' }}>Type</th>
-              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '100px' }}>Debit</th>
-              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '100px' }}>Credit</th>
-              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', width: '100px' }}>Balance</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'center', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Type</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Debit</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Credit</th>
+              <th style={{ color: 'white', padding: '10px 8px', textAlign: 'right', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Balance</th>
             </tr>
           </thead>
           <tbody>
             {/* Opening Balance Row */}
             {statementType === 'activity' && (
-              <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 500 }}>
-                <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }}>{format(dateRange.from, 'dd/MM/yyyy')}</td>
+              <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 500, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{format(dateRange.from, 'dd/MM/yyyy')}</td>
                 <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }} colSpan={4}>Opening Balance</td>
                 <td style={{ 
                   padding: '8px', 
@@ -338,6 +351,8 @@ export const UnifiedStatementLayout = ({
                   textAlign: 'right',
                   color: openingBalance > 0 ? '#dc2626' : openingBalance < 0 ? '#16a34a' : '#6b7280',
                   fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  fontVariantNumeric: 'tabular-nums',
                 }}>
                   {formatBalance(openingBalance)}
                 </td>
@@ -360,11 +375,21 @@ export const UnifiedStatementLayout = ({
                   const typeLabel = line.type === 'invoice' ? 'INV' : line.type === 'credit_note' ? 'CN' : 'PMT';
                   
                   return (
-                    <tr key={line.id} style={getRowStyle(index)}>
-                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }}>
+                    <tr key={line.id} style={{ 
+                      ...getRowStyle(index),
+                      breakInside: 'avoid',
+                      pageBreakInside: 'avoid',
+                    }}>
+                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>
                         {format(new Date(line.date), 'dd/MM/yyyy')}
                       </td>
-                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ 
+                        padding: '8px', 
+                        borderBottom: '1px solid #e5e7eb',
+                        whiteSpace: 'normal',
+                        overflowWrap: 'anywhere',
+                        wordBreak: 'break-word',
+                      }}>
                         {line.description}
                         {line.reference && (
                           <span style={{ color: '#9ca3af', marginLeft: '0.5rem' }}>({line.reference})</span>
@@ -378,14 +403,27 @@ export const UnifiedStatementLayout = ({
                           fontWeight: 500,
                           backgroundColor: line.type === 'invoice' ? '#dbeafe' : line.type === 'credit_note' ? '#fef3c7' : '#d1fae5',
                           color: line.type === 'invoice' ? '#1e40af' : line.type === 'credit_note' ? '#92400e' : '#065f46',
+                          whiteSpace: 'nowrap',
                         }}>
                           {typeLabel}
                         </span>
                       </td>
-                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>
+                      <td style={{ 
+                        padding: '8px', 
+                        borderBottom: '1px solid #e5e7eb', 
+                        textAlign: 'right',
+                        whiteSpace: 'nowrap',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
                         {formatDebit(line.debit)}
                       </td>
-                      <td style={{ padding: '8px', borderBottom: '1px solid #e5e7eb', textAlign: 'right' }}>
+                      <td style={{ 
+                        padding: '8px', 
+                        borderBottom: '1px solid #e5e7eb', 
+                        textAlign: 'right',
+                        whiteSpace: 'nowrap',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
                         {formatCredit(line.credit)}
                       </td>
                       <td style={{ 
@@ -394,6 +432,8 @@ export const UnifiedStatementLayout = ({
                         textAlign: 'right',
                         color: balanceColor,
                         fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        fontVariantNumeric: 'tabular-nums',
                       }}>
                         {formatBalance(runningBalance)}
                       </td>
@@ -407,7 +447,10 @@ export const UnifiedStatementLayout = ({
       </div>
 
       {/* Totals Section - avoid page break */}
-      <div style={{ pageBreakInside: 'avoid' }}>
+      <div style={{ 
+        breakInside: 'avoid',
+        pageBreakInside: 'avoid',
+      }}>
         <div style={{ 
           borderTop: '2px solid #e5e7eb', 
           paddingTop: '1rem',
@@ -418,11 +461,11 @@ export const UnifiedStatementLayout = ({
             {/* Summary rows */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '13px' }}>
               <span style={{ color: '#6b7280' }}>Total Debits:</span>
-              <span style={{ fontWeight: 500 }}>{formatCurrency(totalDebits)}</span>
+              <span style={{ fontWeight: 500, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(totalDebits)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '13px' }}>
               <span style={{ color: '#6b7280' }}>Total Credits:</span>
-              <span style={{ fontWeight: 500 }}>{formatCredit(totalCredits)}</span>
+              <span style={{ fontWeight: 500, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatCredit(totalCredits)}</span>
             </div>
 
             {/* Closing Balance - prominent */}
@@ -437,7 +480,7 @@ export const UnifiedStatementLayout = ({
               color: closingBalance > 0 ? '#dc2626' : closingBalance < 0 ? '#16a34a' : '#6b7280',
             }}>
               <span>{closingBalance > 0 ? 'Balance Due:' : closingBalance < 0 ? 'Credit Balance:' : 'Balance:'}</span>
-              <span>{formatBalance(closingBalance)}</span>
+              <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{formatBalance(closingBalance)}</span>
             </div>
 
             {/* Credit balance note */}
@@ -450,12 +493,13 @@ export const UnifiedStatementLayout = ({
         </div>
       </div>
 
-      {/* Banking Details - if visible */}
+      {/* Banking Details - if visible, keep together with totals */}
       {bankingVisibility && bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && (
         <div style={{ 
           marginTop: '2rem', 
           paddingTop: '1rem', 
           borderTop: '1px solid #e5e7eb',
+          breakInside: 'avoid',
           pageBreakInside: 'avoid',
         }}>
           <div
