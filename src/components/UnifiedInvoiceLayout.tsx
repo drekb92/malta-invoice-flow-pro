@@ -7,10 +7,6 @@ export interface CompanySettings {
   email?: string;
   phone?: string;
   address?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  country?: string;
   taxId?: string;
   logo?: string;
 }
@@ -27,7 +23,6 @@ export interface InvoiceItem {
   quantity: number;
   unit_price: number;
   vat_rate: number;
-  unit?: string;
 }
 
 export interface InvoiceData {
@@ -38,7 +33,6 @@ export interface InvoiceData {
     name: string;
     email?: string;
     address?: string;
-    vat_number?: string;
   };
   items: InvoiceItem[];
   totals: {
@@ -54,7 +48,7 @@ export interface UnifiedInvoiceLayoutProps {
   invoiceData: InvoiceData;
   companySettings?: CompanySettings;
   bankingSettings?: BankingSettings;
-  variant?: "preview" | "pdf" | "print";
+  variant?: "preview" | "pdf";
   id?: string;
   documentType?: DocumentType;
 }
@@ -83,18 +77,6 @@ export const UnifiedInvoiceLayout = ({
   documentType = "INVOICE",
 }: UnifiedInvoiceLayoutProps) => {
   const primaryColor = "#26A65B";
-  const fontFamily = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-
-  const TYPE = {
-    body: "12px",
-    muted: "11px",
-    section: "11px",
-    customer: "15px",
-    tableHeader: "11px",
-    totals: "12px",
-    total: "16px",
-    h1: "28px",
-  };
 
   const getAbsoluteLogoUrl = (url?: string) => {
     if (!url) return undefined;
@@ -104,292 +86,352 @@ export const UnifiedInvoiceLayout = ({
 
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
-  /* ===================== CONTAINER ===================== */
+  /* ===================== STYLES ===================== */
 
-  const baseContainer: React.CSSProperties = {
-    width: "21cm",
-    minHeight: "29.7cm",
-    height: "29.7cm",
-    backgroundColor: "white",
-    padding: "20mm",
-    boxSizing: "border-box",
-    fontFamily,
-    fontSize: TYPE.body,
-    color: "#1f2937",
-    position: "relative",
-  };
-
-  const containerStyle =
-    variant === "pdf" || variant === "print"
-      ? baseContainer
-      : { ...baseContainer, maxWidth: "900px", margin: "20px auto", border: "1px solid #e5e7eb" };
+  // Embedded CSS for html2pdf.app - ensures styles travel with HTML
+  const embeddedStyles = `
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    .invoice-container {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 20mm;
+      background: white;
+      position: relative;
+    }
+    
+    .header-section {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    
+    .header-left {
+      flex: 0 0 55%;
+    }
+    
+    .header-right {
+      flex: 0 0 45%;
+      text-align: right;
+    }
+    
+    .logo {
+      max-height: 60px;
+      margin-bottom: 8px;
+      display: block;
+    }
+    
+    .logo-spacer {
+      height: 60px;
+      margin-bottom: 8px;
+    }
+    
+    .company-info {
+      font-size: 11px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+    
+    .document-title {
+      font-size: 28px;
+      color: ${primaryColor};
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    
+    .invoice-meta {
+      font-size: 11px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+    
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 20px 0;
+    }
+    
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    
+    .customer-name {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+    
+    .customer-info {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+    
+    .invoice-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    .invoice-table thead th {
+      padding: 10px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      border-bottom: 1px solid #e5e7eb;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .invoice-table thead th:first-child {
+      text-align: left;
+    }
+    
+    .invoice-table thead th:not(:first-child) {
+      text-align: right;
+    }
+    
+    .invoice-table tbody td {
+      padding: 10px 8px;
+    }
+    
+    .invoice-table tbody td:first-child {
+      color: #374151;
+      text-align: left;
+    }
+    
+    .invoice-table tbody td:not(:first-child) {
+      text-align: right;
+      color: #6b7280;
+    }
+    
+    .invoice-table tbody td.total-col {
+      font-weight: 600;
+      color: #111827;
+    }
+    
+    .totals-row {
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    .totals-row td:first-child {
+      padding-top: 16px;
+    }
+    
+    .totals-label {
+      text-align: right;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    
+    .totals-value {
+      text-align: right;
+      font-size: 12px;
+      font-weight: 600;
+      color: #111827;
+    }
+    
+    .grand-total-row .totals-label {
+      font-size: 16px;
+      font-weight: bold;
+      color: #111827;
+      padding: 12px 8px;
+    }
+    
+    .grand-total-row .totals-value {
+      font-size: 16px;
+      font-weight: bold;
+      color: ${primaryColor};
+      padding: 12px 8px;
+    }
+    
+    .content-wrapper {
+      min-height: calc(297mm - 40mm - 180px);
+    }
+    
+    .footer-section {
+      margin-top: 40px;
+    }
+    
+    .banking-details {
+      font-size: 11px;
+      line-height: 1.6;
+      color: #4b5563;
+      margin-bottom: 20px;
+    }
+    
+    .footer-message {
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      font-size: 11px;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    
+    /* Preview mode specific */
+    ${
+      variant === "preview"
+        ? `
+      .invoice-container {
+        max-width: 900px;
+        margin: 20px auto;
+        border: 1px solid #e5e7eb;
+      }
+    `
+        : ""
+    }
+  `;
 
   /* ===================== RENDER ===================== */
 
   return (
-    <div id={id} style={containerStyle}>
-      {/* ================= MAIN CONTENT ================= */}
-      <div style={{ paddingBottom: "180px" }}>
-        {" "}
-        {/* Reserve space for footer */}
-        {/* ================= HEADER ================= */}
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
-          <div style={{ maxWidth: "55%", minHeight: logoUrl ? "60px" : "auto" }}>
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" style={{ maxHeight: "60px", marginBottom: "8px", display: "block" }} />
-            ) : (
-              <div style={{ height: "60px", marginBottom: "8px" }} />
-            )}
-            <div style={{ fontSize: TYPE.muted, lineHeight: 1.5 }}>
-              <strong style={{ display: "block", marginBottom: "2px" }}>{companySettings?.name}</strong>
-              <div>{companySettings?.address}</div>
-              <div>{companySettings?.email}</div>
-              <div>VAT: {companySettings?.taxId}</div>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: embeddedStyles }} />
+      <div id={id} className="invoice-container">
+        <div className="content-wrapper">
+          {/* HEADER */}
+          <div className="header-section">
+            <div className="header-left">
+              {logoUrl ? <img src={logoUrl} alt="Logo" className="logo" /> : <div className="logo-spacer" />}
+              <div className="company-info">
+                <strong>{companySettings?.name}</strong>
+                <div>{companySettings?.address}</div>
+                <div>{companySettings?.email}</div>
+                <div>VAT: {companySettings?.taxId}</div>
+              </div>
+            </div>
+
+            <div className="header-right">
+              <div className="document-title">{documentType}</div>
+              <div className="invoice-meta">
+                <div>Invoice #: {invoiceData.invoiceNumber}</div>
+                <div>Date: {formatDate(invoiceData.invoiceDate)}</div>
+                <div>Due Date: {formatDate(invoiceData.dueDate)}</div>
+              </div>
             </div>
           </div>
 
-          <div style={{ textAlign: "right" }}>
-            <div
-              style={{
-                fontSize: TYPE.h1,
-                color: primaryColor,
-                letterSpacing: "0.08em",
-                fontWeight: 700,
-                marginBottom: "8px",
-              }}
-            >
-              {documentType}
-            </div>
-            <div style={{ fontSize: TYPE.muted, lineHeight: 1.5 }}>
-              <div>Invoice #: {invoiceData.invoiceNumber}</div>
-              <div>Date: {formatDate(invoiceData.invoiceDate)}</div>
-              <div>Due Date: {formatDate(invoiceData.dueDate)}</div>
+          <hr className="divider" />
+
+          {/* BILL TO */}
+          <div style={{ marginBottom: "24px" }}>
+            <div className="section-label">BILL TO</div>
+            <div className="customer-name">{invoiceData.customer.name}</div>
+            <div className="customer-info">
+              {invoiceData.customer.email && <div>{invoiceData.customer.email}</div>}
+              {invoiceData.customer.address && <div>{invoiceData.customer.address}</div>}
             </div>
           </div>
-        </div>
-        <hr style={{ margin: "16px 0", border: "none", borderTop: "1px solid #e5e7eb" }} />
-        {/* ================= BILL TO ================= */}
-        <div style={{ marginBottom: "24px" }}>
-          <div
-            style={{
-              fontSize: TYPE.section,
-              letterSpacing: "0.08em",
-              fontWeight: 600,
-              marginBottom: "6px",
-              color: "#6b7280",
-            }}
-          >
-            BILL TO
-          </div>
-          <div style={{ fontSize: TYPE.customer, fontWeight: 600, marginBottom: "4px" }}>
-            {invoiceData.customer.name}
-          </div>
-          <div style={{ fontSize: TYPE.body, lineHeight: 1.5, color: "#4b5563" }}>
-            {invoiceData.customer.email && <div>{invoiceData.customer.email}</div>}
-            {invoiceData.customer.address && <div>{invoiceData.customer.address}</div>}
-          </div>
-        </div>
-        {/* ================= TABLE ================= */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginBottom: "20px",
-          }}
-        >
-          <thead>
-            <tr>
-              {["Description", "Qty", "Unit Price", "VAT", "Total"].map((h, i) => (
-                <th
-                  key={h}
-                  style={{
-                    textAlign: i === 0 ? "left" : "right",
-                    padding: "10px 8px",
-                    fontSize: TYPE.tableHeader,
-                    fontWeight: 600,
-                    borderBottom: "1px solid #e5e7eb",
-                    color: "#6b7280",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  {h}
-                </th>
+
+          {/* TABLE */}
+          <table className="invoice-table">
+            <thead>
+              <tr>
+                <th>DESCRIPTION</th>
+                <th>QTY</th>
+                <th>UNIT PRICE</th>
+                <th>VAT</th>
+                <th>TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoiceData.items.map((item, i) => (
+                <tr key={i}>
+                  <td>{item.description}</td>
+                  <td>{item.quantity}</td>
+                  <td>{money(item.unit_price)}</td>
+                  <td>{percent(item.vat_rate)}</td>
+                  <td className="total-col">{money(mul(item.quantity, item.unit_price))}</td>
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {invoiceData.items.map((item, i) => (
-              <tr key={i}>
-                <td style={{ padding: "10px 8px", color: "#374151" }}>{item.description}</td>
-                <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280" }}>{item.quantity}</td>
-                <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280" }}>{money(item.unit_price)}</td>
-                <td style={{ padding: "10px 8px", textAlign: "right", color: "#6b7280" }}>{percent(item.vat_rate)}</td>
-                <td
-                  style={{
-                    padding: "10px 8px",
-                    textAlign: "right",
-                    fontWeight: 600,
-                    color: "#111827",
-                  }}
-                >
-                  {money(mul(item.quantity, item.unit_price))}
+
+              {/* Totals */}
+              <tr className="totals-row">
+                <td colSpan={4} className="totals-label" style={{ paddingTop: "16px" }}>
+                  Subtotal:
+                </td>
+                <td className="totals-value" style={{ paddingTop: "16px" }}>
+                  {money(invoiceData.totals.netTotal)}
                 </td>
               </tr>
-            ))}
+              <tr>
+                <td colSpan={4} className="totals-label" style={{ padding: "8px" }}>
+                  VAT:
+                </td>
+                <td className="totals-value" style={{ padding: "8px" }}>
+                  {money(invoiceData.totals.vatTotal)}
+                </td>
+              </tr>
+              <tr className="grand-total-row">
+                <td colSpan={4} className="totals-label">
+                  Total:
+                </td>
+                <td className="totals-value">{money(invoiceData.totals.grandTotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-            {/* Totals rows */}
-            <tr style={{ borderTop: "1px solid #e5e7eb" }}>
-              <td
-                colSpan={4}
-                style={{
-                  padding: "8px",
-                  textAlign: "right",
-                  fontSize: TYPE.totals,
-                  color: "#6b7280",
-                  paddingTop: "16px",
-                }}
-              >
-                Subtotal:
-              </td>
-              <td
-                style={{
-                  padding: "8px",
-                  textAlign: "right",
-                  fontSize: TYPE.totals,
-                  fontWeight: 600,
-                  color: "#111827",
-                  paddingTop: "16px",
-                }}
-              >
-                {money(invoiceData.totals.netTotal)}
-              </td>
-            </tr>
-            <tr>
-              <td
-                colSpan={4}
-                style={{
-                  padding: "8px",
-                  textAlign: "right",
-                  fontSize: TYPE.totals,
-                  color: "#6b7280",
-                }}
-              >
-                VAT:
-              </td>
-              <td
-                style={{
-                  padding: "8px",
-                  textAlign: "right",
-                  fontSize: TYPE.totals,
-                  fontWeight: 600,
-                  color: "#111827",
-                }}
-              >
-                {money(invoiceData.totals.vatTotal)}
-              </td>
-            </tr>
-            <tr>
-              <td
-                colSpan={4}
-                style={{
-                  padding: "12px 8px",
-                  textAlign: "right",
-                  fontSize: TYPE.total,
-                  fontWeight: 700,
-                  color: "#111827",
-                }}
-              >
-                Total:
-              </td>
-              <td
-                style={{
-                  padding: "12px 8px",
-                  textAlign: "right",
-                  fontSize: TYPE.total,
-                  fontWeight: 700,
-                  color: primaryColor,
-                }}
-              >
-                {money(invoiceData.totals.grandTotal)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* ================= FOOTER (ABSOLUTE POSITIONED) ================= */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "20mm",
-          left: "20mm",
-          right: "20mm",
-        }}
-      >
-        {/* Banking Details */}
-        <div
-          style={{
-            fontSize: TYPE.muted,
-            lineHeight: 1.6,
-            color: "#4b5563",
-            marginBottom: "20px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: TYPE.section,
-              fontWeight: 600,
-              marginBottom: "8px",
-              color: "#374151",
-              letterSpacing: "0.05em",
-            }}
-          >
-            BANKING DETAILS
+        {/* FOOTER */}
+        <div className="footer-section">
+          <div className="banking-details">
+            <div className="section-label">BANKING DETAILS</div>
+            {bankingSettings?.bankName && (
+              <div>
+                <strong>Bank:</strong> {bankingSettings.bankName}
+              </div>
+            )}
+            {bankingSettings?.accountName && (
+              <div>
+                <strong>Account:</strong> {bankingSettings.accountName}
+              </div>
+            )}
+            {bankingSettings?.iban && (
+              <div>
+                <strong>IBAN:</strong> {bankingSettings.iban}
+              </div>
+            )}
+            {bankingSettings?.swiftCode && (
+              <div>
+                <strong>SWIFT:</strong> {bankingSettings.swiftCode}
+              </div>
+            )}
           </div>
-          {bankingSettings?.bankName && (
-            <div>
-              <strong>Bank:</strong> {bankingSettings.bankName}
-            </div>
-          )}
-          {bankingSettings?.accountName && (
-            <div>
-              <strong>Account:</strong> {bankingSettings.accountName}
-            </div>
-          )}
-          {bankingSettings?.iban && (
-            <div>
-              <strong>IBAN:</strong> {bankingSettings.iban}
-            </div>
-          )}
-          {bankingSettings?.swiftCode && (
-            <div>
-              <strong>SWIFT:</strong> {bankingSettings.swiftCode}
-            </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div
-          style={{
-            paddingTop: "16px",
-            borderTop: "1px solid #e5e7eb",
-            textAlign: "center",
-            fontSize: TYPE.muted,
-            color: "#6b7280",
-            lineHeight: 1.6,
-          }}
-        >
-          Thank you for your business
-          <br />
-          All amounts in EUR.
+          <div className="footer-message">
+            Thank you for your business
+            <br />
+            All amounts in EUR.
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
-// Demo data for preview
+// Demo data
 const demoData: InvoiceData = {
   invoiceNumber: "INV-2025-009",
   invoiceDate: "2025-01-12",
