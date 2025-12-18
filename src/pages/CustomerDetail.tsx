@@ -28,7 +28,7 @@ import {
   Info,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -69,6 +69,7 @@ interface Invoice {
 const CustomerDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -80,6 +81,15 @@ const CustomerDetail = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [settlementSheetOpen, setSettlementSheetOpen] = useState(false);
   const [creditNoteDrawerOpen, setCreditNoteDrawerOpen] = useState(false);
+
+  // Auto-open statement modal if navigated with ?statement=open
+  useEffect(() => {
+    if (searchParams.get('statement') === 'open' && customer) {
+      setStatementModalOpen(true);
+      // Clear the query param to prevent re-opening on refresh
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, customer, setSearchParams]);
 
   useEffect(() => {
     if (user && id) {
