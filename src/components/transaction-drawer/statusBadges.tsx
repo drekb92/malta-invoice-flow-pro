@@ -40,9 +40,11 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge = ({ status, isIssued, className }: StatusBadgeProps) => {
-  // For invoices, check if issued but status is still pending-like
+  // For invoices, check if issued but status doesn't reflect it
+  // Override to "issued" unless it's a final/specific status
   let effectiveStatus = status;
-  if (isIssued && (status === "pending" || status === "draft")) {
+  const finalStatuses = ["paid", "partially_paid", "overdue", "cancelled"];
+  if (isIssued && !finalStatuses.includes(status)) {
     effectiveStatus = "issued";
   }
 
