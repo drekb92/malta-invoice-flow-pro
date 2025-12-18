@@ -13,11 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -39,13 +34,10 @@ import {
   MoreHorizontal,
   Eye,
   Edit,
-  Mail,
   Trash2,
   FileText,
   Receipt,
   ArrowUpDown,
-  Info,
-  Zap,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -69,15 +61,12 @@ interface Customer {
   notes: string | null;
   date_added?: string | null;
   user_id?: string;
-  total_invoiced?: number;
   outstanding_amount?: number;
-  last_invoice_date?: string | null;
-  last_payment_date?: string | null;
-  invoice_count?: number;
-  has_overdue?: boolean;
+  open_invoice_count?: number;
+  last_activity_date?: string | null;
 }
 
-type SortField = 'name' | 'total_invoiced' | 'outstanding_amount' | 'last_invoice_date';
+type SortField = 'name' | 'outstanding_amount' | 'open_invoice_count' | 'last_activity_date';
 type SortDirection = 'asc' | 'desc';
 
 const Customers = () => {
@@ -85,21 +74,19 @@ const Customers = () => {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useState<SortField>('outstanding_amount');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const fetchCustomers = async () => {
-    // Return early if no user
     if (!user) {
       setLoading(false);
       return;
     }
 
     try {
-      // Fetch customers scoped to current user
       const { data: customersData, error: customersError } = await supabase
         .from("customers")
         .select("*")
@@ -108,14 +95,12 @@ const Customers = () => {
 
       if (customersError) throw customersError;
 
-      // Fetch invoice metrics for each customer
       const { data: invoiceMetrics, error: metricsError } = await supabase
         .from("invoices")
-        .select("id, customer_id, total_amount, status, invoice_date, due_date");
+        .select("id, customer_id, total_amount, status, invoice_date");
 
       if (metricsError) throw metricsError;
 
-      // Fetch payment data for each customer (scoped to user)
       const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
         .select("invoice_id, payment_date, amount")
@@ -123,17 +108,12 @@ const Customers = () => {
 
       if (paymentsError) throw paymentsError;
 
-      // Calculate metrics per customer
       const metricsMap = new Map<string, {
-        total_invoiced: number;
         outstanding_amount: number;
-        last_invoice_date: string | null;
-        last_payment_date: string | null;
-        invoice_count: number;
-        has_overdue: boolean;
+        open_invoice_count: number;
+        last_activity_date: string | null;
       }>();
 
-      // Create a map of payments by invoice_id
       const paymentsMap = new Map<string, { payment_date: string; amount: number }[]>();
       paymentsData?.forEach(payment => {
         if (!payment.invoice_id) return;
@@ -142,45 +122,35 @@ const Customers = () => {
         paymentsMap.set(payment.invoice_id, existing);
       });
 
-      const today = new Date().toISOString().split('T')[0];
-
       invoiceMetrics?.forEach(invoice => {
         if (!invoice.customer_id) return;
         
         const existing = metricsMap.get(invoice.customer_id) || {
-          total_invoiced: 0,
           outstanding_amount: 0,
-          last_invoice_date: null,
-          last_payment_date: null,
-          invoice_count: 0,
-          has_overdue: false,
+          open_invoice_count: 0,
+          last_activity_date: null,
         };
 
-        existing.total_invoiced += Number(invoice.total_amount || 0);
-        existing.invoice_count += 1;
-        
+        // Count open invoices (not fully paid)
         if (invoice.status !== 'paid') {
           existing.outstanding_amount += Number(invoice.total_amount || 0);
-          
-          // Check if this invoice is overdue
-          if (invoice.due_date && invoice.due_date < today) {
-            existing.has_overdue = true;
-          }
+          existing.open_invoice_count += 1;
         }
 
+        // Track last activity (invoice date)
         if (invoice.invoice_date) {
-          if (!existing.last_invoice_date || invoice.invoice_date > existing.last_invoice_date) {
-            existing.last_invoice_date = invoice.invoice_date;
+          if (!existing.last_activity_date || invoice.invoice_date > existing.last_activity_date) {
+            existing.last_activity_date = invoice.invoice_date;
           }
         }
 
-        // Get payments for this invoice
+        // Track last activity (payment date)
         const invoicePayments = paymentsMap.get(invoice.id);
         if (invoicePayments && invoicePayments.length > 0) {
           invoicePayments.forEach(payment => {
             if (payment.payment_date) {
-              if (!existing.last_payment_date || payment.payment_date > existing.last_payment_date) {
-                existing.last_payment_date = payment.payment_date;
+              if (!existing.last_activity_date || payment.payment_date > existing.last_activity_date) {
+                existing.last_activity_date = payment.payment_date;
               }
             }
           });
@@ -189,7 +159,6 @@ const Customers = () => {
         metricsMap.set(invoice.customer_id, existing);
       });
 
-      // Merge customer data with metrics
       const customersWithMetrics = (customersData || []).map(customer => ({
         ...customer,
         vat_status: (customer as any).vat_status || null,
@@ -220,26 +189,21 @@ const Customers = () => {
   useEffect(() => {
     let result = [...customers];
     
-    // Apply search filter
     if (searchTerm) {
       result = result.filter((customer) =>
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.vat_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.payment_terms?.toLowerCase().includes(searchTerm.toLowerCase())
+        customer.email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Apply sorting
     result.sort((a, b) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
 
-      // Handle null/undefined values
       if (aValue === null || aValue === undefined) aValue = sortDirection === 'asc' ? Infinity : -Infinity;
       if (bValue === null || bValue === undefined) bValue = sortDirection === 'asc' ? Infinity : -Infinity;
 
-      // Convert to numbers for numeric fields
-      if (sortField === 'total_invoiced' || sortField === 'outstanding_amount') {
+      if (sortField === 'outstanding_amount' || sortField === 'open_invoice_count') {
         aValue = Number(aValue) || 0;
         bValue = Number(bValue) || 0;
       }
@@ -253,7 +217,6 @@ const Customers = () => {
   }, [searchTerm, customers, sortField, sortDirection]);
 
   const handleDeleteCustomer = async (id: string) => {
-    // Security check: Verify user owns this customer before deletion
     const customerToDelete = customers.find(c => c.id === id);
     if (!customerToDelete || customerToDelete.user_id !== user?.id) {
       toast({
@@ -288,53 +251,12 @@ const Customers = () => {
     }
   };
 
-  const getPaymentStatusBadge = (customer: Customer) => {
-    if (!customer.invoice_count || customer.invoice_count === 0) {
-      return { 
-        status: "no-invoices", 
-        label: "No Invoices",
-        variant: "outline" as const,
-        className: "text-muted-foreground"
-      };
-    }
-
-    const outstanding = customer.outstanding_amount || 0;
-    
-    // Red: Has overdue invoices (past due date)
-    if (customer.has_overdue && outstanding > 0) {
-      return { 
-        status: "overdue", 
-        label: "Overdue",
-        variant: "outline" as const,
-        className: "bg-red-50 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-700"
-      };
-    }
-
-    // Amber: Has outstanding but not overdue (not yet past due date)
-    if (outstanding > 0) {
-      return { 
-        status: "outstanding", 
-        label: "Outstanding",
-        variant: "outline" as const,
-        className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
-      };
-    }
-
-    // Green: All paid up
-    return { 
-      status: "paid", 
-      label: "Paid Up",
-      variant: "outline" as const,
-      className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800"
-    };
-  };
-
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDirection('asc');
+      setSortDirection(field === 'outstanding_amount' ? 'desc' : 'asc');
     }
   };
 
@@ -347,33 +269,12 @@ const Customers = () => {
   };
 
   const formatDate = (date: string | null | undefined) => {
-    if (!date) return 'Never';
+    if (!date) return '—';
     return new Date(date).toLocaleDateString('en-IE', {
-      year: 'numeric',
-      month: 'short',
       day: 'numeric',
+      month: 'short',
     });
   };
-
-  const handleQuickInvoice = async (customerId: string, serviceType: string) => {
-    try {
-      // Navigate to new invoice with customer pre-selected and service type
-      navigate(`/invoices/new?client=${customerId}&quickService=${serviceType}`);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Could not create quick invoice",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const quickInvoiceTemplates = [
-    { label: 'Consulting (5h @ €100)', type: 'consulting', hours: 5, rate: 100 },
-    { label: 'Development (10h @ €80)', type: 'development', hours: 10, rate: 80 },
-    { label: 'Design (3h @ €90)', type: 'design', hours: 3, rate: 90 },
-    { label: 'Monthly Retainer (€1,500)', type: 'retainer', amount: 1500 },
-  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -381,31 +282,29 @@ const Customers = () => {
       
       <div className="md:ml-64">
         <header className="bg-card border-b border-border">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Customers</h1>
-                <p className="text-muted-foreground">
-                  Manage your customer database and payment terms
+                <p className="text-muted-foreground text-sm">
+                  Manage your customer database
                 </p>
               </div>
               <TooltipProvider>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                <div className="flex items-center gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => navigate('/customers/import')}
-                        className="w-full sm:w-auto"
+                        className="hidden sm:flex"
                       >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Import Clients (CSV)
+                        <Upload className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Import</span>
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Bulk add or update clients from a CSV file</p>
-                    </TooltipContent>
+                    <TooltipContent>Import clients from CSV</TooltipContent>
                   </Tooltip>
                   
                   <Tooltip>
@@ -414,15 +313,13 @@ const Customers = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => navigate('/customers/export')}
-                        className="w-full sm:w-auto"
+                        className="hidden sm:flex"
                       >
-                        <Download className="h-4 w-4 mr-2" />
-                        Export Clients (CSV)
+                        <Download className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Export</span>
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Export filtered clients to a CSV file</p>
-                    </TooltipContent>
+                    <TooltipContent>Export clients to CSV</TooltipContent>
                   </Tooltip>
                   
                   <CustomerForm onSave={fetchCustomers} />
@@ -432,9 +329,9 @@ const Customers = () => {
           </div>
         </header>
 
-        <main className="p-6">
+        <main className="p-4 sm:p-6">
           {/* Search */}
-          <div className="flex items-center space-x-4 mb-6">
+          <div className="flex items-center mb-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
@@ -448,323 +345,205 @@ const Customers = () => {
 
           {/* Customers Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>Customer List</CardTitle>
+            <CardHeader className="py-4">
+              <CardTitle className="text-base">Customer List</CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 -ml-3 font-medium"
-                        onClick={() => handleSort('name')}
-                      >
-                        Customer
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>VAT Number</TableHead>
-                    <TableHead>Payment Terms</TableHead>
-                    <TableHead>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 -ml-3 font-medium"
-                              onClick={() => handleSort('total_invoiced')}
-                            >
-                              Total Invoiced
-                              <ArrowUpDown className="ml-2 h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Sum of all invoices issued to this customer</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableHead>
-                    <TableHead>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 -ml-3 font-medium"
-                              onClick={() => handleSort('outstanding_amount')}
-                            >
-                              Outstanding
-                              <ArrowUpDown className="ml-2 h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Total unpaid invoice amount</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableHead>
-                    <TableHead>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 cursor-help">
-                              Payment Status
-                              <Info className="h-3 w-3 text-muted-foreground" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Customer payment status: Overdue (red), Outstanding (yellow), Paid Up (green)</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableHead>
-                    <TableHead>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 -ml-3 font-medium"
-                              onClick={() => handleSort('last_invoice_date')}
-                            >
-                              Last Invoice
-                              <ArrowUpDown className="ml-2 h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Date of most recent invoice issued</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableHead>
-                    <TableHead>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 cursor-help">
-                              Last Payment
-                              <Info className="h-3 w-3 text-muted-foreground" />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Date of most recent payment received</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-6">
-                        Loading customers...
-                      </TableCell>
+                      <TableHead className="min-w-[180px]">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 -ml-3 font-medium"
+                          onClick={() => handleSort('name')}
+                        >
+                          Customer
+                          <ArrowUpDown className="ml-2 h-3 w-3" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="hidden sm:table-cell min-w-[160px]">Contact</TableHead>
+                      <TableHead className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 font-medium"
+                          onClick={() => handleSort('open_invoice_count')}
+                        >
+                          <span className="hidden sm:inline">Open Invoices</span>
+                          <span className="sm:hidden">Open</span>
+                          <ArrowUpDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 -ml-3 font-medium"
+                          onClick={() => handleSort('outstanding_amount')}
+                        >
+                          Outstanding
+                          <ArrowUpDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 -ml-3 font-medium"
+                          onClick={() => handleSort('last_activity_date')}
+                        >
+                          Last Activity
+                          <ArrowUpDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="w-[80px]"></TableHead>
                     </TableRow>
-                  ) : filteredCustomers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center py-6">
-                        {searchTerm ? "No customers found matching your search." : "No customers found."}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredCustomers.map((customer) => {
-                      const paymentStatus = getPaymentStatusBadge(customer);
-                        return (
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          Loading customers...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredCustomers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          {searchTerm ? "No customers found." : "No customers yet."}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredCustomers.map((customer) => (
                         <TableRow 
                           key={customer.id} 
                           className="cursor-pointer hover:bg-muted/50 transition-colors"
                           onClick={() => navigate(`/customers/${customer.id}`)}
                         >
+                          {/* Customer */}
                           <TableCell>
-                            <div>
-                              <div className="font-medium">{customer.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {customer.id.substring(0, 8)}...
-                              </div>
+                            <div className="font-medium">{customer.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {customer.id.substring(0, 8)}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="text-sm">{customer.email || "No email"}</div>
-                              <div className="text-sm text-muted-foreground">{customer.phone || "No phone"}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{customer.vat_number || "N/A"}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{customer.payment_terms || "Not set"}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="font-medium cursor-help">
-                                    {customer.invoice_count ? formatCurrency(customer.total_invoiced) : (
-                                      <span className="text-muted-foreground">No invoices yet</span>
-                                    )}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{customer.invoice_count || 0} invoice(s) • Last: {formatDate(customer.last_invoice_date)}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </TableCell>
-                          <TableCell>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className={`font-medium cursor-help ${
-                                    (customer.outstanding_amount || 0) > 0 ? 'text-destructive' : 'text-muted-foreground'
-                                  }`}>
-                                    {customer.invoice_count ? formatCurrency(customer.outstanding_amount) : '-'}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    {customer.invoice_count 
-                                      ? `${formatCurrency((customer.total_invoiced || 0) - (customer.outstanding_amount || 0))} paid of ${formatCurrency(customer.total_invoiced)}`
-                                      : 'No outstanding balance'
-                                    }
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={paymentStatus.variant} className={paymentStatus.className}>
-                              {paymentStatus.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
+
+                          {/* Contact */}
+                          <TableCell className="hidden sm:table-cell">
                             <div className="text-sm">
-                              {formatDate(customer.last_invoice_date)}
+                              {customer.email ? (
+                                customer.email
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  No email
+                                </Badge>
+                              )}
                             </div>
+                            {customer.phone && (
+                              <div className="text-xs text-muted-foreground">{customer.phone}</div>
+                            )}
                           </TableCell>
+
+                          {/* Open Invoices */}
+                          <TableCell className="text-center">
+                            <span className={`text-sm tabular-nums ${
+                              (customer.open_invoice_count || 0) > 0 
+                                ? 'font-medium' 
+                                : 'text-muted-foreground'
+                            }`}>
+                              {customer.open_invoice_count || 0}
+                            </span>
+                          </TableCell>
+
+                          {/* Outstanding */}
                           <TableCell>
-                            <div className="text-sm">
-                              {formatDate(customer.last_payment_date)}
-                            </div>
+                            <span className={`text-sm font-medium tabular-nums ${
+                              (customer.outstanding_amount || 0) > 0 
+                                ? 'text-destructive' 
+                                : 'text-muted-foreground'
+                            }`}>
+                              {formatCurrency(customer.outstanding_amount || 0)}
+                            </span>
                           </TableCell>
-                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-2">
-                              {/* Primary Create Invoice Button */}
+
+                          {/* Last Activity */}
+                          <TableCell className="hidden md:table-cell">
+                            <span className="text-sm text-muted-foreground">
+                              {formatDate(customer.last_activity_date)}
+                            </span>
+                          </TableCell>
+
+                          {/* Actions */}
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1">
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button 
                                       size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0"
                                       onClick={() => navigate(`/invoices/new?client=${customer.id}`)}
                                     >
-                                      <Plus className="h-4 w-4 mr-2" />
-                                      Invoice
+                                      <Plus className="h-4 w-4" />
+                                      <span className="sr-only">New invoice</span>
                                     </Button>
                                   </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Create new invoice for {customer.name}</p>
-                                  </TooltipContent>
+                                  <TooltipContent>New invoice</TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
 
-                              {/* Quick Invoice Dropdown */}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button size="sm" variant="outline">
-                                    <Zap className="h-4 w-4 mr-2" />
-                                    Quick
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">More actions</span>
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                  <DropdownMenuLabel>Quick Invoice Templates</DropdownMenuLabel>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
-                                  {quickInvoiceTemplates.map((template, idx) => (
-                                    <DropdownMenuItem
-                                      key={idx}
-                                      onClick={() => handleQuickInvoice(customer.id, template.type)}
-                                    >
-                                      <FileText className="h-4 w-4 mr-2" />
-                                      {template.label}
-                                    </DropdownMenuItem>
-                                  ))}
+                                  <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}`)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => navigate(`/customers/edit/${customer.id}`)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => navigate(`/statements/${customer.id}`)}>
+                                    <Receipt className="h-4 w-4 mr-2" />
+                                    Statement
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => navigate(`/invoices/new?client=${customer.id}`)}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    New Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => navigate(`/quotations/new?client=${customer.id}`)}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    New Quotation
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteCustomer(customer.id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-
-                              {/* More Actions Popover */}
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-60">
-                                  <div className="space-y-1">
-                                    <Button 
-                                      variant="ghost" 
-                                      className="justify-start w-full text-sm"
-                                      onClick={() => navigate(`/customers/${customer.id}`)}
-                                    >
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      View Details
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      className="justify-start w-full text-sm"
-                                      onClick={() => navigate(`/statements/${customer.id}`)}
-                                    >
-                                      <Receipt className="h-4 w-4 mr-2" />
-                                      View Statement
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      className="justify-start w-full text-sm"
-                                      onClick={() => navigate(`/quotations?client=${customer.id}`)}
-                                    >
-                                      <FileText className="h-4 w-4 mr-2" />
-                                      View Quotations
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      className="justify-start w-full text-sm"
-                                      onClick={() => navigate(`/quotations/new?client=${customer.id}`)}
-                                    >
-                                      <Plus className="h-4 w-4 mr-2" />
-                                      Create Quotation
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      className="justify-start w-full text-sm"
-                                      onClick={() => navigate(`/customers/edit/${customer.id}`)}
-                                    >
-                                      <Edit className="h-4 w-4 mr-2" />
-                                      Edit Customer
-                                    </Button>
-                                    <Button 
-                                      variant="destructive" 
-                                      className="justify-start w-full text-sm"
-                                      onClick={() => handleDeleteCustomer(customer.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete Customer
-                                    </Button>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
                             </div>
                           </TableCell>
                         </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </main>
