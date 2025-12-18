@@ -43,6 +43,10 @@ interface Customer {
   email: string | null;
   phone: string | null;
   address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  locality: string | null;
+  post_code: string | null;
   vat_number: string | null;
   vat_status: string | null;
   payment_terms: string | null;
@@ -379,11 +383,22 @@ const CustomerDetail = () => {
                         <p className="font-medium">{customer.phone || <span className="text-muted-foreground">—</span>}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <p className="text-xs text-muted-foreground">Address</p>
-                        <p className="font-medium truncate">{customer.address || <span className="text-muted-foreground">—</span>}</p>
+                        {customer.address_line1 || customer.address_line2 || customer.locality || customer.post_code ? (
+                          <div className="font-medium text-sm leading-relaxed">
+                            {customer.address_line1 && <div>{customer.address_line1}</div>}
+                            {customer.address_line2 && <div>{customer.address_line2}</div>}
+                            {customer.locality && <div>{customer.locality}</div>}
+                            {customer.post_code && <div>{customer.post_code}</div>}
+                          </div>
+                        ) : customer.address ? (
+                          <p className="font-medium whitespace-pre-line">{customer.address}</p>
+                        ) : (
+                          <p className="font-medium text-muted-foreground">—</p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

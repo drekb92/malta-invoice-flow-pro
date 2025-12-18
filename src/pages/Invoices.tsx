@@ -142,6 +142,10 @@ const Invoices = () => {
             name,
             email,
             address,
+            address_line1,
+            address_line2,
+            locality,
+            post_code,
             vat_number,
             payment_terms
           )

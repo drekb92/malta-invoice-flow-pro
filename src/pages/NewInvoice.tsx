@@ -52,6 +52,10 @@ interface Customer {
   name: string;
   email: string | null;
   address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  locality: string | null;
+  post_code: string | null;
   vat_number: string | null;
   payment_terms: string | null;
 }
@@ -130,7 +134,7 @@ const NewInvoice = () => {
     try {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, email, address, vat_number, payment_terms")
+        .select("id, name, email, address, address_line1, address_line2, locality, post_code, vat_number, payment_terms")
         .order("name");
 
       if (error) throw error;
@@ -1556,6 +1560,10 @@ if (validationError) {
                   name: customers.find(c => c.id === selectedCustomer)?.name || '',
                   email: customers.find(c => c.id === selectedCustomer)?.email || undefined,
                   address: customers.find(c => c.id === selectedCustomer)?.address || undefined,
+                  address_line1: customers.find(c => c.id === selectedCustomer)?.address_line1 || undefined,
+                  address_line2: customers.find(c => c.id === selectedCustomer)?.address_line2 || undefined,
+                  locality: customers.find(c => c.id === selectedCustomer)?.locality || undefined,
+                  post_code: customers.find(c => c.id === selectedCustomer)?.post_code || undefined,
                   vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
                 },
                 items: items,
@@ -1591,6 +1599,10 @@ if (validationError) {
                 email: companySettings.company_email,
                 phone: companySettings.company_phone,
                 address: companySettings.company_address,
+                addressLine1: companySettings.company_address_line1,
+                addressLine2: companySettings.company_address_line2,
+                locality: companySettings.company_locality,
+                postCode: companySettings.company_post_code,
                 city: companySettings.company_city,
                 state: companySettings.company_state,
                 zipCode: companySettings.company_zip_code,
