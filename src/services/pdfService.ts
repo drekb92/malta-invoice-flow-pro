@@ -27,6 +27,10 @@ export interface InvoiceData {
     name: string;
     email?: string;
     address?: string;
+    address_line1?: string;
+    address_line2?: string;
+    locality?: string;
+    post_code?: string;
     vat_number?: string;
   };
   items: Array<{
