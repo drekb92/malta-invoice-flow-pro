@@ -54,6 +54,10 @@ export interface Customer {
   name: string;
   email: string | null;
   address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  locality: string | null;
+  post_code: string | null;
   vat_number: string | null;
 }
 

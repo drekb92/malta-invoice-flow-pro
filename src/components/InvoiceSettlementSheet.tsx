@@ -136,7 +136,7 @@ export const InvoiceSettlementSheet = ({
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
-  const [customer, setCustomer] = useState<{ id: string; name: string; email: string | null; address: string | null; vat_number: string | null } | null>(null);
+  const [customer, setCustomer] = useState<{ id: string; name: string; email: string | null; address: string | null; address_line1: string | null; address_line2: string | null; locality: string | null; post_code: string | null; vat_number: string | null } | null>(null);
   const [invoiceCreatedAt, setInvoiceCreatedAt] = useState<string | null>(null);
   const [invoiceIssuedAt, setInvoiceIssuedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -190,6 +190,10 @@ export const InvoiceSettlementSheet = ({
           name: customer.name,
           email: customer.email || undefined,
           address: customer.address || undefined,
+          address_line1: customer.address_line1 || undefined,
+          address_line2: customer.address_line2 || undefined,
+          locality: customer.locality || undefined,
+          post_code: customer.post_code || undefined,
           vat_number: customer.vat_number || undefined,
         },
         items: invoiceItems.map(item => ({
@@ -262,7 +266,7 @@ export const InvoiceSettlementSheet = ({
           .order("created_at", { ascending: true }),
         supabase
           .from("invoices")
-          .select("created_at, issued_at, customer_id, customers(id, name, email, address, vat_number)")
+          .select("created_at, issued_at, customer_id, customers(id, name, email, address, address_line1, address_line2, locality, post_code, vat_number)")
           .eq("id", invoice.id)
           .maybeSingle(),
       ]);
@@ -289,7 +293,19 @@ export const InvoiceSettlementSheet = ({
       if (invoiceDetailsResult.data) {
         setInvoiceCreatedAt(invoiceDetailsResult.data.created_at);
         setInvoiceIssuedAt(invoiceDetailsResult.data.issued_at);
-        const invoiceData = invoiceDetailsResult.data as { customers: { id: string; name: string; email: string | null; address: string | null; vat_number: string | null } | null };
+        const invoiceData = invoiceDetailsResult.data as { 
+          customers: { 
+            id: string; 
+            name: string; 
+            email: string | null; 
+            address: string | null; 
+            address_line1: string | null; 
+            address_line2: string | null; 
+            locality: string | null; 
+            post_code: string | null; 
+            vat_number: string | null; 
+          } | null 
+        };
         if (invoiceData.customers) {
           setCustomer(invoiceData.customers);
         }

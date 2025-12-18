@@ -131,7 +131,7 @@ export const TransactionDrawer = ({
         .order("created_at", { ascending: true }),
       supabase
         .from("invoices")
-        .select("created_at, issued_at, customer_id, customers(id, name, email, address, vat_number)")
+        .select("created_at, issued_at, customer_id, customers(id, name, email, address, address_line1, address_line2, locality, post_code, vat_number)")
         .eq("id", invoice.id)
         .maybeSingle(),
     ]);
@@ -168,7 +168,7 @@ export const TransactionDrawer = ({
         .eq("credit_note_id", creditNote.id),
       (supabase as any)
         .from("credit_notes")
-        .select("created_at, customer_id, customers(id, name, email, address, vat_number)")
+        .select("created_at, customer_id, customers(id, name, email, address, address_line1, address_line2, locality, post_code, vat_number)")
         .eq("id", creditNote.id)
         .maybeSingle(),
       creditNote.invoice_id
@@ -206,7 +206,7 @@ export const TransactionDrawer = ({
         .eq("quotation_id", quotation.id),
       supabase
         .from("quotations")
-        .select("created_at, customer_id, customers(id, name, email, address, vat_number)")
+        .select("created_at, customer_id, customers(id, name, email, address, address_line1, address_line2, locality, post_code, vat_number)")
         .eq("id", quotation.id)
         .maybeSingle(),
     ]);
@@ -389,6 +389,10 @@ export const TransactionDrawer = ({
           name: customer.name,
           email: customer.email || undefined,
           address: customer.address || undefined,
+          address_line1: customer.address_line1 || undefined,
+          address_line2: customer.address_line2 || undefined,
+          locality: customer.locality || undefined,
+          post_code: customer.post_code || undefined,
           vat_number: customer.vat_number || undefined,
         },
         items: lineItems.map(item => ({
