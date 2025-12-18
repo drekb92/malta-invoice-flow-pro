@@ -183,10 +183,11 @@ const Invoices = () => {
 
     // Filter by search term
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (invoice) =>
-          invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          invoice.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()),
+          invoice.invoice_number?.toLowerCase().includes(term) ||
+          invoice.customers?.name?.toLowerCase().includes(term),
       );
     }
 
