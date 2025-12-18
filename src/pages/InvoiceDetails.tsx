@@ -64,6 +64,10 @@ interface Invoice {
     name: string;
     email?: string | null;
     address?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    locality?: string | null;
+    post_code?: string | null;
     vat_number?: string | null;
     phone?: string | null;
   };
@@ -320,7 +324,7 @@ const InvoiceDetails = () => {
             `
             *,
             customers (
-              name, email, address, vat_number, phone
+              name, email, address, address_line1, address_line2, locality, post_code, vat_number, phone
             )
           `,
           )
@@ -1119,6 +1123,10 @@ const InvoiceDetails = () => {
                   name: invoice.customers?.name || "Unknown Customer",
                   email: invoice.customers?.email || undefined,
                   address: invoice.customers?.address || undefined,
+                  address_line1: invoice.customers?.address_line1 || undefined,
+                  address_line2: invoice.customers?.address_line2 || undefined,
+                  locality: invoice.customers?.locality || undefined,
+                  post_code: invoice.customers?.post_code || undefined,
                   vat_number: invoice.customers?.vat_number || undefined,
                 },
                 items: invoiceItems.map((i) => ({
@@ -1156,6 +1164,10 @@ const InvoiceDetails = () => {
                       email: companySettings.company_email,
                       phone: companySettings.company_phone,
                       address: companySettings.company_address,
+                      addressLine1: companySettings.company_address_line1,
+                      addressLine2: companySettings.company_address_line2,
+                      locality: companySettings.company_locality,
+                      postCode: companySettings.company_post_code,
                       city: companySettings.company_city,
                       state: companySettings.company_state,
                       zipCode: companySettings.company_zip_code,
