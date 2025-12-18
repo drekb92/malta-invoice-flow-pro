@@ -400,6 +400,22 @@ const Invoices = () => {
       };
     }
 
+    if (status === "partially_paid") {
+      return {
+        className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+        label: "Partial",
+        icon: null,
+      };
+    }
+
+    if (status === "overdue") {
+      return {
+        className: "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200",
+        label: "Overdue",
+        icon: null,
+      };
+    }
+
     if (isIssued) {
       return {
         className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
