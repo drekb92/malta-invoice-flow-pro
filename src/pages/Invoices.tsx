@@ -575,14 +575,7 @@ const Invoices = () => {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-col">
-                              <span>{format(new Date(invoice.invoice_date || invoice.created_at), "dd/MM/yyyy")}</span>
-                              {(invoice as any).is_issued && (invoice as any).issued_at && (
-                                <span className="text-xs text-muted-foreground">
-                                  Issued: {format(new Date((invoice as any).issued_at), "dd/MM/yy")}
-                                </span>
-                              )}
-                            </div>
+                            {format(new Date(invoice.invoice_date || invoice.created_at), "dd/MM/yyyy")}
                           </TableCell>
                           <TableCell>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell className="text-right">
