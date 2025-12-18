@@ -34,7 +34,6 @@ import {
   MoreHorizontal,
   Eye,
   Edit,
-  Trash2,
   FileText,
   Receipt,
   ArrowUpDown,
@@ -215,41 +214,6 @@ const Customers = () => {
 
     setFilteredCustomers(result);
   }, [searchTerm, customers, sortField, sortDirection]);
-
-  const handleDeleteCustomer = async (id: string) => {
-    const customerToDelete = customers.find(c => c.id === id);
-    if (!customerToDelete || customerToDelete.user_id !== user?.id) {
-      toast({
-        title: "Error",
-        description: "Unauthorized: You can only delete your own customers",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("customers")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Customer deleted",
-        description: "Customer has been successfully removed.",
-      });
-      
-      fetchCustomers();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete customer. Please check your permissions.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -513,7 +477,7 @@ const Customers = () => {
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => navigate(`/statements/${customer.id}`)}>
+                                  <DropdownMenuItem onClick={() => navigate(`/customers/${customer.id}?statement=open`)}>
                                     <Receipt className="h-4 w-4 mr-2" />
                                     Statement
                                   </DropdownMenuItem>
@@ -525,14 +489,6 @@ const Customers = () => {
                                   <DropdownMenuItem onClick={() => navigate(`/quotations/new?client=${customer.id}`)}>
                                     <FileText className="h-4 w-4 mr-2" />
                                     New Quotation
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem 
-                                    onClick={() => handleDeleteCustomer(customer.id)}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
