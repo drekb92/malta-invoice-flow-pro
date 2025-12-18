@@ -29,12 +29,17 @@ import {
   MoreHorizontal,
   Eye,
   Edit,
-  Mail,
   Trash2,
   Shield,
-  CheckCircle,
+  Wallet,
   FileMinus2,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -580,30 +585,26 @@ const Invoices = () => {
                           <TableCell>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              {invoice.status !== "paid" && invoice.status !== "credited" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
-                                  onClick={() => handleOpenMarkPaid(invoice)}
-                                >
-                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                  Paid
-                                </Button>
-                              )}
-
-                              {/* Show Credit button only for issued or partially_paid invoices */}
-                              {(invoice.status === "issued" || invoice.status === "partially_paid" || 
-                                ((invoice as any).is_issued && invoice.status !== "paid" && invoice.status !== "draft" && invoice.status !== "cancelled" && invoice.status !== "credited")) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950"
-                                  onClick={() => handleIssueCreditNote(invoice)}
-                                >
-                                  <FileMinus2 className="h-3.5 w-3.5 mr-1" />
-                                  Credit
-                                </Button>
+                              {invoice.status !== "paid" && invoice.status !== "credited" && invoice.status !== "draft" && invoice.status !== "cancelled" && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => handleOpenMarkPaid(invoice)}
+                                        aria-label="Add payment"
+                                      >
+                                        <Wallet className="h-3.5 w-3.5 md:mr-1" />
+                                        <span className="hidden md:inline">Add payment</span>
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Record a payment for this invoice</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               )}
 
                               <DropdownMenu>
@@ -631,6 +632,17 @@ const Invoices = () => {
                                     <Download className="h-4 w-4 mr-2" />
                                     Download PDF
                                   </DropdownMenuItem>
+                                  {invoice.status !== "paid" && invoice.status !== "draft" && invoice.status !== "cancelled" && (invoice as any).is_issued && (
+                                    <DropdownMenuItem onClick={() => handleIssueCreditNote(invoice)}>
+                                      <div className="flex flex-col">
+                                        <div className="flex items-center">
+                                          <FileMinus2 className="h-4 w-4 mr-2" />
+                                          Create credit note
+                                        </div>
+                                        <span className="text-xs text-muted-foreground ml-6">Linked to this invoice</span>
+                                      </div>
+                                    </DropdownMenuItem>
+                                  )}
                                   {!(invoice as any).is_issued && (
                                     <DropdownMenuItem
                                       onClick={() => handleDeleteInvoice(invoice.id)}
