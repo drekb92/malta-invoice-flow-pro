@@ -350,10 +350,9 @@ export const UnifiedInvoiceLayout = ({
   ].filter(Boolean) as string[];
 
   return (
-    <>
+    <div id={id} className="invoice-page" style={lockedVars}>
       <style dangerouslySetInnerHTML={{ __html: embeddedStyles }} />
-      <div id={id} className="invoice-page" style={lockedVars}>
-        <div id="invoice-inner" className="invoice-inner">
+      <div id="invoice-inner" className="invoice-inner">
           <div className="body">
             {/* HEADER */}
             <div className="header">
@@ -508,7 +507,6 @@ export const UnifiedInvoiceLayout = ({
           </div>
         </div>
       </div>
-    </>
   );
 };
 
