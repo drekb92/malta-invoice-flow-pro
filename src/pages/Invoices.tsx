@@ -348,8 +348,11 @@ const Invoices = () => {
         discountAmount,
       });
 
-      // Wait for DOM update
+      // Wait for React to fully render the updated DOM
+      // Multiple frames + timeout ensures state changes are committed
       await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Use edge PDF generation
       await downloadPdfFromFunction(`Invoice-${invoice.invoice_number}`, template.font_family);
