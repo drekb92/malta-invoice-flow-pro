@@ -31,7 +31,10 @@ interface Customer {
   email: string;
   phone: string;
   vat_number: string;
-  address: string;
+  address_line1: string;
+  address_line2: string;
+  locality: string;
+  post_code: string;
   payment_terms: string;
   vat_status: string;
   client_type: string;
@@ -57,7 +60,10 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
     email: customer?.email || "",
     phone: customer?.phone || "",
     vat_number: customer?.vat_number || "",
-    address: customer?.address || "",
+    address_line1: customer?.address_line1 || "",
+    address_line2: customer?.address_line2 || "",
+    locality: customer?.locality || "",
+    post_code: customer?.post_code || "",
     payment_terms: customer?.payment_terms || "Net 30",
     vat_status: customer?.vat_status || "",
     client_type: customer?.client_type || "Individual",
@@ -121,7 +127,10 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
           email: "",
           phone: "",
           vat_number: "",
-          address: "",
+          address_line1: "",
+          address_line2: "",
+          locality: "",
+          post_code: "",
           payment_terms: "Net 30",
           vat_status: "",
           client_type: "Individual",
@@ -241,15 +250,43 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
                         onChange={(e) => setFormData({ ...formData, vat_number: e.target.value })}
                       />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="address">Address</Label>
-                      <Textarea
-                        id="address"
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        rows={3}
-                        placeholder="Street address, city, postal code, country"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="address_line1">House Name / Number</Label>
+                        <Input
+                          id="address_line1"
+                          value={formData.address_line1}
+                          onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
+                          placeholder="e.g. 123 or Villa Rosa"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="address_line2">Street Name</Label>
+                        <Input
+                          id="address_line2"
+                          value={formData.address_line2}
+                          onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
+                          placeholder="e.g. Republic Street"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="locality">Locality</Label>
+                        <Input
+                          id="locality"
+                          value={formData.locality}
+                          onChange={(e) => setFormData({ ...formData, locality: e.target.value })}
+                          placeholder="e.g. Valletta"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="post_code">Post Code</Label>
+                        <Input
+                          id="post_code"
+                          value={formData.post_code}
+                          onChange={(e) => setFormData({ ...formData, post_code: e.target.value })}
+                          placeholder="e.g. VLT 1234"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

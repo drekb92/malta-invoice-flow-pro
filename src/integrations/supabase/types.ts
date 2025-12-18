@@ -65,12 +65,16 @@ export type Database = {
       company_settings: {
         Row: {
           company_address: string | null
+          company_address_line1: string | null
+          company_address_line2: string | null
           company_city: string | null
           company_country: string | null
           company_email: string | null
+          company_locality: string | null
           company_logo: string | null
           company_name: string | null
           company_phone: string | null
+          company_post_code: string | null
           company_registration_number: string | null
           company_state: string | null
           company_vat_number: string | null
@@ -87,12 +91,16 @@ export type Database = {
         }
         Insert: {
           company_address?: string | null
+          company_address_line1?: string | null
+          company_address_line2?: string | null
           company_city?: string | null
           company_country?: string | null
           company_email?: string | null
+          company_locality?: string | null
           company_logo?: string | null
           company_name?: string | null
           company_phone?: string | null
+          company_post_code?: string | null
           company_registration_number?: string | null
           company_state?: string | null
           company_vat_number?: string | null
@@ -109,12 +117,16 @@ export type Database = {
         }
         Update: {
           company_address?: string | null
+          company_address_line1?: string | null
+          company_address_line2?: string | null
           company_city?: string | null
           company_country?: string | null
           company_email?: string | null
+          company_locality?: string | null
           company_logo?: string | null
           company_name?: string | null
           company_phone?: string | null
+          company_post_code?: string | null
           company_registration_number?: string | null
           company_state?: string | null
           company_vat_number?: string | null
@@ -266,48 +278,60 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          address_line1: string | null
+          address_line2: string | null
           business_name: string | null
           client_type: string | null
           created_at: string | null
           date_added: string | null
           email: string | null
           id: string
+          locality: string | null
           name: string
           notes: string | null
           payment_terms: string | null
           phone: string | null
+          post_code: string | null
           user_id: string | null
           vat_number: string | null
           vat_status: string | null
         }
         Insert: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
           business_name?: string | null
           client_type?: string | null
           created_at?: string | null
           date_added?: string | null
           email?: string | null
           id?: string
+          locality?: string | null
           name: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
+          post_code?: string | null
           user_id?: string | null
           vat_number?: string | null
           vat_status?: string | null
         }
         Update: {
           address?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
           business_name?: string | null
           client_type?: string | null
           created_at?: string | null
           date_added?: string | null
           email?: string | null
           id?: string
+          locality?: string | null
           name?: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
+          post_code?: string | null
           user_id?: string | null
           vat_number?: string | null
           vat_status?: string | null
