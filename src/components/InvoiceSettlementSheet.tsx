@@ -453,15 +453,17 @@ export const InvoiceSettlementSheet = ({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-full sm:max-w-[420px] p-0 flex flex-col">
           {/* Fixed Header */}
-          <SheetHeader className="px-5 pt-5 pb-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <SheetTitle className="text-base" style={{ fontWeight: 600 }}>
-                {invoice.invoice_number}
+          <SheetHeader className="px-5 pt-5 pb-4 shrink-0">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <span>Invoice</span>
+                <span className="text-muted-foreground font-normal">•</span>
+                <span>{invoice.invoice_number}</span>
+                <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+                  <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
+                  {statusBadge.label}
+                </Badge>
               </SheetTitle>
-              <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
-                <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
-                {statusBadge.label}
-              </Badge>
             </div>
             <p className="text-sm text-muted-foreground">{customer?.name || "Loading..."}</p>
           </SheetHeader>
@@ -479,33 +481,35 @@ export const InvoiceSettlementSheet = ({
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
                 {/* 1. Line Items (TOP) */}
                 {invoiceItems.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  <div className="mb-5">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
                       Line Items
                     </h3>
-                    <div className="border border-border rounded-lg overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead className="bg-muted/50">
+                    <div className="border border-border/60 rounded-lg overflow-hidden bg-card/50">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/40 border-b border-border/40">
                           <tr>
-                            <th className="text-left px-2.5 py-1.5 font-medium text-muted-foreground">Description</th>
-                            <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-10">Qty</th>
-                            <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-16">Price</th>
-                            <th className="text-right px-2 py-1.5 font-medium text-muted-foreground w-12">VAT</th>
-                            <th className="text-right px-2.5 py-1.5 font-medium text-muted-foreground w-18">Total</th>
+                            <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Description</th>
+                            <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-10">Qty</th>
+                            <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-16">Price</th>
+                            <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-12">VAT</th>
+                            <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-18">Total</th>
                           </tr>
                         </thead>
                         <tbody>
                           {invoiceItems.map((item, idx) => {
                             const lineTotal = item.quantity * item.unit_price * (1 + item.vat_rate);
                             return (
-                              <tr key={item.id} className={idx !== invoiceItems.length - 1 ? "border-b border-border/50" : ""}>
-                                <td className="px-2.5 py-1.5 text-foreground truncate max-w-[100px]" title={item.description}>
-                                  {item.description}
+                              <tr key={item.id} className={idx !== invoiceItems.length - 1 ? "border-b border-border/30" : ""}>
+                                <td className="px-3 py-2.5 text-sm text-foreground">
+                                  <span className="block line-clamp-2" title={item.description}>
+                                    {item.description}
+                                  </span>
                                 </td>
-                                <td className="text-right px-2 py-1.5 text-muted-foreground">{item.quantity}</td>
-                                <td className="text-right px-2 py-1.5 text-muted-foreground">{formatCurrency(item.unit_price)}</td>
-                                <td className="text-right px-2 py-1.5 text-muted-foreground">{(item.vat_rate * 100).toFixed(0)}%</td>
-                                <td className="text-right px-2.5 py-1.5 font-medium">{formatCurrency(lineTotal)}</td>
+                                <td className="text-right px-2 py-2.5 text-sm text-muted-foreground tabular-nums">{item.quantity}</td>
+                                <td className="text-right px-2 py-2.5 text-sm text-muted-foreground tabular-nums">{formatCurrency(item.unit_price)}</td>
+                                <td className="text-right px-2 py-2.5 text-sm text-muted-foreground tabular-nums">{(item.vat_rate * 100).toFixed(0)}%</td>
+                                <td className="text-right px-3 py-2.5 text-sm font-semibold text-foreground tabular-nums">{formatCurrency(lineTotal)}</td>
                               </tr>
                             );
                           })}
@@ -516,8 +520,8 @@ export const InvoiceSettlementSheet = ({
                 )}
 
                 {/* 2. Invoice Financial Summary */}
-                <div className="mt-3">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                <div className="mb-5">
+                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
                     Invoice Summary
                   </h3>
                   <div className="bg-muted/40 rounded-lg p-3 space-y-1.5">
@@ -547,8 +551,8 @@ export const InvoiceSettlementSheet = ({
 
                 {/* 3. Settlement Breakdown */}
                 {(creditNotes.length > 0 || payments.length > 0) && (
-                  <div className="mt-3">
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  <div className="mb-5">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
                       Settlement Breakdown
                     </h3>
                     <div className="space-y-2">
