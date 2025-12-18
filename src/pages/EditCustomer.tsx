@@ -17,8 +17,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Save, Building, User } from "lucide-react";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate, useBlocker } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -61,20 +61,6 @@ const EditCustomer = () => {
   });
   const [originalData, setOriginalData] = useState<CustomerFormData | null>(null);
 
-  // Block navigation when form is dirty
-  const blocker = useBlocker(
-    useCallback(
-      ({ currentLocation, nextLocation }) =>
-        isDirty && currentLocation.pathname !== nextLocation.pathname,
-      [isDirty]
-    )
-  );
-
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setShowExitDialog(true);
-    }
-  }, [blocker.state]);
 
   // Handle browser back/refresh
   useEffect(() => {
@@ -170,9 +156,7 @@ const EditCustomer = () => {
   const handleConfirmExit = () => {
     setIsDirty(false);
     setShowExitDialog(false);
-    if (blocker.state === "blocked") {
-      blocker.proceed();
-    } else if (pendingNavigationRef.current) {
+    if (pendingNavigationRef.current) {
       navigate(pendingNavigationRef.current);
       pendingNavigationRef.current = null;
     }
@@ -181,9 +165,6 @@ const EditCustomer = () => {
   const handleCancelExit = () => {
     setShowExitDialog(false);
     pendingNavigationRef.current = null;
-    if (blocker.state === "blocked") {
-      blocker.reset();
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
