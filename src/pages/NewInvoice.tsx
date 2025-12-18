@@ -651,32 +651,46 @@ if (validationError) {
         navigate(shouldIssue ? `/invoices/${id}` : "/invoices");
         return;
       } else {
-        // Create new invoice - auto-generate invoice number if issuing
-        let finalInvoiceNumber = invoiceNumber;
-        
-        if (shouldIssue && !invoiceNumber) {
-          const { data, error } = await callRpc('next_invoice_number', {
+        // Create new invoice
+        // IMPORTANT (Malta VAT compliance): insert as draft first, then save items,
+        // then issue via invoiceService (issuing makes items immutable).
+
+        // Generate invoice number if issuing and no number exists
+        let finalInvoiceNumber = invoiceNumber || null;
+        if (shouldIssue && !finalInvoiceNumber) {
+          const { data, error } = await callRpc("next_invoice_number", {
             p_business_id: user?.id,
-            p_prefix: 'INV-'
+            p_prefix: "INV-",
           });
-          
+
           if (error) throw error;
+          if (!data) throw new Error("Failed to generate invoice number");
           finalInvoiceNumber = data;
+          setInvoiceNumber(data);
         }
-        
-        // Type-safe invoice data with number
-        const invoiceDataWithNumber = {
-          ...invoicePayload,
-          invoice_number: finalInvoiceNumber
-        };
-        
+
+        // Insert as DRAFT when issuing, so we can insert items before immutability kicks in
+        const draftPayload = shouldIssue
+          ? {
+              ...invoicePayload,
+              status: "draft" as const,
+              is_issued: false,
+              issued_at: null,
+              invoice_number: finalInvoiceNumber,
+            }
+          : {
+              ...invoicePayload,
+              invoice_number: finalInvoiceNumber,
+            };
+
         const { data: invoice, error: invoiceError } = await supabase
           .from("invoices")
-          .insert(invoiceDataWithNumber)
+          .insert(draftPayload)
           .select("id")
           .single();
 
         if (invoiceError) throw invoiceError;
+        if (!invoice?.id) throw new Error("Failed to create invoice");
 
         // Type-safe items data
         const itemsData: TablesInsert<'invoice_items'>[] = items.map(item => ({
