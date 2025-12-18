@@ -74,6 +74,10 @@ interface Invoice {
     name: string;
     email?: string;
     address?: string;
+    address_line1?: string;
+    address_line2?: string;
+    locality?: string;
+    post_code?: string;
     vat_number?: string;
     payment_terms: string | null;
   };
@@ -716,6 +720,10 @@ const Invoices = () => {
                     name: exportInvoice.customers?.name || "Unknown Customer",
                     email: exportInvoice.customers?.email || undefined,
                     address: exportInvoice.customers?.address || undefined,
+                    address_line1: exportInvoice.customers?.address_line1 || undefined,
+                    address_line2: exportInvoice.customers?.address_line2 || undefined,
+                    locality: exportInvoice.customers?.locality || undefined,
+                    post_code: exportInvoice.customers?.post_code || undefined,
                     vat_number: exportInvoice.customers?.vat_number || undefined,
                   },
                   items: exportItems.map((i: any) => ({
@@ -762,6 +770,10 @@ const Invoices = () => {
                         email: companySettings.company_email,
                         phone: companySettings.company_phone,
                         address: companySettings.company_address,
+                        addressLine1: companySettings.company_address_line1,
+                        addressLine2: companySettings.company_address_line2,
+                        locality: companySettings.company_locality,
+                        postCode: companySettings.company_post_code,
                         city: companySettings.company_city,
                         state: companySettings.company_state,
                         zipCode: companySettings.company_zip_code,

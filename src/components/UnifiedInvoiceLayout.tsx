@@ -7,6 +7,10 @@ export interface CompanySettings {
   email?: string;
   phone?: string;
   address?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  locality?: string;
+  postCode?: string;
   city?: string;
   state?: string;
   zipCode?: string;
@@ -38,7 +42,11 @@ export interface InvoiceData {
   customer: {
     name: string;
     email?: string;
-    address?: string;
+    address?: string; // Legacy single address field
+    address_line1?: string;
+    address_line2?: string;
+    locality?: string;
+    post_code?: string;
     vat_number?: string;
   };
   items: InvoiceItem[];
@@ -343,11 +351,20 @@ export const UnifiedInvoiceLayout = ({
     } as any),
   };
 
-  const companyAddressLines = [
-    companySettings?.address,
-    [companySettings?.zipCode, companySettings?.city].filter(Boolean).join(" ") || undefined,
-    companySettings?.country,
-  ].filter(Boolean) as string[];
+  // Build company address lines using new structured fields or fallback to legacy
+  const companyAddressLines: string[] = [];
+  if (companySettings?.addressLine1) companyAddressLines.push(companySettings.addressLine1);
+  if (companySettings?.addressLine2) companyAddressLines.push(companySettings.addressLine2);
+  if (companySettings?.locality) companyAddressLines.push(companySettings.locality);
+  if (companySettings?.postCode) companyAddressLines.push(companySettings.postCode);
+  
+  // Fallback to legacy address if new fields are empty
+  if (companyAddressLines.length === 0) {
+    if (companySettings?.address) companyAddressLines.push(companySettings.address);
+    const cityLine = [companySettings?.zipCode, companySettings?.city].filter(Boolean).join(" ");
+    if (cityLine) companyAddressLines.push(cityLine);
+    if (companySettings?.country) companyAddressLines.push(companySettings.country);
+  }
 
   return (
     <div id={id} className="invoice-page" style={lockedVars}>
@@ -402,7 +419,15 @@ export const UnifiedInvoiceLayout = ({
               <div className="customer-name">{invoiceData.customer.name}</div>
               <div className="customer-info">
                 {invoiceData.customer.email && <div>{invoiceData.customer.email}</div>}
-                {invoiceData.customer.address && <div className="desc">{invoiceData.customer.address}</div>}
+                {/* Structured address fields */}
+                {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
+                {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
+                {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
+                {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
+                {/* Legacy address field fallback */}
+                {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
+                  <div className="desc">{invoiceData.customer.address}</div>
+                )}
                 {invoiceData.customer.vat_number && <div>VAT: {invoiceData.customer.vat_number}</div>}
               </div>
             </div>

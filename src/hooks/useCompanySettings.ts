@@ -10,6 +10,10 @@ export interface CompanySettings {
   company_email?: string;
   company_phone?: string;
   company_address?: string;
+  company_address_line1?: string;
+  company_address_line2?: string;
+  company_locality?: string;
+  company_post_code?: string;
   company_city?: string;
   company_state?: string;
   company_zip_code?: string;
@@ -168,22 +172,37 @@ export const formatCompanyAddress = (settings: CompanySettings | null): string[]
 
   const lines: string[] = [];
 
-  if (settings.company_address) {
+  // Use new structured address fields if available
+  if (settings.company_address_line1) {
+    lines.push(settings.company_address_line1);
+  }
+  if (settings.company_address_line2) {
+    lines.push(settings.company_address_line2);
+  }
+  if (settings.company_locality) {
+    lines.push(settings.company_locality);
+  }
+  if (settings.company_post_code) {
+    lines.push(settings.company_post_code);
+  }
+
+  // Fallback to legacy address if new fields are empty
+  if (lines.length === 0 && settings.company_address) {
     lines.push(settings.company_address);
-  }
+    
+    const cityLine = [
+      settings.company_city,
+      settings.company_state,
+      settings.company_zip_code,
+    ].filter(Boolean).join(', ');
 
-  const cityLine = [
-    settings.company_city,
-    settings.company_state,
-    settings.company_zip_code,
-  ].filter(Boolean).join(', ');
+    if (cityLine) {
+      lines.push(cityLine);
+    }
 
-  if (cityLine) {
-    lines.push(cityLine);
-  }
-
-  if (settings.company_country) {
-    lines.push(settings.company_country);
+    if (settings.company_country) {
+      lines.push(settings.company_country);
+    }
   }
 
   return lines;

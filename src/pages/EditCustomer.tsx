@@ -27,7 +27,10 @@ interface CustomerFormData {
   name: string;
   email: string;
   phone: string;
-  address: string;
+  address_line1: string;
+  address_line2: string;
+  locality: string;
+  post_code: string;
   vat_number: string;
   vat_status: string;
   payment_terms: string;
@@ -51,7 +54,10 @@ const EditCustomer = () => {
     name: "",
     email: "",
     phone: "",
-    address: "",
+    address_line1: "",
+    address_line2: "",
+    locality: "",
+    post_code: "",
     vat_number: "",
     vat_status: "",
     payment_terms: "Net 30",
@@ -108,7 +114,10 @@ const EditCustomer = () => {
         name: data.name || "",
         email: data.email || "",
         phone: data.phone || "",
-        address: data.address || "",
+        address_line1: data.address_line1 || "",
+        address_line2: data.address_line2 || "",
+        locality: data.locality || "",
+        post_code: data.post_code || "",
         vat_number: data.vat_number || "",
         vat_status: data.vat_status || "",
         payment_terms: data.payment_terms || "Net 30",
@@ -190,7 +199,10 @@ const EditCustomer = () => {
           name: formData.name.trim(),
           email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
-          address: formData.address.trim() || null,
+          address_line1: formData.address_line1.trim() || null,
+          address_line2: formData.address_line2.trim() || null,
+          locality: formData.locality.trim() || null,
+          post_code: formData.post_code.trim() || null,
           vat_number: formData.vat_number.trim() || null,
           vat_status: formData.vat_status || null,
           payment_terms: formData.payment_terms || null,
@@ -346,15 +358,46 @@ const EditCustomer = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => handleChange("address", e.target.value)}
-                    placeholder="Enter full address"
-                    rows={3}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="address_line1">House Name / Number</Label>
+                    <Input
+                      id="address_line1"
+                      value={formData.address_line1}
+                      onChange={(e) => handleChange("address_line1", e.target.value)}
+                      placeholder="e.g. 123 or Villa Rosa"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="address_line2">Street Name</Label>
+                    <Input
+                      id="address_line2"
+                      value={formData.address_line2}
+                      onChange={(e) => handleChange("address_line2", e.target.value)}
+                      placeholder="e.g. Republic Street"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="locality">Locality</Label>
+                    <Input
+                      id="locality"
+                      value={formData.locality}
+                      onChange={(e) => handleChange("locality", e.target.value)}
+                      placeholder="e.g. Valletta"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="post_code">Post Code</Label>
+                    <Input
+                      id="post_code"
+                      value={formData.post_code}
+                      onChange={(e) => handleChange("post_code", e.target.value)}
+                      placeholder="e.g. VLT 1234"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>

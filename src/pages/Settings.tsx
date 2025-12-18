@@ -35,6 +35,10 @@ interface CompanySettings {
   phone: string;
   website: string;
   address: string;
+  addressLine1: string;
+  addressLine2: string;
+  locality: string;
+  postCode: string;
   city: string;
   state: string;
   zipCode: string;
@@ -122,6 +126,10 @@ const Settings = () => {
     phone: "",
     website: "",
     address: "",
+    addressLine1: "",
+    addressLine2: "",
+    locality: "",
+    postCode: "",
     city: "",
     state: "",
     zipCode: "",
@@ -214,6 +222,10 @@ const Settings = () => {
             phone: companyData.company_phone || "",
             website: companyData.company_website || "",
             address: companyData.company_address || "",
+            addressLine1: companyData.company_address_line1 || "",
+            addressLine2: companyData.company_address_line2 || "",
+            locality: companyData.company_locality || "",
+            postCode: companyData.company_post_code || "",
             city: companyData.company_city || "",
             state: companyData.company_state || "",
             zipCode: companyData.company_zip_code || "",
@@ -465,6 +477,10 @@ const Settings = () => {
           company_phone: companySettings.phone,
           company_website: companySettings.website,
           company_address: companySettings.address,
+          company_address_line1: companySettings.addressLine1,
+          company_address_line2: companySettings.addressLine2,
+          company_locality: companySettings.locality,
+          company_post_code: companySettings.postCode,
           company_city: companySettings.city,
           company_state: companySettings.state,
           company_zip_code: companySettings.zipCode,
@@ -980,17 +996,52 @@ const Settings = () => {
                         )}
                       </div>
 
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="company_address" className="flex items-center gap-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="company_address_line1" className="flex items-center gap-2">
                           <MapPin className="h-4 w-4" />
-                          Business Address
+                          House Name / Number
                         </Label>
-                        <Textarea
-                          id="company_address"
-                          placeholder="Street Address, City, Country"
-                          rows={3}
-                          value={companySettings.address}
-                          onChange={(e) => setCompanySettings({ ...companySettings, address: e.target.value })}
+                        <Input
+                          id="company_address_line1"
+                          placeholder="e.g. 123 or Villa Rosa"
+                          value={companySettings.addressLine1 || ""}
+                          onChange={(e) => setCompanySettings({ ...companySettings, addressLine1: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company_address_line2">
+                          Street Name
+                        </Label>
+                        <Input
+                          id="company_address_line2"
+                          placeholder="e.g. Republic Street"
+                          value={companySettings.addressLine2 || ""}
+                          onChange={(e) => setCompanySettings({ ...companySettings, addressLine2: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company_locality">
+                          Locality
+                        </Label>
+                        <Input
+                          id="company_locality"
+                          placeholder="e.g. Valletta"
+                          value={companySettings.locality || ""}
+                          onChange={(e) => setCompanySettings({ ...companySettings, locality: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company_post_code">
+                          Post Code
+                        </Label>
+                        <Input
+                          id="company_post_code"
+                          placeholder="e.g. VLT 1234"
+                          value={companySettings.postCode || ""}
+                          onChange={(e) => setCompanySettings({ ...companySettings, postCode: e.target.value })}
                         />
                       </div>
 
