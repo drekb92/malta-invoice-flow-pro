@@ -22,7 +22,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Plus, Trash2, ArrowLeft, Download, Zap, Info, Shield, FileText, Library, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Trash2, ArrowLeft, Download, Zap, Info, Shield, FileText, Library } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -98,7 +106,6 @@ const NewInvoice = () => {
   const [invoiceDate, setInvoiceDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
-  const [status, setStatus] = useState<string>("draft");
   const [items, setItems] = useState<InvoiceItem[]>([
     {
       description: "",
@@ -233,7 +240,6 @@ const NewInvoice = () => {
       setInvoiceNumber(invoice.invoice_number || '');
       setSelectedCustomer(invoice.customer_id || '');
       setInvoiceDate(invoice.invoice_date || invoice.created_at?.split("T")[0] || '');
-      setStatus(invoice.status || 'draft');
       setIsIssued(invoice.is_issued || false);
       setIssuedAt(invoice.issued_at || null);
       
@@ -445,7 +451,7 @@ const NewInvoice = () => {
   const handleSubmit = async (e: React.FormEvent, shouldIssue: boolean = false) => {
     e.preventDefault();
     
-    if (status !== 'draft' && isEditMode) {
+    if (isIssued && isEditMode) {
       toast({
         title: "Invoice Already Issued",
         description: "This invoice has been issued and cannot be modified.",
@@ -725,6 +731,11 @@ const NewInvoice = () => {
 
   const dueDate = getDueDate();
 
+  // Calculate line total for display
+  const getLineTotal = (item: InvoiceItem) => {
+    return item.quantity * item.unit_price * (1 + item.vat_rate);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -775,7 +786,7 @@ const NewInvoice = () => {
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    <p>Quick Mode hides advanced fields</p>
+                    <p>Quick Mode hides discount reason & VAT info</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -786,11 +797,11 @@ const NewInvoice = () => {
         <main className="p-4 md:p-6">
           <form 
             onSubmit={(e) => handleSubmit(e, false)} 
-            className={status !== 'draft' ? 'opacity-75 pointer-events-none' : ''}
+            className={isIssued ? 'opacity-75 pointer-events-none' : ''}
           >
             {/* Issued Invoice Banner */}
-            {status !== 'draft' && isEditMode && (
-              <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/50 dark:border-blue-800">
+            {isIssued && isEditMode && (
+              <Alert className="mb-4 border-blue-200 bg-blue-50 dark:bg-blue-950/50 dark:border-blue-800">
                 <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <AlertDescription className="text-blue-900 dark:text-blue-100">
                   <span className="font-medium">Invoice issued on {issuedAt ? format(new Date(issuedAt), "PPP") : 'N/A'}.</span>
@@ -809,26 +820,26 @@ const NewInvoice = () => {
             )}
 
             {/* 2-Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* LEFT COLUMN: Invoice Details + Items */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Invoice Details Card */}
+              <div className="lg:col-span-2 space-y-4">
+                {/* Invoice Details Card - Compact */}
                 <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Invoice Details</CardTitle>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-medium">Invoice Details</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <CardContent className="px-4 pb-4 pt-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {/* Customer */}
-                      <div className="sm:col-span-2">
-                        <Label htmlFor="customer" className="text-sm">Customer *</Label>
+                      <div className="col-span-2">
+                        <Label htmlFor="customer" className="text-xs text-muted-foreground">Customer *</Label>
                         <Select 
                           value={selectedCustomer} 
                           onValueChange={setSelectedCustomer}
                           disabled={isIssued}
                         >
-                          <SelectTrigger className="mt-1.5">
-                            <SelectValue placeholder="Select a customer" />
+                          <SelectTrigger className="mt-1 h-9">
+                            <SelectValue placeholder="Select customer" />
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
                             {customers.map((customer) => (
@@ -842,7 +853,7 @@ const NewInvoice = () => {
 
                       {/* Invoice Date */}
                       <div>
-                        <Label htmlFor="invoiceDate" className="text-sm">Invoice Date *</Label>
+                        <Label htmlFor="invoiceDate" className="text-xs text-muted-foreground">Date *</Label>
                         <Input
                           id="invoiceDate"
                           type="date"
@@ -850,194 +861,142 @@ const NewInvoice = () => {
                           onChange={(e) => setInvoiceDate(e.target.value)}
                           required
                           disabled={isIssued}
-                          className="mt-1.5"
+                          className="mt-1 h-9"
                         />
                       </div>
 
                       {/* Due Date (calculated) */}
                       <div>
-                        <Label className="text-sm">Due Date</Label>
+                        <Label className="text-xs text-muted-foreground">Due</Label>
                         <Input
-                          value={dueDate ? format(dueDate, "yyyy-MM-dd") : "Select customer"}
+                          value={dueDate ? format(dueDate, "dd/MM/yyyy") : "—"}
                           readOnly
                           disabled
-                          className="mt-1.5 bg-muted/50"
+                          className="mt-1 h-9 bg-muted/50 text-muted-foreground"
                         />
-                        {selectedCustomer && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Based on {customers.find(c => c.id === selectedCustomer)?.payment_terms || "Net 30"}
-                          </p>
-                        )}
                       </div>
-
-                      {/* Invoice Number - read only */}
-                      <div>
-                        <Label htmlFor="invoiceNumber" className="text-sm">Invoice Number</Label>
-                        <Input
-                          id="invoiceNumber"
-                          value={invoiceNumber || "—"}
-                          readOnly
-                          disabled
-                          className="mt-1.5 bg-muted/50 text-muted-foreground"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Assigned when issued
-                        </p>
-                      </div>
-
-                      {/* Status - only show in detailed mode */}
-                      {!isQuickMode && (
-                        <div>
-                          <Label htmlFor="status" className="text-sm">Status</Label>
-                          <Select 
-                            value={status} 
-                            onValueChange={setStatus}
-                            disabled={isIssued}
-                          >
-                            <SelectTrigger className="mt-1.5">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-popover z-50">
-                              <SelectItem value="draft">Draft</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
-                              <SelectItem value="paid">Paid</SelectItem>
-                              <SelectItem value="overdue">Overdue</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Invoice Items Card */}
+                {/* Invoice Items Card - Compact Table */}
                 <Card>
-                  <CardHeader className="pb-4">
+                  <CardHeader className="py-3 px-4">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">Invoice Items</CardTitle>
+                      <CardTitle className="text-sm font-medium">Items</CardTitle>
                       <div className="flex items-center gap-2">
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => setLibraryOpen(true)}
                           disabled={isIssued}
+                          className="h-7 px-2 text-xs"
                         >
-                          <Library className="h-4 w-4 mr-1.5" />
-                          <span className="hidden sm:inline">Add from library</span>
-                          <span className="sm:hidden">Library</span>
+                          <Library className="h-3.5 w-3.5 mr-1" />
+                          Library
                         </Button>
                         <Button 
                           type="button" 
                           onClick={addItem} 
                           size="sm"
                           disabled={isIssued}
+                          className="h-7 px-2 text-xs"
                         >
-                          <Plus className="h-4 w-4 mr-1.5" />
-                          Add item
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Add
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {items.map((item, index) => (
-                        <div key={index} className="p-4 border border-border rounded-lg bg-card">
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                            {/* Description - takes more space */}
-                            <div className="sm:col-span-5">
-                              <Label className="text-xs text-muted-foreground">Description</Label>
-                              <Input
-                                value={item.description}
-                                onChange={(e) => updateItem(index, 'description', e.target.value)}
-                                placeholder="Item description"
-                                required
-                                disabled={isIssued}
-                                className="mt-1"
-                              />
-                            </div>
-                            
-                            {/* Quantity */}
-                            <div className="sm:col-span-2">
-                              <Label className="text-xs text-muted-foreground">Qty</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                required
-                                disabled={isIssued}
-                                className="mt-1"
-                              />
-                            </div>
-                            
-                            {/* Unit Price */}
-                            <div className="sm:col-span-2">
-                              <Label className="text-xs text-muted-foreground">Price (€)</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.unit_price}
-                                onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                                required
-                                disabled={isIssued}
-                                className="mt-1"
-                              />
-                            </div>
-                            
-                            {/* VAT Rate */}
-                            <div className="sm:col-span-2">
-                              <Label className="text-xs text-muted-foreground">VAT</Label>
-                              <Select 
-                                value={item.vat_rate.toString()} 
-                                onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
-                                disabled={isIssued}
-                              >
-                                <SelectTrigger className="mt-1">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-popover z-50">
-                                  <SelectItem value="0">0%</SelectItem>
-                                  <SelectItem value="0.05">5%</SelectItem>
-                                  <SelectItem value="0.18">18%</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            
-                            {/* Delete */}
-                            <div className="sm:col-span-1 flex items-end justify-end">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeItem(index)}
-                                disabled={items.length === 1 || isIssued}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          {/* Line total */}
-                          <div className="mt-2 pt-2 border-t border-border/50 flex justify-end text-sm text-muted-foreground">
-                            Line total: <span className="font-medium text-foreground ml-1">€{formatNumber(item.quantity * item.unit_price * (1 + item.vat_rate), 2)}</span>
-                          </div>
-                        </div>
-                      ))}
+                  <CardContent className="px-0 pb-2 pt-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="text-xs font-medium h-8 pl-4">Description</TableHead>
+                            <TableHead className="text-xs font-medium h-8 w-16 text-center">Qty</TableHead>
+                            <TableHead className="text-xs font-medium h-8 w-24 text-right">Price (€)</TableHead>
+                            <TableHead className="text-xs font-medium h-8 w-20 text-center">VAT</TableHead>
+                            <TableHead className="text-xs font-medium h-8 w-24 text-right">Total</TableHead>
+                            <TableHead className="h-8 w-10 pr-4"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {items.map((item, index) => (
+                            <TableRow key={index} className="hover:bg-muted/30">
+                              <TableCell className="py-1.5 pl-4">
+                                <Input
+                                  value={item.description}
+                                  onChange={(e) => updateItem(index, "description", e.target.value)}
+                                  placeholder="Item description"
+                                  disabled={isIssued}
+                                  className="h-8 text-sm border-0 bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                />
+                              </TableCell>
+                              <TableCell className="py-1.5 px-1">
+                                <Input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
+                                  disabled={isIssued}
+                                  className="h-8 text-sm text-center w-14 mx-auto"
+                                  min={0}
+                                  step={0.01}
+                                />
+                              </TableCell>
+                              <TableCell className="py-1.5 px-1">
+                                <Input
+                                  type="number"
+                                  value={item.unit_price}
+                                  onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                  disabled={isIssued}
+                                  className="h-8 text-sm text-right w-20 ml-auto"
+                                  min={0}
+                                  step={0.01}
+                                />
+                              </TableCell>
+                              <TableCell className="py-1.5 px-1">
+                                <Select
+                                  value={String(item.vat_rate)}
+                                  onValueChange={(v) => updateItem(index, "vat_rate", parseFloat(v))}
+                                  disabled={isIssued}
+                                >
+                                  <SelectTrigger className="h-8 text-sm w-16 mx-auto text-center">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-popover z-50">
+                                    <SelectItem value="0">0%</SelectItem>
+                                    <SelectItem value="0.05">5%</SelectItem>
+                                    <SelectItem value="0.18">18%</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell className="py-1.5 px-1 text-right font-medium text-sm tabular-nums">
+                                €{formatNumber(getLineTotal(item), 2)}
+                              </TableCell>
+                              <TableCell className="py-1.5 pr-4">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeItem(index)}
+                                  disabled={items.length === 1 || isIssued}
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                     
-                    {/* VAT Info Link - compact in Quick Mode */}
+                    {/* VAT Info - only in detailed mode */}
                     {!isQuickMode && (
-                      <div className="mt-4 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
-                        <p className="font-medium mb-1">Malta VAT Rates:</p>
-                        <ul className="space-y-0.5 ml-4 list-disc">
-                          <li><strong>18%</strong>: Standard rate for most goods & services</li>
-                          <li><strong>5%</strong>: Reduced rate for books, food, medical</li>
-                          <li><strong>0%</strong>: Exempt (education, medical, financial)</li>
-                        </ul>
+                      <div className="mx-4 mt-3 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                        <span className="font-medium">Malta VAT:</span> 18% standard, 5% reduced, 0% exempt
                       </div>
                     )}
                   </CardContent>
@@ -1046,19 +1005,17 @@ const NewInvoice = () => {
 
               {/* RIGHT SIDEBAR: Summary + Actions */}
               <div className="lg:col-span-1">
-                <div className="lg:sticky lg:top-20 space-y-4">
+                <div className="lg:sticky lg:top-16 space-y-4">
                   {/* Summary Card */}
                   <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Summary</CardTitle>
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-medium">Summary</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="px-4 pb-4 pt-0 space-y-3">
                       {/* Compact Discount Row */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm text-muted-foreground">Discount</Label>
-                        </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-muted-foreground">Discount</Label>
                           <ToggleGroup
                             type="single"
                             value={discountType}
@@ -1072,44 +1029,46 @@ const NewInvoice = () => {
                               }
                             }}
                             disabled={isIssued}
-                            className="justify-start"
+                            className="h-7"
                           >
-                            <ToggleGroupItem value="none" aria-label="None" className="text-xs px-2.5">
-                              None
+                            <ToggleGroupItem value="none" aria-label="None" className="text-xs px-2 h-7">
+                              —
                             </ToggleGroupItem>
-                            <ToggleGroupItem value="amount" aria-label="Amount" className="text-xs px-2.5">
+                            <ToggleGroupItem value="amount" aria-label="Amount" className="text-xs px-2 h-7">
                               €
                             </ToggleGroupItem>
-                            <ToggleGroupItem value="percent" aria-label="Percent" className="text-xs px-2.5">
+                            <ToggleGroupItem value="percent" aria-label="Percent" className="text-xs px-2 h-7">
                               %
                             </ToggleGroupItem>
                           </ToggleGroup>
-                          <Input
-                            ref={discountInputRef}
-                            type="number"
-                            inputMode="decimal"
-                            step="0.01"
-                            min={0}
-                            max={discountType === 'percent' ? 100 : totals.netTotal}
-                            value={discountType === 'none' ? '' : discountValue}
-                            onChange={(e) => {
-                              let v = parseFloat(e.target.value);
-                              if (isNaN(v)) v = 0;
-                              if (discountType === 'percent') {
-                                v = Math.max(0, Math.min(100, v));
-                              } else {
-                                v = Math.max(0, Math.min(totals.netTotal, v));
-                              }
-                              setDiscountValue(v);
-                            }}
-                            disabled={isIssued || discountType === 'none'}
-                            placeholder="0"
-                            className="w-20"
-                          />
+                          {discountType !== 'none' && (
+                            <Input
+                              ref={discountInputRef}
+                              type="number"
+                              inputMode="decimal"
+                              step="0.01"
+                              min={0}
+                              max={discountType === 'percent' ? 100 : totals.netTotal}
+                              value={discountValue || ''}
+                              onChange={(e) => {
+                                let v = parseFloat(e.target.value);
+                                if (isNaN(v)) v = 0;
+                                if (discountType === 'percent') {
+                                  v = Math.max(0, Math.min(100, v));
+                                } else {
+                                  v = Math.max(0, Math.min(totals.netTotal, v));
+                                }
+                                setDiscountValue(v);
+                              }}
+                              disabled={isIssued}
+                              placeholder="0"
+                              className="w-16 h-7 text-sm"
+                            />
+                          )}
                         </div>
                         
-                        {/* Add reason link */}
-                        {discountType !== 'none' && discountValue > 0 && !showDiscountReason && (
+                        {/* Add reason link - hidden in quick mode */}
+                        {!isQuickMode && discountType !== 'none' && discountValue > 0 && !showDiscountReason && (
                           <button
                             type="button"
                             onClick={() => setShowDiscountReason(true)}
@@ -1119,8 +1078,8 @@ const NewInvoice = () => {
                           </button>
                         )}
                         
-                        {/* Discount reason textarea */}
-                        {showDiscountReason && (
+                        {/* Discount reason textarea - hidden in quick mode */}
+                        {!isQuickMode && showDiscountReason && (
                           <div className="space-y-1">
                             <div className="flex items-center justify-between">
                               <Label className="text-xs text-muted-foreground">Reason</Label>
@@ -1140,46 +1099,37 @@ const NewInvoice = () => {
                               onChange={(e) => setDiscountReason(e.target.value)}
                               placeholder="Optional discount note"
                               disabled={isIssued}
-                              className="h-16 text-sm resize-none"
+                              className="h-14 text-sm resize-none"
                             />
                           </div>
                         )}
                       </div>
 
-                      {/* Totals */}
-                      <div className="space-y-2 pt-2">
-                        <div className="flex justify-between text-sm">
+                      {/* Totals - compact */}
+                      <div className="space-y-1 pt-2 border-t border-border">
+                        <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Subtotal</span>
                           <span>€{formatNumber(totals.netTotal, 2)}</span>
                         </div>
                         {totals.discountAmount > 0 && (
-                          <div className="flex justify-between text-sm text-destructive">
+                          <div className="flex justify-between text-xs text-destructive">
                             <span>Discount</span>
-                            <span>
-                              –€{formatNumber(totals.discountAmount, 2)}
-                              {discountType === 'percent' && ` (${discountValue}%)`}
-                            </span>
+                            <span>–€{formatNumber(totals.discountAmount, 2)}</span>
                           </div>
                         )}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Taxable</span>
-                          <span>€{formatNumber(totals.taxable, 2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">VAT</span>
                           <span>€{formatNumber(totals.vatTotal, 2)}</span>
                         </div>
-                        <div className="border-t border-border pt-3 mt-3">
-                          <div className="flex justify-between">
-                            <span className="font-semibold">Total</span>
-                            <span className="text-xl font-bold">€{formatNumber(totals.grandTotal, 2)}</span>
-                          </div>
+                        <div className="flex justify-between pt-2 border-t border-border mt-2">
+                          <span className="font-semibold text-sm">Total</span>
+                          <span className="text-lg font-bold">€{formatNumber(totals.grandTotal, 2)}</span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Action Buttons */}
+                  {/* Action Buttons - Compact */}
                   <div className="space-y-2">
                     {!isIssued && (
                       <>
@@ -1187,7 +1137,7 @@ const NewInvoice = () => {
                           type="button"
                           onClick={(e) => handleSubmit(e as any, true)}
                           disabled={loading}
-                          className="w-full bg-green-600 hover:bg-green-700"
+                          className="w-full h-9 bg-green-600 hover:bg-green-700"
                         >
                           <Shield className="h-4 w-4 mr-2" />
                           {loading ? "Issuing..." : "Save & Issue"}
@@ -1196,7 +1146,7 @@ const NewInvoice = () => {
                           type="submit" 
                           variant="outline"
                           disabled={loading}
-                          className="w-full"
+                          className="w-full h-9"
                         >
                           {loading ? "Saving..." : "Save as Draft"}
                         </Button>
@@ -1208,7 +1158,7 @@ const NewInvoice = () => {
                         variant="outline" 
                         onClick={handleDownloadPDF}
                         disabled={loading}
-                        className="w-full"
+                        className="w-full h-9"
                       >
                         <Download className="h-4 w-4 mr-2" />
                         Download PDF
@@ -1219,13 +1169,18 @@ const NewInvoice = () => {
                         type="button"
                         variant="destructive"
                         onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
-                        className="w-full"
+                        className="w-full h-9"
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         Create Credit Note
                       </Button>
                     )}
-                    <Button type="button" variant="ghost" asChild className="w-full">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      asChild 
+                      className="w-full h-8 text-sm text-muted-foreground"
+                    >
                       <Link to="/invoices">Cancel</Link>
                     </Button>
                   </div>
@@ -1347,36 +1302,32 @@ const NewInvoice = () => {
                 layout: templateForPreview?.layout || 'default',
                 headerLayout: templateForPreview?.header_layout || 'default',
                 tableStyle: templateForPreview?.table_style || 'default',
-                totalsStyle: templateForPreview?.totals_style || 'default',
-                bankingVisibility: templateForPreview?.banking_visibility !== false,
-                bankingStyle: templateForPreview?.banking_style || 'default',
-                marginTop: templateForPreview?.margin_top || 20,
-                marginRight: templateForPreview?.margin_right || 20,
-                marginBottom: templateForPreview?.margin_bottom || 20,
-                marginLeft: templateForPreview?.margin_left || 20
+                totalsStyle: templateForPreview?.totals_style || 'right',
+                bankingVisibility: templateForPreview?.banking_visibility ?? true,
+                bankingStyle: templateForPreview?.banking_style || 'compact',
+                marginTop: templateForPreview?.margin_top ?? 1.2,
+                marginRight: templateForPreview?.margin_right ?? 1.2,
+                marginBottom: templateForPreview?.margin_bottom ?? 1.2,
+                marginLeft: templateForPreview?.margin_left ?? 1.2,
               }}
               companySettings={companySettings ? {
-                name: companySettings.company_name,
-                email: companySettings.company_email,
-                phone: companySettings.company_phone,
-                address: companySettings.company_address,
-                addressLine1: companySettings.company_address_line1,
-                addressLine2: companySettings.company_address_line2,
-                locality: companySettings.company_locality,
-                postCode: companySettings.company_post_code,
-                city: companySettings.company_city,
-                state: companySettings.company_state,
-                zipCode: companySettings.company_zip_code,
-                country: companySettings.company_country,
-                taxId: companySettings.company_vat_number,
-                registrationNumber: companySettings.company_registration_number,
-                logo: companySettings.company_logo,
+                name: companySettings.company_name || '',
+                address: companySettings.company_address || undefined,
+                addressLine1: companySettings.company_address_line1 || undefined,
+                addressLine2: companySettings.company_address_line2 || undefined,
+                locality: companySettings.company_locality || undefined,
+                postCode: companySettings.company_post_code || undefined,
+                email: companySettings.company_email || undefined,
+                phone: companySettings.company_phone || undefined,
+                taxId: companySettings.company_vat_number || undefined,
+                registrationNumber: companySettings.company_registration_number || undefined,
+                logo: companySettings.company_logo || undefined,
               } : undefined}
               bankingSettings={bankingSettings ? {
-                bankName: bankingSettings.bank_name,
-                accountName: bankingSettings.bank_account_name,
-                iban: bankingSettings.bank_iban,
-                swiftCode: bankingSettings.bank_swift_code,
+                bankName: bankingSettings.bank_name || undefined,
+                accountName: bankingSettings.bank_account_name || undefined,
+                iban: bankingSettings.bank_iban || undefined,
+                swiftCode: bankingSettings.bank_swift_code || undefined,
               } : undefined}
             />
           </InvoiceErrorBoundary>
