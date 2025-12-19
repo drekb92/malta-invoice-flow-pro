@@ -60,6 +60,7 @@ interface Customer {
   notes: string | null;
   date_added?: string | null;
   user_id?: string;
+  customer_code?: string | null;
   outstanding_amount?: number;
   open_invoice_count?: number;
   last_activity_date?: string | null;
@@ -389,8 +390,8 @@ const Customers = () => {
                           {/* Customer */}
                           <TableCell>
                             <div className="font-medium">{customer.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {customer.id.substring(0, 8)}
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {customer.customer_code || customer.id.substring(0, 8)}
                             </div>
                           </TableCell>
 
