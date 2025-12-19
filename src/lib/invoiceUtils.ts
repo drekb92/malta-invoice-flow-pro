@@ -23,8 +23,9 @@ export function money(n: number | string): string {
 }
 
 // Percent like 18%
-export function percent(rate: number): string { 
-  return `${Math.round(Number(rate || 0) * 100)}%`; 
+export function percent(rate: number): string {
+  const normalized = normRate(rate);
+  return `${Math.round(normalized * 100)}%`; 
 }
 
 // Math helpers
@@ -36,9 +37,18 @@ export function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Normalize VAT rate to decimal format (0.18, not 18)
+ * Safely handles both 0.18 and 18 inputs
+ */
+export function normRate(rate: number | string): number {
+  const r = Number(rate) || 0;
+  return r > 1 ? r / 100 : r;
+}
+
 // Label: "VAT (18%)" if single rate else "VAT"
 export function vatLabel(items: Array<{ vat_rate: number }>): string {
-  const rates = Array.from(new Set((items || []).map(i => String(Number(i.vat_rate || 0)))));
+  const rates = Array.from(new Set((items || []).map(i => String(normRate(i.vat_rate)))));
   return rates.length === 1 ? `VAT (${percent(Number(rates[0]))})` : 'VAT';
 }
 
@@ -60,7 +70,7 @@ export interface DiscountInput {
 export interface InvoiceTotals {
   subtotal: number;      // Sum of qty * unit_price (Net Amount)
   discountAmount: number; // Calculated discount (clamped to subtotal)
-  taxable: number;       // subtotal - discountAmount
+  taxable: number;       // subtotal - discountAmount (exact to cents)
   vatAmount: number;     // VAT on taxable (after discount)
   total: number;         // taxable + vatAmount
 }
@@ -89,7 +99,7 @@ export function calculateDiscountAmount(
   }
   
   // Final clamp: cannot exceed subtotal
-  return Math.min(discountAmount, subtotal);
+  return round2(Math.min(discountAmount, subtotal));
 }
 
 /**
@@ -98,19 +108,20 @@ export function calculateDiscountAmount(
  * Order: Subtotal → Discount → Taxable → VAT → Total
  * 
  * For mixed VAT rates, discount is allocated proportionally across line items
+ * with rounding correction applied to the largest bucket to ensure exact cents.
  */
 export function calculateInvoiceTotals(
   items: InvoiceLineItem[],
   discount: DiscountInput = { type: 'none', value: 0 }
 ): InvoiceTotals {
-  // Step 1: Calculate subtotal and group by VAT rate
+  // Step 1: Calculate subtotal and group by VAT rate (normalized)
   const perRate = new Map<number, number>();
   let subtotal = 0;
   
   (items || []).forEach((item) => {
     const lineNet = mul(item.quantity || 0, item.unit_price || 0);
     subtotal += lineNet;
-    const rate = Number(item.vat_rate) || 0;
+    const rate = normRate(item.vat_rate);
     perRate.set(rate, (perRate.get(rate) || 0) + lineNet);
   });
   
@@ -119,28 +130,50 @@ export function calculateInvoiceTotals(
   // Step 2: Calculate discount amount
   const discountAmount = calculateDiscountAmount(subtotal, discount);
   
-  // Step 3: Calculate taxable amount and VAT
-  // Allocate discount proportionally across VAT rates
-  let taxable = 0;
-  let vatAmount = 0;
+  // Step 3: Allocate discount proportionally across VAT rates with rounding correction
+  const rateEntries = Array.from(perRate.entries());
   
-  perRate.forEach((rateNet, rate) => {
-    // Calculate this rate's share of the discount
+  // Calculate unrounded shares and round each
+  const rateDiscounts: { rate: number; rateNet: number; rateDiscount: number }[] = [];
+  let sumRoundedDiscounts = 0;
+  
+  rateEntries.forEach(([rate, rateNet]) => {
     const share = subtotal > 0 ? (rateNet / subtotal) : 0;
     const rateDiscount = round2(discountAmount * share);
-    
-    // Taxable for this rate
-    const rateTaxable = Math.max(rateNet - rateDiscount, 0);
-    taxable += rateTaxable;
-    
+    sumRoundedDiscounts += rateDiscount;
+    rateDiscounts.push({ rate, rateNet, rateDiscount });
+  });
+  
+  // Apply rounding correction to largest bucket (or first if tie)
+  const roundingDiff = round2(discountAmount - sumRoundedDiscounts);
+  if (roundingDiff !== 0 && rateDiscounts.length > 0) {
+    // Find the largest rateNet bucket
+    let largestIdx = 0;
+    let largestNet = rateDiscounts[0].rateNet;
+    for (let i = 1; i < rateDiscounts.length; i++) {
+      if (rateDiscounts[i].rateNet > largestNet) {
+        largestNet = rateDiscounts[i].rateNet;
+        largestIdx = i;
+      }
+    }
+    rateDiscounts[largestIdx].rateDiscount = round2(rateDiscounts[largestIdx].rateDiscount + roundingDiff);
+  }
+  
+  // Step 4: Calculate taxable and VAT per rate
+  let vatAmount = 0;
+  
+  rateDiscounts.forEach(({ rate, rateNet, rateDiscount }) => {
+    const rateTaxable = round2(Math.max(rateNet - rateDiscount, 0));
     // VAT for this rate (on taxable amount, after discount)
     vatAmount += round2(rateTaxable * rate);
   });
   
-  taxable = round2(taxable);
   vatAmount = round2(vatAmount);
   
-  // Step 4: Calculate total
+  // Step 5: Taxable = subtotal - discountAmount (exact to cents)
+  const taxable = round2(subtotal - discountAmount);
+  
+  // Step 6: Calculate total
   const total = round2(taxable + vatAmount);
   
   return {
@@ -153,16 +186,31 @@ export function calculateInvoiceTotals(
 }
 
 /**
- * Legacy functions for backwards compatibility
+ * @deprecated Use calculateInvoiceTotals instead for invoices with discounts.
+ * This function ignores discounts and should only be used for simple net calculations.
  */
 export function sumNet(items: Array<{ quantity: number; unit_price: number }>): number {
-  return (items || []).reduce((s, i) => s + mul(i.quantity, i.unit_price), 0);
+  return round2((items || []).reduce((s, i) => s + mul(i.quantity, i.unit_price), 0));
 }
 
-export function sumVAT(items: Array<{ quantity: number; unit_price: number; vat_rate: number }>): number {
-  return (items || []).reduce((s, i) => s + mul(i.quantity, i.unit_price) * Number(i.vat_rate || 0), 0);
+/**
+ * @deprecated WARNING: Does not account for discounts! Use calculateInvoiceTotals instead.
+ * This calculates VAT on full line amounts without any discount deduction.
+ */
+export function sumVAT_NoDiscount(items: Array<{ quantity: number; unit_price: number; vat_rate: number }>): number {
+  return round2((items || []).reduce((s, i) => s + mul(i.quantity, i.unit_price) * normRate(i.vat_rate), 0));
 }
 
-export function total(items: Array<{ quantity: number; unit_price: number; vat_rate: number }>): number { 
-  return sumNet(items) + sumVAT(items); 
+/**
+ * @deprecated WARNING: Does not account for discounts! Use calculateInvoiceTotals instead.
+ * This calculates total on full line amounts without any discount deduction.
+ */
+export function total_NoDiscount(items: Array<{ quantity: number; unit_price: number; vat_rate: number }>): number { 
+  return round2(sumNet(items) + sumVAT_NoDiscount(items)); 
 }
+
+// Legacy aliases for backwards compatibility (deprecated)
+/** @deprecated Use sumVAT_NoDiscount or calculateInvoiceTotals */
+export const sumVAT = sumVAT_NoDiscount;
+/** @deprecated Use total_NoDiscount or calculateInvoiceTotals */
+export const total = total_NoDiscount;
