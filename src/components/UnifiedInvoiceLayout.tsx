@@ -463,32 +463,37 @@ export const UnifiedInvoiceLayout = ({
               </tbody>
             </table>
 
-            {/* TOTALS */}
+            {/* TOTALS - Discount applied BEFORE VAT */}
             <div className="totals totals-section">
+              {/* Subtotal (Net Amount) */}
+              <div className="row">
+                <div className="label">Subtotal</div>
+                <div className="value">{money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}</div>
+              </div>
+              
+              {/* Discount (if any) */}
               {invoiceData.discount?.amount ? (
                 <>
-                  <div className="row">
-                    <div className="label">Subtotal</div>
-                    <div className="value">{money(invoiceData.totals.netTotal + invoiceData.discount.amount)}</div>
-                  </div>
                   <div className="row">
                     <div className="label">
                       Discount{invoiceData.discount.type === "percent" ? ` (${invoiceData.discount.value}%)` : ""}
                     </div>
-                    <div className="value">- {money(invoiceData.discount.amount)}</div>
+                    <div className="value">−{money(invoiceData.discount.amount)}</div>
+                  </div>
+                  <div className="row">
+                    <div className="label">Taxable Amount</div>
+                    <div className="value">{money(invoiceData.totals.netTotal)}</div>
                   </div>
                 </>
-              ) : (
-                <div className="row">
-                  <div className="label">Subtotal</div>
-                  <div className="value">{money(invoiceData.totals.netTotal)}</div>
-                </div>
-              )}
+              ) : null}
 
+              {/* VAT (on taxable amount, after discount) */}
               <div className="row">
                 <div className="label">VAT</div>
                 <div className="value">{money(invoiceData.totals.vatTotal)}</div>
               </div>
+              
+              {/* Total */}
               <div className="row total">
                 <div className="label">Total</div>
                 <div className="value">{money(invoiceData.totals.grandTotal)}</div>

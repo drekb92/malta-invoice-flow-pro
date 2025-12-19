@@ -202,7 +202,7 @@ export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-
         </table>
       </div>
 
-      {/* Totals */}
+      {/* Totals - Discount applied BEFORE VAT */}
       <div className="flex justify-end mb-8">
         <div className="w-64 space-y-2">
           <div className="flex justify-between py-1">
@@ -210,10 +210,16 @@ export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-
             <span>{money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}</span>
           </div>
           {invoiceData.discount && invoiceData.discount.amount > 0 && (
-            <div className="flex justify-between py-1">
-              <span>Discount{invoiceData.discount.type === 'percent' ? ` (${percent(invoiceData.discount.value / 100)})` : ''}:</span>
-              <span>—{money(invoiceData.discount.amount)}</span>
-            </div>
+            <>
+              <div className="flex justify-between py-1">
+                <span>Discount{invoiceData.discount.type === 'percent' ? ` (${percent(invoiceData.discount.value / 100)})` : ''}:</span>
+                <span>−{money(invoiceData.discount.amount)}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span>Taxable Amount:</span>
+                <span>{money(invoiceData.totals.netTotal)}</span>
+              </div>
+            </>
           )}
           <div className="flex justify-between py-1">
             <span>VAT Total:</span>

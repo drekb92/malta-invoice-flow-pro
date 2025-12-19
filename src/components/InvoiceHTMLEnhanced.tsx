@@ -239,7 +239,7 @@ export const InvoiceHTMLEnhanced = ({
         </table>
       </div>
 
-      {/* Totals */}
+      {/* Totals - Discount applied BEFORE VAT */}
       <div className="flex justify-end mb-8">
         <div className="w-64 space-y-2">
           <div className="flex justify-between py-1">
@@ -247,15 +247,17 @@ export const InvoiceHTMLEnhanced = ({
             <span>{money(originalSubtotal)}</span>
           </div>
           {normalizedData.discount && normalizedData.discount.amount > 0 && (
-            <div className="flex justify-between py-1">
-              <span>Discount{normalizedData.discount.type === 'percent' ? ` (${percent(normalizedData.discount.value / 100)})` : ''}:</span>
-              <span>—{money(normalizedData.discount.amount)}</span>
-            </div>
+            <>
+              <div className="flex justify-between py-1">
+                <span>Discount{normalizedData.discount.type === 'percent' ? ` (${percent(normalizedData.discount.value / 100)})` : ''}:</span>
+                <span>−{money(normalizedData.discount.amount)}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span>Taxable Amount:</span>
+                <span>{money(normalizedData.totals.netTotal)}</span>
+              </div>
+            </>
           )}
-          <div className="flex justify-between py-1">
-            <span>Taxable Amount:</span>
-            <span>{money(normalizedData.totals.netTotal)}</span>
-          </div>
           <div className="flex justify-between py-1">
             <span>VAT Total:</span>
             <span>{money(normalizedData.totals.vatTotal)}</span>

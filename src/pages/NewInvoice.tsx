@@ -1105,26 +1105,35 @@ const NewInvoice = () => {
                         )}
                       </div>
 
-                      {/* Totals - compact */}
+                      {/* Totals - Discount applied BEFORE VAT */}
                       <div className="space-y-1 pt-2 border-t border-border">
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Subtotal</span>
-                          <span>€{formatNumber(totals.netTotal, 2)}</span>
+                          <span className="tabular-nums">€{formatNumber(totals.netTotal, 2)}</span>
                         </div>
                         {totals.discountAmount > 0 && (
-                          <div className="flex justify-between text-xs text-destructive">
-                            <span>Discount</span>
-                            <span>–€{formatNumber(totals.discountAmount, 2)}</span>
-                          </div>
+                          <>
+                            <div className="flex justify-between text-xs text-destructive">
+                              <span>Discount{discountType === 'percent' ? ` (${discountValue}%)` : ''}</span>
+                              <span className="tabular-nums">−€{formatNumber(totals.discountAmount, 2)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Taxable Amount</span>
+                              <span className="tabular-nums">€{formatNumber(totals.taxable, 2)}</span>
+                            </div>
+                          </>
                         )}
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">VAT</span>
-                          <span>€{formatNumber(totals.vatTotal, 2)}</span>
+                          <span className="tabular-nums">€{formatNumber(totals.vatTotal, 2)}</span>
                         </div>
                         <div className="flex justify-between pt-2 border-t border-border mt-2">
                           <span className="font-semibold text-sm">Total</span>
-                          <span className="text-lg font-bold">€{formatNumber(totals.grandTotal, 2)}</span>
+                          <span className="text-lg font-bold tabular-nums">€{formatNumber(totals.grandTotal, 2)}</span>
                         </div>
+                        {totals.discountAmount > 0 && (
+                          <p className="text-[10px] text-muted-foreground pt-1">Discount applied before VAT</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
