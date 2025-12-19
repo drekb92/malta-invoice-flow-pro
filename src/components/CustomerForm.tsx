@@ -273,15 +273,15 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
             <div className="space-y-5">
               
               {/* Client Type + Business Name Block */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Client type</Label>
-                  <div className="inline-flex rounded-lg border border-input p-1 bg-muted/30">
+              <div className="space-y-5">
+                <div className="space-y-3">
+                  <Label className="text-xs font-medium text-muted-foreground block">Client type</Label>
+                  <div className="flex w-full md:w-[300px] rounded-lg border border-input p-1 bg-muted/30">
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, client_type: "Individual" })}
                       className={cn(
-                        "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+                        "flex-1 px-5 py-2 text-sm font-medium rounded-md transition-all",
                         formData.client_type === "Individual"
                           ? "bg-background text-foreground shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
@@ -293,7 +293,7 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
                       type="button"
                       onClick={() => setFormData({ ...formData, client_type: "Business" })}
                       className={cn(
-                        "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+                        "flex-1 px-5 py-2 text-sm font-medium rounded-md transition-all",
                         formData.client_type === "Business"
                           ? "bg-background text-foreground shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
