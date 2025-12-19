@@ -929,9 +929,9 @@ const NewInvoice = () => {
                                 <Input
                                   value={item.description}
                                   onChange={(e) => updateItem(index, "description", e.target.value)}
-                                  placeholder="Item description"
+                                  placeholder="Enter item description..."
                                   disabled={isIssued}
-                                  className="h-8 text-sm border-0 bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                  className="h-8 text-sm"
                                 />
                               </TableCell>
                               <TableCell className="py-1.5 px-1">
