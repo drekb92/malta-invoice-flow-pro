@@ -150,23 +150,29 @@ export function InvoiceCleanMinimal({
           </div>
         )}
 
-        {/* Totals */}
+        {/* Totals - Discount applied BEFORE VAT */}
         <div className="w-64">
           <div className="space-y-2">
             <div className="flex justify-between text-sm text-gray-600">
               <span>Subtotal:</span>
-              <span>{money(invoiceData.subtotal)}</span>
+              <span>{money(invoiceData.subtotal + (invoiceData.discount_amount || 0))}</span>
             </div>
+            {invoiceData.discount_amount && invoiceData.discount_amount > 0 && (
+              <>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Discount:</span>
+                  <span>−{money(invoiceData.discount_amount)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Taxable Amount:</span>
+                  <span>{money(invoiceData.subtotal)}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between text-sm text-gray-600">
               <span>VAT:</span>
               <span>{money(invoiceData.vat_amount)}</span>
             </div>
-            {invoiceData.discount_amount && invoiceData.discount_amount > 0 && (
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Discount:</span>
-                <span>-{money(invoiceData.discount_amount)}</span>
-              </div>
-            )}
             <Separator className="my-2" />
             <div className="flex justify-between text-lg font-semibold" style={{ color: template.primary_color }}>
               <span>Total:</span>

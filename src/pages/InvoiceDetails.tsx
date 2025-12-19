@@ -115,6 +115,8 @@ interface InvoiceSummaryCardProps {
   totalPaid: number;
   creditNotes: CreditNoteSummary[];
   getStatusBadge: (status: string) => string;
+  discountInfo: { amount: number; isPercent: boolean; percentValue: number };
+  subtotal: number;
 }
 
 const InvoiceSummaryCard = ({
@@ -124,8 +126,12 @@ const InvoiceSummaryCard = ({
   totalPaid,
   creditNotes,
   getStatusBadge,
+  discountInfo,
+  subtotal,
 }: InvoiceSummaryCardProps) => {
   const total = invoiceTotals?.total_amount ?? computedTotals.total;
+  const net = invoiceTotals?.net_amount ?? computedTotals.net;
+  const vat = invoiceTotals?.vat_amount ?? computedTotals.vat;
   const isOverdue = invoice.status === "overdue" || (new Date(invoice.due_date) < new Date() && invoice.status !== "paid");
   
   // Calculate total credit notes amount (including VAT)
@@ -142,6 +148,9 @@ const InvoiceSummaryCard = ({
   const remainingBalance = adjustedTotal - totalPaid;
   const isSettled = remainingBalance <= 0;
 
+  // Taxable amount (after discount)
+  const taxable = subtotal - discountInfo.amount;
+
   return (
     <div 
       className="bg-white dark:bg-card border border-[#e5e7eb] dark:border-border rounded-[10px] p-5 max-w-[320px]"
@@ -155,13 +164,43 @@ const InvoiceSummaryCard = ({
         </div>
       )}
 
-      {/* Status Badge & Original Total */}
-      <div className="text-center pb-4 border-b border-[#f1f5f9] dark:border-border">
+      {/* Totals Breakdown - Discount applied BEFORE VAT */}
+      <div className="pb-4 border-b border-[#f1f5f9] dark:border-border space-y-2">
         <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5 mb-2`}>
           {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
         </Badge>
-        <p className="text-xs text-muted-foreground mb-1">Original Total</p>
-        <p className="text-2xl font-bold text-foreground">€{formatNumber(total, 2)}</p>
+        
+        <div className="flex justify-between text-xs">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span className="tabular-nums">€{formatNumber(subtotal, 2)}</span>
+        </div>
+        
+        {discountInfo.amount > 0 && (
+          <>
+            <div className="flex justify-between text-xs text-destructive">
+              <span>Discount{discountInfo.isPercent ? ` (${discountInfo.percentValue}%)` : ''}</span>
+              <span className="tabular-nums">−€{formatNumber(discountInfo.amount, 2)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Taxable Amount</span>
+              <span className="tabular-nums">€{formatNumber(taxable, 2)}</span>
+            </div>
+          </>
+        )}
+        
+        <div className="flex justify-between text-xs">
+          <span className="text-muted-foreground">VAT</span>
+          <span className="tabular-nums">€{formatNumber(vat, 2)}</span>
+        </div>
+        
+        <div className="flex justify-between pt-2 border-t border-[#f1f5f9] dark:border-border">
+          <span className="text-sm font-semibold">Total</span>
+          <span className="text-lg font-bold tabular-nums">€{formatNumber(total, 2)}</span>
+        </div>
+        
+        {discountInfo.amount > 0 && (
+          <p className="text-[10px] text-muted-foreground">Discount applied before VAT</p>
+        )}
       </div>
 
       {/* Credit Notes Applied */}
@@ -406,10 +445,13 @@ const InvoiceDetails = () => {
     return { net, vat, total: net + vat };
   }, [invoiceItems, invoiceTotals]);
 
+  const subtotal = useMemo(() => {
+    return invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+  }, [invoiceItems]);
+
   const discountInfo = useMemo(() => {
     if (!invoice) return { amount: 0, isPercent: false, percentValue: 0 };
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-    const subtotal = invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
     const type = (invoice.discount_type as "amount" | "percent") || "amount";
     const raw = Number(invoice.discount_value || 0);
     if (type === "percent") {
@@ -423,7 +465,7 @@ const InvoiceDetails = () => {
       const amt = Math.min(Math.max(raw, 0), subtotal);
       return { amount: round2(amt), isPercent: false, percentValue: 0 };
     }
-  }, [invoice, invoiceItems]);
+  }, [invoice, subtotal]);
 
   const handleDownload = async () => {
     if (!invoice) return;
@@ -824,6 +866,8 @@ const InvoiceDetails = () => {
                   totalPaid={totalPaid}
                   creditNotes={creditNotes}
                   getStatusBadge={getStatusBadge}
+                  discountInfo={discountInfo}
+                  subtotal={subtotal}
                 />
               </div>
 
@@ -1045,6 +1089,8 @@ const InvoiceDetails = () => {
                   totalPaid={totalPaid}
                   creditNotes={creditNotes}
                   getStatusBadge={getStatusBadge}
+                  discountInfo={discountInfo}
+                  subtotal={subtotal}
                 />
               </div>
             </div>
