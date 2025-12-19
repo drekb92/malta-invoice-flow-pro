@@ -8,7 +8,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -16,8 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Plus, Trash2, ArrowLeft, Download, Zap, Settings2, Clock, Lightbulb, Info, Shield, AlertCircle, FileText } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Plus, Trash2, ArrowLeft, Download, Zap, Info, Shield, FileText, Library, ChevronDown, ChevronUp } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -28,14 +33,13 @@ import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
-import { generateInvoicePDFWithTemplate } from "@/lib/pdfGenerator";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
-import type { InvoiceData } from "@/services/pdfService";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
-import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import type { InvoiceWithCompliance } from '@/types/invoice-compliance';
 import { validateDocumentItems } from "@/lib/documentItems";
+import { ItemLibraryDrawer } from "@/components/invoice/ItemLibraryDrawer";
 
 // Type-safe RPC wrapper
 type RpcFunction = 'next_invoice_number' | 'next_credit_note_number';
@@ -108,13 +112,15 @@ const NewInvoice = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isIssued, setIsIssued] = useState(false);
   const [issuedAt, setIssuedAt] = useState<string | null>(null);
-  const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
+  const [discountType, setDiscountType] = useState<'none' | 'amount' | 'percent'>('none');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>("");
+  const [showDiscountReason, setShowDiscountReason] = useState(false);
   const discountInputRef = useRef<HTMLInputElement>(null);
   const [isQuickMode, setIsQuickMode] = useState(true);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -122,10 +128,7 @@ const NewInvoice = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   
-  // Load template using unified hook
   const { template: templateForPreview, isLoading: templateLoading } = useInvoiceTemplate();
-  
-  // Load company and banking settings
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
 
@@ -162,7 +165,6 @@ const NewInvoice = () => {
       }
     } catch (error) {
       console.error("Error generating invoice number:", error);
-      // Fallback to old method if RPC fails
       try {
         const { data, error } = await supabase
           .from("invoices")
@@ -189,60 +191,6 @@ const NewInvoice = () => {
     }
   };
 
-  // Issue invoice - assign number and change status
-  const handleIssueInvoice = async () => {
-    if (!id || !isEditMode) return;
-    
-    setLoading(true);
-    try {
-      let finalInvoiceNumber = invoiceNumber;
-      
-      // If no invoice number exists, generate one
-      if (!invoiceNumber) {
-        const { data, error } = await callRpc('next_invoice_number', {
-          p_business_id: user?.id,
-          p_prefix: 'INV-'
-        });
-        
-        if (error) throw error;
-        finalInvoiceNumber = data;
-        setInvoiceNumber(data);
-      }
-
-      // Update invoice with Malta VAT compliance fields
-      const updatePayload = {
-        invoice_number: finalInvoiceNumber,
-        status: 'issued' as const,
-        is_issued: true,
-        issued_at: new Date().toISOString(),
-      };
-
-      const { error: updateError } = await supabase
-        .from("invoices")
-        .update(updatePayload)
-        .eq("id", id);
-
-      if (updateError) throw updateError;
-      
-      setStatus('issued');
-      setIsIssued(true);
-      setIssuedAt(new Date().toISOString());
-      
-      toast({
-        title: "Invoice issued",
-        description: `Invoice issued: ${finalInvoiceNumber}`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to issue invoice",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Pre-select customer if coming from customer page or load invoice data for editing
   const clientId = searchParams.get("client");
   useEffect(() => {
@@ -261,7 +209,6 @@ const NewInvoice = () => {
 
   const fetchInvoiceData = async (invoiceId: string) => {
     try {
-      // First check if invoice can be edited
       const editCheckResult = await invoiceService.canEditInvoice(invoiceId);
       
       const { data: invoiceData, error: invoiceError } = await supabase
@@ -281,7 +228,6 @@ const NewInvoice = () => {
 
       if (invoiceError) throw invoiceError;
 
-      // Type the invoice data properly
       const invoice = invoiceData as InvoiceWithCompliance;
 
       setInvoiceNumber(invoice.invoice_number || '');
@@ -290,8 +236,17 @@ const NewInvoice = () => {
       setStatus(invoice.status || 'draft');
       setIsIssued(invoice.is_issued || false);
       setIssuedAt(invoice.issued_at || null);
-      setDiscountType((invoice.discount_type || 'amount') as 'amount' | 'percent');
-      setDiscountValue(Number(invoice.discount_value || 0));
+      
+      // Handle discount type migration
+      const savedType = invoice.discount_type || 'amount';
+      const savedValue = Number(invoice.discount_value || 0);
+      if (savedValue > 0) {
+        setDiscountType(savedType as 'amount' | 'percent');
+        setDiscountValue(savedValue);
+      } else {
+        setDiscountType('none');
+        setDiscountValue(0);
+      }
       setDiscountReason(invoice.discount_reason || '');
       
       if (invoice.invoice_items && invoice.invoice_items.length > 0) {
@@ -304,11 +259,10 @@ const NewInvoice = () => {
         })));
       }
       
-      // Show info message if invoice cannot be edited (non-draft)
       if (!editCheckResult.canEdit) {
         toast({
           title: "Invoice Issued",
-          description: editCheckResult.reason || "This invoice has been issued and cannot be modified. Use credit notes for corrections.",
+          description: editCheckResult.reason || "This invoice has been issued and cannot be modified.",
         });
       }
     } catch (error) {
@@ -332,7 +286,7 @@ const NewInvoice = () => {
         .eq("user_id", user.id)
         .eq("is_active", true)
         .order("usage_count", { ascending: false })
-        .limit(6);
+        .limit(20);
 
       if (error) throw error;
       setServiceTemplates(data || []);
@@ -352,7 +306,6 @@ const NewInvoice = () => {
 
       if (error) throw error;
 
-      // Group by description and count usage
       const itemMap = new Map<string, RecentItem>();
       data?.forEach((item) => {
         const key = `${item.description}`;
@@ -370,10 +323,9 @@ const NewInvoice = () => {
         }
       });
 
-      // Sort by usage count and take top 5
       const recent = Array.from(itemMap.values())
         .sort((a, b) => b.usage_count - a.usage_count)
-        .slice(0, 5);
+        .slice(0, 10);
 
       setRecentItems(recent);
     } catch (error) {
@@ -420,21 +372,19 @@ const NewInvoice = () => {
       unit: template.unit,
     }]);
     
-    // Increment usage count in database
     try {
       await supabase
         .from("services")
         .update({ usage_count: template.usage_count + 1 })
         .eq("id", template.id);
       
-      // Refresh templates to show updated usage
       fetchServiceTemplates();
     } catch (error) {
       console.error("Error updating service usage:", error);
     }
     
     toast({
-      title: "Service added",
+      title: "Item added",
       description: `${template.name} added to invoice`,
     });
   };
@@ -456,7 +406,6 @@ const NewInvoice = () => {
   const calculateTotals = () => {
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-    // Subtotal per item and per VAT rate
     const perRate = new Map<number, number>();
     let subtotal = 0;
     items.forEach((item) => {
@@ -466,17 +415,15 @@ const NewInvoice = () => {
       perRate.set(rate, (perRate.get(rate) || 0) + net);
     });
 
-    // Discount amount
     let discountAmount = 0;
     if (discountType === 'percent') {
       const pct = Math.min(Math.max(Number(discountValue) || 0, 0), 100);
       discountAmount = round2(subtotal * (pct / 100));
-    } else {
+    } else if (discountType === 'amount') {
       const amt = Math.min(Math.max(Number(discountValue) || 0, 0), subtotal);
       discountAmount = round2(amt);
     }
 
-    // Allocate discount pro‑rata by net across rates
     let taxable = 0;
     let vatTotal = 0;
     const totalNet = subtotal;
@@ -498,11 +445,10 @@ const NewInvoice = () => {
   const handleSubmit = async (e: React.FormEvent, shouldIssue: boolean = false) => {
     e.preventDefault();
     
-    // Prevent submission if invoice is not a draft
     if (status !== 'draft' && isEditMode) {
       toast({
         title: "Invoice Already Issued",
-        description: "This invoice has been issued and cannot be modified. To make corrections, please create a credit note.",
+        description: "This invoice has been issued and cannot be modified.",
       });
       return;
     }
@@ -511,29 +457,25 @@ const NewInvoice = () => {
 
     try {
       if (!selectedCustomer) {
-  throw new Error("Please select a customer");
-}
+        throw new Error("Please select a customer");
+      }
 
-const validationError = validateDocumentItems(items);
-if (validationError) {
-  throw new Error(validationError);
-}
+      const validationError = validateDocumentItems(items);
+      if (validationError) {
+        throw new Error(validationError);
+      }
 
-      // Get selected customer's payment terms to calculate due date
       const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
       const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
       
-      // Extract number of days from payment terms (e.g., "Net 30" -> 30)
       const daysMatch = paymentTerms.match(/\d+/);
       const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
       
-      // Calculate due date from invoice date + payment terms
       const invoiceDateObj = new Date(invoiceDate);
       const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
 
       const { taxable, vatTotal, grandTotal } = calculateTotals();
 
-      // Generate invoice number if issuing and no number exists
       let finalInvoiceNumber = invoiceNumber || null;
       if (shouldIssue && !finalInvoiceNumber) {
         const { data: generatedNumber, error: numberError } = await callRpc('next_invoice_number', {
@@ -548,7 +490,10 @@ if (validationError) {
         setInvoiceNumber(generatedNumber);
       }
 
-      // Type-safe invoice payload
+      // Convert discount type for storage (none -> amount with 0 value)
+      const storeDiscountType = discountType === 'none' ? 'amount' : discountType;
+      const storeDiscountValue = discountType === 'none' ? 0 : discountValue;
+
       const invoicePayload = {
         invoice_number: finalInvoiceNumber,
         customer_id: selectedCustomer,
@@ -562,26 +507,21 @@ if (validationError) {
         issued_at: shouldIssue ? new Date().toISOString() : null,
         user_id: user?.id,
         vat_rate: items[0]?.vat_rate || 0.18,
-        discount_type: discountType,
-        discount_value: discountValue,
+        discount_type: storeDiscountType,
+        discount_value: storeDiscountValue,
         discount_reason: discountReason || null,
       };
 
       if (isEditMode && id) {
-        // Check if invoice can be edited before updating
         const editCheckResult = await invoiceService.canEditInvoice(id);
         
         if (!editCheckResult.canEdit) {
           throw new Error(
             editCheckResult.reason || 
-            "This invoice has been issued and cannot be modified. Malta VAT regulations require issued invoices to remain immutable. Please create a credit note to make corrections."
+            "This invoice has been issued and cannot be modified."
           );
         }
         
-        // IMPORTANT: When issuing, we must save items BEFORE marking invoice as issued
-        // because the database trigger prevents modifying items on issued invoices.
-        
-        // Step 1: Update invoice WITHOUT setting is_issued yet (if we're issuing)
         const draftPayload = shouldIssue 
           ? { ...invoicePayload, is_issued: false, issued_at: null, status: 'draft' as const }
           : invoicePayload;
@@ -593,11 +533,8 @@ if (validationError) {
 
         if (invoiceError) throw invoiceError;
 
-        // Step 2: Update invoice items (while invoice is still draft)
-        // Malta VAT compliance requires issued invoices to be immutable
         if (!isIssued) {
           try {
-            // Delete existing items and insert new ones
             const { error: deleteError } = await supabase
               .from("invoice_items")
               .delete()
@@ -605,7 +542,6 @@ if (validationError) {
 
             if (deleteError) throw deleteError;
 
-            // Type-safe items data
             const itemsData: TablesInsert<'invoice_items'>[] = items.map(item => ({
               invoice_id: id,
               description: item.description,
@@ -622,17 +558,15 @@ if (validationError) {
             if (itemsError) throw itemsError;
           } catch (itemError) {
             const error = itemError as Error;
-            // Handle specific Malta VAT compliance errors
             if (error.message?.includes("Cannot modify items of issued invoices")) {
               throw new Error(
-                "Cannot modify items of issued invoices. Malta VAT regulations require issued invoices to remain immutable. Please create a credit note to make corrections to this invoice."
+                "Cannot modify items of issued invoices."
               );
             }
             throw itemError;
           }
         }
 
-        // Step 3: Now mark invoice as issued (if requested)
         if (shouldIssue) {
           const issueResult = await invoiceService.issueInvoice(id);
           if (!issueResult.success) {
@@ -643,19 +577,13 @@ if (validationError) {
         toast({
           title: shouldIssue ? "Invoice issued" : "Invoice updated",
           description: shouldIssue 
-            ? `Invoice ${finalInvoiceNumber} has been issued and is now immutable.` 
+            ? `Invoice ${finalInvoiceNumber} has been issued.` 
             : "Invoice has been successfully updated.",
         });
         
-        // Navigate to invoice details after issuing, or back to list
         navigate(shouldIssue ? `/invoices/${id}` : "/invoices");
         return;
       } else {
-        // Create new invoice
-        // IMPORTANT (Malta VAT compliance): insert as draft first, then save items,
-        // then issue via invoiceService (issuing makes items immutable).
-
-        // Generate invoice number if issuing and no number exists
         let finalInvoiceNumber = invoiceNumber || null;
         if (shouldIssue && !finalInvoiceNumber) {
           const { data, error } = await callRpc("next_invoice_number", {
@@ -669,7 +597,6 @@ if (validationError) {
           setInvoiceNumber(data);
         }
 
-        // Insert as DRAFT when issuing, so we can insert items before immutability kicks in
         const draftPayload = shouldIssue
           ? {
               ...invoicePayload,
@@ -692,7 +619,6 @@ if (validationError) {
         if (invoiceError) throw invoiceError;
         if (!invoice?.id) throw new Error("Failed to create invoice");
 
-        // Type-safe items data
         const itemsData: TablesInsert<'invoice_items'>[] = items.map(item => ({
           invoice_id: invoice.id,
           description: item.description,
@@ -708,7 +634,6 @@ if (validationError) {
 
         if (itemsError) throw itemsError;
 
-        // If issuing, use invoiceService to properly issue the invoice with audit logging
         if (shouldIssue) {
           const issueResult = await invoiceService.issueInvoice(invoice.id);
           if (!issueResult.success) {
@@ -719,11 +644,10 @@ if (validationError) {
         toast({
           title: shouldIssue ? "Invoice issued" : "Draft saved",
           description: shouldIssue 
-            ? `Invoice ${finalInvoiceNumber} has been issued and is now immutable.` 
-            : "Invoice saved as draft. You can edit it until you issue it.",
+            ? `Invoice ${finalInvoiceNumber} has been issued.` 
+            : "Invoice saved as draft.",
         });
         
-        // Navigate to invoice details if issued, otherwise to list
         navigate(shouldIssue ? `/invoices/${invoice.id}` : "/invoices");
         return;
       }
@@ -733,10 +657,9 @@ if (validationError) {
       let errorMessage = "An error occurred";
       
       if (error instanceof Error) {
-        // Check for Malta VAT compliance errors
         if (error.message.includes("Cannot modify items of issued invoices") || 
             error.message.includes("issued invoices to remain immutable")) {
-          errorMessage = "This invoice has been issued and cannot be modified. Malta VAT regulations require issued invoices to remain immutable for compliance. To make corrections, please create a credit note instead.";
+          errorMessage = "This invoice has been issued and cannot be modified.";
         } else {
           errorMessage = error.message;
         }
@@ -755,9 +678,6 @@ if (validationError) {
   const handleDownloadPDF = async () => {
     setLoading(true);
     try {
-      // IMPORTANT: PDF generation now captures from UnifiedInvoiceLayout preview
-      // This ensures the PDF matches exactly what the user sees
-      
       if (!selectedCustomer) {
         throw new Error("Please select a customer");
       }
@@ -772,8 +692,6 @@ if (validationError) {
         return;
       }
 
-      // Use edge function to generate PDF from the preview element
-      // This captures the exact UnifiedInvoiceLayout HTML
       const filename = `Invoice-${invoiceNumber || 'DRAFT'}`;
       await downloadPdfFromFunction(filename, templateForPreview?.font_family);
       
@@ -795,709 +713,538 @@ if (validationError) {
 
   const totals = calculateTotals();
 
+  // Calculate due date for display
+  const getDueDate = () => {
+    if (!selectedCustomer) return null;
+    const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+    const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+    const daysMatch = paymentTerms.match(/\d+/);
+    const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+    return addDays(new Date(invoiceDate), paymentDays);
+  };
+
+  const dueDate = getDueDate();
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
       
       <div className="md:ml-64">
-        <header className="bg-card border-b border-border">
-          <div className="px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <Button variant="ghost" asChild>
-                    <Link to="/invoices">
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back to Invoices
-                    </Link>
-                  </Button>
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <h1 className="text-2xl font-bold text-foreground">
-                        {isEditMode ? "Edit Invoice" : "New Invoice"}
-                      </h1>
-                      <p className="text-muted-foreground">
-                        {isEditMode ? "Update existing invoice" : "Create a new Malta VAT-compliant invoice"}
-                      </p>
-                    </div>
-                    {!isIssued && (
-                      <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300">
-                        DRAFT
-                      </Badge>
-                    )}
-                    {isIssued && (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
-                        <Shield className="h-3 w-3 mr-1" />
-                        ISSUED
-                      </Badge>
-                    )}
-                  </div>
+        {/* Modern Header */}
+        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+          <div className="px-4 md:px-6 py-3">
+            <div className="flex items-center justify-between gap-4">
+              {/* Left: Back + Title + Badge */}
+              <div className="flex items-center gap-3 min-w-0">
+                <Button variant="ghost" size="sm" asChild className="shrink-0">
+                  <Link to="/invoices">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h1 className="text-lg font-semibold text-foreground truncate">
+                    {isEditMode ? "Edit Invoice" : "New Invoice"}
+                  </h1>
+                  {!isIssued ? (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 shrink-0">
+                      Draft
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800 shrink-0">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Issued
+                    </Badge>
+                  )}
                 </div>
-                <div className="flex items-center gap-4">
-                  {/* Quick Mode Toggle */}
-                  {!isEditMode && (
-                    <div className="flex items-center gap-2 mr-4">
-                      <Zap className="h-4 w-4 text-primary" />
-                      <Label htmlFor="quick-mode" className="text-sm font-medium cursor-pointer">
-                        Quick Mode
+              </div>
+
+              {/* Right: Quick Mode Toggle - ALWAYS visible */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Zap className={`h-4 w-4 ${isQuickMode ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <Label htmlFor="quick-mode" className="text-sm font-medium cursor-pointer hidden sm:inline">
+                        Quick
                       </Label>
                       <Switch
                         id="quick-mode"
                         checked={isQuickMode}
                         onCheckedChange={setIsQuickMode}
                       />
-                      <Settings2 className="h-4 w-4 text-muted-foreground" />
                     </div>
-                  )}
-                </div>
-              </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Quick Mode hides advanced fields</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
         </header>
 
-        <main className="p-6">
+        <main className="p-4 md:p-6">
           <form 
             onSubmit={(e) => handleSubmit(e, false)} 
-            className={`space-y-6 ${status !== 'draft' ? 'opacity-75 pointer-events-none' : ''}`}
+            className={status !== 'draft' ? 'opacity-75 pointer-events-none' : ''}
           >
-            {/* Malta VAT Compliance Alert */}
-            {status === 'draft' && (
-              <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            {/* Issued Invoice Banner */}
+            {status !== 'draft' && isEditMode && (
+              <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950/50 dark:border-blue-800">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <AlertDescription className="text-blue-900 dark:text-blue-100">
-                  <strong>Draft Mode:</strong> This invoice can be edited freely until you issue it. 
-                  Once issued, it becomes immutable to comply with Malta VAT regulations. 
-                  Any corrections to an issued invoice must be made through a credit note.
+                  <span className="font-medium">Invoice issued on {issuedAt ? format(new Date(issuedAt), "PPP") : 'N/A'}.</span>
+                  {" "}This invoice cannot be modified. To make corrections, create a credit note.
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="text-blue-700 dark:text-blue-300 p-0 h-auto ml-2"
+                    onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
+                  >
+                    Create Credit Note →
+                  </Button>
                 </AlertDescription>
               </Alert>
             )}
-            
-            {/* Issued Invoice Info Banner */}
-            {status !== 'draft' && isEditMode && (
-              <Alert className="border-2 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 shadow-lg">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <Info className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <AlertDescription className="text-blue-900 dark:text-blue-100">
-                      <div className="text-lg font-bold mb-2">Invoice Issued</div>
-                      <p className="mb-3">
-                        This invoice was issued on {issuedAt ? format(new Date(issuedAt), "PPP 'at' p") : 'N/A'} and 
-                        <strong> cannot be modified</strong> in accordance with Malta VAT regulations. 
-                        To make corrections, please create a credit note.
-                      </p>
-                      <div className="bg-white dark:bg-blue-900 p-3 rounded-md mb-3 border border-blue-200 dark:border-blue-700">
-                        <p className="text-sm font-semibold mb-1">What you can do:</p>
-                        <ul className="text-sm space-y-1 ml-4 list-disc">
-                          <li>View all invoice details and items</li>
-                          <li>Download and print the invoice</li>
-                          <li>View audit history</li>
-                        </ul>
-                      </div>
-                      <div className="mt-4 flex gap-2">
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="default"
-                          onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Create Credit Note
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="default"
-                          onClick={() => navigate(`/invoices/${id}`)}
-                        >
-                          View Full Invoice
-                        </Button>
-                      </div>
-                    </AlertDescription>
-                  </div>
-                </div>
-              </Alert>
-            )}
-            
-            {/* Service Templates and Recent Items - Only in Quick Mode */}
-            {isQuickMode && !isEditMode && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Service Templates */}
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-primary" />
-                      <div>
-                        <CardTitle className="text-lg">Service Templates</CardTitle>
-                        <CardDescription>Pre-configured common services</CardDescription>
-                      </div>
-                    </div>
+
+            {/* 2-Column Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* LEFT COLUMN: Invoice Details + Items */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Invoice Details Card */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-base">Invoice Details</CardTitle>
                   </CardHeader>
-                   <CardContent>
-                    {serviceTemplates.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-muted-foreground mb-3">
-                          No services yet. Add common services to save time.
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Customer */}
+                      <div className="sm:col-span-2">
+                        <Label htmlFor="customer" className="text-sm">Customer *</Label>
+                        <Select 
+                          value={selectedCustomer} 
+                          onValueChange={setSelectedCustomer}
+                          disabled={isIssued}
+                        >
+                          <SelectTrigger className="mt-1.5">
+                            <SelectValue placeholder="Select a customer" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            {customers.map((customer) => (
+                              <SelectItem key={customer.id} value={customer.id}>
+                                {customer.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Invoice Date */}
+                      <div>
+                        <Label htmlFor="invoiceDate" className="text-sm">Invoice Date *</Label>
+                        <Input
+                          id="invoiceDate"
+                          type="date"
+                          value={invoiceDate}
+                          onChange={(e) => setInvoiceDate(e.target.value)}
+                          required
+                          disabled={isIssued}
+                          className="mt-1.5"
+                        />
+                      </div>
+
+                      {/* Due Date (calculated) */}
+                      <div>
+                        <Label className="text-sm">Due Date</Label>
+                        <Input
+                          value={dueDate ? format(dueDate, "yyyy-MM-dd") : "Select customer"}
+                          readOnly
+                          disabled
+                          className="mt-1.5 bg-muted/50"
+                        />
+                        {selectedCustomer && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Based on {customers.find(c => c.id === selectedCustomer)?.payment_terms || "Net 30"}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Invoice Number - read only */}
+                      <div>
+                        <Label htmlFor="invoiceNumber" className="text-sm">Invoice Number</Label>
+                        <Input
+                          id="invoiceNumber"
+                          value={invoiceNumber || "—"}
+                          readOnly
+                          disabled
+                          className="mt-1.5 bg-muted/50 text-muted-foreground"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Assigned when issued
                         </p>
+                      </div>
+
+                      {/* Status - only show in detailed mode */}
+                      {!isQuickMode && (
+                        <div>
+                          <Label htmlFor="status" className="text-sm">Status</Label>
+                          <Select 
+                            value={status} 
+                            onValueChange={setStatus}
+                            disabled={isIssued}
+                          >
+                            <SelectTrigger className="mt-1.5">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover z-50">
+                              <SelectItem value="draft">Draft</SelectItem>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="paid">Paid</SelectItem>
+                              <SelectItem value="overdue">Overdue</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Invoice Items Card */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Invoice Items</CardTitle>
+                      <div className="flex items-center gap-2">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => navigate('/services')}
+                          onClick={() => setLibraryOpen(true)}
+                          disabled={isIssued}
                         >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Manage Services
+                          <Library className="h-4 w-4 mr-1.5" />
+                          <span className="hidden sm:inline">Add from library</span>
+                          <span className="sm:hidden">Library</span>
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {serviceTemplates.map((template) => (
-                          <Button
-                            key={template.id}
-                            type="button"
-                            variant="outline"
-                            className="w-full justify-start h-auto py-3 px-4"
-                            onClick={() => addTemplateItem(template)}
-                          >
-                            <div className="flex flex-col items-start w-full">
-                              <div className="flex items-center justify-between w-full">
-                                <span className="font-semibold">{template.name}</span>
-                                <div className="flex items-center gap-2">
-                                  {template.usage_count > 0 && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      {template.usage_count}x
-                                    </Badge>
-                                  )}
-                                  <Badge variant="secondary">
-                                    €{template.default_price}/{template.unit}
-                                  </Badge>
-                                </div>
-                              </div>
-                              {template.description && (
-                                <span className="text-xs text-muted-foreground mt-1">
-                                  {template.description} • VAT {(template.vat_rate * 100).toFixed(0)}%
-                                </span>
-                              )}
-                            </div>
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Recently Used Items */}
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-primary" />
-                      <div>
-                        <CardTitle className="text-lg">Recently Used</CardTitle>
-                        <CardDescription>Your frequently invoiced items</CardDescription>
+                        <Button 
+                          type="button" 
+                          onClick={addItem} 
+                          size="sm"
+                          disabled={isIssued}
+                        >
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Add item
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {recentItems.length > 0 ? (
-                      <div className="space-y-2">
-                        {recentItems.map((item, idx) => (
-                          <Button
-                            key={idx}
-                            type="button"
-                            variant="outline"
-                            className="w-full justify-start h-auto py-3 px-4"
-                            onClick={() => addRecentItem(item)}
-                          >
-                            <div className="flex flex-col items-start w-full">
-                              <div className="flex items-center justify-between w-full">
-                                <span className="font-semibold text-sm">{item.description}</span>
-                                <Badge variant="outline" className="ml-2">
-                                  Used {item.usage_count}x
-                                </Badge>
-                              </div>
-                              <span className="text-xs text-muted-foreground mt-1">
-                                €{formatNumber(item.unit_price, 2)} • VAT {(item.vat_rate * 100).toFixed(0)}%
-                              </span>
+                    <div className="space-y-3">
+                      {items.map((item, index) => (
+                        <div key={index} className="p-4 border border-border rounded-lg bg-card">
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                            {/* Description - takes more space */}
+                            <div className="sm:col-span-5">
+                              <Label className="text-xs text-muted-foreground">Description</Label>
+                              <Input
+                                value={item.description}
+                                onChange={(e) => updateItem(index, 'description', e.target.value)}
+                                placeholder="Item description"
+                                required
+                                disabled={isIssued}
+                                className="mt-1"
+                              />
                             </div>
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground text-center py-6">
-                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No recent items yet</p>
-                        <p className="text-xs mt-1">Items you frequently invoice will appear here</p>
+                            
+                            {/* Quantity */}
+                            <div className="sm:col-span-2">
+                              <Label className="text-xs text-muted-foreground">Qty</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.quantity}
+                                onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                                required
+                                disabled={isIssued}
+                                className="mt-1"
+                              />
+                            </div>
+                            
+                            {/* Unit Price */}
+                            <div className="sm:col-span-2">
+                              <Label className="text-xs text-muted-foreground">Price (€)</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unit_price}
+                                onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                                required
+                                disabled={isIssued}
+                                className="mt-1"
+                              />
+                            </div>
+                            
+                            {/* VAT Rate */}
+                            <div className="sm:col-span-2">
+                              <Label className="text-xs text-muted-foreground">VAT</Label>
+                              <Select 
+                                value={item.vat_rate.toString()} 
+                                onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
+                                disabled={isIssued}
+                              >
+                                <SelectTrigger className="mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover z-50">
+                                  <SelectItem value="0">0%</SelectItem>
+                                  <SelectItem value="0.05">5%</SelectItem>
+                                  <SelectItem value="0.18">18%</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            {/* Delete */}
+                            <div className="sm:col-span-1 flex items-end justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeItem(index)}
+                                disabled={items.length === 1 || isIssued}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Line total */}
+                          <div className="mt-2 pt-2 border-t border-border/50 flex justify-end text-sm text-muted-foreground">
+                            Line total: <span className="font-medium text-foreground ml-1">€{formatNumber(item.quantity * item.unit_price * (1 + item.vat_rate), 2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* VAT Info Link - compact in Quick Mode */}
+                    {!isQuickMode && (
+                      <div className="mt-4 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
+                        <p className="font-medium mb-1">Malta VAT Rates:</p>
+                        <ul className="space-y-0.5 ml-4 list-disc">
+                          <li><strong>18%</strong>: Standard rate for most goods & services</li>
+                          <li><strong>5%</strong>: Reduced rate for books, food, medical</li>
+                          <li><strong>0%</strong>: Exempt (education, medical, financial)</li>
+                        </ul>
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
-            )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Invoice Details */}
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Invoice Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="customer">Customer *</Label>
-                      <Select 
-                        value={selectedCustomer} 
-                        onValueChange={setSelectedCustomer}
-                        disabled={isIssued}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a customer" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover z-50">
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="invoiceNumber">Invoice Number *</Label>
-                      <Input
-                        id="invoiceNumber"
-                        value={invoiceNumber}
-                        onChange={(e) => setInvoiceNumber(e.target.value)}
-                        placeholder={isEditMode ? (invoiceNumber ? invoiceNumber : "Auto-assigned") : "Will be assigned automatically"}
-                        required
-                        readOnly={true}
-                        disabled={false}
-                      />
-                      {!isEditMode && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Invoice numbers are assigned automatically and sequentially per EU VAT requirements
-                        </p>
-                      )}
-                      {isEditMode && invoiceNumber && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Invoice numbers are assigned automatically and cannot be changed. To correct an issued invoice, create a credit note.
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="invoiceDate">Invoice Date *</Label>
-                      <Input
-                        id="invoiceDate"
-                        type="date"
-                        value={invoiceDate}
-                        onChange={(e) => setInvoiceDate(e.target.value)}
-                        required
-                        disabled={isIssued}
-                      />
-                    </div>
-                    
-                      <div>
-                        <Label htmlFor="status">Status</Label>
-                        <Select 
-                          value={status} 
-                          onValueChange={setStatus}
-                          disabled={isIssued}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="paid">Paid</SelectItem>
-                            <SelectItem value="overdue">Overdue</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  
-                  {selectedCustomer && (
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-                      <strong>Due Date Preview:</strong> {(() => {
-                        const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-                        const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
-                        const daysMatch = paymentTerms.match(/\d+/);
-                        const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
-                        const calculatedDueDate = addDays(new Date(invoiceDate), paymentDays);
-                        return format(calculatedDueDate, "PPP");
-                      })()}
-                      <br />
-                      <strong>Payment Terms:</strong> {customers.find(c => c.id === selectedCustomer)?.payment_terms || "Net 30"}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Invoice Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice Summary</CardTitle>
-                </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Discount Type</Label>
-                      <ToggleGroup
-                        type="single"
-                        value={discountType}
-                        onValueChange={(v) => v && setDiscountType(v as 'amount' | 'percent')}
-                        disabled={isIssued}
-                      >
-                        <ToggleGroupItem value="amount" aria-label="Amount (€)" disabled={isIssued}>
-                          Amount (€)
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="percent" aria-label="Percent (%)" disabled={isIssued}>
-                          Percent (%)
-                        </ToggleGroupItem>
-                      </ToggleGroup>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="discountValue">Discount</Label>
-                        <Input
-                          id="discountValue"
-                          ref={discountInputRef}
-                          type="number"
-                          inputMode="decimal"
-                          step="0.01"
-                          min={0}
-                          max={discountType === 'percent' ? 100 : totals.netTotal}
-                          value={discountValue}
-                          onChange={(e) => {
-                            let v = parseFloat(e.target.value);
-                            if (isNaN(v)) v = 0;
-                            if (discountType === 'percent') {
-                              v = Math.max(0, Math.min(100, v));
-                            } else {
-                              v = Math.max(0, Math.min(totals.netTotal, v));
-                            }
-                            setDiscountValue(v);
-                          }}
-                          disabled={isIssued}
-                          readOnly={isIssued}
-                        />
-                        {discountType === 'percent' ? (
-                          <p className="text-xs text-muted-foreground mt-1">Allowed: 0–100%</p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground mt-1">Max: €{formatNumber(totals.netTotal, 2)}</p>
+              {/* RIGHT SIDEBAR: Summary + Actions */}
+              <div className="lg:col-span-1">
+                <div className="lg:sticky lg:top-20 space-y-4">
+                  {/* Summary Card */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Compact Discount Row */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm text-muted-foreground">Discount</Label>
+                        </div>
+                        <div className="flex gap-2">
+                          <ToggleGroup
+                            type="single"
+                            value={discountType}
+                            onValueChange={(v) => {
+                              if (v) {
+                                setDiscountType(v as 'none' | 'amount' | 'percent');
+                                if (v === 'none') {
+                                  setDiscountValue(0);
+                                  setShowDiscountReason(false);
+                                }
+                              }
+                            }}
+                            disabled={isIssued}
+                            className="justify-start"
+                          >
+                            <ToggleGroupItem value="none" aria-label="None" className="text-xs px-2.5">
+                              None
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="amount" aria-label="Amount" className="text-xs px-2.5">
+                              €
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="percent" aria-label="Percent" className="text-xs px-2.5">
+                              %
+                            </ToggleGroupItem>
+                          </ToggleGroup>
+                          <Input
+                            ref={discountInputRef}
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min={0}
+                            max={discountType === 'percent' ? 100 : totals.netTotal}
+                            value={discountType === 'none' ? '' : discountValue}
+                            onChange={(e) => {
+                              let v = parseFloat(e.target.value);
+                              if (isNaN(v)) v = 0;
+                              if (discountType === 'percent') {
+                                v = Math.max(0, Math.min(100, v));
+                              } else {
+                                v = Math.max(0, Math.min(totals.netTotal, v));
+                              }
+                              setDiscountValue(v);
+                            }}
+                            disabled={isIssued || discountType === 'none'}
+                            placeholder="0"
+                            className="w-20"
+                          />
+                        </div>
+                        
+                        {/* Add reason link */}
+                        {discountType !== 'none' && discountValue > 0 && !showDiscountReason && (
+                          <button
+                            type="button"
+                            onClick={() => setShowDiscountReason(true)}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            + Add reason
+                          </button>
+                        )}
+                        
+                        {/* Discount reason textarea */}
+                        {showDiscountReason && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground">Reason</Label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowDiscountReason(false);
+                                  setDiscountReason("");
+                                }}
+                                className="text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <Textarea
+                              value={discountReason}
+                              onChange={(e) => setDiscountReason(e.target.value)}
+                              placeholder="Optional discount note"
+                              disabled={isIssued}
+                              className="h-16 text-sm resize-none"
+                            />
+                          </div>
                         )}
                       </div>
-                      <div>
-                        <Label htmlFor="discountReason">Reason (optional)</Label>
-                        <Textarea
-                          id="discountReason"
-                          placeholder="Add a note for this discount"
-                          value={discountReason}
-                          onChange={(e) => setDiscountReason(e.target.value)}
-                          disabled={isIssued}
-                          readOnly={isIssued}
-                        />
-                      </div>
-                    </div>
 
-                    <p className="text-xs text-muted-foreground">Calculation order: Subtotal → Discount → Taxable → VAT → Total</p>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span>€{formatNumber(totals.netTotal, 2)}</span>
-                      </div>
-                      {totals.discountAmount > 0 && (
+                      {/* Totals */}
+                      <div className="space-y-2 pt-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Discount</span>
-                          <span>
-                            —€{formatNumber(totals.discountAmount, 2)}
-                            {discountType === 'percent' && (
-                              <> ({formatNumber(Number(discountValue), 2)}%)</>
-                            )}
-                          </span>
+                          <span className="text-muted-foreground">Subtotal</span>
+                          <span>€{formatNumber(totals.netTotal, 2)}</span>
                         </div>
-                      )}
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Taxable Amount</span>
-                        <span>€{formatNumber(totals.taxable, 2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">VAT</span>
-                        <span>€{formatNumber(totals.vatTotal, 2)}</span>
-                      </div>
-                      <div className="border-t pt-3">
-                        <div className="flex justify-between font-bold">
-                          <span>Total</span>
-                          <span>€{formatNumber(totals.grandTotal, 2)}</span>
+                        {totals.discountAmount > 0 && (
+                          <div className="flex justify-between text-sm text-destructive">
+                            <span>Discount</span>
+                            <span>
+                              –€{formatNumber(totals.discountAmount, 2)}
+                              {discountType === 'percent' && ` (${discountValue}%)`}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Taxable</span>
+                          <span>€{formatNumber(totals.taxable, 2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">VAT</span>
+                          <span>€{formatNumber(totals.vatTotal, 2)}</span>
+                        </div>
+                        <div className="border-t border-border pt-3 mt-3">
+                          <div className="flex justify-between">
+                            <span className="font-semibold">Total</span>
+                            <span className="text-xl font-bold">€{formatNumber(totals.grandTotal, 2)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-              </Card>
-            </div>
+                    </CardContent>
+                  </Card>
 
-            {/* Invoice Items */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Invoice Items</CardTitle>
-                    {isQuickMode && (
-                      <CardDescription className="flex items-center gap-1 mt-1">
-                        <Lightbulb className="h-3 w-3" />
-                        Click templates above to quickly add items
-                      </CardDescription>
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    {!isIssued && (
+                      <>
+                        <Button 
+                          type="button"
+                          onClick={(e) => handleSubmit(e as any, true)}
+                          disabled={loading}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
+                          {loading ? "Issuing..." : "Save & Issue"}
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          variant="outline"
+                          disabled={loading}
+                          className="w-full"
+                        >
+                          {loading ? "Saving..." : "Save as Draft"}
+                        </Button>
+                      </>
                     )}
-                  </div>
-                  <Button 
-                    type="button" 
-                    onClick={addItem} 
-                    size="sm"
-                    disabled={isIssued}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Item
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border rounded-lg">
-                      <div className="md:col-span-2">
-                        <Label>Description *</Label>
-                        <Input
-                          value={item.description}
-                          onChange={(e) => updateItem(index, 'description', e.target.value)}
-                          placeholder="Service description"
-                          required
-                          disabled={isIssued}
-                          readOnly={isIssued}
-                        />
-                      </div>
-                      
-                      {/* Show simplified fields in Quick Mode */}
-                      {isQuickMode ? (
-                        <>
-                          <div>
-                            <Label>Quantity *</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                              required
-                              disabled={isIssued}
-                              readOnly={isIssued}
-                            />
-                          </div>
-                          
-                          <div>
-                            <Label>Unit Price (€) *</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unit_price}
-                              onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                              required
-                              disabled={isIssued}
-                              readOnly={isIssued}
-                            />
-                          </div>
-                          
-                          <div>
-                            <Label className="flex items-center gap-1">
-                              VAT Rate
-                              <span className="text-xs text-muted-foreground">(Malta)</span>
-                            </Label>
-                            <Select 
-                              value={item.vat_rate.toString()} 
-                              onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
-                              disabled={isIssued}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-popover z-50">
-                                <SelectItem value="0">
-                                  <div className="flex items-center gap-2">
-                                    <span>0% (Exempt)</span>
-                                    <Info className="h-3 w-3 text-muted-foreground" />
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="0.05">
-                                  <div>
-                                    <div>5% (Reduced)</div>
-                                    <div className="text-xs text-muted-foreground">Books, food, medical</div>
-                                  </div>
-                                </SelectItem>
-                                <SelectItem value="0.18">
-                                  <div>
-                                    <div>18% (Standard)</div>
-                                    <div className="text-xs text-muted-foreground">Most services & goods</div>
-                                  </div>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-end">
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => removeItem(index)}
-                              disabled={items.length === 1 || isIssued}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {/* Advanced Mode - All Fields */}
-                          <div>
-                            <Label>Quantity *</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                              required
-                              disabled={isIssued}
-                              readOnly={isIssued}
-                            />
-                          </div>
-                          
-                          <div>
-                            <Label>Unit Price (€) *</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unit_price}
-                              onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                              required
-                              disabled={isIssued}
-                              readOnly={isIssued}
-                            />
-                          </div>
-                          
-                          <div>
-                            <Label>VAT Rate</Label>
-                            <Select 
-                              value={item.vat_rate.toString()} 
-                              onValueChange={(value) => updateItem(index, 'vat_rate', parseFloat(value))}
-                              disabled={isIssued}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-popover z-50">
-                                <SelectItem value="0">0% (Exempt)</SelectItem>
-                                <SelectItem value="0.05">5% (Reduced)</SelectItem>
-                                <SelectItem value="0.18">18% (Standard)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-end">
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => removeItem(index)}
-                              disabled={items.length === 1 || isIssued}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* VAT Help Text */}
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                    <div className="text-xs text-blue-900 dark:text-blue-100">
-                      <p className="font-semibold mb-1">Malta VAT Rates Guide:</p>
-                      <ul className="space-y-0.5 ml-4 list-disc">
-                        <li><strong>18% (Standard)</strong>: Most goods and services, consulting, professional services</li>
-                        <li><strong>5% (Reduced)</strong>: Books, newspapers, certain food items, medical equipment</li>
-                        <li><strong>0% (Exempt)</strong>: Educational services, medical services, financial services</li>
-                      </ul>
-                    </div>
+                    {isEditMode && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={handleDownloadPDF}
+                        disabled={loading}
+                        className="w-full"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download PDF
+                      </Button>
+                    )}
+                    {isIssued && isEditMode && (
+                      <Button 
+                        type="button"
+                        variant="destructive"
+                        onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
+                        className="w-full"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Create Credit Note
+                      </Button>
+                    )}
+                    <Button type="button" variant="ghost" asChild className="w-full">
+                      <Link to="/invoices">Cancel</Link>
+                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Actions */}
-            <div className="flex justify-end space-x-4">
-              <Button type="button" variant="outline" asChild>
-                <Link to="/invoices">Back to Invoices</Link>
-              </Button>
-              {isEditMode && (
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={handleDownloadPDF}
-                  disabled={loading}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
-              )}
-              {!isIssued && (
-                <>
-                  <Button 
-                    type="submit" 
-                    variant="outline"
-                    disabled={loading}
-                  >
-                    {loading ? "Saving..." : "Save as Draft"}
-                  </Button>
-                  <Button 
-                    type="button"
-                    onClick={(e) => handleSubmit(e as any, true)}
-                    disabled={loading}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <Shield className="h-4 w-4 mr-2" />
-                    {loading ? "Issuing..." : "Save & Issue"}
-                  </Button>
-                </>
-              )}
-              {isIssued && isEditMode && (
-                <>
-                  <Button 
-                    type="button"
-                    variant="default"
-                    onClick={() => navigate(`/credit-notes/new?invoice=${id}`)}
-                    className="bg-red-600 hover:bg-red-700 text-white font-semibold"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Create Credit Note
-                  </Button>
-                </>
-              )}
+              </div>
             </div>
           </form>
         </main>
       </div>
+
+      {/* Item Library Drawer */}
+      <ItemLibraryDrawer
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        serviceTemplates={serviceTemplates}
+        recentItems={recentItems}
+        onAddTemplate={addTemplateItem}
+        onAddRecentItem={addRecentItem}
+      />
 
       {/* Hidden Font Injector for Google Font based on template */}
       <div style={{ display: 'none' }}>
@@ -1587,7 +1334,7 @@ if (validationError) {
                   grandTotal: totals.grandTotal,
                 },
                 discount: totals.discountAmount > 0 ? {
-                  type: discountType,
+                  type: discountType === 'none' ? 'amount' : discountType,
                   value: discountValue,
                   amount: totals.discountAmount,
                 } : undefined,
