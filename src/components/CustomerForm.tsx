@@ -425,8 +425,8 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
                       <Input
                         value={hasValidCodeSource ? uniqueAutoCode : ""}
                         readOnly
-                        placeholder="Auto-generated from business name"
-                        className="h-9 font-mono text-sm tracking-wider bg-muted/40 pr-20"
+                        placeholder={formData.client_type === "Business" ? "Auto-generated from business name" : "Auto-generated from name"}
+                        className="h-9 font-mono tracking-wider bg-muted/40 pr-20"
                       />
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                         <Button
