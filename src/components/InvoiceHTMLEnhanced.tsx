@@ -188,7 +188,6 @@ export const InvoiceHTMLEnhanced = ({
         </h2>
         <div className="space-y-1">
           <div className="font-medium">{normalizedData.customer.name}</div>
-          {normalizedData.customer.email && <div>{normalizedData.customer.email}</div>}
           {normalizedData.customer.address && (
             <div className="whitespace-pre-line">{normalizedData.customer.address}</div>
           )}
