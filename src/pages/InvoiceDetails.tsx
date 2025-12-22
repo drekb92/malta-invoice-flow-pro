@@ -46,6 +46,7 @@ import {
   CalendarDays,
   User,
   Hash,
+  Link2,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -621,28 +622,58 @@ const InvoiceDetails = () => {
           </div>
         </header>
 
-        <main className="p-6">
+        <main className="px-6 py-4 space-y-4">
+          {/* Invoice Summary Strip */}
+          <Card className="shadow-sm">
+            <CardContent className="px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <Link
+                    to={`/customers/${invoice.customer_id}`}
+                    className="font-medium text-foreground hover:text-primary transition-colors"
+                  >
+                    {invoice.customers?.name || "Unknown Customer"}
+                  </Link>
+                  <span className="text-muted-foreground hidden sm:inline">•</span>
+                  <span className="text-muted-foreground">
+                    Issued {format(new Date((invoice as any).invoice_date || invoice.created_at), "dd MMM yyyy")}
+                  </span>
+                  <span className="text-muted-foreground hidden sm:inline">•</span>
+                  <span className="text-muted-foreground">
+                    Due {format(new Date(invoice.due_date), "dd MMM yyyy")}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm text-muted-foreground mr-2">Balance Due</span>
+                  <span className="text-base font-bold tabular-nums">
+                    {isSettled ? "€0.00" : `€${formatNumber(Math.max(0, remainingBalance), 2)}`}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Compliance Note */}
           {isIssued ? (
-            <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/50 rounded-md px-3 py-2 mb-6 max-w-fit">
-              <Shield className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/50 rounded-md px-3 py-1.5 max-w-fit">
+              <Shield className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
               <p className="text-xs text-green-700 dark:text-green-400">
-                <span className="font-medium">Compliant</span> — Issued {format(new Date((invoice as any).issued_at), "dd MMM yyyy")}. Use credit note for corrections.
+                <span className="font-medium">Compliant</span> — Issued {format(new Date((invoice as any).issued_at), "dd MMM yyyy")}
               </p>
             </div>
           ) : (
-            <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 rounded-md px-3 py-2 mb-6 max-w-fit">
-              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 rounded-md px-3 py-1.5 max-w-fit">
+              <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
               <p className="text-xs text-yellow-700 dark:text-yellow-400">
-                <span className="font-medium">Draft</span> — Editable until issued. Becomes immutable per Malta VAT.
+                <span className="font-medium">Draft</span> — Editable until issued
               </p>
             </div>
           )}
 
           {/* Two-column layout */}
-          <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex flex-col lg:flex-row gap-5">
             {/* Main Content */}
-            <div className="flex-1 space-y-6 min-w-0">
+            <div className="flex-1 space-y-4 min-w-0">
               {/* Mobile Sidebar - shown above content on mobile */}
               <div className="lg:hidden">
                 <SidebarCard
@@ -658,6 +689,9 @@ const InvoiceDetails = () => {
                   dueIndicator={dueIndicator}
                   getStatusBadge={getStatusBadge}
                   copyToClipboard={copyToClipboard}
+                  onEmailReminder={handleEmailReminder}
+                  onWhatsAppReminder={handleWhatsAppReminder}
+                  onCreateCreditNote={handleCreateCreditNote}
                 />
               </div>
 
@@ -705,25 +739,23 @@ const InvoiceDetails = () => {
                     </Table>
                     {/* Table Footer Totals */}
                     {invoiceItems.length > 0 && (
-                      <div className="bg-muted/30 border-t px-4 py-3">
-                        <div className="flex flex-col gap-1 items-end text-sm">
-                          <div className="flex justify-between w-48">
-                            <span className="text-muted-foreground">Net:</span>
-                            <span className="tabular-nums">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
+                      <div className="border-t border-border">
+                        <div className="flex flex-col items-end text-sm py-2 pr-4">
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 w-44">
+                            <span className="text-muted-foreground text-xs">Net</span>
+                            <span className="tabular-nums text-right text-xs">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
+                            {discountInfo.amount > 0 && (
+                              <>
+                                <span className="text-destructive text-xs">Discount{discountInfo.isPercent ? ` (${discountInfo.percentValue}%)` : ''}</span>
+                                <span className="tabular-nums text-right text-destructive text-xs">−€{formatNumber(discountInfo.amount, 2)}</span>
+                              </>
+                            )}
+                            <span className="text-muted-foreground text-xs">VAT</span>
+                            <span className="tabular-nums text-right text-xs">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
                           </div>
-                          {discountInfo.amount > 0 && (
-                            <div className="flex justify-between w-48 text-destructive">
-                              <span>Discount{discountInfo.isPercent ? ` (${discountInfo.percentValue}%)` : ''}:</span>
-                              <span className="tabular-nums">−€{formatNumber(discountInfo.amount, 2)}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between w-48">
-                            <span className="text-muted-foreground">VAT:</span>
-                            <span className="tabular-nums">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
-                          </div>
-                          <div className="flex justify-between w-48 pt-2 border-t border-border font-semibold">
-                            <span>Total:</span>
-                            <span className="tabular-nums">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
+                          <div className="grid grid-cols-2 gap-x-6 w-44 mt-1 pt-1 border-t border-border">
+                            <span className="font-semibold text-sm">Total</span>
+                            <span className="tabular-nums text-right font-bold text-sm">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
                           </div>
                         </div>
                       </div>
@@ -734,28 +766,28 @@ const InvoiceDetails = () => {
 
               {/* Payment History */}
               <Card className="shadow-sm">
-                <CardHeader className="pb-3">
+                <CardHeader className="py-3 px-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
                       Payment History
                     </CardTitle>
                     {payments.length > 0 && (
-                      <span className="text-sm text-muted-foreground">
-                        Total paid: <span className="font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Paid: <span className="font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
                       </span>
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 px-4 pb-4">
                   {payments.length === 0 ? (
-                    <div className="text-center py-8 border rounded-lg bg-muted/20">
-                      <Wallet className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-foreground mb-1">No payments yet</p>
-                      <p className="text-xs text-muted-foreground mb-4">Record the first payment to update the balance due.</p>
+                    <div className="text-center py-5 border rounded-lg bg-muted/20">
+                      <Wallet className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                      <p className="text-sm font-medium text-foreground mb-0.5">No payments yet</p>
+                      <p className="text-xs text-muted-foreground mb-3">Record the first payment to update the balance due.</p>
                       {remainingBalance > 0 && (
-                        <Button onClick={() => setShowPaymentDialog(true)} size="sm">
-                          <Plus className="h-4 w-4 mr-1" />
+                        <Button onClick={() => setShowPaymentDialog(true)} size="sm" variant="outline">
+                          <Plus className="h-3.5 w-3.5 mr-1" />
                           Add Payment
                         </Button>
                       )}
@@ -787,27 +819,29 @@ const InvoiceDetails = () => {
 
               {/* Audit Trail */}
               {isIssued && auditTrail.length > 0 && (
-                <Card className="shadow-sm">
+                <div className="border rounded-lg bg-card shadow-sm">
                   <Accordion type="single" collapsible className="w-full">
                     <AccordionItem value="audit-trail" className="border-0">
-                      <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                        <div className="flex items-center gap-2 text-base font-semibold">
-                          <Shield className="h-4 w-4" />
-                          Audit Trail
-                          <span className="text-xs font-normal text-muted-foreground ml-2">
-                            Latest: {auditTrail[0]?.action === "issued" ? "Invoice Issued" : auditTrail[0]?.action === "credit_note_created" ? "Credit Note Created" : auditTrail[0]?.action}
+                      <AccordionTrigger className="px-4 py-2.5 hover:no-underline [&[data-state=open]>div>.audit-helper]:hidden">
+                        <div className="flex items-center justify-between w-full pr-2">
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <Shield className="h-3.5 w-3.5" />
+                            Audit Trail
+                          </div>
+                          <span className="audit-helper text-xs text-muted-foreground">
+                            Latest: {auditTrail[0]?.action === "issued" ? "Invoice Issued" : auditTrail[0]?.action === "credit_note_created" ? "Credit Note Created" : auditTrail[0]?.action} · Malta VAT compliant
                           </span>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="px-6 pb-4">
+                      <AccordionContent className="px-4 pb-3">
                         <div className="relative ml-2">
                           <div className="absolute left-0 top-1 bottom-1 w-px bg-border" />
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {auditTrail.map((entry, index) => (
-                              <div key={entry.id || index} className="relative pl-4 py-1">
-                                <div className="absolute left-0 top-2 w-2 h-2 rounded-full bg-primary -translate-x-[3.5px]" />
+                              <div key={entry.id || index} className="relative pl-4 py-0.5">
+                                <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-primary -translate-x-[2.5px]" />
                                 <div className="flex items-baseline gap-2">
-                                  <p className="font-medium text-sm">
+                                  <p className="font-medium text-xs">
                                     {entry.action === "issued" && "Invoice Issued"}
                                     {entry.action === "credit_note_created" && "Credit Note Created"}
                                     {entry.action === "created" && "Invoice Created"}
@@ -827,19 +861,19 @@ const InvoiceDetails = () => {
                             ))}
                           </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-4 pt-3 border-t">
+                        <p className="text-xs text-muted-foreground mt-3 pt-2 border-t">
                           Maintained for Malta VAT compliance.
                         </p>
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
-                </Card>
+                </div>
               )}
             </div>
 
             {/* Desktop Sidebar */}
-            <div className="hidden lg:block w-80 flex-shrink-0">
-              <div className="sticky top-6">
+            <div className="hidden lg:block w-72 flex-shrink-0">
+              <div className="sticky top-4">
                 <SidebarCard
                   invoice={invoice}
                   remainingBalance={remainingBalance}
@@ -853,6 +887,9 @@ const InvoiceDetails = () => {
                   dueIndicator={dueIndicator}
                   getStatusBadge={getStatusBadge}
                   copyToClipboard={copyToClipboard}
+                  onEmailReminder={handleEmailReminder}
+                  onWhatsAppReminder={handleWhatsAppReminder}
+                  onCreateCreditNote={handleCreateCreditNote}
                 />
               </div>
             </div>
@@ -1076,6 +1113,9 @@ interface SidebarCardProps {
   dueIndicator: { text: string; isOverdue: boolean } | null;
   getStatusBadge: (status: string) => string;
   copyToClipboard: (text: string, label: string) => void;
+  onEmailReminder?: () => void;
+  onWhatsAppReminder?: () => void;
+  onCreateCreditNote?: () => void;
 }
 
 const SidebarCard = ({
@@ -1091,9 +1131,11 @@ const SidebarCard = ({
   dueIndicator,
   getStatusBadge,
   copyToClipboard,
+  onEmailReminder,
+  onWhatsAppReminder,
+  onCreateCreditNote,
 }: SidebarCardProps) => {
   const total = invoiceTotals?.total_amount ?? computedTotals.total;
-  const net = invoiceTotals?.net_amount ?? computedTotals.net;
   const vat = invoiceTotals?.vat_amount ?? computedTotals.vat;
   
   const totalCreditNotesAmount = creditNotes.reduce((sum, cn) => {
@@ -1102,33 +1144,35 @@ const SidebarCard = ({
     return sum + netAmount + (netAmount * vatRate);
   }, 0);
 
+  const isIssued = (invoice as any)?.is_issued;
+  const invoiceUrl = typeof window !== 'undefined' ? `${window.location.origin}/invoices/${invoice.id}` : '';
+
   return (
     <Card className="shadow-sm">
-      <CardContent className="p-5 space-y-5">
-        {/* Status and Balance Due */}
+      <CardContent className="p-4 space-y-4">
+        {/* Status and Balance Due - same row */}
         <div>
-          <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5 mb-3`}>
-            {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-          </Badge>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground">Balance Due</span>
+            <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
+              {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+            </Badge>
+          </div>
           
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold tabular-nums">
+            <span className="text-2xl font-bold tabular-nums">
               {isSettled ? "€0.00" : `€${formatNumber(Math.max(0, remainingBalance), 2)}`}
             </span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isSettled ? (
-              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                <CheckCircle className="h-4 w-4" />
-                Paid in full
+            {isSettled && (
+              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                <CheckCircle className="h-3 w-3" />
+                Paid
               </span>
-            ) : (
-              "Balance Due"
             )}
-          </p>
+          </div>
           
           {dueIndicator && !isSettled && (
-            <div className={`mt-2 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+            <div className={`mt-1.5 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
               <Clock className="h-3 w-3 inline mr-1" />
               {dueIndicator.text}
             </div>
@@ -1136,48 +1180,86 @@ const SidebarCard = ({
         </div>
 
         {/* Totals Breakdown */}
-        <div className="border-t pt-4 space-y-2 text-sm">
-          <div className="flex justify-between">
+        <div className="border-t pt-3 space-y-1.5 text-sm">
+          <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="tabular-nums">€{formatNumber(subtotal, 2)}</span>
           </div>
           {discountInfo.amount > 0 && (
-            <div className="flex justify-between text-destructive">
+            <div className="flex justify-between text-xs text-destructive">
               <span>Discount{discountInfo.isPercent ? ` (${discountInfo.percentValue}%)` : ''}</span>
               <span className="tabular-nums">−€{formatNumber(discountInfo.amount, 2)}</span>
             </div>
           )}
-          <div className="flex justify-between">
+          <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">VAT</span>
             <span className="tabular-nums">€{formatNumber(vat, 2)}</span>
           </div>
-          <div className="flex justify-between font-medium pt-2 border-t">
+          <div className="flex justify-between font-medium pt-1.5 border-t text-sm">
             <span>Total</span>
             <span className="tabular-nums">€{formatNumber(total, 2)}</span>
           </div>
           
           {creditNotes.length > 0 && (
             <>
-              <div className="flex justify-between text-destructive">
+              <div className="flex justify-between text-xs text-destructive">
                 <span>Credit Notes ({creditNotes.length})</span>
                 <span className="tabular-nums">−€{formatNumber(totalCreditNotesAmount, 2)}</span>
               </div>
-              <div className="flex justify-between font-medium">
-                <span>Adjusted Total</span>
+              <div className="flex justify-between font-medium text-sm">
+                <span>Adjusted</span>
                 <span className="tabular-nums">€{formatNumber(Math.max(0, total - totalCreditNotesAmount), 2)}</span>
               </div>
             </>
           )}
           
-          <div className="flex justify-between text-muted-foreground">
+          <div className="flex justify-between text-xs text-muted-foreground">
             <span>Paid</span>
             <span className="tabular-nums">€{formatNumber(totalPaid, 2)}</span>
           </div>
         </div>
 
+        {/* Quick Actions - only show when issued and balance > 0 */}
+        {isIssued && (
+          <div className="border-t pt-3">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Quick Actions
+            </div>
+            <div className="space-y-1">
+              {!isSettled && onEmailReminder && (
+                <button
+                  onClick={onEmailReminder}
+                  className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 transition-colors"
+                >
+                  <Mail className="h-3 w-3" />
+                  Send Email Reminder
+                </button>
+              )}
+              {!isSettled && onWhatsAppReminder && (
+                <button
+                  onClick={onWhatsAppReminder}
+                  className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 transition-colors"
+                >
+                  <MessageCircle className="h-3 w-3" />
+                  Send WhatsApp Reminder
+                </button>
+              )}
+              {onCreateCreditNote && (
+                <button
+                  onClick={onCreateCreditNote}
+                  className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 transition-colors"
+                >
+                  <FileText className="h-3 w-3" />
+                  Create Credit Note
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Customer Section */}
-        <div className="border-t pt-4">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+        <div className="border-t pt-3">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
             <User className="h-3 w-3" />
             Customer
           </div>
@@ -1189,27 +1271,27 @@ const SidebarCard = ({
             <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
           </Link>
           {invoice.customers?.email && (
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 mt-0.5">
               <span className="text-xs text-muted-foreground truncate">{invoice.customers.email}</span>
               <button
                 onClick={() => copyToClipboard(invoice.customers?.email || "", "Email")}
-                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Copy className="h-3 w-3" />
+                <Copy className="h-2.5 w-2.5" />
               </button>
             </div>
           )}
         </div>
 
         {/* Invoice Details */}
-        <div className="border-t pt-4 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+        <div className="border-t pt-3 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
             <FileText className="h-3 w-3" />
             Invoice Details
           </div>
           
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex items-center gap-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground flex items-center gap-1">
               <Hash className="h-3 w-3" />
               Number
             </span>
@@ -1217,30 +1299,39 @@ const SidebarCard = ({
               <span className="font-medium">{invoice.invoice_number}</span>
               <button
                 onClick={() => copyToClipboard(invoice.invoice_number, "Invoice number")}
-                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                className="p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Copy className="h-3 w-3" />
+                <Copy className="h-2.5 w-2.5" />
               </button>
             </div>
           </div>
           
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex items-center gap-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground flex items-center gap-1">
               <CalendarDays className="h-3 w-3" />
-              Issue Date
+              Issued
             </span>
             <span>{format(new Date((invoice as any).invoice_date || invoice.created_at), "dd MMM yyyy")}</span>
           </div>
           
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex items-center gap-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              Due Date
+              Due
             </span>
             <span className={dueIndicator?.isOverdue ? "text-red-600 dark:text-red-400 font-medium" : ""}>
               {format(new Date(invoice.due_date), "dd MMM yyyy")}
             </span>
           </div>
+
+          {/* Copy invoice link */}
+          <button
+            onClick={() => copyToClipboard(invoiceUrl, "Invoice link")}
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 mt-2 transition-colors border border-border/50"
+          >
+            <Link2 className="h-3 w-3" />
+            Copy Invoice Link
+          </button>
         </div>
       </CardContent>
     </Card>
