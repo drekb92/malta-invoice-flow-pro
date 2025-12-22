@@ -622,10 +622,10 @@ const InvoiceDetails = () => {
           </div>
         </header>
 
-        <main className="px-6 py-4 space-y-4">
+        <main className="px-6 py-3 space-y-3">
           {/* Invoice Summary Strip */}
-          <Card className="shadow-sm">
-            <CardContent className="px-4 py-3">
+          <Card className="shadow-sm bg-muted/30 border-border/50">
+            <CardContent className="px-4 py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <Link
@@ -643,11 +643,15 @@ const InvoiceDetails = () => {
                     Due {format(new Date(invoice.due_date), "dd MMM yyyy")}
                   </span>
                 </div>
-                <div className="text-right">
-                  <span className="text-sm text-muted-foreground mr-2">Balance Due</span>
-                  <span className="text-base font-bold tabular-nums">
-                    {isSettled ? "€0.00" : `€${formatNumber(Math.max(0, remainingBalance), 2)}`}
-                  </span>
+                <div className="flex items-center gap-2 text-sm">
+                  <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
+                    {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                  </Badge>
+                  {dueIndicator && !isSettled && (
+                    <span className={`text-xs ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+                      {dueIndicator.text}
+                    </span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -671,9 +675,9 @@ const InvoiceDetails = () => {
           )}
 
           {/* Two-column layout */}
-          <div className="flex flex-col lg:flex-row gap-5">
+          <div className="flex flex-col lg:flex-row gap-4">
             {/* Main Content */}
-            <div className="flex-1 space-y-4 min-w-0">
+            <div className="flex-1 space-y-3 min-w-0">
               {/* Mobile Sidebar - shown above content on mobile */}
               <div className="lg:hidden">
                 <SidebarCard
@@ -705,17 +709,17 @@ const InvoiceDetails = () => {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
-                          <TableHead className="py-3 text-xs font-medium">Description</TableHead>
-                          <TableHead className="py-3 text-xs font-medium text-right w-16">Qty</TableHead>
-                          <TableHead className="py-3 text-xs font-medium text-right w-20">Price</TableHead>
-                          <TableHead className="py-3 text-xs font-medium text-right w-16">VAT</TableHead>
-                          <TableHead className="py-3 text-xs font-medium text-right w-24">Total</TableHead>
+                          <TableHead className="py-2 text-xs font-medium">Description</TableHead>
+                          <TableHead className="py-2 text-xs font-medium text-right w-14">Qty</TableHead>
+                          <TableHead className="py-2 text-xs font-medium text-right w-20">Price</TableHead>
+                          <TableHead className="py-2 text-xs font-medium text-right w-14">VAT</TableHead>
+                          <TableHead className="py-2 text-xs font-medium text-right w-24">Total</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {invoiceItems.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                               No line items found.
                             </TableCell>
                           </TableRow>
@@ -724,13 +728,13 @@ const InvoiceDetails = () => {
                             const lineTotal = item.quantity * item.unit_price;
                             return (
                               <TableRow key={item.id} className="border-b border-border/50 last:border-0">
-                                <TableCell className="py-3">
+                                <TableCell className="py-2">
                                   <span className="line-clamp-2 text-sm">{item.description}</span>
                                 </TableCell>
-                                <TableCell className="py-3 text-sm text-right tabular-nums">{item.quantity}</TableCell>
-                                <TableCell className="py-3 text-sm text-right tabular-nums">€{formatNumber(item.unit_price, 2)}</TableCell>
-                                <TableCell className="py-3 text-sm text-right tabular-nums text-muted-foreground">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
-                                <TableCell className="py-3 text-sm text-right font-medium tabular-nums">€{formatNumber(lineTotal, 2)}</TableCell>
+                                <TableCell className="py-2 text-sm text-right tabular-nums">{item.quantity}</TableCell>
+                                <TableCell className="py-2 text-sm text-right tabular-nums">€{formatNumber(item.unit_price, 2)}</TableCell>
+                                <TableCell className="py-2 text-sm text-right tabular-nums text-muted-foreground">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
+                                <TableCell className="py-2 text-sm text-right font-medium tabular-nums">€{formatNumber(lineTotal, 2)}</TableCell>
                               </TableRow>
                             );
                           })
@@ -739,21 +743,21 @@ const InvoiceDetails = () => {
                     </Table>
                     {/* Table Footer Totals */}
                     {invoiceItems.length > 0 && (
-                      <div className="border-t border-border">
-                        <div className="flex flex-col items-end text-sm py-2 pr-4">
-                          <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 w-44">
+                      <div className="border-t-2 border-border bg-muted/20">
+                        <div className="flex flex-col items-end py-2 pr-4">
+                          <div className="grid grid-cols-2 gap-x-8 gap-y-0.5 w-40">
                             <span className="text-muted-foreground text-xs">Net</span>
                             <span className="tabular-nums text-right text-xs">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
                             {discountInfo.amount > 0 && (
                               <>
-                                <span className="text-destructive text-xs">Discount{discountInfo.isPercent ? ` (${discountInfo.percentValue}%)` : ''}</span>
-                                <span className="tabular-nums text-right text-destructive text-xs">−€{formatNumber(discountInfo.amount, 2)}</span>
+                                <span className="text-muted-foreground text-xs">Discount</span>
+                                <span className="tabular-nums text-right text-muted-foreground text-xs">(€{formatNumber(discountInfo.amount, 2)})</span>
                               </>
                             )}
                             <span className="text-muted-foreground text-xs">VAT</span>
                             <span className="tabular-nums text-right text-xs">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-x-6 w-44 mt-1 pt-1 border-t border-border">
+                          <div className="grid grid-cols-2 gap-x-8 w-40 mt-1.5 pt-1.5 border-t border-border">
                             <span className="font-semibold text-sm">Total</span>
                             <span className="tabular-nums text-right font-bold text-sm">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
                           </div>
@@ -766,7 +770,7 @@ const InvoiceDetails = () => {
 
               {/* Payment History */}
               <Card className="shadow-sm">
-                <CardHeader className="py-3 px-4">
+                <CardHeader className="py-2.5 px-4">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
                       <CreditCard className="h-4 w-4" />
@@ -779,35 +783,35 @@ const InvoiceDetails = () => {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0 px-4 pb-4">
+                <CardContent className="pt-0 px-4 pb-3">
                   {payments.length === 0 ? (
-                    <div className="text-center py-5 border rounded-lg bg-muted/20">
-                      <Wallet className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                    <div className="text-center py-3 border rounded-md bg-muted/20">
+                      <Wallet className="h-6 w-6 text-muted-foreground/50 mx-auto mb-1.5" />
                       <p className="text-sm font-medium text-foreground mb-0.5">No payments yet</p>
-                      <p className="text-xs text-muted-foreground mb-3">Record the first payment to update the balance due.</p>
+                      <p className="text-xs text-muted-foreground mb-2">Record a payment to update the balance.</p>
                       {remainingBalance > 0 && (
-                        <Button onClick={() => setShowPaymentDialog(true)} size="sm" variant="outline">
-                          <Plus className="h-3.5 w-3.5 mr-1" />
+                        <Button onClick={() => setShowPaymentDialog(true)} size="sm" variant="outline" className="h-7 text-xs">
+                          <Plus className="h-3 w-3 mr-1" />
                           Add Payment
                         </Button>
                       )}
                     </div>
                   ) : (
-                    <div className="border rounded-lg overflow-hidden">
+                    <div className="border rounded-md overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="py-2.5 text-xs font-medium">Date</TableHead>
-                            <TableHead className="py-2.5 text-xs font-medium">Method</TableHead>
-                            <TableHead className="py-2.5 text-xs font-medium text-right">Amount</TableHead>
+                            <TableHead className="py-2 text-xs font-medium">Date</TableHead>
+                            <TableHead className="py-2 text-xs font-medium">Method</TableHead>
+                            <TableHead className="py-2 text-xs font-medium text-right">Amount</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {payments.map((payment) => (
                             <TableRow key={payment.id} className="border-b border-border/50 last:border-0">
-                              <TableCell className="py-2.5 text-sm">{format(new Date(payment.payment_date), "dd MMM yyyy")}</TableCell>
-                              <TableCell className="py-2.5 text-sm text-muted-foreground">{getMethodLabel(payment.method)}</TableCell>
-                              <TableCell className="py-2.5 text-sm text-right font-medium tabular-nums">€{formatNumber(payment.amount, 2)}</TableCell>
+                              <TableCell className="py-2 text-sm">{format(new Date(payment.payment_date), "dd MMM yyyy")}</TableCell>
+                              <TableCell className="py-2 text-sm text-muted-foreground">{getMethodLabel(payment.method)}</TableCell>
+                              <TableCell className="py-2 text-sm text-right font-medium tabular-nums">€{formatNumber(payment.amount, 2)}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -1149,10 +1153,10 @@ const SidebarCard = ({
 
   return (
     <Card className="shadow-sm">
-      <CardContent className="p-4 space-y-4">
+      <CardContent className="p-4 space-y-3">
         {/* Status and Balance Due - same row */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-muted-foreground">Balance Due</span>
             <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
               {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
@@ -1172,7 +1176,7 @@ const SidebarCard = ({
           </div>
           
           {dueIndicator && !isSettled && (
-            <div className={`mt-1.5 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+            <div className={`mt-1 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
               <Clock className="h-3 w-3 inline mr-1" />
               {dueIndicator.text}
             </div>
@@ -1180,15 +1184,15 @@ const SidebarCard = ({
         </div>
 
         {/* Totals Breakdown */}
-        <div className="border-t pt-3 space-y-1.5 text-sm">
+        <div className="border-t pt-2.5 space-y-1 text-sm">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="tabular-nums">€{formatNumber(subtotal, 2)}</span>
           </div>
           {discountInfo.amount > 0 && (
-            <div className="flex justify-between text-xs text-destructive">
-              <span>Discount{discountInfo.isPercent ? ` (${discountInfo.percentValue}%)` : ''}</span>
-              <span className="tabular-nums">−€{formatNumber(discountInfo.amount, 2)}</span>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Discount</span>
+              <span className="tabular-nums text-muted-foreground">(€{formatNumber(discountInfo.amount, 2)})</span>
             </div>
           )}
           <div className="flex justify-between text-xs">
@@ -1197,14 +1201,14 @@ const SidebarCard = ({
           </div>
           <div className="flex justify-between font-medium pt-1.5 border-t text-sm">
             <span>Total</span>
-            <span className="tabular-nums">€{formatNumber(total, 2)}</span>
+            <span className="tabular-nums font-bold">€{formatNumber(total, 2)}</span>
           </div>
           
           {creditNotes.length > 0 && (
             <>
-              <div className="flex justify-between text-xs text-destructive">
-                <span>Credit Notes ({creditNotes.length})</span>
-                <span className="tabular-nums">−€{formatNumber(totalCreditNotesAmount, 2)}</span>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Credit Notes ({creditNotes.length})</span>
+                <span className="tabular-nums text-muted-foreground">(€{formatNumber(totalCreditNotesAmount, 2)})</span>
               </div>
               <div className="flex justify-between font-medium text-sm">
                 <span>Adjusted</span>
@@ -1219,39 +1223,45 @@ const SidebarCard = ({
           </div>
         </div>
 
-        {/* Quick Actions - only show when issued and balance > 0 */}
+        {/* Quick Actions - compact outline buttons */}
         {isIssued && (
-          <div className="border-t pt-3">
+          <div className="border-t pt-2.5">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
               Quick Actions
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {!isSettled && onEmailReminder && (
-                <button
+                <Button
                   onClick={onEmailReminder}
-                  className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 transition-colors"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-7 text-xs justify-start gap-2"
                 >
                   <Mail className="h-3 w-3" />
                   Send Email Reminder
-                </button>
+                </Button>
               )}
               {!isSettled && onWhatsAppReminder && (
-                <button
+                <Button
                   onClick={onWhatsAppReminder}
-                  className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 transition-colors"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-7 text-xs justify-start gap-2"
                 >
                   <MessageCircle className="h-3 w-3" />
                   Send WhatsApp Reminder
-                </button>
+                </Button>
               )}
               {onCreateCreditNote && (
-                <button
+                <Button
                   onClick={onCreateCreditNote}
-                  className="w-full flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 transition-colors"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-7 text-xs justify-start gap-2"
                 >
                   <FileText className="h-3 w-3" />
                   Create Credit Note
-                </button>
+                </Button>
               )}
             </div>
           </div>
