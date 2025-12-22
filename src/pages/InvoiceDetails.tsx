@@ -831,10 +831,10 @@ const InvoiceDetails = () => {
 
               {/* Audit Trail */}
               {isIssued && auditTrail.length > 0 && (
-                <div className="border rounded-lg bg-card shadow-sm">
+                <div className="border border-border/60 rounded-lg bg-card/50 shadow-sm">
                   <Accordion type="single" collapsible className="w-full">
                     <AccordionItem value="audit-trail" className="border-0">
-                      <AccordionTrigger className="px-4 py-2.5 hover:no-underline [&[data-state=open]>div>.audit-helper]:hidden">
+                      <AccordionTrigger className="px-4 py-2 hover:no-underline focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:ring-offset-0 rounded-lg [&[data-state=open]>div>.audit-helper]:hidden">
                         <div className="flex items-center justify-between w-full pr-2">
                           <div className="flex items-center gap-2 text-sm font-medium">
                             <Shield className="h-3.5 w-3.5" />
@@ -1159,12 +1159,18 @@ const SidebarCard = ({
   const isIssued = (invoice as any)?.is_issued;
   const invoiceUrl = typeof window !== 'undefined' ? `${window.location.origin}/invoices/${invoice.id}` : '';
 
+  // Placeholder activity data - bind to real fields when available
+  // Expected fields: invoices.last_email_sent_at, invoices.last_reminder_sent_at, invoices.last_reminder_channel
+  const lastEmailSentAt = (invoice as any)?.last_email_sent_at || null;
+  const lastReminderSentAt = (invoice as any)?.last_reminder_sent_at || null;
+  const lastReminderChannel = (invoice as any)?.last_reminder_channel || null;
+
   return (
     <Card className="shadow-sm">
-      <CardContent className="p-3 space-y-2.5">
+      <CardContent className="p-2.5 space-y-2">
         {/* Status and Balance Due - same row */}
         <div>
-          <div className="flex items-center gap-2 mb-0.5">
+          <div className="flex items-center justify-between mb-0.5">
             <span className="text-xs text-muted-foreground">Balance Due</span>
             <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
               {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
@@ -1192,7 +1198,7 @@ const SidebarCard = ({
         </div>
 
         {/* Totals Breakdown */}
-        <div className="border-t pt-2 space-y-0.5 text-sm">
+        <div className="border-t pt-1.5 space-y-0.5 text-sm">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="tabular-nums">€{formatNumber(subtotal, 2)}</span>
@@ -1233,8 +1239,8 @@ const SidebarCard = ({
 
         {/* Quick Actions - compact outline buttons with hover states */}
         {isIssued && (
-          <div className="border-t pt-2">
-            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+          <div className="border-t pt-1.5">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
               Quick Actions
             </div>
             <div className="space-y-1">
@@ -1270,6 +1276,35 @@ const SidebarCard = ({
                   <FileText className="h-3 w-3" />
                   Create Credit Note
                 </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Activity Section */}
+        {isIssued && (
+          <div className="border-t pt-1.5">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+              Activity
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Last email sent</span>
+                <span className="text-foreground tabular-nums">
+                  {lastEmailSentAt ? format(new Date(lastEmailSentAt), "dd MMM, HH:mm") : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Last reminder</span>
+                <span className="text-foreground tabular-nums">
+                  {lastReminderSentAt ? format(new Date(lastReminderSentAt), "dd MMM, HH:mm") : "—"}
+                </span>
+              </div>
+              {lastReminderChannel && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Channel</span>
+                  <span className="text-foreground capitalize">{lastReminderChannel}</span>
+                </div>
               )}
             </div>
           </div>
