@@ -87,9 +87,6 @@ export function InvoiceCleanMinimal({
       <div className="mb-12">
         <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Bill To</div>
         <div className="text-base font-medium">{invoiceData.customer_name}</div>
-        {invoiceData.customer_email && (
-          <div className="text-sm text-gray-600">{invoiceData.customer_email}</div>
-        )}
         {invoiceData.customer_address && (
           <div className="text-sm text-gray-600 whitespace-pre-line">{invoiceData.customer_address}</div>
         )}

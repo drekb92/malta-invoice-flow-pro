@@ -151,7 +151,6 @@ export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-
         </h2>
         <div className="space-y-1">
           <div className="font-medium">{invoiceData.customer.name}</div>
-          {invoiceData.customer.email && <div>{invoiceData.customer.email}</div>}
           {invoiceData.customer.address && (
             <div className="whitespace-pre-line">{invoiceData.customer.address}</div>
           )}

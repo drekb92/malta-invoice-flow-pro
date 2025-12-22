@@ -418,7 +418,6 @@ export const UnifiedInvoiceLayout = ({
               <div className="section-label">Bill To</div>
               <div className="customer-name">{invoiceData.customer.name}</div>
               <div className="customer-info">
-                {invoiceData.customer.email && <div>{invoiceData.customer.email}</div>}
                 {/* Structured address fields */}
                 {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
                 {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
