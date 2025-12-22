@@ -17,11 +17,11 @@ export const TransactionLineItems = ({ items }: TransactionLineItemsProps) => {
         <table className="w-full text-sm">
           <thead className="bg-muted/40 border-b border-border/40">
             <tr>
-              <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Description</th>
-              <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-10">Qty</th>
-              <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-16">Price</th>
-              <th className="text-right px-2 py-2 text-xs font-medium text-muted-foreground w-12">VAT</th>
-              <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground w-18">Total</th>
+              <th className="text-left px-3 py-1.5 text-xs font-medium text-muted-foreground">Description</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-muted-foreground w-12">Qty</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-muted-foreground w-16">Price</th>
+              <th className="text-right px-2 py-1.5 text-xs font-medium text-muted-foreground w-10">VAT</th>
+              <th className="text-right px-3 py-1.5 text-xs font-medium text-muted-foreground w-20">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -29,18 +29,15 @@ export const TransactionLineItems = ({ items }: TransactionLineItemsProps) => {
               const lineTotal = item.quantity * item.unit_price * (1 + item.vat_rate);
               return (
                 <tr key={item.id} className={idx !== items.length - 1 ? "border-b border-border/30" : ""}>
-                  <td className="px-3 py-2.5 text-sm text-foreground">
-                    <span 
-                      className="block line-clamp-2" 
-                      title={item.description}
-                    >
+                  <td className="px-3 py-2 text-sm text-foreground">
+                    <span className="block" title={item.description}>
                       {item.description}
                     </span>
                   </td>
-                  <td className="text-right px-2 py-2.5 text-sm text-muted-foreground tabular-nums">{item.quantity}</td>
-                  <td className="text-right px-2 py-2.5 text-sm text-muted-foreground tabular-nums">{formatCurrency(item.unit_price)}</td>
-                  <td className="text-right px-2 py-2.5 text-sm text-muted-foreground tabular-nums">{(item.vat_rate * 100).toFixed(0)}%</td>
-                  <td className="text-right px-3 py-2.5 text-sm font-semibold text-foreground tabular-nums">{formatCurrency(lineTotal)}</td>
+                  <td className="text-right px-2 py-2 text-xs text-muted-foreground tabular-nums align-top">{item.quantity}</td>
+                  <td className="text-right px-2 py-2 text-xs text-muted-foreground tabular-nums align-top">{formatCurrency(item.unit_price)}</td>
+                  <td className="text-right px-2 py-2 text-xs text-muted-foreground tabular-nums align-top">{(item.vat_rate * 100).toFixed(0)}%</td>
+                  <td className="text-right px-3 py-2 text-xs font-semibold text-foreground tabular-nums align-top">{formatCurrency(lineTotal)}</td>
                 </tr>
               );
             })}
