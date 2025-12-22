@@ -622,52 +622,58 @@ const InvoiceDetails = () => {
           </div>
         </header>
 
-        <main className="px-6 py-3 space-y-3">
+        <main className="px-6 py-2 space-y-2">
           {/* Invoice Summary Strip */}
-          <Card className="shadow-sm bg-muted/30 border-border/50">
-            <CardContent className="px-4 py-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <Card className="shadow-none bg-muted/20 border-border/40">
+            <CardContent className="px-3 py-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                   <Link
                     to={`/customers/${invoice.customer_id}`}
                     className="font-medium text-foreground hover:text-primary transition-colors"
                   >
                     {invoice.customers?.name || "Unknown Customer"}
                   </Link>
-                  <span className="text-muted-foreground hidden sm:inline">•</span>
+                  <span className="text-muted-foreground/60 hidden sm:inline">•</span>
                   <span className="text-muted-foreground">
                     Issued {format(new Date((invoice as any).invoice_date || invoice.created_at), "dd MMM yyyy")}
                   </span>
-                  <span className="text-muted-foreground hidden sm:inline">•</span>
+                  <span className="text-muted-foreground/60 hidden sm:inline">•</span>
                   <span className="text-muted-foreground">
                     Due {format(new Date(invoice.due_date), "dd MMM yyyy")}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
-                    {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                  </Badge>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">
+                    Status: <span className="font-medium text-foreground">{invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</span>
+                  </span>
                   {dueIndicator && !isSettled && (
-                    <span className={`text-xs ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
-                      {dueIndicator.text}
-                    </span>
+                    <>
+                      <span className="text-muted-foreground/60">•</span>
+                      <span className={dueIndicator.isOverdue ? "text-red-600 dark:text-red-400 font-medium" : "text-muted-foreground"}>
+                        {dueIndicator.text}
+                      </span>
+                    </>
+                  )}
+                  {/* Inline compliance tag */}
+                  {isIssued && (
+                    <>
+                      <span className="text-muted-foreground/60 hidden sm:inline">•</span>
+                      <span className="hidden sm:inline-flex items-center gap-1 text-green-700 dark:text-green-400">
+                        <Shield className="h-2.5 w-2.5" />
+                        <span className="font-medium">Compliant</span>
+                      </span>
+                    </>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Compliance Note */}
-          {isIssued ? (
-            <div className="flex items-center gap-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/50 rounded-md px-3 py-1.5 max-w-fit">
-              <Shield className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-              <p className="text-xs text-green-700 dark:text-green-400">
-                <span className="font-medium">Compliant</span> — Issued {format(new Date((invoice as any).issued_at), "dd MMM yyyy")}
-              </p>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 rounded-md px-3 py-1.5 max-w-fit">
-              <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
+          {/* Compliance Note - mobile only or draft */}
+          {!isIssued && (
+            <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 rounded px-2.5 py-1 max-w-fit">
+              <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
               <p className="text-xs text-yellow-700 dark:text-yellow-400">
                 <span className="font-medium">Draft</span> — Editable until issued
               </p>
@@ -675,9 +681,9 @@ const InvoiceDetails = () => {
           )}
 
           {/* Two-column layout */}
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-3">
             {/* Main Content */}
-            <div className="flex-1 space-y-3 min-w-0">
+            <div className="flex-1 space-y-2 min-w-0">
               {/* Mobile Sidebar - shown above content on mobile */}
               <div className="lg:hidden">
                 <SidebarCard
@@ -783,14 +789,16 @@ const InvoiceDetails = () => {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0 px-4 pb-3">
+                <CardContent className="pt-0 px-4 pb-2">
                   {payments.length === 0 ? (
-                    <div className="text-center py-3 border rounded-md bg-muted/20">
-                      <Wallet className="h-6 w-6 text-muted-foreground/50 mx-auto mb-1.5" />
-                      <p className="text-sm font-medium text-foreground mb-0.5">No payments yet</p>
-                      <p className="text-xs text-muted-foreground mb-2">Record a payment to update the balance.</p>
+                    <div className="flex items-center gap-3 py-2 px-3 border rounded-md bg-muted/20">
+                      <Wallet className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">No payments yet</p>
+                        <p className="text-xs text-muted-foreground">Record a payment to update the balance.</p>
+                      </div>
                       {remainingBalance > 0 && (
-                        <Button onClick={() => setShowPaymentDialog(true)} size="sm" variant="outline" className="h-7 text-xs">
+                        <Button onClick={() => setShowPaymentDialog(true)} size="sm" variant="outline" className="h-7 text-xs flex-shrink-0">
                           <Plus className="h-3 w-3 mr-1" />
                           Add Payment
                         </Button>
@@ -1153,12 +1161,12 @@ const SidebarCard = ({
 
   return (
     <Card className="shadow-sm">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-3 space-y-2.5">
         {/* Status and Balance Due - same row */}
         <div>
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xs text-muted-foreground">Balance Due</span>
-            <Badge className={`${getStatusBadge(invoice.status)} text-xs px-2 py-0.5`}>
+            <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
               {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
             </Badge>
           </div>
@@ -1176,7 +1184,7 @@ const SidebarCard = ({
           </div>
           
           {dueIndicator && !isSettled && (
-            <div className={`mt-1 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+            <div className={`mt-0.5 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
               <Clock className="h-3 w-3 inline mr-1" />
               {dueIndicator.text}
             </div>
@@ -1184,7 +1192,7 @@ const SidebarCard = ({
         </div>
 
         {/* Totals Breakdown */}
-        <div className="border-t pt-2.5 space-y-1 text-sm">
+        <div className="border-t pt-2 space-y-0.5 text-sm">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="tabular-nums">€{formatNumber(subtotal, 2)}</span>
@@ -1199,7 +1207,7 @@ const SidebarCard = ({
             <span className="text-muted-foreground">VAT</span>
             <span className="tabular-nums">€{formatNumber(vat, 2)}</span>
           </div>
-          <div className="flex justify-between font-medium pt-1.5 border-t text-sm">
+          <div className="flex justify-between font-medium pt-1 border-t text-sm">
             <span>Total</span>
             <span className="tabular-nums font-bold">€{formatNumber(total, 2)}</span>
           </div>
@@ -1223,19 +1231,19 @@ const SidebarCard = ({
           </div>
         </div>
 
-        {/* Quick Actions - compact outline buttons */}
+        {/* Quick Actions - compact outline buttons with hover states */}
         {isIssued && (
-          <div className="border-t pt-2.5">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+          <div className="border-t pt-2">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
               Quick Actions
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {!isSettled && onEmailReminder && (
                 <Button
                   onClick={onEmailReminder}
                   variant="outline"
                   size="sm"
-                  className="w-full h-7 text-xs justify-start gap-2"
+                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
                 >
                   <Mail className="h-3 w-3" />
                   Send Email Reminder
@@ -1246,7 +1254,7 @@ const SidebarCard = ({
                   onClick={onWhatsAppReminder}
                   variant="outline"
                   size="sm"
-                  className="w-full h-7 text-xs justify-start gap-2"
+                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
                 >
                   <MessageCircle className="h-3 w-3" />
                   Send WhatsApp Reminder
@@ -1257,7 +1265,7 @@ const SidebarCard = ({
                   onClick={onCreateCreditNote}
                   variant="outline"
                   size="sm"
-                  className="w-full h-7 text-xs justify-start gap-2"
+                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
                 >
                   <FileText className="h-3 w-3" />
                   Create Credit Note
@@ -1268,9 +1276,9 @@ const SidebarCard = ({
         )}
 
         {/* Customer Section */}
-        <div className="border-t pt-3">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
-            <User className="h-3 w-3" />
+        <div className="border-t pt-2">
+          <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+            <User className="h-2.5 w-2.5" />
             Customer
           </div>
           <Link
@@ -1294,9 +1302,9 @@ const SidebarCard = ({
         </div>
 
         {/* Invoice Details */}
-        <div className="border-t pt-3 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
-            <FileText className="h-3 w-3" />
+        <div className="border-t pt-2 space-y-1">
+          <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+            <FileText className="h-2.5 w-2.5" />
             Invoice Details
           </div>
           
@@ -1337,7 +1345,7 @@ const SidebarCard = ({
           {/* Copy invoice link */}
           <button
             onClick={() => copyToClipboard(invoiceUrl, "Invoice link")}
-            className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1.5 mt-2 transition-colors border border-border/50"
+            className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1 mt-1.5 transition-colors border border-border/50"
           >
             <Link2 className="h-3 w-3" />
             Copy Invoice Link
