@@ -438,7 +438,7 @@ export const TransactionDrawer = ({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-[420px] p-0 flex flex-col">
+        <SheetContent className="w-full sm:max-w-[540px] p-0 flex flex-col">
           {/* Shared Header */}
           <TransactionDrawerHeader
             type={type}
