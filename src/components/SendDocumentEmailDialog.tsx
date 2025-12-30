@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Mail, Loader2 } from "lucide-react";
-import { buildA4HtmlDocument } from "@/lib/edgePdf";
+import { buildA4HtmlDocument, prepareHtmlForPdf } from "@/lib/edgePdf";
 
 interface SendDocumentEmailDialogProps {
   open: boolean;
@@ -75,17 +75,11 @@ ${companyName}`;
 
     setLoading(true);
     try {
-      // Get the HTML from the preview
-      const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
-      if (!root) {
-        throw new Error("Document preview not found");
-      }
-
-      const html = buildA4HtmlDocument({
-        filename: `${documentTypeLabel}-${documentNumber}`,
-        fontFamily,
-        clonedRoot: root.cloneNode(true) as HTMLElement,
-      });
+      // Prepare HTML with inlined images and CSS variables
+      const html = await prepareHtmlForPdf(
+        `${documentTypeLabel}-${documentNumber}`,
+        fontFamily
+      );
 
       const messageHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

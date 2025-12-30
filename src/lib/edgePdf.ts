@@ -27,7 +27,7 @@ function getExportMode(): ExportMode {
   return mode === "print" ? "print" : "edge";
 }
 
-async function inlineImages(container: HTMLElement) {
+export async function inlineImages(container: HTMLElement) {
   const imgs = Array.from(container.querySelectorAll("img"));
   await Promise.all(
     imgs.map(async (img) => {
@@ -50,7 +50,7 @@ async function inlineImages(container: HTMLElement) {
   );
 }
 
-function captureCssVars(root: HTMLElement) {
+export function captureCssVars(root: HTMLElement) {
   let cssVars = "";
   try {
     const computed = getComputedStyle(root);
@@ -65,6 +65,25 @@ function captureCssVars(root: HTMLElement) {
     console.warn("[PDF] Failed to extract CSS variables:", e);
   }
   return cssVars;
+}
+
+/**
+ * Helper function to prepare HTML for PDF generation (used by email/share dialogs)
+ */
+export async function prepareHtmlForPdf(filename: string, fontFamily: string): Promise<string> {
+  const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
+  if (!root) throw new Error("Preview root not found (invoice-preview-root).");
+
+  const cloned = root.cloneNode(true) as HTMLElement;
+  await inlineImages(cloned);
+
+  const cssVars = captureCssVars(root);
+  if (cssVars) {
+    const existingStyle = cloned.getAttribute("style") || "";
+    cloned.setAttribute("style", `${existingStyle}${existingStyle ? " " : ""}${cssVars}`);
+  }
+
+  return buildA4HtmlDocument({ filename, fontFamily, clonedRoot: cloned });
 }
 
 export function buildA4HtmlDocument(opts: { filename: string; fontFamily: string; clonedRoot: HTMLElement; debug?: boolean }) {
