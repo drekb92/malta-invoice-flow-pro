@@ -22,6 +22,8 @@ import {
   Trash2,
   Calendar as CalendarIcon,
   Download,
+  MessageCircle,
+  Loader2,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -48,7 +50,8 @@ import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLa
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
-import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { downloadPdfFromFunction, buildA4HtmlDocument } from "@/lib/edgePdf";
+import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 
 interface Quotation {
   id: string;
@@ -86,6 +89,9 @@ const Quotations = () => {
   const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
   const [pdfQuotationData, setPdfQuotationData] = useState<InvoiceData | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailQuotation, setEmailQuotation] = useState<Quotation | null>(null);
+  const [whatsappLoading, setWhatsappLoading] = useState<string | null>(null);
 
   const navigate = useNavigate();
   
@@ -233,6 +239,137 @@ const Quotations = () => {
       });
     } finally {
       setIsGeneratingPdf(false);
+      setPdfQuotationData(null);
+    }
+  };
+
+  const handleSendEmail = (quotation: Quotation) => {
+    setEmailQuotation(quotation);
+    // We need to prepare the PDF data first for the email dialog to use
+    (async () => {
+      const { data: items } = await supabase
+        .from("quotation_items")
+        .select("*")
+        .eq("quotation_id", quotation.id);
+
+      const quotationData: InvoiceData = {
+        invoiceNumber: quotation.quotation_number,
+        invoiceDate: quotation.issue_date || quotation.created_at,
+        dueDate: quotation.valid_until || quotation.issue_date || quotation.created_at,
+        customer: {
+          name: quotation.customers?.name || "Unknown Customer",
+          email: quotation.customers?.email,
+          address: quotation.customers?.address,
+          vat_number: quotation.customers?.vat_number,
+        },
+        items: (items || []).map((item) => ({
+          description: item.description,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate || 0.18,
+          unit: item.unit || "unit",
+        })),
+        totals: {
+          netTotal: quotation.amount || 0,
+          vatTotal: quotation.vat_amount || 0,
+          grandTotal: quotation.total_amount || quotation.amount || 0,
+        },
+      };
+
+      setPdfQuotationData(quotationData);
+      // Wait for the layout to render
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      setShowEmailDialog(true);
+    })();
+  };
+
+  const handleSendWhatsApp = async (quotation: Quotation) => {
+    if (!user) return;
+    setWhatsappLoading(quotation.id);
+
+    try {
+      // Fetch quotation items
+      const { data: items } = await supabase
+        .from("quotation_items")
+        .select("*")
+        .eq("quotation_id", quotation.id);
+
+      const quotationData: InvoiceData = {
+        invoiceNumber: quotation.quotation_number,
+        invoiceDate: quotation.issue_date || quotation.created_at,
+        dueDate: quotation.valid_until || quotation.issue_date || quotation.created_at,
+        customer: {
+          name: quotation.customers?.name || "Unknown Customer",
+          email: quotation.customers?.email,
+          address: quotation.customers?.address,
+          vat_number: quotation.customers?.vat_number,
+        },
+        items: (items || []).map((item) => ({
+          description: item.description,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate || 0.18,
+          unit: item.unit || "unit",
+        })),
+        totals: {
+          netTotal: quotation.amount || 0,
+          vatTotal: quotation.vat_amount || 0,
+          grandTotal: quotation.total_amount || quotation.amount || 0,
+        },
+      };
+
+      setPdfQuotationData(quotationData);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
+      if (!root) {
+        throw new Error("Document preview not found");
+      }
+
+      const html = buildA4HtmlDocument({
+        filename: `Quotation-${quotation.quotation_number}`,
+        fontFamily: template?.font_family || "Inter",
+        clonedRoot: root.cloneNode(true) as HTMLElement,
+      });
+
+      const { data, error } = await supabase.functions.invoke("create-document-share-link", {
+        body: {
+          html,
+          filename: `Quotation-${quotation.quotation_number}`,
+          userId: user.id,
+          documentType: "quotation",
+          documentId: quotation.id,
+          documentNumber: quotation.quotation_number,
+          customerId: quotation.customer_id,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const shareUrl = data.url;
+      const message = `Quotation ${quotation.quotation_number} for ${formatCurrency(quotation.total_amount || quotation.amount || 0)}.\n\nValid until: ${quotation.valid_until ? format(new Date(quotation.valid_until), "dd/MM/yyyy") : "N/A"}\n\nView/Download PDF: ${shareUrl}`;
+
+      const phoneRaw = "";
+      const phone = phoneRaw.replace(/\D/g, "");
+      const url = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(url, "_blank");
+
+      toast({
+        title: "WhatsApp opened",
+        description: "Share link created and WhatsApp opened.",
+      });
+    } catch (error: any) {
+      console.error("[Quotations] WhatsApp share error:", error);
+      toast({
+        title: "Failed to create share link",
+        description: error.message || "An error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setWhatsappLoading(null);
       setPdfQuotationData(null);
     }
   };
@@ -518,13 +655,13 @@ const Quotations = () => {
                                     Edit
                                   </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDownloadPdf(q)} disabled={isGeneratingPdf}>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  {isGeneratingPdf ? "Generating..." : "Download PDF"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSendEmail(q)}>
                                   <Mail className="h-4 w-4 mr-2" />
                                   Send Email
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSendWhatsApp(q)} disabled={whatsappLoading === q.id}>
+                                  {whatsappLoading === q.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-2" />}
+                                  {whatsappLoading === q.id ? "Creating link..." : "Send WhatsApp"}
                                 </DropdownMenuItem>
                                 {q.status !== "converted" && (
                                   <DropdownMenuItem onClick={() => openConvertDialog(q)}>
@@ -698,6 +835,31 @@ const Quotations = () => {
             } : undefined}
           />
         </div>
+      )}
+
+      {/* Send Email Dialog */}
+      {emailQuotation && user && companySettings && (
+        <SendDocumentEmailDialog
+          open={showEmailDialog}
+          onOpenChange={(open) => {
+            setShowEmailDialog(open);
+            if (!open) {
+              setEmailQuotation(null);
+              setPdfQuotationData(null);
+            }
+          }}
+          documentType="quotation"
+          documentId={emailQuotation.id}
+          documentNumber={emailQuotation.quotation_number}
+          customer={{
+            id: emailQuotation.customer_id,
+            name: emailQuotation.customers?.name || "Customer",
+            email: emailQuotation.customers?.email || null,
+          }}
+          companyName={companySettings.company_name || "Company"}
+          userId={user.id}
+          fontFamily={template?.font_family}
+        />
       )}
     </div>
   );
