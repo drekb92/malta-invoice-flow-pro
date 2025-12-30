@@ -341,6 +341,71 @@ export type Database = {
         }
         Relationships: []
       }
+      document_send_logs: {
+        Row: {
+          channel: string
+          created_at: string | null
+          customer_id: string | null
+          document_id: string
+          document_number: string
+          document_type: string
+          error_message: string | null
+          id: string
+          recipient_email: string | null
+          recipient_phone: string | null
+          sent_at: string | null
+          share_url: string | null
+          share_url_expires_at: string | null
+          subject: string | null
+          success: boolean | null
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          customer_id?: string | null
+          document_id: string
+          document_number: string
+          document_type: string
+          error_message?: string | null
+          id?: string
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          sent_at?: string | null
+          share_url?: string | null
+          share_url_expires_at?: string | null
+          subject?: string | null
+          success?: boolean | null
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          customer_id?: string | null
+          document_id?: string
+          document_number?: string
+          document_type?: string
+          error_message?: string | null
+          id?: string
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          sent_at?: string | null
+          share_url?: string | null
+          share_url_expires_at?: string | null
+          subject?: string | null
+          success?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_send_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_audit_log: {
         Row: {
           action: string

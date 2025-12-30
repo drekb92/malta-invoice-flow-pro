@@ -47,6 +47,7 @@ import {
   User,
   Hash,
   Link2,
+  Loader2,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -59,10 +60,12 @@ import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
-import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { downloadPdfFromFunction, buildA4HtmlDocument } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
 import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
+import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
+import { useDocumentSendLogs } from "@/hooks/useDocumentSendLogs";
 
 interface Invoice {
   id: string;
@@ -137,7 +140,8 @@ const InvoiceDetails = () => {
   const [auditTrail, setAuditTrail] = useState<any[]>([]);
   const [isIssuing, setIsIssuing] = useState(false);
   const [showCreditNoteDialog, setShowCreditNoteDialog] = useState(false);
-
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -358,29 +362,66 @@ const InvoiceDetails = () => {
 
   const handleEmailReminder = () => {
     if (!invoice) return;
-    const email = invoice.customers?.email || "";
-    const subject = `Payment Reminder: Invoice ${invoice.invoice_number}`;
-    const body = `Dear ${invoice.customers?.name || "Customer"},%0D%0A%0D%0AThis is a friendly reminder that invoice ${invoice.invoice_number} for €${formatNumber(computedTotals.total, 2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.%0D%0A%0D%0AThank you.`;
-    if (email) {
-      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${body}`;
-    } else {
-      toast({
-        title: "No email available",
-        description: "Customer email not found.",
-        variant: "destructive",
-      });
-    }
+    setShowEmailDialog(true);
   };
 
-  const handleWhatsAppReminder = () => {
-    if (!invoice) return;
-    const message = `Payment Reminder: Invoice ${invoice.invoice_number} of €${formatNumber(computedTotals.total, 2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.`;
+  const handleWhatsAppReminder = async () => {
+    if (!invoice || !user) return;
+    
     const phoneRaw = invoice.customers?.phone || "";
     const phone = phoneRaw.replace(/\D/g, "");
-    const url = phone
-      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-      : `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank");
+
+    // Generate share link with PDF
+    setWhatsappLoading(true);
+    try {
+      const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
+      if (!root) {
+        throw new Error("Document preview not found");
+      }
+
+      const html = buildA4HtmlDocument({
+        filename: `Invoice-${invoice.invoice_number}`,
+        fontFamily: template?.font_family || "Inter",
+        clonedRoot: root.cloneNode(true) as HTMLElement,
+      });
+
+      const { data, error } = await supabase.functions.invoke("create-document-share-link", {
+        body: {
+          html,
+          filename: `Invoice-${invoice.invoice_number}`,
+          userId: user.id,
+          documentType: "invoice",
+          documentId: invoice.id,
+          documentNumber: invoice.invoice_number,
+          customerId: invoice.customer_id,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const shareUrl = data.url;
+      const message = `Payment Reminder: Invoice ${invoice.invoice_number} of €${formatNumber(computedTotals.total, 2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.\n\nView/Download PDF: ${shareUrl}`;
+
+      const url = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(url, "_blank");
+
+      toast({
+        title: "WhatsApp opened",
+        description: "Share link created and WhatsApp opened.",
+      });
+    } catch (error: any) {
+      console.error("[InvoiceDetails] WhatsApp share error:", error);
+      toast({
+        title: "Failed to create share link",
+        description: error.message || "An error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setWhatsappLoading(false);
+    }
   };
 
   const handleIssueInvoice = async () => {
@@ -702,6 +743,7 @@ const InvoiceDetails = () => {
                   onEmailReminder={handleEmailReminder}
                   onWhatsAppReminder={handleWhatsAppReminder}
                   onCreateCreditNote={handleCreateCreditNote}
+                  whatsappLoading={whatsappLoading}
                 />
               </div>
 
@@ -1076,6 +1118,25 @@ const InvoiceDetails = () => {
           onSuccess={handleCreditNoteSuccess}
         />
       )}
+
+      {/* Send Email Dialog */}
+      {invoice && user && companySettings && (
+        <SendDocumentEmailDialog
+          open={showEmailDialog}
+          onOpenChange={setShowEmailDialog}
+          documentType="invoice"
+          documentId={invoice.id}
+          documentNumber={invoice.invoice_number}
+          customer={{
+            id: invoice.customer_id,
+            name: invoice.customers?.name || "Customer",
+            email: invoice.customers?.email || null,
+          }}
+          companyName={companySettings.company_name || "Company"}
+          userId={user.id}
+          fontFamily={template?.font_family}
+        />
+      )}
     </div>
   );
 };
@@ -1097,6 +1158,9 @@ interface SidebarCardProps {
   onEmailReminder?: () => void;
   onWhatsAppReminder?: () => void;
   onCreateCreditNote?: () => void;
+  whatsappLoading?: boolean;
+  lastEmailSent?: { sentAt: string; recipient?: string } | null;
+  lastWhatsAppSent?: { sentAt: string; shareUrl?: string } | null;
 }
 
 const SidebarCard = ({
@@ -1115,6 +1179,9 @@ const SidebarCard = ({
   onEmailReminder,
   onWhatsAppReminder,
   onCreateCreditNote,
+  whatsappLoading,
+  lastEmailSent,
+  lastWhatsAppSent,
 }: SidebarCardProps) => {
   const total = invoiceTotals?.total_amount ?? computedTotals.total;
   const vat = invoiceTotals?.vat_amount ?? computedTotals.vat;
@@ -1127,12 +1194,6 @@ const SidebarCard = ({
 
   const isIssued = (invoice as any)?.is_issued;
   const invoiceUrl = typeof window !== 'undefined' ? `${window.location.origin}/invoices/${invoice.id}` : '';
-
-  // Placeholder activity data - bind to real fields when available
-  // Expected fields: invoices.last_email_sent_at, invoices.last_reminder_sent_at, invoices.last_reminder_channel
-  const lastEmailSentAt = (invoice as any)?.last_email_sent_at || null;
-  const lastReminderSentAt = (invoice as any)?.last_reminder_sent_at || null;
-  const lastReminderChannel = (invoice as any)?.last_reminder_channel || null;
 
   return (
     <Card className="shadow-sm">
@@ -1229,10 +1290,11 @@ const SidebarCard = ({
                   onClick={onWhatsAppReminder}
                   variant="outline"
                   size="sm"
+                  disabled={whatsappLoading}
                   className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
                 >
-                  <MessageCircle className="h-3 w-3" />
-                  Send WhatsApp Reminder
+                  {whatsappLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />}
+                  {whatsappLoading ? "Creating link..." : "Send WhatsApp Reminder"}
                 </Button>
               )}
               {onCreateCreditNote && (
@@ -1260,21 +1322,15 @@ const SidebarCard = ({
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Last email sent</span>
                 <span className="text-foreground tabular-nums">
-                  {lastEmailSentAt ? format(new Date(lastEmailSentAt), "dd MMM, HH:mm") : "—"}
+                  {lastEmailSent?.sentAt ? format(new Date(lastEmailSent.sentAt), "dd MMM, HH:mm") : "—"}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Last reminder</span>
+                <span className="text-muted-foreground">Last WhatsApp</span>
                 <span className="text-foreground tabular-nums">
-                  {lastReminderSentAt ? format(new Date(lastReminderSentAt), "dd MMM, HH:mm") : "—"}
+                  {lastWhatsAppSent?.sentAt ? format(new Date(lastWhatsAppSent.sentAt), "dd MMM, HH:mm") : "—"}
                 </span>
               </div>
-              {lastReminderChannel && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Channel</span>
-                  <span className="text-foreground capitalize">{lastReminderChannel}</span>
-                </div>
-              )}
             </div>
           </div>
         )}

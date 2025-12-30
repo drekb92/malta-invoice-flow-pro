@@ -63,3 +63,9 @@ verify_jwt = false
 
 [functions.send-payment-reminder]
 verify_jwt = false
+
+[functions.send-document-email]
+verify_jwt = false
+
+[functions.create-document-share-link]
+verify_jwt = false
