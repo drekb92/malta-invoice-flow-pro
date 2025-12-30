@@ -103,6 +103,9 @@ const formatBalance = (amount: number): string => {
   return `(${formatCurrency(Math.abs(amount))})`;
 };
 
+// Locked margins (matching UnifiedInvoiceLayout)
+const STANDARD_MARGIN_MM = 20;
+
 export const UnifiedStatementLayout = ({
   customer,
   companySettings,
@@ -124,11 +127,11 @@ export const UnifiedStatementLayout = ({
   const fontSize = templateSettings?.fontSize || '14px';
   const bankingVisibility = templateSettings?.bankingVisibility !== false;
 
-  // Margins for PDF variant
-  const marginTop = templateSettings?.marginTop || 20;
-  const marginRight = templateSettings?.marginRight || 20;
-  const marginBottom = templateSettings?.marginBottom || 20;
-  const marginLeft = templateSettings?.marginLeft || 20;
+  // Locked margins (ignore template values)
+  const marginTop = STANDARD_MARGIN_MM;
+  const marginRight = STANDARD_MARGIN_MM;
+  const marginBottom = STANDARD_MARGIN_MM;
+  const marginLeft = STANDARD_MARGIN_MM;
 
   // Get absolute logo URL
   const getAbsoluteLogoUrl = (url?: string): string | undefined => {
@@ -158,12 +161,12 @@ export const UnifiedStatementLayout = ({
     '--invoice-margin-left': `${marginLeft}mm`,
   } as React.CSSProperties;
 
-  // Container styling based on variant using CSS variables
+  // Container styling based on variant using CSS variables - with flexbox for footer pinning
   const containerStyle: React.CSSProperties = variant === 'pdf'
     ? {
         ...cssVariables,
-        width: '21cm',
-        minHeight: '29.7cm',
+        width: '210mm',
+        minHeight: '297mm',
         backgroundColor: 'white',
         paddingTop: 'var(--invoice-margin-top)',
         paddingRight: 'var(--invoice-margin-right)',
@@ -174,18 +177,22 @@ export const UnifiedStatementLayout = ({
         fontSize: 'var(--invoice-font-size)',
         color: 'var(--invoice-accent-color)',
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
       }
     : variant === 'print'
     ? {
         ...cssVariables,
-        width: '21cm',
-        minHeight: '29.7cm',
+        width: '210mm',
+        minHeight: '297mm',
         backgroundColor: 'white',
-        padding: '1.5cm',
+        padding: `${STANDARD_MARGIN_MM}mm`,
         boxSizing: 'border-box',
         fontFamily: 'var(--invoice-font-family)',
         fontSize: 'var(--invoice-font-size)',
         color: 'var(--invoice-accent-color)',
+        display: 'flex',
+        flexDirection: 'column',
       }
     : {
         ...cssVariables,
@@ -194,6 +201,8 @@ export const UnifiedStatementLayout = ({
         color: 'var(--invoice-accent-color)',
         backgroundColor: 'white',
         padding: '2rem',
+        display: 'flex',
+        flexDirection: 'column',
       };
 
   const containerClassName = variant === 'pdf'
@@ -217,70 +226,65 @@ export const UnifiedStatementLayout = ({
       {/* PDF Print Styles */}
       {variant === 'pdf' && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
 
-      {/* Header Section - Two Column */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-        {/* Left: Logo + Company Block */}
-        <div>
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Company Logo"
-              crossOrigin="anonymous"
-              style={{
-                maxHeight: '52px',
-                width: 'auto',
-                objectFit: 'contain',
-                marginBottom: companySettings ? '8px' : '0',
-              }}
-            />
-          )}
-          {companySettings && (
-            <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
-              {companySettings.name && <div style={{ fontWeight: 500 }}>{companySettings.name}</div>}
-              {companySettings.address && <div style={{ whiteSpace: 'pre-line' }}>{companySettings.address}</div>}
-              {companySettings.city && (
-                <div>{companySettings.city}{companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}</div>
-              )}
-              {companySettings.phone && <div>Tel: {companySettings.phone}</div>}
-              {companySettings.email && <div>{companySettings.email}</div>}
-              {companySettings.taxId && <div>VAT: {companySettings.taxId}</div>}
-            </div>
-          )}
-        </div>
+      {/* Main content area - flex-grow to push footer down */}
+      <div style={{ flex: 1 }}>
+        {/* Header Section - Two Column (matching invoice) */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+          {/* Left: Logo + Company Block */}
+          <div>
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt="Company Logo"
+                crossOrigin="anonymous"
+                style={{
+                  maxHeight: '90px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  marginBottom: companySettings ? '8px' : '0',
+                }}
+              />
+            )}
+            {companySettings && (
+              <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
+                {companySettings.name && <div style={{ fontWeight: 500 }}>{companySettings.name}</div>}
+                {companySettings.address && <div style={{ whiteSpace: 'pre-line' }}>{companySettings.address}</div>}
+                {companySettings.city && (
+                  <div>{companySettings.city}{companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}</div>
+                )}
+                {companySettings.phone && <div>Tel: {companySettings.phone}</div>}
+                {companySettings.email && <div>{companySettings.email}</div>}
+                {companySettings.taxId && <div>VAT: {companySettings.taxId}</div>}
+              </div>
+            )}
+          </div>
 
-        {/* Right: Document Title + Meta in bordered box */}
-        <div
-          style={{
-            textAlign: 'right',
-            padding: '10px 12px',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-          }}
-        >
-          <h1
-            style={{
-              fontSize: '26px',
-              fontWeight: 300,
-              letterSpacing: '0.06em',
-              marginBottom: '8px',
-              color: 'var(--invoice-primary-color)',
-            }}
-          >
-            {statementType === 'outstanding' ? 'OUTSTANDING STATEMENT' : 'ACTIVITY STATEMENT'}
-          </h1>
-          <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.6 }}>
-            <div>
-              <span style={{ fontWeight: 500 }}>Statement Date:</span> {format(new Date(), 'dd/MM/yyyy')}
-            </div>
-            <div>
-              <span style={{ fontWeight: 500 }}>Period:</span> {format(dateRange.from, 'dd/MM/yyyy')} → {format(dateRange.to, 'dd/MM/yyyy')}
+          {/* Right: Document Title + Meta (no bordered box - matching invoice) */}
+          <div style={{ textAlign: 'right' }}>
+            <h1
+              style={{
+                fontSize: '26px',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                marginBottom: '8px',
+                color: 'var(--invoice-primary-color)',
+              }}
+            >
+              {statementType === 'outstanding' ? 'OUTSTANDING STATEMENT' : 'ACTIVITY STATEMENT'}
+            </h1>
+            <div style={{ fontSize: '11px', color: '#4b5563', lineHeight: 1.6 }}>
+              <div>
+                <span style={{ fontWeight: 500 }}>Statement Date:</span> {format(new Date(), 'dd/MM/yyyy')}
+              </div>
+              <div>
+                <span style={{ fontWeight: 500 }}>Period:</span> {format(dateRange.from, 'dd/MM/yyyy')} → {format(dateRange.to, 'dd/MM/yyyy')}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Divider */}
-      <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: '1.5rem' }} />
+        {/* Divider */}
+        <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: '1.5rem' }} />
 
       {/* Customer Info */}
       <div style={{ marginBottom: '1.5rem' }}>
@@ -516,12 +520,14 @@ export const UnifiedStatementLayout = ({
           </div>
         </div>
       )}
+      </div>
+      {/* End of main content wrapper */}
 
-      {/* Footer */}
+      {/* Footer - pinned to bottom for short statements */}
       <div style={{ 
-        marginTop: '2rem',
+        marginTop: 'auto',
+        paddingTop: '2rem',
         borderTop: '1px solid #e5e7eb', 
-        paddingTop: '0.75rem',
         fontSize: '10px',
         color: '#6b7280',
         textAlign: 'center',
