@@ -26,6 +26,7 @@ import {
   AlertCircle,
   RotateCcw,
   FileDown,
+  Lock,
 } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
@@ -911,29 +912,14 @@ const InvoiceTemplates = () => {
 
                       <Separator />
 
-                      {/* Margins (Locked) */}
+                      {/* Margins (Fixed) */}
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Page Margins</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Margins are standard and locked for VAT-compliant consistency.
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Top</Label>
-                            <Input type="number" value={20} disabled />
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Right</Label>
-                            <Input type="number" value={20} disabled />
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Bottom</Label>
-                            <Input type="number" value={20} disabled />
-                          </div>
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Left</Label>
-                            <Input type="number" value={20} disabled />
-                          </div>
+                        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border">
+                          <Lock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            Standard (20mm) — Fixed for VAT compliance
+                          </span>
                         </div>
                       </div>
 
@@ -1066,31 +1052,7 @@ const InvoiceTemplates = () => {
         />
       </div>
 
-      {/* A4 canvas + template CSS variables */}
-      <style>{`
-        @page { size: A4; margin: 0; }
-        #invoice-preview-root{
-          --font: '${currentSettings.font_family || "Inter"}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-          --color-primary: ${currentSettings.primary_color || "#111827"};
-          --color-accent: ${currentSettings.accent_color || "#2563EB"};
-
-          /* margins (mm) */
-          --m-top: ${typeof currentSettings.margin_top === "number" ? `${currentSettings.margin_top}mm` : "20mm"};
-          --m-right: ${typeof currentSettings.margin_right === "number" ? `${currentSettings.margin_right}mm` : "20mm"};
-          --m-bottom: ${typeof currentSettings.margin_bottom === "number" ? `${currentSettings.margin_bottom}mm` : "20mm"};
-          --m-left: ${typeof currentSettings.margin_left === "number" ? `${currentSettings.margin_left}mm` : "20mm"};
-
-          width: 210mm; min-height: 297mm; background:#fff; color: var(--color-primary);
-          font-family: var(--font);
-          box-sizing: border-box; position: relative;
-        }
-        #invoice-inner{
-          padding-top: var(--m-top);
-          padding-right: var(--m-right);
-          padding-bottom: var(--m-bottom);
-          padding-left: var(--m-left);
-        }
-      `}</style>
+      {/* PDF styles are embedded in UnifiedInvoiceLayout */}
 
       {/* Hidden A4 DOM used for 1:1 export for PDF testing */}
       <div style={{ display: "none" }}>
