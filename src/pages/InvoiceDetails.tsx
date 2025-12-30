@@ -157,6 +157,12 @@ const InvoiceDetails = () => {
   const { template, isLoading: templateLoading } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+  
+  // Fetch send logs for Activity section
+  const { lastEmailSent, lastWhatsAppSent, refetch: refetchSendLogs } = useDocumentSendLogs(
+    'invoice',
+    id || ''
+  );
 
   const fetchPayments = async () => {
     if (!id || !user) return;
@@ -744,6 +750,8 @@ const InvoiceDetails = () => {
                   onWhatsAppReminder={handleWhatsAppReminder}
                   onCreateCreditNote={handleCreateCreditNote}
                   whatsappLoading={whatsappLoading}
+                  lastEmailSent={lastEmailSent}
+                  lastWhatsAppSent={lastWhatsAppSent}
                 />
               </div>
 
@@ -944,6 +952,9 @@ const InvoiceDetails = () => {
                   onEmailReminder={handleEmailReminder}
                   onWhatsAppReminder={handleWhatsAppReminder}
                   onCreateCreditNote={handleCreateCreditNote}
+                  whatsappLoading={whatsappLoading}
+                  lastEmailSent={lastEmailSent}
+                  lastWhatsAppSent={lastWhatsAppSent}
                 />
               </div>
             </div>
@@ -1135,6 +1146,7 @@ const InvoiceDetails = () => {
           companyName={companySettings.company_name || "Company"}
           userId={user.id}
           fontFamily={template?.font_family}
+          onSuccess={refetchSendLogs}
         />
       )}
     </div>
