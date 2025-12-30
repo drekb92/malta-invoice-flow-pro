@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { encode as encodeBase64 } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -47,6 +48,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { to, subject, messageHtml, filename, html, userId, documentType, documentId, documentNumber, customerId } = body;
 
     console.log(`[send-document-email] Sending to: ${to}, filename: ${filename}`);
+    console.log(`[send-document-email] HTML payload size: ${html.length} chars`);
 
     // Validate email
     if (!to || !to.includes("@")) {
@@ -77,9 +79,12 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`PDF generation failed: ${errorText}`);
     }
 
-    const pdfBlob = await pdfResponse.arrayBuffer();
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBlob)));
-    console.log(`[send-document-email] PDF generated, size: ${pdfBlob.byteLength} bytes`);
+    const pdfArrayBuffer = await pdfResponse.arrayBuffer();
+    console.log(`[send-document-email] PDF generated, size: ${pdfArrayBuffer.byteLength} bytes`);
+    
+    // Use Deno standard library for base64 encoding (avoids stack overflow with large files)
+    const pdfBase64 = encodeBase64(new Uint8Array(pdfArrayBuffer));
+    console.log(`[send-document-email] PDF base64 encoded, length: ${pdfBase64.length} chars`);
 
     // Step 2: Send email with attachment via Resend
     const resend = new Resend(resendApiKey);
