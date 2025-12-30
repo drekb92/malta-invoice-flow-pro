@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { CalendarIcon, Download, Eye, Mail, MessageCircle, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
-import { downloadPdfFromFunction } from "@/lib/edgePdf";
+import { downloadPdfFromFunction, prepareHtmlForPdf } from "@/lib/edgePdf";
+import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 import { 
   UnifiedStatementLayout, 
   convertLegacyStatementData,
@@ -63,6 +64,10 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   const [isLoading, setIsLoading] = useState(false);
   const [statementData, setStatementData] = useState<StatementData | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
+  const [statementNumber, setStatementNumber] = useState("");
 
   const fetchStatementData = async (): Promise<StatementData | null> => {
     if (!user) return null;
@@ -293,6 +298,12 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     }
   };
 
+  // Generate statement number for sharing
+  const generateStatementNumber = () => {
+    const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
+    return `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
+  };
+
   const handleSendEmail = async () => {
     if (!customer.email) {
       toast({
@@ -302,14 +313,8 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       });
       return;
     }
-    toast({
-      title: "Coming Soon",
-      description: "Email sending functionality will be available soon.",
-    });
-  };
 
-  const handleSendWhatsApp = async () => {
-    setIsLoading(true);
+    setEmailLoading(true);
     try {
       const data = await fetchStatementData();
       if (!data) {
@@ -321,19 +326,86 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         return;
       }
 
-      // Calculate total outstanding
+      const stmtNumber = generateStatementNumber();
+      setStatementNumber(stmtNumber);
+      setStatementData(data);
+      setIsGeneratingPdf(true);
+
+      // Wait for render
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      setShowEmailDialog(true);
+    } catch (error) {
+      console.error("Error preparing email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare statement for email.",
+        variant: "destructive",
+      });
+      setStatementData(null);
+      setIsGeneratingPdf(false);
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleSendWhatsApp = async () => {
+    setWhatsappLoading(true);
+    try {
+      const data = await fetchStatementData();
+      if (!data) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch statement data.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const stmtNumber = generateStatementNumber();
+      setStatementNumber(stmtNumber);
+      setStatementData(data);
+      setIsGeneratingPdf(true);
+
+      // Wait for render
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Prepare HTML for the Edge Function
+      const html = await prepareHtmlForPdf(stmtNumber, template?.font_family || 'Inter');
+
+      // Call Edge Function to create share link
+      const { data: shareData, error: shareError } = await supabase.functions.invoke(
+        "create-document-share-link",
+        {
+          body: {
+            html,
+            filename: stmtNumber,
+            userId: user?.id,
+            documentType: "statement",
+            documentId: customer.id,
+            documentNumber: stmtNumber,
+            customerId: customer.id,
+          },
+        }
+      );
+
+      if (shareError) throw shareError;
+      if (shareData?.error) throw new Error(shareData.error);
+
+      const shareUrl = shareData?.shareUrl;
+      if (!shareUrl) throw new Error("No share URL returned");
+
+      // Calculate balance for message
       const totalInvoiced = data.invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
       const totalCredits = data.creditNotes.reduce((sum, cn) => sum + cn.amount + cn.amount * cn.vat_rate, 0);
       const totalPayments = data.payments.reduce((sum, pmt) => sum + pmt.amount, 0);
       const balance = totalInvoiced - totalCredits - totalPayments;
 
-      // Count open invoices
       const openInvoiceCount = data.invoices.filter((inv) => {
         const remaining = inv.total_amount - (inv.paid_amount || 0);
         return remaining > 0.01;
       }).length;
 
-      // Build balance line based on amount
       let balanceLine = "";
       if (balance > 0) {
         balanceLine = `Balance Due: €${balance.toFixed(2)} (${openInvoiceCount} open invoice${openInvoiceCount !== 1 ? "s" : ""})`;
@@ -347,6 +419,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         `Hi ${customer.name},\n\n` +
         `Here is your account statement for the period ${format(dateFrom, "dd/MM/yyyy")} to ${format(dateTo, "dd/MM/yyyy")}.\n\n` +
         `${balanceLine}\n\n` +
+        `View/Download PDF: ${shareUrl}\n\n` +
         `Please contact us if you have any questions.\n\n` +
         `Best regards,\n${companySettings?.company_name || "Your Company"}`
       );
@@ -355,17 +428,19 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
 
       toast({
         title: "WhatsApp Opened",
-        description: "Continue sharing the statement in WhatsApp.",
+        description: "Statement PDF link included in the message.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error preparing WhatsApp message:", error);
       toast({
         title: "Error",
-        description: "Failed to prepare WhatsApp message.",
+        description: error.message || "Failed to create share link.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setWhatsappLoading(false);
+      setStatementData(null);
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -524,12 +599,12 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Button onClick={handleSendEmail} disabled={isLoading || !customer.email} className="w-full">
-                  <Mail className="h-4 w-4 mr-2" />
+                <Button onClick={handleSendEmail} disabled={isLoading || emailLoading || !customer.email} className="w-full">
+                  {emailLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
                   Send via Email
                 </Button>
-                <Button variant="secondary" onClick={handleSendWhatsApp} disabled={isLoading} className="w-full">
-                  <MessageCircle className="h-4 w-4 mr-2" />
+                <Button variant="secondary" onClick={handleSendWhatsApp} disabled={isLoading || whatsappLoading} className="w-full">
+                  {whatsappLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-2" />}
                   Send via WhatsApp
                 </Button>
               </div>
@@ -573,6 +648,35 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           </div>
         );
       })()}
+
+      {/* Email Dialog */}
+      <SendDocumentEmailDialog
+        open={showEmailDialog}
+        onOpenChange={(open) => {
+          setShowEmailDialog(open);
+          if (!open) {
+            setStatementData(null);
+            setIsGeneratingPdf(false);
+          }
+        }}
+        documentType="statement"
+        documentId={customer.id}
+        documentNumber={statementNumber}
+        customer={{
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+        }}
+        companyName={companySettings?.company_name || "Your Company"}
+        userId={user?.id || ""}
+        fontFamily={template?.font_family || "Inter"}
+        onSuccess={() => {
+          toast({
+            title: "Statement Sent",
+            description: `Statement emailed to ${customer.email}`,
+          });
+        }}
+      />
     </>
   );
 };
