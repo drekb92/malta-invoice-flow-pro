@@ -67,7 +67,7 @@ function captureCssVars(root: HTMLElement) {
   return cssVars;
 }
 
-function buildA4HtmlDocument(opts: { filename: string; fontFamily: string; clonedRoot: HTMLElement; debug?: boolean }) {
+export function buildA4HtmlDocument(opts: { filename: string; fontFamily: string; clonedRoot: HTMLElement; debug?: boolean }) {
   const { filename, fontFamily, clonedRoot, debug } = opts;
   const encodedFamily = encodeURIComponent(fontFamily);
 
