@@ -66,6 +66,8 @@ import { invoiceService } from "@/services/invoiceService";
 import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 import { useDocumentSendLogs } from "@/hooks/useDocumentSendLogs";
+import { useReminderStatus } from "@/hooks/useReminderStatus";
+import { ReminderPromptBanner } from "@/components/ReminderPromptBanner";
 
 interface Invoice {
   id: string;
@@ -327,6 +329,14 @@ const InvoiceDetails = () => {
       return { text: `Due in ${diff} days`, isOverdue: false };
     }
   }, [invoice, remainingBalance]);
+
+  // Reminder status for smart prompts (must be after remainingBalance is defined)
+  const reminderStatus = useReminderStatus({
+    invoiceId: id || '',
+    dueDate: invoice?.due_date || '',
+    status: invoice?.status || '',
+    remainingBalance,
+  });
 
   const handleDownload = async () => {
     if (!invoice) return;
@@ -735,6 +745,15 @@ const InvoiceDetails = () => {
                 <span className="font-medium">Draft</span> — Editable until issued
               </p>
             </div>
+          )}
+
+          {/* Smart Reminder Prompt Banner */}
+          {isIssued && invoice && reminderStatus.shouldShowReminder && (
+            <ReminderPromptBanner
+              invoiceId={invoice.id}
+              invoiceNumber={invoice.invoice_number}
+              reminderStatus={reminderStatus}
+            />
           )}
 
           {/* Two-column layout */}

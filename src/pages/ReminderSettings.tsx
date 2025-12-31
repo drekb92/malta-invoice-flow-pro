@@ -7,7 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Save, Mail, AlertCircle, CheckCircle, Clock, Send } from "lucide-react";
+import { Save, Mail, AlertCircle, CheckCircle, Clock, Send, Zap, MousePointer } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,6 +26,7 @@ interface ReminderSettings {
   max_reminders: number;
   stop_after_payment: boolean;
   reminder_frequency: string;
+  reminder_mode: 'automatic' | 'manual';
 }
 
 interface ReminderTemplate {
@@ -49,6 +51,7 @@ const ReminderSettings = () => {
     max_reminders: 5,
     stop_after_payment: true,
     reminder_frequency: 'weekly',
+    reminder_mode: 'manual',
   });
   const [templates, setTemplates] = useState<ReminderTemplate[]>([]);
   const [hasResendKey, setHasResendKey] = useState(false);
@@ -77,7 +80,10 @@ const ReminderSettings = () => {
       if (error && error.code !== 'PGRST116') throw error;
 
       if (data) {
-        setSettings(data);
+        setSettings({
+          ...data,
+          reminder_mode: (data.reminder_mode as 'automatic' | 'manual') || 'manual',
+        });
       }
     } catch (error) {
       console.error('Error loading reminder settings:', error);
@@ -228,6 +234,56 @@ const ReminderSettings = () => {
           )}
 
           <div className="max-w-4xl space-y-6">
+            {/* Reminder Mode Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Send className="h-5 w-5 mr-2" />
+                  Reminder Mode
+                </CardTitle>
+                <CardDescription>
+                  Choose how payment reminders are triggered
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup
+                  value={settings.reminder_mode}
+                  onValueChange={(value: 'automatic' | 'manual') => updateSetting('reminder_mode', value)}
+                  className="space-y-4"
+                >
+                  <div className="flex items-start space-x-3 p-4 rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer">
+                    <RadioGroupItem value="manual" id="manual" className="mt-1" />
+                    <div className="flex-1">
+                      <Label htmlFor="manual" className="flex items-center gap-2 font-medium cursor-pointer">
+                        <MousePointer className="h-4 w-4 text-blue-600" />
+                        Manual with Smart Prompts
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        When viewing overdue invoices, you'll see prompts suggesting when to send reminders. 
+                        Click to send with one tap. You stay in control.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">Recommended</Badge>
+                  </div>
+                  
+                  <div className="flex items-start space-x-3 p-4 rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer">
+                    <RadioGroupItem value="automatic" id="automatic" className="mt-1" />
+                    <div className="flex-1">
+                      <Label htmlFor="automatic" className="flex items-center gap-2 font-medium cursor-pointer">
+                        <Zap className="h-4 w-4 text-amber-600" />
+                        Fully Automatic
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        System automatically sends reminders based on your schedule below. 
+                        No manual action required. Emails are sent daily at 9 AM.
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                  </div>
+                </RadioGroup>
+              </CardContent>
+            </Card>
+
             {/* Settings Card */}
             <Card>
               <CardHeader>
@@ -244,7 +300,9 @@ const ReminderSettings = () => {
                   <div>
                     <Label className="text-base font-medium">Enable Email Reminders</Label>
                     <p className="text-sm text-muted-foreground">
-                      Automatically send payment reminders to customers
+                      {settings.reminder_mode === 'automatic' 
+                        ? 'Automatically send payment reminders to customers'
+                        : 'Show reminder prompts on overdue invoice pages'}
                     </p>
                   </div>
                   <Switch
