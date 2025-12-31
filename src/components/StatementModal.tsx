@@ -350,22 +350,10 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   };
 
   const handleSendWhatsApp = async () => {
-    // Open placeholder window immediately to avoid popup blocker
-    const waWindow = window.open("about:blank", "_blank");
-    if (!waWindow) {
-      toast({
-        title: "Popup blocked",
-        description: "Please allow popups for this site and try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setWhatsappLoading(true);
     try {
       const data = await fetchStatementData();
       if (!data) {
-        waWindow.close();
         toast({
           title: "Error",
           description: "Failed to fetch statement data.",
@@ -401,21 +389,11 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         }
       );
 
-      if (shareError) {
-        waWindow.close();
-        throw shareError;
-      }
-      if (shareData?.error) {
-        waWindow.close();
-        throw new Error(shareData.error);
-      }
+      if (shareError) throw shareError;
+      if (shareData?.error) throw new Error(shareData.error);
 
-      // Fix: Edge function returns 'url' not 'shareUrl'
       const shareUrl = shareData?.url;
-      if (!shareUrl) {
-        waWindow.close();
-        throw new Error("No share URL returned");
-      }
+      if (!shareUrl) throw new Error("No share URL returned");
 
       // Calculate balance for message
       const totalInvoiced = data.invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
@@ -446,8 +424,18 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         `Best regards,\n${companySettings?.company_name || "Your Company"}`
       );
 
-      // Navigate the placeholder window to WhatsApp
-      waWindow.location.href = `https://wa.me/?text=${message}`;
+      const whatsappUrl = `https://wa.me/?text=${message}`;
+
+      // Open via redirect page to avoid cross-origin blocking
+      const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
+      if (!waWindow) {
+        toast({
+          title: "Popup blocked",
+          description: "Please allow popups for this site and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "WhatsApp Opened",

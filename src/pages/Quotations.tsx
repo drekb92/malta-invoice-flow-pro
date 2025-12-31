@@ -286,17 +286,6 @@ const Quotations = () => {
   const handleSendWhatsApp = async (quotation: Quotation) => {
     if (!user || whatsappLoading) return;
     
-    // Open placeholder window immediately to avoid popup blocker
-    const waWindow = window.open("about:blank", "_blank");
-    if (!waWindow) {
-      toast({
-        title: "Popup blocked",
-        description: "Please allow popups for this site and try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setWhatsappLoading(quotation.id);
 
     try {
@@ -335,7 +324,6 @@ const Quotations = () => {
 
       const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
       if (!root) {
-        waWindow.close();
         throw new Error("Document preview not found");
       }
 
@@ -357,22 +345,24 @@ const Quotations = () => {
         },
       });
 
-      if (error) {
-        waWindow.close();
-        throw error;
-      }
-      if (data?.error) {
-        waWindow.close();
-        throw new Error(data.error);
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       const shareUrl = data.url;
       const message = `Quotation ${quotation.quotation_number} for ${formatCurrency(quotation.total_amount || quotation.amount || 0)}.\n\nValid until: ${quotation.valid_until ? format(new Date(quotation.valid_until), "dd/MM/yyyy") : "N/A"}\n\nView/Download PDF: ${shareUrl}`;
 
-      const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
       
-      // Navigate the placeholder window to WhatsApp
-      waWindow.location.href = url;
+      // Open via redirect page to avoid cross-origin blocking
+      const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
+      if (!waWindow) {
+        toast({
+          title: "Popup blocked",
+          description: "Please allow popups for this site and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "WhatsApp opened",

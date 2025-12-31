@@ -32,6 +32,7 @@ import ImportCustomers from "./pages/ImportCustomers";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import CreditNotes from "./pages/CreditNotes";
+import Redirect from "./pages/Redirect";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +53,7 @@ const App: React.FC = () => {
               {/* Auth & recovery */}
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/redirect" element={<Redirect />} />
 
               {/* Onboarding (protected, but special) */}
               <Route
