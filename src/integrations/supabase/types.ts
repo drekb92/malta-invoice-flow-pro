@@ -1023,6 +1023,7 @@ export type Database = {
           id: string
           max_reminders: number | null
           reminder_frequency: string | null
+          reminder_mode: string | null
           send_on_due_date: boolean | null
           stop_after_payment: boolean | null
           updated_at: string | null
@@ -1038,6 +1039,7 @@ export type Database = {
           id?: string
           max_reminders?: number | null
           reminder_frequency?: string | null
+          reminder_mode?: string | null
           send_on_due_date?: boolean | null
           stop_after_payment?: boolean | null
           updated_at?: string | null
@@ -1053,6 +1055,7 @@ export type Database = {
           id?: string
           max_reminders?: number | null
           reminder_frequency?: string | null
+          reminder_mode?: string | null
           send_on_due_date?: boolean | null
           stop_after_payment?: boolean | null
           updated_at?: string | null
