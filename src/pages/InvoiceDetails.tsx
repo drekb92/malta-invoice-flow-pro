@@ -1338,7 +1338,7 @@ const SidebarCard = ({
                   className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
                 >
                   <Mail className="h-3 w-3" />
-                  Send Email Reminder
+                  {lastEmailSent?.sentAt ? "Send Email Reminder" : "Send Invoice Email"}
                 </Button>
               )}
               {!isSettled && onWhatsAppReminder && (
@@ -1350,7 +1350,7 @@ const SidebarCard = ({
                   className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
                 >
                   {whatsappLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />}
-                  {whatsappLoading ? "Creating link..." : "Send WhatsApp Reminder"}
+                  {whatsappLoading ? "Creating link..." : lastWhatsAppSent?.sentAt ? "Send WhatsApp Reminder" : "Send via WhatsApp"}
                 </Button>
               )}
               {onCreateCreditNote && (
@@ -1368,24 +1368,59 @@ const SidebarCard = ({
           </div>
         )}
 
-        {/* Activity Section */}
+        {/* Send Status Section */}
         {isIssued && (
           <div className="border-t pt-1.5">
-            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-              Activity
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+              Send Status
             </div>
-            <div className="space-y-0.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Last email sent</span>
-                <span className="text-foreground tabular-nums">
-                  {lastEmailSent?.sentAt ? format(new Date(lastEmailSent.sentAt), "dd MMM, HH:mm") : "—"}
-                </span>
+            <div className="space-y-1.5">
+              {/* Email Status */}
+              <div className="flex items-center gap-2 text-xs">
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                  lastEmailSent?.sentAt 
+                    ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" 
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  <Mail className="h-3 w-3" />
+                  {lastEmailSent?.sentAt ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Email sent
+                    </span>
+                  ) : (
+                    <span>Email not sent</span>
+                  )}
+                </div>
+                {lastEmailSent?.sentAt && (
+                  <span className="text-muted-foreground tabular-nums text-[11px]">
+                    {format(new Date(lastEmailSent.sentAt), "dd MMM, HH:mm")}
+                  </span>
+                )}
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Last WhatsApp</span>
-                <span className="text-foreground tabular-nums">
-                  {lastWhatsAppSent?.sentAt ? format(new Date(lastWhatsAppSent.sentAt), "dd MMM, HH:mm") : "—"}
-                </span>
+              
+              {/* WhatsApp Status */}
+              <div className="flex items-center gap-2 text-xs">
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                  lastWhatsAppSent?.sentAt 
+                    ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" 
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  <MessageCircle className="h-3 w-3" />
+                  {lastWhatsAppSent?.sentAt ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      WhatsApp sent
+                    </span>
+                  ) : (
+                    <span>WhatsApp not sent</span>
+                  )}
+                </div>
+                {lastWhatsAppSent?.sentAt && (
+                  <span className="text-muted-foreground tabular-nums text-[11px]">
+                    {format(new Date(lastWhatsAppSent.sentAt), "dd MMM, HH:mm")}
+                  </span>
+                )}
               </div>
             </div>
           </div>
