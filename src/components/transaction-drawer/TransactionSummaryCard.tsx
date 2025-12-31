@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, Mail, MessageCircle, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { 
   TransactionType, 
@@ -9,6 +9,12 @@ import type {
 } from "./types";
 import { formatCurrency } from "./utils";
 import { TransactionTotalsCard } from "./TransactionTotalsCard";
+
+interface SendLogEntry {
+  sentAt: string;
+  recipient?: string;
+  shareUrl?: string;
+}
 
 interface TransactionSummaryCardProps {
   type: TransactionType;
@@ -21,6 +27,9 @@ interface TransactionSummaryCardProps {
   // Credit note specific (unified values from parent)
   creditNoteTotalApplied?: number;
   creditNoteRemainingCredit?: number;
+  // Send status (for quotations and potentially others)
+  lastEmailSent?: SendLogEntry | null;
+  lastWhatsAppSent?: SendLogEntry | null;
 }
 
 export const TransactionSummaryCard = ({
@@ -33,6 +42,8 @@ export const TransactionSummaryCard = ({
   outstandingAmount,
   creditNoteTotalApplied = 0,
   creditNoteRemainingCredit = 0,
+  lastEmailSent,
+  lastWhatsAppSent,
 }: TransactionSummaryCardProps) => {
 
   // Build rows and final row for each type
@@ -184,6 +195,60 @@ export const TransactionSummaryCard = ({
                   {validUntil ? format(validUntil, "dd MMM yyyy") : "—"}
                   {isExpired && <span className="text-[11px] ml-1">(Expired)</span>}
                 </span>
+              </div>
+            </div>
+            
+            {/* Send Status Section */}
+            <div className="bg-muted/30 border border-border/40 rounded-lg p-3">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Send Status</span>
+              <div className="mt-2 space-y-1.5">
+                {/* Email Status */}
+                <div className="flex items-center gap-2 text-xs">
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                    lastEmailSent?.sentAt 
+                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" 
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    <Mail className="h-3 w-3" />
+                    {lastEmailSent?.sentAt ? (
+                      <span className="flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        Email sent
+                      </span>
+                    ) : (
+                      <span>Email not sent</span>
+                    )}
+                  </div>
+                  {lastEmailSent?.sentAt && (
+                    <span className="text-muted-foreground tabular-nums text-[11px]">
+                      {format(new Date(lastEmailSent.sentAt), "dd MMM, HH:mm")}
+                    </span>
+                  )}
+                </div>
+                
+                {/* WhatsApp Status */}
+                <div className="flex items-center gap-2 text-xs">
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                    lastWhatsAppSent?.sentAt 
+                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" 
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    <MessageCircle className="h-3 w-3" />
+                    {lastWhatsAppSent?.sentAt ? (
+                      <span className="flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        WhatsApp sent
+                      </span>
+                    ) : (
+                      <span>WhatsApp not sent</span>
+                    )}
+                  </div>
+                  {lastWhatsAppSent?.sentAt && (
+                    <span className="text-muted-foreground tabular-nums text-[11px]">
+                      {format(new Date(lastWhatsAppSent.sentAt), "dd MMM, HH:mm")}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
