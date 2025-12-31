@@ -284,7 +284,19 @@ const Quotations = () => {
   };
 
   const handleSendWhatsApp = async (quotation: Quotation) => {
-    if (!user) return;
+    if (!user || whatsappLoading) return;
+    
+    // Open placeholder window immediately to avoid popup blocker
+    const waWindow = window.open("about:blank", "_blank");
+    if (!waWindow) {
+      toast({
+        title: "Popup blocked",
+        description: "Please allow popups for this site and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setWhatsappLoading(quotation.id);
 
     try {
@@ -323,6 +335,7 @@ const Quotations = () => {
 
       const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
       if (!root) {
+        waWindow.close();
         throw new Error("Document preview not found");
       }
 
@@ -344,18 +357,22 @@ const Quotations = () => {
         },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        waWindow.close();
+        throw error;
+      }
+      if (data?.error) {
+        waWindow.close();
+        throw new Error(data.error);
+      }
 
       const shareUrl = data.url;
       const message = `Quotation ${quotation.quotation_number} for ${formatCurrency(quotation.total_amount || quotation.amount || 0)}.\n\nValid until: ${quotation.valid_until ? format(new Date(quotation.valid_until), "dd/MM/yyyy") : "N/A"}\n\nView/Download PDF: ${shareUrl}`;
 
-      const phoneRaw = "";
-      const phone = phoneRaw.replace(/\D/g, "");
-      const url = phone
-        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-        : `https://wa.me/?text=${encodeURIComponent(message)}`;
-      window.open(url, "_blank");
+      const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      
+      // Navigate the placeholder window to WhatsApp
+      waWindow.location.href = url;
 
       toast({
         title: "WhatsApp opened",

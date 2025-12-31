@@ -377,11 +377,23 @@ const InvoiceDetails = () => {
     const phoneRaw = invoice.customers?.phone || "";
     const phone = phoneRaw.replace(/\D/g, "");
 
+    // Open placeholder window immediately to avoid popup blocker
+    const waWindow = window.open("about:blank", "_blank");
+    if (!waWindow) {
+      toast({
+        title: "Popup blocked",
+        description: "Please allow popups for this site and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Generate share link with PDF
     setWhatsappLoading(true);
     try {
       const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
       if (!root) {
+        waWindow.close();
         throw new Error("Document preview not found");
       }
 
@@ -403,8 +415,14 @@ const InvoiceDetails = () => {
         },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        waWindow.close();
+        throw error;
+      }
+      if (data?.error) {
+        waWindow.close();
+        throw new Error(data.error);
+      }
 
       const shareUrl = data.url;
       const message = `Payment Reminder: Invoice ${invoice.invoice_number} of €${formatNumber(computedTotals.total, 2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.\n\nView/Download PDF: ${shareUrl}`;
@@ -412,7 +430,9 @@ const InvoiceDetails = () => {
       const url = phone
         ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
         : `https://wa.me/?text=${encodeURIComponent(message)}`;
-      window.open(url, "_blank");
+      
+      // Navigate the placeholder window to WhatsApp
+      waWindow.location.href = url;
 
       toast({
         title: "WhatsApp opened",
