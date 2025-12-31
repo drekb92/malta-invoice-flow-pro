@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { useDocumentSendLogs } from "@/hooks/useDocumentSendLogs";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import type { InvoiceData } from "@/services/pdfService";
@@ -82,6 +83,10 @@ export const TransactionDrawer = ({
   const { template } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+
+  // Fetch send logs for quotations (and optionally invoices/credit notes)
+  const documentType = type === "invoice" ? "invoice" : type === "credit_note" ? "credit_note" : "quotation";
+  const { lastEmailSent, lastWhatsAppSent } = useDocumentSendLogs(documentType, transaction?.id || "");
 
   // ─────────────────────────────────────────────────────────────────────────
   // Data Loading
@@ -471,6 +476,8 @@ export const TransactionDrawer = ({
                   outstandingAmount={outstandingAmount}
                   creditNoteTotalApplied={creditNoteTotalApplied}
                   creditNoteRemainingCredit={creditNoteRemainingCredit}
+                  lastEmailSent={lastEmailSent}
+                  lastWhatsAppSent={lastWhatsAppSent}
                 />
 
                 {/* Settlement Breakdown (Invoice Only) */}
