@@ -1141,24 +1141,58 @@ const InvoiceDetails = () => {
       )}
 
       {/* Send Email Dialog */}
-      {invoice && user && companySettings && (
-        <SendDocumentEmailDialog
-          open={showEmailDialog}
-          onOpenChange={setShowEmailDialog}
-          documentType="invoice"
-          documentId={invoice.id}
-          documentNumber={invoice.invoice_number}
-          customer={{
-            id: invoice.customer_id,
-            name: invoice.customers?.name || "Customer",
-            email: invoice.customers?.email || null,
-          }}
-          companyName={companySettings.company_name || "Company"}
-          userId={user.id}
-          fontFamily={template?.font_family}
-          onSuccess={refetchSendLogs}
-        />
-      )}
+      {invoice && user && companySettings && (() => {
+        const isFirstSend = !lastEmailSent?.sentAt;
+        const formattedDueDate = format(new Date(invoice.due_date), "dd MMM yyyy");
+        const formattedAmount = `€${formatNumber(remainingBalance, 2)}`;
+        const companyNameStr = companySettings.company_name || "Company";
+        const customerName = invoice.customers?.name || "Customer";
+
+        // First-time send copy
+        const firstSendSubject = `Invoice ${invoice.invoice_number} from ${companyNameStr}`;
+        const firstSendMessage = `Dear ${customerName},
+
+Please find attached invoice ${invoice.invoice_number} for ${formattedAmount}, due on ${formattedDueDate}.
+
+If you have any questions, please don't hesitate to contact us.
+
+Best regards,
+${companyNameStr}`;
+
+        // Reminder copy
+        const reminderSubject = `Payment Reminder: Invoice ${invoice.invoice_number} from ${companyNameStr}`;
+        const reminderMessage = `Dear ${customerName},
+
+This is a friendly reminder that invoice ${invoice.invoice_number} for ${formattedAmount} was due on ${formattedDueDate}.
+
+Please arrange payment at your earliest convenience. If you have already made this payment, please disregard this message.
+
+If you have any questions, please don't hesitate to contact us.
+
+Best regards,
+${companyNameStr}`;
+
+        return (
+          <SendDocumentEmailDialog
+            open={showEmailDialog}
+            onOpenChange={setShowEmailDialog}
+            documentType="invoice"
+            documentId={invoice.id}
+            documentNumber={invoice.invoice_number}
+            customer={{
+              id: invoice.customer_id,
+              name: customerName,
+              email: invoice.customers?.email || null,
+            }}
+            companyName={companyNameStr}
+            userId={user.id}
+            fontFamily={template?.font_family}
+            onSuccess={refetchSendLogs}
+            defaultSubjectOverride={isFirstSend ? firstSendSubject : reminderSubject}
+            defaultMessageOverride={isFirstSend ? firstSendMessage : reminderMessage}
+          />
+        );
+      })()}
     </div>
   );
 };

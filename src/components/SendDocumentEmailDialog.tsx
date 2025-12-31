@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,10 @@ interface SendDocumentEmailDialogProps {
   userId: string;
   fontFamily?: string;
   onSuccess?: () => void;
+  /** Override the default subject line */
+  defaultSubjectOverride?: string;
+  /** Override the default message body */
+  defaultMessageOverride?: string;
 }
 
 export function SendDocumentEmailDialog({
@@ -44,13 +48,17 @@ export function SendDocumentEmailDialog({
   userId,
   fontFamily = "Inter",
   onSuccess,
+  defaultSubjectOverride,
+  defaultMessageOverride,
 }: SendDocumentEmailDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   const documentTypeLabel = documentType.charAt(0).toUpperCase() + documentType.slice(1).replace('_', ' ');
-  const defaultSubject = `${documentTypeLabel} ${documentNumber} from ${companyName}`;
-  const defaultMessage = `Dear ${customer.name},
+  
+  // Compute defaults (can be overridden via props)
+  const computedDefaultSubject = defaultSubjectOverride || `${documentTypeLabel} ${documentNumber} from ${companyName}`;
+  const computedDefaultMessage = defaultMessageOverride || `Dear ${customer.name},
 
 Please find attached ${documentTypeLabel.toLowerCase()} ${documentNumber}.
 
@@ -60,8 +68,17 @@ Best regards,
 ${companyName}`;
 
   const [recipientEmail, setRecipientEmail] = useState(customer.email || "");
-  const [subject, setSubject] = useState(defaultSubject);
-  const [message, setMessage] = useState(defaultMessage);
+  const [subject, setSubject] = useState(computedDefaultSubject);
+  const [message, setMessage] = useState(computedDefaultMessage);
+
+  // Reset form when dialog opens or key inputs change
+  useEffect(() => {
+    if (open) {
+      setRecipientEmail(customer.email || "");
+      setSubject(computedDefaultSubject);
+      setMessage(computedDefaultMessage);
+    }
+  }, [open, customer.email, computedDefaultSubject, computedDefaultMessage]);
 
   const handleSend = async () => {
     if (!recipientEmail || !recipientEmail.includes("@")) {
