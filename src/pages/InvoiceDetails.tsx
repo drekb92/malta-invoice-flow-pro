@@ -68,6 +68,7 @@ import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 import { useDocumentSendLogs } from "@/hooks/useDocumentSendLogs";
 import { useReminderStatus } from "@/hooks/useReminderStatus";
 import { ReminderPromptBanner } from "@/components/ReminderPromptBanner";
+import { ReminderHistoryPanel } from "@/components/ReminderHistoryPanel";
 
 interface Invoice {
   id: string;
@@ -907,6 +908,9 @@ const InvoiceDetails = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Reminder History */}
+              <ReminderHistoryPanel invoiceId={id || ''} />
 
               {/* Audit Trail */}
               {isIssued && auditTrail.length > 0 && (
