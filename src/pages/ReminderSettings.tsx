@@ -278,7 +278,6 @@ const ReminderSettings = () => {
                         No manual action required. Emails are sent daily at 9 AM.
                       </p>
                     </div>
-                    <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
                   </div>
                 </RadioGroup>
               </CardContent>

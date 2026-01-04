@@ -69,3 +69,6 @@ verify_jwt = false
 
 [functions.create-document-share-link]
 verify_jwt = false
+
+[functions.process-scheduled-reminders]
+verify_jwt = false
