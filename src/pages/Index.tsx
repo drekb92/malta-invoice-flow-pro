@@ -2,6 +2,7 @@ import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
 import { RecentActivity } from "@/components/RecentActivity";
 import { DashboardFilters } from "@/components/DashboardFilters";
+import { PendingRemindersWidget } from "@/components/PendingRemindersWidget";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,7 +30,6 @@ import {
   useDashboardMetrics,
   useRecentCustomers,
   useOverdueInvoices,
-  usePendingReminders,
 } from "@/hooks/useDashboard";
 import {
   FileText,
@@ -37,13 +37,11 @@ import {
   CreditCard,
   Plus,
   Download,
-  Mail,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
   Building,
   Sparkles,
-  Send,
   Clock,
   ChevronDown,
   FileSpreadsheet,
@@ -109,11 +107,7 @@ const Index = () => {
   } = useSetupStatus(userId);
   const { data: metricsData } = useDashboardMetrics(userId);
   const { data: recentCustomersData } = useRecentCustomers(userId);
-  const { data: overdueInvoicesData } = useOverdueInvoices(userId);
-  const {
-    data: pendingRemindersData = 0,
-    refetch: refetchPendingReminders,
-  } = usePendingReminders(userId);
+  const { data: overdueInvoicesData, refetch: refetchOverdueInvoices } = useOverdueInvoices(userId);
 
   // === Fallbacks / derived values ===
   const setupStatus: SetupStatus = setupData ?? defaultSetupStatus;
@@ -122,37 +116,10 @@ const Index = () => {
     (recentCustomersData as Customer[] | undefined) ?? [];
   const overdueInvoices =
     (overdueInvoicesData as OverdueInvoice[] | undefined) ?? [];
-  const pendingReminders: number = pendingRemindersData ?? 0;
 
   const completionPercentage = Number(
     setupStatus?.completionPercentage ?? 0
   );
-
-  const handleSendReminders = async () => {
-    toast({
-      title: "Sending reminders...",
-      description: "Processing payment reminders for overdue invoices.",
-    });
-
-    try {
-      // TODO: call an actual edge function here
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      toast({
-        title: "Reminders sent successfully",
-        description: `${pendingReminders} payment reminders have been sent.`,
-      });
-
-      // Refresh from React Query
-      await refetchPendingReminders();
-    } catch (error) {
-      toast({
-        title: "Error sending reminders",
-        description: "Failed to send payment reminders. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const setupSteps = [
     {
@@ -595,34 +562,13 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                {/* Send Reminders */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <Send className="h-4 w-4 text-primary" />
-                      Payment Reminders
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
-                      className="w-full"
-                      size="lg"
-                      onClick={handleSendReminders}
-                      disabled={pendingReminders === 0}
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send {pendingReminders} Reminder
-                      {pendingReminders !== 1 ? "s" : ""}
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-3">
-                      {pendingReminders > 0
-                        ? `${pendingReminders} invoice${
-                            pendingReminders !== 1 ? "s" : ""
-                          } due soon or overdue`
-                        : "No pending reminders"}
-                    </p>
-                  </CardContent>
-                </Card>
+                {/* Pending Reminders Widget */}
+                <PendingRemindersWidget
+                  overdueInvoices={overdueInvoices}
+                  maxDisplay={3}
+                  formatCurrency={formatCurrency}
+                  onReminderSent={() => refetchOverdueInvoices()}
+                />
               </div>
 
               {/* Malta VAT Notice */}
