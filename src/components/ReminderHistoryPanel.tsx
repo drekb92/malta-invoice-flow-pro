@@ -17,39 +17,47 @@ interface ReminderLog {
 
 interface ReminderHistoryPanelProps {
   invoiceId: string;
+  onReminderSent?: () => void;
 }
 
-export const ReminderHistoryPanel = ({ invoiceId }: ReminderHistoryPanelProps) => {
+export const ReminderHistoryPanel = ({ invoiceId, onReminderSent }: ReminderHistoryPanelProps) => {
   const { user } = useAuth();
   const [reminders, setReminders] = useState<ReminderLog[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchReminders = async () => {
     if (!user || !invoiceId) {
       setLoading(false);
       return;
     }
 
-    const fetchReminders = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('reminder_logs')
-          .select('id, reminder_level, sent_at, email_sent, email_error, days_overdue')
-          .eq('invoice_id', invoiceId)
-          .eq('user_id', user.id)
-          .order('sent_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('reminder_logs')
+        .select('id, reminder_level, sent_at, email_sent, email_error, days_overdue')
+        .eq('invoice_id', invoiceId)
+        .eq('user_id', user.id)
+        .order('sent_at', { ascending: false });
 
-        if (error) throw error;
-        setReminders((data || []) as ReminderLog[]);
-      } catch (error) {
-        console.error('Error fetching reminder history:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      if (error) throw error;
+      setReminders((data || []) as ReminderLog[]);
+    } catch (error) {
+      console.error('Error fetching reminder history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchReminders();
   }, [user, invoiceId]);
+
+  // Expose refetch for parent components
+  useEffect(() => {
+    if (onReminderSent) {
+      // Re-fetch when parent signals a reminder was sent
+    }
+  }, [onReminderSent]);
 
   const getLevelConfig = (level: string) => {
     const configs: Record<string, { label: string; variant: "outline" | "default" | "destructive"; icon: typeof Mail }> = {
@@ -61,10 +69,6 @@ export const ReminderHistoryPanel = ({ invoiceId }: ReminderHistoryPanelProps) =
   };
 
   if (loading) {
-    return null;
-  }
-
-  if (reminders.length === 0) {
     return null;
   }
 

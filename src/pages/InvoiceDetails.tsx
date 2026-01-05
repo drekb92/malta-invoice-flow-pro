@@ -69,6 +69,7 @@ import { useDocumentSendLogs } from "@/hooks/useDocumentSendLogs";
 import { useReminderStatus } from "@/hooks/useReminderStatus";
 import { ReminderPromptBanner } from "@/components/ReminderPromptBanner";
 import { ReminderHistoryPanel } from "@/components/ReminderHistoryPanel";
+import { SendReminderDialog } from "@/components/SendReminderDialog";
 
 interface Invoice {
   id: string;
@@ -144,6 +145,8 @@ const InvoiceDetails = () => {
   const [isIssuing, setIsIssuing] = useState(false);
   const [showCreditNoteDialog, setShowCreditNoteDialog] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
+  const [reminderKey, setReminderKey] = useState(0); // Key to force refresh ReminderHistoryPanel
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -379,7 +382,18 @@ const InvoiceDetails = () => {
 
   const handleEmailReminder = () => {
     if (!invoice) return;
-    setShowEmailDialog(true);
+    // If already sent an email, use the dedicated reminder dialog
+    if (lastEmailSent?.sentAt) {
+      setShowReminderDialog(true);
+    } else {
+      // First-time send uses generic email dialog
+      setShowEmailDialog(true);
+    }
+  };
+
+  const handleReminderSuccess = () => {
+    setReminderKey((k) => k + 1); // Refresh the reminder history panel
+    refetchSendLogs(); // Refresh the send status in sidebar
   };
 
   const handleWhatsAppReminder = async () => {
@@ -910,7 +924,7 @@ const InvoiceDetails = () => {
               </Card>
 
               {/* Reminder History */}
-              <ReminderHistoryPanel invoiceId={id || ''} />
+              <ReminderHistoryPanel key={reminderKey} invoiceId={id || ''} />
 
               {/* Audit Trail */}
               {isIssued && auditTrail.length > 0 && (
@@ -1216,6 +1230,18 @@ ${companyNameStr}`;
           />
         );
       })()}
+
+      {/* Send Reminder Dialog */}
+      {invoice && (
+        <SendReminderDialog
+          open={showReminderDialog}
+          onOpenChange={setShowReminderDialog}
+          invoiceId={invoice.id}
+          invoiceNumber={invoice.invoice_number}
+          customerName={invoice.customers?.name}
+          onSuccess={handleReminderSuccess}
+        />
+      )}
     </div>
   );
 };

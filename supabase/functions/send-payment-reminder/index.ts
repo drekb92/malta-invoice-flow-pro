@@ -149,7 +149,7 @@ const handler = async (req: Request): Promise<Response> => {
       emailError = error.message;
     }
 
-    // Log the reminder
+    // Log the reminder to reminder_logs
     const { error: logError } = await supabase
       .from("reminder_logs")
       .insert({
@@ -164,6 +164,26 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (logError) {
       console.error("Error logging reminder:", logError);
+    }
+
+    // Also log to document_send_logs for activity tracking consistency
+    const { error: sendLogError } = await supabase
+      .from("document_send_logs")
+      .insert({
+        user_id: invoice.user_id,
+        document_type: 'invoice',
+        document_id: invoice.id,
+        document_number: invoice.invoice_number,
+        customer_id: customer.id,
+        channel: 'email',
+        recipient_email: customer.email,
+        subject: emailSubject,
+        success: emailSent,
+        error_message: emailError,
+      });
+
+    if (sendLogError) {
+      console.error("Error logging to document_send_logs:", sendLogError);
     }
 
     return new Response(
