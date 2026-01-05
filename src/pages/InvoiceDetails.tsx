@@ -1239,6 +1239,12 @@ ${companyNameStr}`;
           invoiceId={invoice.id}
           invoiceNumber={invoice.invoice_number}
           customerName={invoice.customers?.name}
+          customerEmail={invoice.customers?.email}
+          invoiceAmount={computedTotals.total}
+          dueDate={invoice.due_date}
+          daysOverdue={invoice.due_date ? Math.max(0, differenceInDays(new Date(), new Date(invoice.due_date))) : 0}
+          companyName={companySettings?.company_name}
+          currencySymbol={companySettings?.currency_code === 'USD' ? '$' : '€'}
           onSuccess={handleReminderSuccess}
         />
       )}
