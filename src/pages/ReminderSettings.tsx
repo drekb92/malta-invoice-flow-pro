@@ -478,34 +478,6 @@ const ReminderSettings = () => {
               </CardContent>
             </Card>
 
-            {/* Malta Business Practices Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  Malta Business Practices
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  <strong>Escalation Timeline:</strong> The default settings follow Malta business norms - 
-                  friendly reminder before due date, first follow-up after 7 days, firm reminder after 14 days, 
-                  and final notice after 21 days.
-                </p>
-                <p>
-                  <strong>Late Payment Interest:</strong> Final notices reference the right to charge interest 
-                  on late payments as per Maltese commercial law (typically 8% per annum plus statutory compensation).
-                </p>
-                <p>
-                  <strong>Professional Tone:</strong> Templates maintain professionalism throughout escalation 
-                  levels, suitable for Malta's close-knit business community.
-                </p>
-                <p>
-                  <strong>Legal Compliance:</strong> Final notice templates include language appropriate for 
-                  potential debt collection or legal proceedings in Malta.
-                </p>
-              </CardContent>
-            </Card>
           </div>
         </main>
       </div>
