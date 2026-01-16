@@ -658,7 +658,7 @@ const Index = () => {
             {/* Recent Activity */}
             {setupStatus.isComplete && (
               <div>
-                <RecentActivity />
+                <RecentActivity userId={userId} />
               </div>
             )}
           </div>
