@@ -1,11 +1,11 @@
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Users, CreditCard, Mail, Bell, Receipt } from "lucide-react";
+import { FileText, Users, CreditCard, Mail, Bell, Receipt, ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
-
 interface Activity {
   id: string;
   type: "invoice" | "payment" | "customer" | "email" | "reminder" | "credit";
@@ -215,9 +215,18 @@ export function RecentActivity({ userId }: RecentActivityProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Latest updates from your receivables</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest updates from your receivables</CardDescription>
+        </div>
+        <Link 
+          to="/activity" 
+          className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+        >
+          View All
+          <ArrowRight className="h-3 w-3" />
+        </Link>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
