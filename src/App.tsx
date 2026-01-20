@@ -33,6 +33,7 @@ import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import CreditNotes from "./pages/CreditNotes";
 import Redirect from "./pages/Redirect";
+import ActivityLog from "./pages/ActivityLog";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +72,16 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <Index />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Activity Log */}
+              <Route
+                path="/activity"
+                element={
+                  <ProtectedRoute>
+                    <ActivityLog />
                   </ProtectedRoute>
                 }
               />
