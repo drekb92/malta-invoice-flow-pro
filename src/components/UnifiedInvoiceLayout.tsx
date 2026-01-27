@@ -262,19 +262,22 @@ export const UnifiedInvoiceLayout = ({
         : ""
     }
 
-    /* Header */
+    /* Header - Standardized 40mm height */
     #${id} .header {
       display: flex;
       justify-content: space-between;
       gap: 20px;
       align-items: flex-start;
+      min-height: ${isPdf ? '40mm' : '150px'};
+      height: ${isPdf ? '40mm' : '150px'};
+      box-sizing: border-box;
     }
-    #${id} .header-left { flex: 0 0 56%; }
-    #${id} .header-right { flex: 1; text-align: right; }
+    #${id} .header-left { flex: 0 0 56%; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
+    #${id} .header-right { flex: 1; text-align: right; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
     #${id} .logo {
       height: auto;
-      max-height: ${variant === "preview" ? "76px" : "24mm"};
-      max-width: ${variant === "preview" ? "240px" : "60mm"};
+      max-height: ${variant === "preview" ? "60px" : "18mm"};
+      max-width: ${variant === "preview" ? "200px" : "50mm"};
       display: block;
       margin-bottom: ${isPdf ? '2mm' : '8px'};
     }
@@ -305,6 +308,17 @@ export const UnifiedInvoiceLayout = ({
       border: 0;
       border-top: 1px solid #e5e7eb;
       margin: ${isPdf ? '4mm 0 5mm 0' : '14px 0 16px 0'};
+    }
+
+    /* Address Grid - Bill To / Ship To aligned horizontally */
+    #${id} .address-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: ${isPdf ? '8mm' : '32px'};
+      margin-bottom: ${isPdf ? '5mm' : '20px'};
+    }
+    #${id} .address-block {
+      min-width: 0;
     }
 
     /* Sections */
@@ -399,36 +413,41 @@ export const UnifiedInvoiceLayout = ({
       font-variant-numeric: tabular-nums;
     }
 
-    /* VAT Summary Table */
+    /* VAT Summary Table - Grey-tinted box for distinction */
     #${id} .vat-summary-section {
-      margin-top: ${isPdf ? '5mm' : '20px'};
+      margin-top: ${isPdf ? '6mm' : '24px'};
       break-inside: avoid;
       page-break-inside: avoid;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: ${isPdf ? '2mm' : '8px'};
+      padding: ${isPdf ? '4mm' : '16px'};
+    }
+    #${id} .vat-summary-section .section-label {
+      margin-bottom: ${isPdf ? '2mm' : '8px'};
     }
     #${id} table.vat-summary {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      margin-top: ${isPdf ? '2mm' : '8px'};
       font-size: ${fontSize.small};
-      border: 1px solid #e5e7eb;
-      border-radius: ${isPdf ? '1mm' : '4px'};
-      overflow: hidden;
+      background: transparent;
     }
     #${id} table.vat-summary thead th {
       padding: ${isPdf ? '2mm' : '8px'};
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid #e2e8f0;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       font-size: ${fontSize.tiny};
-      color: #6b7280;
-      background: #f1f5f9;
+      color: #64748b;
+      background: transparent;
     }
     #${id} table.vat-summary tbody td {
       padding: ${isPdf ? '2mm' : '8px'};
-      border-bottom: 1px solid #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
       color: #374151;
+      background: transparent;
     }
     #${id} table.vat-summary tbody tr:last-child td {
       border-bottom: none;
@@ -490,6 +509,9 @@ export const UnifiedInvoiceLayout = ({
         padding: ${isPdf ? '5mm' : '20px'};
         margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
         border-radius: 0;
+        min-height: ${isPdf ? '40mm' : '150px'};
+        height: auto;
+        box-sizing: content-box;
       }
       #${id} .header .company,
       #${id} .header .company strong,
@@ -537,6 +559,9 @@ export const UnifiedInvoiceLayout = ({
         margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
         padding-left: ${isPdf ? '15mm' : '24px'};
         padding-right: ${isPdf ? '15mm' : '24px'};
+        min-height: ${isPdf ? '40mm' : '150px'};
+        height: auto;
+        box-sizing: content-box;
       }
       #${id} .doc-title {
         font-family: Georgia, 'Times New Roman', Times, serif;
@@ -796,28 +821,44 @@ export const UnifiedInvoiceLayout = ({
 
             <hr className="divider" />
 
-            {/* BILL TO */}
-            <div className="billto">
-              <div className="section-label">Bill To</div>
-              <div className="customer-name">{invoiceData.customer.name}</div>
-              <div className="customer-info">
-                {/* Structured address fields */}
-                {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
-                {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
-                {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
-                {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
-                {/* Legacy address field fallback */}
-                {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
-                  <div className="desc">{invoiceData.customer.address}</div>
+            {/* BILL TO / SHIP TO Grid */}
+            <div className="address-grid">
+              <div className="address-block billto">
+                <div className="section-label">Bill To</div>
+                <div className="customer-name">{invoiceData.customer.name}</div>
+                <div className="customer-info">
+                  {/* Structured address fields */}
+                  {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
+                  {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
+                  {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
+                  {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
+                  {/* Legacy address field fallback */}
+                  {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
+                    <div className="desc">{invoiceData.customer.address}</div>
+                  )}
+                </div>
+                {/* Prominent VAT Number for business customers */}
+                {invoiceData.customer.vat_number && (
+                  <div className="customer-vat">
+                    <span className="vat-label">VAT Registration:</span>
+                    <span className="vat-value">{invoiceData.customer.vat_number}</span>
+                  </div>
                 )}
               </div>
-              {/* Prominent VAT Number for business customers */}
-              {invoiceData.customer.vat_number && (
-                <div className="customer-vat">
-                  <span className="vat-label">VAT Registration:</span>
-                  <span className="vat-value">{invoiceData.customer.vat_number}</span>
+              <div className="address-block shipto">
+                <div className="section-label">Ship To</div>
+                <div className="customer-name">{invoiceData.customer.name}</div>
+                <div className="customer-info">
+                  {/* Same address for now - can be extended later */}
+                  {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
+                  {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
+                  {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
+                  {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
+                  {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
+                    <div className="desc">{invoiceData.customer.address}</div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* ITEMS */}
