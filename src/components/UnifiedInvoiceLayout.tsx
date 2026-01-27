@@ -64,7 +64,7 @@ export interface InvoiceData {
 
 export type DocumentType = "INVOICE" | "CREDIT NOTE" | "QUOTATION";
 
-export type TemplateStyle = 'modern' | 'classic' | 'minimalist';
+export type TemplateStyle = 'modern' | 'professional' | 'classic' | 'minimalist';
 
 export interface TemplateSettings {
   primaryColor?: string;
@@ -129,32 +129,48 @@ export const UnifiedInvoiceLayout = ({
 }: UnifiedInvoiceLayoutProps) => {
   const templateStyle = templateSettings?.style || 'modern';
   
+  // Standard sans-serif font stack for consistency
+  const STANDARD_FONT_STACK = 'Inter, Helvetica Neue, Helvetica, Arial, sans-serif';
+  
   // Get style-specific settings
   const getStyleConfig = () => {
+    const brandColor = templateSettings?.primaryColor || '#1e3a5f';
+    
     switch (templateStyle) {
       case 'modern':
         return {
-          fontFamily: 'Inter, system-ui, sans-serif',
-          headerBg: '#1e3a5f', // Solid deep blue
+          fontFamily: STANDARD_FONT_STACK,
+          headerBg: brandColor, // Use brand color for solid header
           headerTextColor: '#ffffff',
           borderStyle: 'none',
           tableBorder: '1px solid #e5e7eb',
           rowAltBg: '#f8fafc',
           spacing: 'normal',
         };
+      case 'professional':
+        return {
+          fontFamily: STANDARD_FONT_STACK,
+          headerBg: '#ffffff', // White header
+          headerTextColor: '#111827',
+          headerBorderColor: brandColor, // 4px bottom border in brand color
+          borderStyle: 'none',
+          tableBorder: '1px solid #e5e7eb',
+          rowAltBg: '#f9fafb',
+          spacing: 'normal',
+        };
       case 'classic':
         return {
-          fontFamily: 'Georgia, Times, serif',
+          fontFamily: 'Georgia, Times New Roman, Times, serif',
           headerBg: 'transparent',
-          headerTextColor: templateSettings?.primaryColor || '#1f2937',
-          borderStyle: '1px solid #1f2937',
-          tableBorder: '1px solid #1f2937',
+          headerTextColor: brandColor,
+          borderStyle: `1px solid ${brandColor}`,
+          tableBorder: `1px solid ${brandColor}`,
           rowAltBg: 'transparent',
           spacing: 'compact',
         };
       case 'minimalist':
         return {
-          fontFamily: 'Inter, system-ui, sans-serif',
+          fontFamily: STANDARD_FONT_STACK,
           headerBg: 'transparent',
           headerTextColor: '#6b7280',
           borderStyle: 'none',
@@ -164,7 +180,7 @@ export const UnifiedInvoiceLayout = ({
         };
       default:
         return {
-          fontFamily: 'Inter, system-ui, sans-serif',
+          fontFamily: STANDARD_FONT_STACK,
           headerBg: 'transparent',
           headerTextColor: '#111827',
           borderStyle: 'none',
@@ -223,13 +239,13 @@ export const UnifiedInvoiceLayout = ({
     #${id}, #${id} * { box-sizing: border-box; }
     #${id} { background: #fff; }
 
-    /* Canvas - A4 dimensions */
+    /* Canvas - A4 dimensions with consistent sans-serif font */
     #${id}.invoice-page {
       width: 210mm;
       min-height: 297mm;
       margin: 0 auto;
       color: ${primary};
-      font-family: ${fontFamily}, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-family: ${fontFamily};
       font-size: ${fontSize.body};
       line-height: 1.4;
     }
@@ -502,7 +518,7 @@ export const UnifiedInvoiceLayout = ({
     /* ============ STYLE-SPECIFIC OVERRIDES ============ */
     
     ${templateStyle === 'modern' ? `
-      /* Modern Style: Deep blue header bar, white text, 20px padding */
+      /* Modern Style: Solid brand color header, white text */
       #${id} .header {
         background: ${styleConfig.headerBg};
         color: ${styleConfig.headerTextColor};
@@ -512,6 +528,8 @@ export const UnifiedInvoiceLayout = ({
         min-height: ${isPdf ? '40mm' : '150px'};
         height: auto;
         box-sizing: content-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       #${id} .header .company,
       #${id} .header .company strong,
@@ -529,6 +547,8 @@ export const UnifiedInvoiceLayout = ({
         background: ${styleConfig.headerBg};
         color: ${styleConfig.headerTextColor};
         border-bottom: none;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       #${id} table.items tbody tr:nth-child(even) {
         background: ${styleConfig.rowAltBg};
@@ -539,10 +559,73 @@ export const UnifiedInvoiceLayout = ({
         padding: ${isPdf ? '2mm 3mm' : '8px 12px'};
         border-radius: ${isPdf ? '1mm' : '4px'};
         border-top: none;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       #${id} .totals .total .label,
       #${id} .totals .total .value {
         color: ${styleConfig.headerTextColor};
+      }
+    ` : ''}
+
+    ${templateStyle === 'professional' ? `
+      /* Professional Style: White header with 4px bottom border in brand color */
+      #${id} .header {
+        background: ${styleConfig.headerBg};
+        color: ${styleConfig.headerTextColor};
+        padding: ${isPdf ? '5mm' : '20px'};
+        margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
+        padding-left: ${isPdf ? '15mm' : '24px'};
+        padding-right: ${isPdf ? '15mm' : '24px'};
+        border-bottom: ${isPdf ? '1.2mm' : '4px'} solid ${primary};
+        min-height: ${isPdf ? '40mm' : '150px'};
+        height: auto;
+        box-sizing: content-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .header .company,
+      #${id} .header .company strong {
+        color: #111827;
+      }
+      #${id} .header .meta .label {
+        color: #6b7280;
+      }
+      #${id} .header .meta .value {
+        color: #111827;
+      }
+      #${id} .doc-title {
+        color: ${primary};
+        font-weight: 800;
+      }
+      #${id} .tax-invoice-label {
+        color: #6b7280;
+      }
+      #${id} table.items thead th {
+        background: #f9fafb;
+        color: #374151;
+        border-bottom: 2px solid ${primary};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} table.items tbody tr:nth-child(even) {
+        background: ${styleConfig.rowAltBg};
+      }
+      #${id} .totals .total {
+        background: #f9fafb;
+        border-top: 2px solid ${primary};
+        padding: ${isPdf ? '2mm 3mm' : '8px 12px'};
+        border-radius: 0;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .totals .total .label {
+        color: #111827;
+        font-weight: 700;
+      }
+      #${id} .totals .total .value {
+        color: ${primary};
+        font-weight: 800;
       }
     ` : ''}
 

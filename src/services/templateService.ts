@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type TemplateStyle = 'modern' | 'classic' | 'minimalist';
+export type TemplateStyle = 'modern' | 'professional' | 'classic' | 'minimalist';
 
 export interface InvoiceTemplate {
   id: string;
@@ -38,6 +38,15 @@ export const getStyleSettings = (style: TemplateStyle): Partial<InvoiceTemplate>
         table_style: 'striped',
         totals_style: 'highlighted',
         banking_style: 'boxed',
+      };
+    case 'professional':
+      return {
+        font_family: 'Inter',
+        primary_color: '#111827', // Dark gray
+        accent_color: '#374151',
+        table_style: 'bordered',
+        totals_style: 'boxed',
+        banking_style: 'default',
       };
     case 'classic':
       return {
