@@ -64,6 +64,8 @@ export interface InvoiceData {
 
 export type DocumentType = "INVOICE" | "CREDIT NOTE" | "QUOTATION";
 
+export type TemplateStyle = 'modern' | 'classic' | 'minimalist';
+
 export interface TemplateSettings {
   primaryColor?: string;
   accentColor?: string;
@@ -75,6 +77,7 @@ export interface TemplateSettings {
   totalsStyle?: string;
   bankingVisibility?: boolean;
   bankingStyle?: string;
+  style?: TemplateStyle;
   // NOTE: margins exist in DB but are intentionally ignored (locked)
   marginTop?: number;
   marginRight?: number;
@@ -124,9 +127,58 @@ export const UnifiedInvoiceLayout = ({
   id = "invoice-preview-root",
   documentType = "INVOICE",
 }: UnifiedInvoiceLayoutProps) => {
+  const templateStyle = templateSettings?.style || 'modern';
+  
+  // Get style-specific settings
+  const getStyleConfig = () => {
+    switch (templateStyle) {
+      case 'modern':
+        return {
+          fontFamily: 'Inter, system-ui, sans-serif',
+          headerBg: templateSettings?.accentColor || '#1e40af',
+          headerTextColor: '#ffffff',
+          borderStyle: 'none',
+          tableBorder: '1px solid #e5e7eb',
+          rowAltBg: '#f8fafc',
+          spacing: 'normal',
+        };
+      case 'classic':
+        return {
+          fontFamily: 'Georgia, Times, serif',
+          headerBg: 'transparent',
+          headerTextColor: templateSettings?.primaryColor || '#1f2937',
+          borderStyle: '1px solid #1f2937',
+          tableBorder: '1px solid #1f2937',
+          rowAltBg: 'transparent',
+          spacing: 'compact',
+        };
+      case 'minimalist':
+        return {
+          fontFamily: 'Inter, system-ui, sans-serif',
+          headerBg: 'transparent',
+          headerTextColor: '#6b7280',
+          borderStyle: 'none',
+          tableBorder: 'none',
+          rowAltBg: 'transparent',
+          spacing: 'spacious',
+        };
+      default:
+        return {
+          fontFamily: 'Inter, system-ui, sans-serif',
+          headerBg: 'transparent',
+          headerTextColor: '#111827',
+          borderStyle: 'none',
+          tableBorder: '1px solid #e5e7eb',
+          rowAltBg: '#f9fafb',
+          spacing: 'normal',
+        };
+    }
+  };
+
+  const styleConfig = getStyleConfig();
   const primary = templateSettings?.primaryColor || "var(--color-primary, #111827)";
   const accent = templateSettings?.accentColor || "var(--color-accent, #26A65B)";
-  const fontFamily = templateSettings?.fontFamily || "var(--font, Inter)";
+  const fontFamily = templateSettings?.fontFamily || styleConfig.fontFamily;
 
   const getAbsoluteLogoUrl = (url?: string) => {
     if (!url) return undefined;
@@ -140,6 +192,10 @@ export const UnifiedInvoiceLayout = ({
 
   // Determine font sizes based on variant (pt for PDF, px for preview)
   const isPdf = variant === "pdf";
+  
+  // Spacing multiplier based on style
+  const spacingMult = styleConfig.spacing === 'spacious' ? 1.5 : styleConfig.spacing === 'compact' ? 0.8 : 1;
+  
   const fontSize = {
     body: isPdf ? '10pt' : '12px',
     small: isPdf ? '9pt' : '11px',
@@ -423,6 +479,177 @@ export const UnifiedInvoiceLayout = ({
       color: #6b7280;
       line-height: 1.4;
     }
+
+    /* ============ STYLE-SPECIFIC OVERRIDES ============ */
+    
+    ${templateStyle === 'modern' ? `
+      /* Modern Style: Colored header bar, bold fonts */
+      #${id} .header {
+        background: ${styleConfig.headerBg};
+        color: ${styleConfig.headerTextColor};
+        padding: ${isPdf ? '4mm' : '16px'};
+        margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
+        border-radius: 0;
+      }
+      #${id} .header .company,
+      #${id} .header .company strong,
+      #${id} .header .meta,
+      #${id} .header .meta .label,
+      #${id} .header .meta .value,
+      #${id} .header .tax-invoice-label {
+        color: ${styleConfig.headerTextColor};
+      }
+      #${id} .doc-title {
+        color: ${styleConfig.headerTextColor};
+        font-weight: 900;
+      }
+      #${id} table.items thead th {
+        background: ${styleConfig.headerBg};
+        color: ${styleConfig.headerTextColor};
+        border-bottom: none;
+      }
+      #${id} table.items tbody tr:nth-child(even) {
+        background: ${styleConfig.rowAltBg};
+      }
+      #${id} .totals .total {
+        background: ${styleConfig.headerBg};
+        color: ${styleConfig.headerTextColor};
+        padding: ${isPdf ? '2mm 3mm' : '8px 12px'};
+        border-radius: ${isPdf ? '1mm' : '4px'};
+        border-top: none;
+      }
+      #${id} .totals .total .label,
+      #${id} .totals .total .value {
+        color: ${styleConfig.headerTextColor};
+      }
+    ` : ''}
+
+    ${templateStyle === 'classic' ? `
+      /* Classic Style: Thin black borders, serif font */
+      #${id}.invoice-page {
+        font-family: Georgia, 'Times New Roman', Times, serif;
+      }
+      #${id} .header {
+        border-bottom: 2px solid #1f2937;
+        padding-bottom: ${isPdf ? '4mm' : '16px'};
+      }
+      #${id} .doc-title {
+        font-family: Georgia, 'Times New Roman', Times, serif;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: #1f2937;
+        border-bottom: 1px solid #1f2937;
+        padding-bottom: ${isPdf ? '1mm' : '4px'};
+        display: inline-block;
+      }
+      #${id} table.items {
+        border: 1px solid #1f2937;
+      }
+      #${id} table.items thead th {
+        background: transparent;
+        color: #1f2937;
+        border-bottom: 2px solid #1f2937;
+        border-right: 1px solid #e5e7eb;
+        font-family: Georgia, 'Times New Roman', Times, serif;
+      }
+      #${id} table.items thead th:last-child {
+        border-right: none;
+      }
+      #${id} table.items tbody td {
+        border-bottom: 1px solid #d1d5db;
+        border-right: 1px solid #e5e7eb;
+      }
+      #${id} table.items tbody td:last-child {
+        border-right: none;
+      }
+      #${id} .totals {
+        border: 1px solid #1f2937;
+        padding: ${isPdf ? '3mm' : '12px'};
+      }
+      #${id} .banking {
+        border: 1px solid #1f2937;
+        padding: ${isPdf ? '3mm' : '12px'};
+        margin-top: ${isPdf ? '4mm' : '16px'};
+      }
+      #${id} .divider {
+        border-top: 1px solid #1f2937;
+      }
+    ` : ''}
+
+    ${templateStyle === 'minimalist' ? `
+      /* Minimalist Style: No borders, lots of white space */
+      #${id} .header {
+        padding-bottom: ${isPdf ? '8mm' : '32px'};
+      }
+      #${id} .doc-title {
+        font-weight: 300;
+        letter-spacing: 0.2em;
+        color: #9ca3af;
+        font-size: ${isPdf ? '14pt' : '20px'};
+      }
+      #${id} .divider {
+        display: none;
+      }
+      #${id} .billto {
+        margin-bottom: ${isPdf ? '8mm' : '32px'};
+      }
+      #${id} .section-label {
+        color: #9ca3af;
+        font-weight: 400;
+        letter-spacing: 0.15em;
+      }
+      #${id} table.items {
+        margin-top: ${isPdf ? '6mm' : '24px'};
+      }
+      #${id} table.items thead th {
+        background: transparent;
+        border-bottom: none;
+        color: #9ca3af;
+        font-weight: 400;
+        padding-bottom: ${isPdf ? '4mm' : '16px'};
+      }
+      #${id} table.items tbody td {
+        border-bottom: none;
+        padding: ${isPdf ? '3mm 2mm' : '12px 8px'};
+      }
+      #${id} .totals {
+        margin-top: ${isPdf ? '8mm' : '32px'};
+        padding-top: ${isPdf ? '4mm' : '16px'};
+        border-top: 1px solid #e5e7eb;
+      }
+      #${id} .totals .total {
+        border-top: none;
+        margin-top: ${isPdf ? '4mm' : '16px'};
+      }
+      #${id} .totals .total .label,
+      #${id} .totals .total .value {
+        font-weight: 400;
+        color: #374151;
+      }
+      #${id} .banking {
+        margin-top: ${isPdf ? '8mm' : '32px'};
+        opacity: 0.7;
+      }
+      #${id} .thanks {
+        border-top: none;
+        color: #9ca3af;
+        font-weight: 300;
+      }
+      #${id} .vat-summary-section {
+        margin-top: ${isPdf ? '8mm' : '32px'};
+      }
+      #${id} table.vat-summary {
+        border: none;
+      }
+      #${id} table.vat-summary thead th {
+        background: transparent;
+        border-bottom: none;
+        font-weight: 400;
+      }
+      #${id} table.vat-summary tbody td {
+        border-bottom: none;
+      }
+    ` : ''}
 
     /* Print-specific overrides */
     @media print {
