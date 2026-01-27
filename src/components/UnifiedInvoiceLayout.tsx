@@ -525,22 +525,28 @@ export const UnifiedInvoiceLayout = ({
     ` : ''}
 
     ${templateStyle === 'classic' ? `
-      /* Classic Style: Thin black borders, serif font */
+      /* Classic Style: Top border accent, serif font, traditional look */
       #${id}.invoice-page {
         font-family: Georgia, 'Times New Roman', Times, serif;
       }
       #${id} .header {
-        border-bottom: 2px solid #1f2937;
+        background: transparent;
+        border-top: ${isPdf ? '1.5mm' : '5px'} solid ${primary};
+        padding-top: ${isPdf ? '4mm' : '16px'};
         padding-bottom: ${isPdf ? '4mm' : '16px'};
+        margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
+        padding-left: ${isPdf ? '15mm' : '24px'};
+        padding-right: ${isPdf ? '15mm' : '24px'};
       }
       #${id} .doc-title {
         font-family: Georgia, 'Times New Roman', Times, serif;
         font-weight: 700;
         letter-spacing: 0.05em;
         color: #1f2937;
-        border-bottom: 1px solid #1f2937;
-        padding-bottom: ${isPdf ? '1mm' : '4px'};
-        display: inline-block;
+      }
+      #${id} .tax-invoice-label {
+        font-family: Georgia, 'Times New Roman', Times, serif;
+        font-style: italic;
       }
       #${id} table.items {
         border: 1px solid #1f2937;
