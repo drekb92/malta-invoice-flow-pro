@@ -111,7 +111,7 @@ const mul = (a: number, b: number) => Number(a || 0) * Number(b || 0);
 /* ===================== CONSTANTS ===================== */
 
 // Locked margins (user requested “standard, not editable”)
-const STANDARD_MARGIN_MM = 20;
+const STANDARD_MARGIN_MM = 15;
 
 /* ===================== COMPONENT ===================== */
 
@@ -138,22 +138,44 @@ export const UnifiedInvoiceLayout = ({
 
   const showBanking = (templateSettings?.bankingVisibility ?? true) && !!bankingSettings;
 
+  // Determine font sizes based on variant (pt for PDF, px for preview)
+  const isPdf = variant === "pdf";
+  const fontSize = {
+    body: isPdf ? '10pt' : '12px',
+    small: isPdf ? '9pt' : '11px',
+    tiny: isPdf ? '8pt' : '10px',
+    heading: isPdf ? '18pt' : '26px',
+    subheading: isPdf ? '11pt' : '14px',
+    totalLabel: isPdf ? '11pt' : '13px',
+  };
+
   const embeddedStyles = `
-    @page { size: A4; margin: 0; }
+    /* A4 page setup with standard margins */
+    @page { 
+      size: A4; 
+      margin: 15mm; 
+    }
+
+    /* Force exact colors for print */
+    *, *::before, *::after {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
 
     /* Reset – scoped to the invoice only */
     #${id}, #${id} * { box-sizing: border-box; }
     #${id} { background: #fff; }
 
-    /* Canvas */
+    /* Canvas - A4 dimensions */
     #${id}.invoice-page {
       width: 210mm;
       min-height: 297mm;
       margin: 0 auto;
       color: ${primary};
       font-family: ${fontFamily}, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      font-size: ${templateSettings?.fontSize || "12px"};
-      line-height: 1.35;
+      font-size: ${fontSize.body};
+      line-height: 1.4;
     }
 
     /* Inner (locked margins) */
@@ -195,83 +217,83 @@ export const UnifiedInvoiceLayout = ({
     #${id} .header-right { flex: 1; text-align: right; }
     #${id} .logo {
       height: auto;
-      max-height: ${variant === "preview" ? "76px" : "90px"};
-      max-width: 240px;
+      max-height: ${variant === "preview" ? "76px" : "24mm"};
+      max-width: ${variant === "preview" ? "240px" : "60mm"};
       display: block;
-      margin-bottom: 8px;
+      margin-bottom: ${isPdf ? '2mm' : '8px'};
     }
     #${id} .company {
-      font-size: 11px;
+      font-size: ${fontSize.small};
       color: #4b5563;
-      line-height: 1.35;
+      line-height: 1.4;
     }
     #${id} .company strong { color: #111827; font-weight: 700; }
     #${id} .doc-title {
-      font-size: 26px;
+      font-size: ${fontSize.heading};
       font-weight: 800;
       letter-spacing: 0.08em;
       color: ${accent};
-      margin: 0 0 8px 0;
+      margin: 0 0 ${isPdf ? '2mm' : '8px'} 0;
       text-transform: uppercase;
     }
     #${id} .meta {
-      font-size: 11px;
+      font-size: ${fontSize.small};
       color: #4b5563;
-      line-height: 1.35;
+      line-height: 1.4;
     }
-    #${id} .meta .row { display: flex; justify-content: flex-end; gap: 8px; }
+    #${id} .meta .row { display: flex; justify-content: flex-end; gap: ${isPdf ? '2mm' : '8px'}; }
     #${id} .meta .label { color: #6b7280; }
     #${id} .meta .value { color: #111827; font-weight: 600; }
 
     #${id} .divider {
       border: 0;
       border-top: 1px solid #e5e7eb;
-      margin: 14px 0 16px 0;
+      margin: ${isPdf ? '4mm 0 5mm 0' : '14px 0 16px 0'};
     }
 
     /* Sections */
     #${id} .section-label {
-      font-size: 10px;
+      font-size: ${fontSize.tiny};
       font-weight: 700;
       color: #6b7280;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-bottom: 6px;
+      margin-bottom: ${isPdf ? '1.5mm' : '6px'};
     }
-    #${id} .billto { margin-bottom: 16px; }
+    #${id} .billto { margin-bottom: ${isPdf ? '4mm' : '16px'}; }
     #${id} .customer-name {
-      font-size: 14px;
+      font-size: ${fontSize.subheading};
       font-weight: 700;
       color: #111827;
-      margin-bottom: 4px;
+      margin-bottom: ${isPdf ? '1mm' : '4px'};
     }
     #${id} .customer-info {
-      font-size: 11px;
+      font-size: ${fontSize.small};
       color: #4b5563;
-      line-height: 1.35;
+      line-height: 1.4;
     }
-    #${id} .customer-info div { margin: 2px 0; }
+    #${id} .customer-info div { margin: ${isPdf ? '0.5mm 0' : '2px 0'}; }
 
     /* Table */
     #${id} table.items {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      margin-top: 10px;
-      font-size: 11px;
+      margin-top: ${isPdf ? '3mm' : '10px'};
+      font-size: ${fontSize.small};
     }
     #${id} table.items thead th {
-      padding: 9px 8px;
+      padding: ${isPdf ? '2.5mm 2mm' : '9px 8px'};
       border-bottom: 1px solid #e5e7eb;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      font-size: 10px;
+      font-size: ${fontSize.tiny};
       color: #6b7280;
       background: var(--th-bg, #f9fafb);
     }
     #${id} table.items tbody td {
-      padding: 9px 8px;
+      padding: ${isPdf ? '2.5mm 2mm' : '9px 8px'};
       border-bottom: 1px solid #f1f5f9;
       vertical-align: top;
     }
@@ -293,46 +315,77 @@ export const UnifiedInvoiceLayout = ({
     #${id} .totals {
       width: 45%;
       margin-left: auto;
-      margin-top: 10px;
-      font-size: 11px;
+      margin-top: ${isPdf ? '3mm' : '10px'};
+      font-size: ${fontSize.small};
     }
     #${id} .totals .row {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 10px;
-      padding: 4px 0;
+      gap: ${isPdf ? '3mm' : '10px'};
+      padding: ${isPdf ? '1mm 0' : '4px 0'};
       align-items: center;
     }
     #${id} .totals .label { color: #6b7280; text-align: right; }
     #${id} .totals .value { text-align: right; font-weight: 700; color: #111827; }
     #${id} .totals .total {
       border-top: 1px solid #e5e7eb;
-      margin-top: 6px;
-      padding-top: 8px;
+      margin-top: ${isPdf ? '1.5mm' : '6px'};
+      padding-top: ${isPdf ? '2mm' : '8px'};
     }
-    #${id} .totals .total .label { font-size: 13px; font-weight: 800; color: #111827; }
-    #${id} .totals .total .value { font-size: 13px; font-weight: 900; color: ${accent}; }
+    #${id} .totals .total .label { font-size: ${fontSize.totalLabel}; font-weight: 800; color: #111827; }
+    #${id} .totals .total .value { font-size: ${fontSize.totalLabel}; font-weight: 900; color: ${accent}; }
 
     /* Footer pinned for short invoices */
     #${id} .body { flex: 1; }
     #${id} .footer {
       margin-top: auto;
-      padding-top: 14px;
+      padding-top: ${isPdf ? '4mm' : '14px'};
     }
     #${id} .banking {
-      font-size: 11px;
-      line-height: 1.35;
+      font-size: ${fontSize.small};
+      line-height: 1.4;
       color: #4b5563;
     }
-    #${id} .banking .line { margin: 2px 0; }
+    #${id} .banking .line { margin: ${isPdf ? '0.5mm 0' : '2px 0'}; }
     #${id} .thanks {
-      margin-top: 12px;
-      padding-top: 10px;
+      margin-top: ${isPdf ? '3mm' : '12px'};
+      padding-top: ${isPdf ? '2.5mm' : '10px'};
       border-top: 1px solid #e5e7eb;
       text-align: center;
-      font-size: 11px;
+      font-size: ${fontSize.small};
       color: #6b7280;
       line-height: 1.4;
+    }
+
+    /* Print-specific overrides */
+    @media print {
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 210mm;
+        height: 297mm;
+      }
+      #${id}.invoice-page {
+        width: 210mm;
+        min-height: 297mm;
+        page-break-after: always;
+      }
+      #${id} .invoice-inner {
+        padding: 0; /* @page margin handles this */
+      }
+      /* Ensure table headers repeat */
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      /* Prevent row splits */
+      tr, td, th {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      /* Keep sections together */
+      .totals-section, .banking-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
   `;
 
