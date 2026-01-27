@@ -583,15 +583,32 @@ export const UnifiedInvoiceLayout = ({
     ` : ''}
 
     ${templateStyle === 'minimalist' ? `
-      /* Minimalist Style: No borders, lots of white space */
+      /* Minimalist Style: Pure white, no heavy headers, primary accent on key elements only */
+      #${id}.invoice-page {
+        background: #ffffff !important;
+      }
+      #${id} .invoice-inner {
+        background: #ffffff !important;
+      }
       #${id} .header {
+        background: transparent !important;
         padding-bottom: ${isPdf ? '8mm' : '32px'};
+        border: none;
+      }
+      #${id} .header .company-name,
+      #${id} .header .company-details,
+      #${id} .header .company-details div {
+        color: #374151;
       }
       #${id} .doc-title {
         font-weight: 300;
         letter-spacing: 0.2em;
         color: #9ca3af;
         font-size: ${isPdf ? '14pt' : '20px'};
+      }
+      #${id} .invoice-number {
+        color: ${primary} !important;
+        font-weight: 500;
       }
       #${id} .divider {
         display: none;
@@ -606,9 +623,10 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} table.items {
         margin-top: ${isPdf ? '6mm' : '24px'};
+        background: #ffffff;
       }
       #${id} table.items thead th {
-        background: transparent;
+        background: transparent !important;
         border-bottom: none;
         color: #9ca3af;
         font-weight: 400;
@@ -617,24 +635,33 @@ export const UnifiedInvoiceLayout = ({
       #${id} table.items tbody td {
         border-bottom: none;
         padding: ${isPdf ? '3mm 2mm' : '12px 8px'};
+        background: #ffffff;
       }
       #${id} .totals {
         margin-top: ${isPdf ? '8mm' : '32px'};
         padding-top: ${isPdf ? '4mm' : '16px'};
         border-top: 1px solid #e5e7eb;
+        background: transparent;
+      }
+      #${id} .totals .row {
+        color: #6b7280;
       }
       #${id} .totals .total {
         border-top: none;
         margin-top: ${isPdf ? '4mm' : '16px'};
       }
-      #${id} .totals .total .label,
+      #${id} .totals .total .label {
+        font-weight: 500;
+        color: ${primary} !important;
+      }
       #${id} .totals .total .value {
-        font-weight: 400;
-        color: #374151;
+        font-weight: 600;
+        color: ${primary} !important;
       }
       #${id} .banking {
         margin-top: ${isPdf ? '8mm' : '32px'};
         opacity: 0.7;
+        background: transparent;
       }
       #${id} .thanks {
         border-top: none;
@@ -646,14 +673,16 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} table.vat-summary {
         border: none;
+        background: #ffffff;
       }
       #${id} table.vat-summary thead th {
-        background: transparent;
+        background: transparent !important;
         border-bottom: none;
         font-weight: 400;
       }
       #${id} table.vat-summary tbody td {
         border-bottom: none;
+        background: #ffffff;
       }
     ` : ''}
 
