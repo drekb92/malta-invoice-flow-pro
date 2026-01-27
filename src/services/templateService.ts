@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export type TemplateStyle = 'modern' | 'classic' | 'minimalist';
+
 export interface InvoiceTemplate {
   id: string;
   name: string;
@@ -20,9 +22,59 @@ export interface InvoiceTemplate {
   margin_right?: number;
   margin_bottom?: number;
   margin_left?: number;
+  style?: TemplateStyle;
 }
 
-export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
+/**
+ * Get style-specific settings for invoice templates
+ */
+export const getStyleSettings = (style: TemplateStyle): Partial<InvoiceTemplate> => {
+  switch (style) {
+    case 'modern':
+      return {
+        font_family: 'Inter',
+        primary_color: '#1e40af', // Bold blue
+        accent_color: '#0ea5e9',
+        table_style: 'striped',
+        totals_style: 'highlighted',
+        banking_style: 'boxed',
+      };
+    case 'classic':
+      return {
+        font_family: 'Georgia',
+        primary_color: '#1f2937', // Dark gray/black
+        accent_color: '#374151',
+        table_style: 'bordered',
+        totals_style: 'boxed',
+        banking_style: 'default',
+      };
+    case 'minimalist':
+      return {
+        font_family: 'Inter',
+        primary_color: '#6b7280', // Muted gray
+        accent_color: '#9ca3af',
+        table_style: 'minimal',
+        totals_style: 'default',
+        banking_style: 'minimal',
+      };
+    default:
+      return {};
+  }
+};
+
+/**
+ * Apply style overrides to a template
+ */
+export const applyStyleToTemplate = (template: InvoiceTemplate, style: TemplateStyle): InvoiceTemplate => {
+  const styleSettings = getStyleSettings(style);
+  return {
+    ...template,
+    ...styleSettings,
+    style,
+  };
+};
+
+export const getDefaultTemplate = async (style?: TemplateStyle): Promise<InvoiceTemplate> => {
   try {
     const { data, error } = await supabase
       .from('invoice_templates')
@@ -32,7 +84,7 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
 
     if (error || !data) {
       // Return a fallback default template
-      return {
+      const fallback: InvoiceTemplate = {
         id: 'default',
         name: 'Default Template',
         is_default: true,
@@ -52,11 +104,13 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
         margin_right: 20,
         margin_bottom: 20,
         margin_left: 20,
+        style: style || 'modern',
       };
+      return style ? applyStyleToTemplate(fallback, style) : fallback;
     }
 
     // Cast layout to proper type and add defaults for new fields
-    return {
+    const template: InvoiceTemplate = {
       ...data,
       layout: (data.layout === 'cleanMinimal' ? 'cleanMinimal' : data.layout === 'compact' ? 'compact' : 'default') as 'default' | 'cleanMinimal' | 'compact',
       header_layout: (data.header_layout || 'default') as 'default' | 'centered' | 'split',
@@ -70,11 +124,14 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
       margin_right: data.margin_right || 20,
       margin_bottom: data.margin_bottom || 20,
       margin_left: data.margin_left || 20,
+      style: style || 'modern',
     };
+
+    return style ? applyStyleToTemplate(template, style) : template;
   } catch (error) {
     console.error('Error fetching default template:', error);
     // Return fallback template
-    return {
+    const fallback: InvoiceTemplate = {
       id: 'default',
       name: 'Default Template',
       is_default: true,
@@ -94,6 +151,8 @@ export const getDefaultTemplate = async (): Promise<InvoiceTemplate> => {
       margin_right: 20,
       margin_bottom: 20,
       margin_left: 20,
+      style: style || 'modern',
     };
+    return style ? applyStyleToTemplate(fallback, style) : fallback;
   }
 };
