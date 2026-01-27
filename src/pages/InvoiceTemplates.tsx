@@ -527,11 +527,12 @@ const InvoiceTemplates = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/40">
       <Navigation />
 
       <div className="md:ml-64">
-        <header className="bg-card border-b border-border sticky top-0 z-10">
+        {/* Sticky Header */}
+        <header className="bg-card border-b border-border sticky top-0 z-20">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -558,71 +559,65 @@ const InvoiceTemplates = () => {
           </div>
         </header>
 
-        <main className="p-6">
-          {/* Validation Warnings */}
-          {(!companyValid || !bankingValid) && (
-            <Alert className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Action Required:</strong>
-                <ul className="list-disc list-inside mt-2 text-sm space-y-1">
-                  {companyErrors.map((error, i) => (
-                    <li key={`company-${i}`}>
-                      {error} -{" "}
-                      <a href="/settings" className="underline">
-                        Go to Settings
-                      </a>
-                    </li>
-                  ))}
-                  {bankingErrors.map((error, i) => (
-                    <li key={`banking-${i}`}>
-                      {error} -{" "}
-                      <a href="/settings" className="underline">
-                        Go to Settings
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          )}
+        {/* Main Content: Two Column Layout */}
+        <div className="flex min-h-[calc(100vh-73px)]">
+          {/* LEFT SIDEBAR: Template Selection & Colors */}
+          <aside className="w-80 flex-shrink-0 border-r border-border bg-card overflow-y-auto">
+            <div className="p-4 space-y-4">
+              {/* Validation Warnings */}
+              {(!companyValid || !bankingValid) && (
+                <Alert className="mb-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    <strong>Action Required:</strong>
+                    <ul className="list-disc list-inside mt-1 space-y-0.5">
+                      {companyErrors.slice(0, 2).map((error, i) => (
+                        <li key={`company-${i}`}>{error}</li>
+                      ))}
+                      {bankingErrors.slice(0, 2).map((error, i) => (
+                        <li key={`banking-${i}`}>{error}</li>
+                      ))}
+                    </ul>
+                    <a href="/settings" className="underline text-primary mt-1 inline-block">
+                      Go to Settings →
+                    </a>
+                  </AlertDescription>
+                </Alert>
+              )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Design Controls */}
-            <div className="lg:col-span-1 space-y-4">
               {isLoading ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <div className="text-muted-foreground">Loading templates...</div>
-                  </CardContent>
-                </Card>
+                <div className="py-12 text-center">
+                  <div className="text-muted-foreground text-sm">Loading templates...</div>
+                </div>
               ) : (
                 <>
-                  {/* Template Management */}
-                  {user && (
-                    <Card>
-                      <CardContent className="pt-6">
-                        <TemplateManagementPanel
-                          templates={templates}
-                          selectedTemplate={selectedTemplate}
-                          currentSettings={currentSettings}
-                          userId={user.id}
-                          onTemplateCreated={loadTemplates}
-                          onTemplateDeleted={loadTemplates}
-                          onTemplateSelected={(template) => {
-                            setSelectedTemplate(template);
-                            setCurrentSettings(template);
-                          }}
-                        />
-                      </CardContent>
-                    </Card>
-                  )}
+                  {/* Section: Template Selection */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                      <Layout className="h-3.5 w-3.5" />
+                      Template Selection
+                    </h3>
 
-                  {/* Template Selector */}
-                  {templates.length > 0 && selectedTemplate && (
-                    <Card>
-                      <CardContent className="pt-6 space-y-3">
-                        <Label className="text-sm font-medium">Active Template</Label>
+                    {/* Template Management */}
+                    {user && (
+                      <TemplateManagementPanel
+                        templates={templates}
+                        selectedTemplate={selectedTemplate}
+                        currentSettings={currentSettings}
+                        userId={user.id}
+                        onTemplateCreated={loadTemplates}
+                        onTemplateDeleted={loadTemplates}
+                        onTemplateSelected={(template) => {
+                          setSelectedTemplate(template);
+                          setCurrentSettings(template);
+                        }}
+                      />
+                    )}
+
+                    {/* Active Template Selector */}
+                    {templates.length > 0 && selectedTemplate && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Active Template</Label>
                         <Select
                           value={selectedTemplate.id}
                           onValueChange={(value) => {
@@ -633,10 +628,10 @@ const InvoiceTemplates = () => {
                             }
                           }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-background">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-popover z-50">
                             {templates.map((template) => (
                               <SelectItem key={template.id} value={template.id}>
                                 <div className="flex items-center gap-2">
@@ -651,395 +646,288 @@ const InvoiceTemplates = () => {
                             ))}
                           </SelectContent>
                         </Select>
-                      </CardContent>
-                    </Card>
-                  )}
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Design Controls Card */}
-                  <Card>
-                    <CardContent className="pt-6 space-y-6">
-                      {/* Info Message */}
-                      <Alert>
-                        <Settings2 className="h-4 w-4" />
-                        <AlertDescription>
-                          Company logo and banking details are managed in{" "}
-                          <a href="/settings" className="underline font-medium">
-                            Settings
-                          </a>
-                          . Template controls below affect visual design only.
-                        </AlertDescription>
-                      </Alert>
+                  <Separator />
 
-                      {/* Design Presets */}
-                      <div className="space-y-3">
-                        <Label className="flex items-center gap-2">
-                          <Sparkles className="h-4 w-4" />
-                          Design Presets
-                        </Label>
-                        <div className="grid grid-cols-1 gap-2">
-                          {designPresets.map((preset) => (
-                            <Button
-                              key={preset.id}
-                              variant="outline"
-                              size="sm"
-                              className="justify-start h-auto py-3"
-                              onClick={() => applyPreset(preset)}
-                            >
-                              <div className="text-left">
-                                <div className="font-medium">{preset.name}</div>
-                                <div className="text-xs text-muted-foreground">{preset.description}</div>
-                              </div>
-                            </Button>
-                          ))}
+                  {/* Section: Primary Brand Color */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                      <Palette className="h-3.5 w-3.5" />
+                      Primary Brand Color
+                    </h3>
+                    <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
+                      <div
+                        className="w-12 h-12 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
+                        style={{ backgroundColor: currentSettings.primary_color || "#26A65B" }}
+                      >
+                        <Input
+                          type="color"
+                          value={currentSettings.primary_color || "#26A65B"}
+                          onChange={(e) => updateSetting("primary_color", e.target.value)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">Header & Accent Color</div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {currentSettings.primary_color || "#26A65B"}
                         </div>
                       </div>
+                    </div>
 
-                      <Separator />
-
-                      {/* Colors */}
-                      <div className="space-y-4">
-                        <Label className="flex items-center gap-2">
-                          <Palette className="h-4 w-4" />
-                          Colors
-                        </Label>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="text-sm">Primary Color</Label>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-8 h-8 rounded border border-border"
-                                style={{ backgroundColor: currentSettings.primary_color }}
-                              />
-                              <Input
-                                type="color"
-                                value={currentSettings.primary_color || "#26A65B"}
-                                onChange={(e) => updateSetting("primary_color", e.target.value)}
-                                className="w-16 h-8 p-0 border-0"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label className="text-sm">Accent Color</Label>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-8 h-8 rounded border border-border"
-                                style={{ backgroundColor: currentSettings.accent_color }}
-                              />
-                              <Input
-                                type="color"
-                                value={currentSettings.accent_color || "#1F2D3D"}
-                                onChange={(e) => updateSetting("accent_color", e.target.value)}
-                                className="w-16 h-8 p-0 border-0"
-                              />
-                            </div>
-                          </div>
+                    {/* Secondary Accent Color */}
+                    <div className="flex items-center gap-3 p-2 rounded-lg">
+                      <div
+                        className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden"
+                        style={{ backgroundColor: currentSettings.accent_color || "#1F2D3D" }}
+                      >
+                        <Input
+                          type="color"
+                          value={currentSettings.accent_color || "#1F2D3D"}
+                          onChange={(e) => updateSetting("accent_color", e.target.value)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs text-muted-foreground">Accent Color</div>
+                        <div className="text-xs font-mono text-muted-foreground">
+                          {currentSettings.accent_color || "#1F2D3D"}
                         </div>
                       </div>
+                    </div>
+                  </div>
 
-                      <Separator />
+                  <Separator />
 
-                      {/* Typography */}
-                      <div className="space-y-4">
-                        <Label className="flex items-center gap-2">
-                          <Type className="h-4 w-4" />
-                          Typography
-                        </Label>
-
-                        <div className="space-y-3">
-                          <div>
-                            <Label className="text-sm">Font Family</Label>
-                            <Select
-                              value={currentSettings.font_family || "Inter"}
-                              onValueChange={(value) => updateSetting("font_family", value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {fontFamilies.map((font) => (
-                                  <SelectItem key={font.value} value={font.value}>
-                                    {font.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label className="text-sm">Font Size</Label>
-                            <Select
-                              value={currentSettings.font_size || "14px"}
-                              onValueChange={(value) => updateSetting("font_size", value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {fontSizes.map((size) => (
-                                  <SelectItem key={size.value} value={`${size.value}px`}>
-                                    {size.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      {/* Layout Style */}
-                      <div className="space-y-3">
-                        <Label className="flex items-center gap-2">
-                          <Layout className="h-4 w-4" />
-                          Layout Style
-                        </Label>
-                        <Select
-                          value={currentSettings.layout || "default"}
-                          onValueChange={(value) => updateSetting("layout", value)}
+                  {/* Section: Design Presets */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Quick Presets
+                    </h3>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {designPresets.map((preset) => (
+                        <Button
+                          key={preset.id}
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start h-auto py-2 px-3 text-left hover:bg-muted"
+                          onClick={() => applyPreset(preset)}
                         >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
-                            <SelectItem value="compact">Compact</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Separator />
-
-                      {/* Header Layout */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium">Header Layout</Label>
-                        <Select
-                          value={currentSettings.header_layout || "default"}
-                          onValueChange={(value) => updateSetting("header_layout", value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Logo Left + Details Right</SelectItem>
-                            <SelectItem value="centered">Centered</SelectItem>
-                            <SelectItem value="split">Split Layout</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Separator />
-
-                      {/* Table Styling */}
-                      <div className="space-y-3">
-                        <Label className="flex items-center gap-2">
-                          <Table className="h-4 w-4" />
-                          Items Table Style
-                        </Label>
-                        <Select
-                          value={currentSettings.table_style || "default"}
-                          onValueChange={(value) => updateSetting("table_style", value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="striped">Striped Rows</SelectItem>
-                            <SelectItem value="bordered">Bordered</SelectItem>
-                            <SelectItem value="minimal">Minimal</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Separator />
-
-                      {/* Totals Styling */}
-                      <div className="space-y-3">
-                        <Label className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Totals Section Style
-                        </Label>
-                        <Select
-                          value={currentSettings.totals_style || "default"}
-                          onValueChange={(value) => updateSetting("totals_style", value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="boxed">Boxed</SelectItem>
-                            <SelectItem value="highlighted">Highlighted</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Separator />
-
-                      {/* Banking Section */}
-                      <div className="space-y-3">
-                        <Label className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" />
-                          Banking Section
-                        </Label>
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm">Show Banking Details</Label>
-                          <Switch
-                            checked={currentSettings.banking_visibility !== false}
-                            onCheckedChange={(checked) => updateSetting("banking_visibility", checked)}
+                          <div
+                            className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                            style={{ backgroundColor: preset.settings.primary_color }}
                           />
-                        </div>
-                        {currentSettings.banking_visibility !== false && (
-                          <Select
-                            value={currentSettings.banking_style || "default"}
-                            onValueChange={(value) => updateSetting("banking_style", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="default">Default</SelectItem>
-                              <SelectItem value="boxed">Boxed</SelectItem>
-                              <SelectItem value="minimal">Minimal</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-
-                      <Separator />
-
-                      {/* Margins (Fixed) */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium">Page Margins</Label>
-                        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border">
-                          <Lock className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            Standard (20mm) — Fixed for VAT compliance
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex flex-col gap-2 pt-4">
-                        <Button className="w-full" onClick={handleSave} disabled={isSaving || !selectedTemplate}>
-                          <Save className="h-4 w-4 mr-2" />
-                          {isSaving ? "Saving..." : "Save Template"}
+                          <span className="text-sm truncate">{preset.name}</span>
                         </Button>
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={handleSetDefault}
-                          disabled={!selectedTemplate || selectedTemplate?.is_default}
-                        >
-                          <Star className="h-4 w-4 mr-2" />
-                          {selectedTemplate?.is_default ? "Default Template" : "Set as Default"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={async () => {
-                            if (!selectedTemplate) return;
-                            try {
-                              const filename = `Template-Preview-${selectedTemplate.name.replace(/\s+/g, "-")}`;
-                              await downloadPdfFromFunction(filename, templateForPreview?.font_family);
-                              toast({
-                                title: "Export opened",
-                                description: 'Print dialog opened. Choose "Save as PDF" to download.',
-                              });
-                            } catch (error) {
-                              console.error("[InvoiceTemplates] PDF preview error:", error);
-                              toast({
-                                title: "PDF error",
-                                description: "Failed to generate PDF preview.",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                          disabled={!selectedTemplate}
-                        >
-                          <FileDown className="h-4 w-4 mr-2" />
-                          Preview PDF
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Section: Typography */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                      <Type className="h-3.5 w-3.5" />
+                      Typography
+                    </h3>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Font Family</Label>
+                      <Select
+                        value={currentSettings.font_family || "Inter"}
+                        onValueChange={(value) => updateSetting("font_family", value)}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover z-50">
+                          {fontFamilies.map((font) => (
+                            <SelectItem key={font.value} value={font.value}>
+                              {font.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Section: Layout Options */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                      <Settings2 className="h-3.5 w-3.5" />
+                      Layout Options
+                    </h3>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Layout Style</Label>
+                      <Select
+                        value={currentSettings.layout || "default"}
+                        onValueChange={(value) => updateSetting("layout", value)}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover z-50">
+                          <SelectItem value="default">Default</SelectItem>
+                          <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
+                          <SelectItem value="compact">Compact</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Table Style</Label>
+                      <Select
+                        value={currentSettings.table_style || "default"}
+                        onValueChange={(value) => updateSetting("table_style", value)}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover z-50">
+                          <SelectItem value="default">Default</SelectItem>
+                          <SelectItem value="striped">Striped Rows</SelectItem>
+                          <SelectItem value="bordered">Bordered</SelectItem>
+                          <SelectItem value="minimal">Minimal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between py-1">
+                      <Label className="text-xs text-muted-foreground">Show Banking Details</Label>
+                      <Switch
+                        checked={currentSettings.banking_visibility !== false}
+                        onCheckedChange={(checked) => updateSetting("banking_visibility", checked)}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Margins Info */}
+                  <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg text-xs text-muted-foreground">
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Margins: 20mm (fixed for VAT compliance)</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2 pt-2">
+                    <Button className="w-full" onClick={handleSave} disabled={isSaving || !selectedTemplate}>
+                      <Save className="h-4 w-4 mr-2" />
+                      {isSaving ? "Saving..." : "Save Template"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleSetDefault}
+                      disabled={!selectedTemplate || selectedTemplate?.is_default}
+                    >
+                      <Star className="h-4 w-4 mr-2" />
+                      {selectedTemplate?.is_default ? "Default Template" : "Set as Default"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onClick={async () => {
+                        if (!selectedTemplate) return;
+                        try {
+                          const filename = `Template-Preview-${selectedTemplate.name.replace(/\s+/g, "-")}`;
+                          await downloadPdfFromFunction(filename, templateForPreview?.font_family);
+                          toast({
+                            title: "Export opened",
+                            description: 'Print dialog opened. Choose "Save as PDF" to download.',
+                          });
+                        } catch (error) {
+                          console.error("[InvoiceTemplates] PDF preview error:", error);
+                          toast({
+                            title: "PDF error",
+                            description: "Failed to generate PDF preview.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={!selectedTemplate}
+                    >
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Preview PDF
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
+          </aside>
 
-            {/* Live Preview */}
-            <div className="lg:col-span-2">
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Eye className="h-5 w-5" />
-                    Live Preview
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div
-                    className={`${getPreviewDimensions()} bg-white rounded-lg shadow-lg overflow-auto`}
-                    style={{
-                      maxHeight: previewMode === "print" ? "297mm" : "800px",
-                      fontFamily: currentSettings.font_family || "Inter",
-                    }}
-                  >
-                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
+          {/* RIGHT SIDE: A4 Live Preview */}
+          <main className="flex-1 p-8 overflow-auto bg-muted/40">
+            <div className="flex items-center justify-center min-h-full">
+              {/* Paper-like Preview Container */}
+              <div
+                className={`
+                  ${getPreviewDimensions()}
+                  bg-white rounded-sm shadow-xl ring-1 ring-black/5
+                  overflow-hidden
+                `}
+                style={{
+                  maxHeight: previewMode === "print" ? "297mm" : "85vh",
+                  fontFamily: currentSettings.font_family || "Inter",
+                }}
+              >
+                <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
 
-                    <UnifiedInvoiceLayout
-                      invoiceData={sampleInvoiceData}
-                      companySettings={
-                        companySettings
-                          ? {
-                              name: companySettings.company_name || "",
-                              address: companySettings.company_address || "",
-                              city: companySettings.company_city || "",
-                              zipCode: companySettings.company_zip_code || "",
-                              country: companySettings.company_country || "",
-                              phone: companySettings.company_phone || "",
-                              email: companySettings.company_email || "",
-                              taxId: companySettings.company_vat_number || "",
-                              logo: companySettings.company_logo || "",
-                            }
-                          : undefined
-                      }
-                      bankingSettings={
-                        bankingSettings
-                          ? {
-                              bankName: bankingSettings.bank_name || "",
-                              accountName: bankingSettings.bank_account_name || "",
-                              iban: bankingSettings.bank_iban || "",
-                              swiftCode: bankingSettings.bank_swift_code || "",
-                            }
-                          : undefined
-                      }
-                      templateSettings={{
-                        primaryColor: templateForPreview.primary_color,
-                        accentColor: templateForPreview.accent_color,
-                        fontFamily: templateForPreview.font_family,
-                        fontSize: templateForPreview.font_size,
-                        layout: currentSettings.layout || "default",
-                        headerLayout: currentSettings.header_layout || "default",
-                        tableStyle: currentSettings.table_style || "default",
-                        totalsStyle: currentSettings.totals_style || "default",
-                        bankingVisibility: currentSettings.banking_visibility !== false,
-                        bankingStyle: currentSettings.banking_style || "default",
-                        marginTop: currentSettings.margin_top || 20,
-                        marginRight: currentSettings.margin_right || 20,
-                        marginBottom: currentSettings.margin_bottom || 20,
-                        marginLeft: currentSettings.margin_left || 20,
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                <UnifiedInvoiceLayout
+                  invoiceData={sampleInvoiceData}
+                  companySettings={
+                    companySettings
+                      ? {
+                          name: companySettings.company_name || "",
+                          address: companySettings.company_address || "",
+                          city: companySettings.company_city || "",
+                          zipCode: companySettings.company_zip_code || "",
+                          country: companySettings.company_country || "",
+                          phone: companySettings.company_phone || "",
+                          email: companySettings.company_email || "",
+                          taxId: companySettings.company_vat_number || "",
+                          logo: companySettings.company_logo || "",
+                        }
+                      : undefined
+                  }
+                  bankingSettings={
+                    bankingSettings
+                      ? {
+                          bankName: bankingSettings.bank_name || "",
+                          accountName: bankingSettings.bank_account_name || "",
+                          iban: bankingSettings.bank_iban || "",
+                          swiftCode: bankingSettings.bank_swift_code || "",
+                        }
+                      : undefined
+                  }
+                  templateSettings={{
+                    primaryColor: templateForPreview.primary_color,
+                    accentColor: templateForPreview.accent_color,
+                    fontFamily: templateForPreview.font_family,
+                    fontSize: templateForPreview.font_size,
+                    layout: currentSettings.layout || "default",
+                    headerLayout: currentSettings.header_layout || "default",
+                    tableStyle: currentSettings.table_style || "default",
+                    totalsStyle: currentSettings.totals_style || "default",
+                    bankingVisibility: currentSettings.banking_visibility !== false,
+                    bankingStyle: currentSettings.banking_style || "default",
+                    marginTop: currentSettings.margin_top || 20,
+                    marginRight: currentSettings.margin_right || 20,
+                    marginBottom: currentSettings.margin_bottom || 20,
+                    marginLeft: currentSettings.margin_left || 20,
+                  }}
+                />
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
 
       {/* Hidden Font Injector for Google Font based on template */}
