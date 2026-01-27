@@ -135,7 +135,7 @@ export const UnifiedInvoiceLayout = ({
       case 'modern':
         return {
           fontFamily: 'Inter, system-ui, sans-serif',
-          headerBg: templateSettings?.accentColor || '#1e40af',
+          headerBg: '#1e3a5f', // Solid deep blue
           headerTextColor: '#ffffff',
           borderStyle: 'none',
           tableBorder: '1px solid #e5e7eb',
@@ -483,11 +483,11 @@ export const UnifiedInvoiceLayout = ({
     /* ============ STYLE-SPECIFIC OVERRIDES ============ */
     
     ${templateStyle === 'modern' ? `
-      /* Modern Style: Colored header bar, bold fonts */
+      /* Modern Style: Deep blue header bar, white text, 20px padding */
       #${id} .header {
         background: ${styleConfig.headerBg};
         color: ${styleConfig.headerTextColor};
-        padding: ${isPdf ? '4mm' : '16px'};
+        padding: ${isPdf ? '5mm' : '20px'};
         margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
         border-radius: 0;
       }
