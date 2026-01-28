@@ -111,6 +111,37 @@ const percent = (val: number) => `${Number(val || 0)}%`;
 
 const mul = (a: number, b: number) => Number(a || 0) * Number(b || 0);
 
+/**
+ * Calculate readable text color based on background luminance.
+ * Returns white for dark backgrounds, a dark version of the color for light backgrounds.
+ */
+const getContrastTextColor = (hexColor: string): string => {
+  // Remove # if present
+  const hex = hexColor.replace('#', '');
+  
+  // Parse RGB values
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  // Calculate relative luminance (WCAG formula)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // Return white for dark backgrounds, dark color for light backgrounds
+  return luminance > 0.5 ? '#1f2937' : '#ffffff';
+};
+
+/**
+ * Darken a hex color by a percentage (for readable text on light backgrounds)
+ */
+const darkenColor = (hexColor: string, percent: number): string => {
+  const hex = hexColor.replace('#', '');
+  const r = Math.max(0, Math.floor(parseInt(hex.substring(0, 2), 16) * (1 - percent / 100)));
+  const g = Math.max(0, Math.floor(parseInt(hex.substring(2, 4), 16) * (1 - percent / 100)));
+  const b = Math.max(0, Math.floor(parseInt(hex.substring(4, 6), 16) * (1 - percent / 100)));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
 /* ===================== CONSTANTS ===================== */
 
 // Locked margins (user requested “standard, not editable”)
@@ -135,17 +166,23 @@ export const UnifiedInvoiceLayout = ({
   // Get style-specific settings
   const getStyleConfig = () => {
     const brandColor = templateSettings?.primaryColor || '#1e3a5f';
+    // Calculate contrast-aware text color for the brand color
+    const brandTextColor = getContrastTextColor(brandColor);
+    // Darker version of brand color for text on light backgrounds
+    const brandDarkColor = darkenColor(brandColor, 20);
     
     switch (templateStyle) {
       case 'modern':
         return {
           fontFamily: STANDARD_FONT_STACK,
           headerBg: brandColor, // Use brand color for solid header
-          headerTextColor: '#ffffff',
+          headerTextColor: brandTextColor, // Contrast-aware text color
           borderStyle: 'none',
           tableBorder: '1px solid #e5e7eb',
           rowAltBg: '#f8fafc',
           spacing: 'normal',
+          brandColor,
+          brandDarkColor,
         };
       case 'professional':
         return {
@@ -157,16 +194,21 @@ export const UnifiedInvoiceLayout = ({
           tableBorder: '1px solid #e5e7eb',
           rowAltBg: '#f9fafb',
           spacing: 'normal',
+          brandColor,
+          brandDarkColor,
         };
       case 'classic':
         return {
           fontFamily: 'Georgia, Times New Roman, Times, serif',
           headerBg: 'transparent',
-          headerTextColor: brandColor,
+          headerTextColor: brandDarkColor, // Use darker brand color for readability
           borderStyle: `1px solid ${brandColor}`,
+          borderTopColor: brandColor, // Top border accent
           tableBorder: `1px solid ${brandColor}`,
           rowAltBg: 'transparent',
           spacing: 'compact',
+          brandColor,
+          brandDarkColor,
         };
       case 'minimalist':
         return {
@@ -177,6 +219,8 @@ export const UnifiedInvoiceLayout = ({
           tableBorder: 'none',
           rowAltBg: 'transparent',
           spacing: 'spacious',
+          brandColor,
+          brandDarkColor,
         };
       default:
         return {
@@ -187,6 +231,8 @@ export const UnifiedInvoiceLayout = ({
           tableBorder: '1px solid #e5e7eb',
           rowAltBg: '#f9fafb',
           spacing: 'normal',
+          brandColor,
+          brandDarkColor,
         };
     }
   };
@@ -647,13 +693,13 @@ export const UnifiedInvoiceLayout = ({
     ` : ''}
 
     ${templateStyle === 'classic' ? `
-      /* Classic Style: Top border accent, serif font, traditional look */
+      /* Classic Style: Top border accent in brand color, serif font, traditional look */
       #${id}.invoice-page {
         font-family: Georgia, 'Times New Roman', Times, serif;
       }
       #${id} .header {
         background: transparent;
-        border-top: ${isPdf ? '1.5mm' : '5px'} solid ${primary};
+        border-top: ${isPdf ? '1.5mm' : '5px'} solid ${styleConfig.brandColor};
         padding-top: ${isPdf ? '4mm' : '16px'};
         padding-bottom: ${isPdf ? '4mm' : '16px'};
         margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
@@ -662,26 +708,30 @@ export const UnifiedInvoiceLayout = ({
         min-height: ${isPdf ? '40mm' : '150px'};
         height: auto;
         box-sizing: content-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       #${id} .doc-title {
         font-family: Georgia, 'Times New Roman', Times, serif;
         font-weight: 700;
         letter-spacing: 0.05em;
-        color: #1f2937;
+        color: ${styleConfig.brandDarkColor};
       }
       #${id} .tax-invoice-label {
         font-family: Georgia, 'Times New Roman', Times, serif;
         font-style: italic;
       }
       #${id} table.items {
-        border: 1px solid #1f2937;
+        border: 1px solid ${styleConfig.brandColor};
       }
       #${id} table.items thead th {
         background: transparent;
-        color: #1f2937;
-        border-bottom: 2px solid #1f2937;
+        color: ${styleConfig.brandDarkColor};
+        border-bottom: 2px solid ${styleConfig.brandColor};
         border-right: 1px solid #e5e7eb;
         font-family: Georgia, 'Times New Roman', Times, serif;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       #${id} table.items thead th:last-child {
         border-right: none;
@@ -694,16 +744,19 @@ export const UnifiedInvoiceLayout = ({
         border-right: none;
       }
       #${id} .totals {
-        border: 1px solid #1f2937;
+        border: 1px solid ${styleConfig.brandColor};
         padding: ${isPdf ? '3mm' : '12px'};
       }
+      #${id} .totals .total .value {
+        color: ${styleConfig.brandDarkColor};
+      }
       #${id} .banking {
-        border: 1px solid #1f2937;
+        border: 1px solid ${styleConfig.brandColor};
         padding: ${isPdf ? '3mm' : '12px'};
         margin-top: ${isPdf ? '4mm' : '16px'};
       }
       #${id} .divider {
-        border-top: 1px solid #1f2937;
+        border-top: 1px solid ${styleConfig.brandColor};
       }
     ` : ''}
 

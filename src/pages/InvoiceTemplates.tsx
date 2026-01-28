@@ -660,67 +660,84 @@ const InvoiceTemplates = () => {
                     </Button>
                   </TemplateControlSection>
 
-                  {/* Section: Colors */}
+                  {/* Section: Brand Colors */}
                   <TemplateControlSection 
                     title="Brand Colors" 
                     icon={<Palette className="h-4 w-4 text-muted-foreground" />}
                     defaultOpen={true}
                   >
-                    {/* Primary Color */}
+                    {/* Color Picker */}
                     <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
                       <div
                         className="w-12 h-12 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
-                        style={{ backgroundColor: currentSettings.primary_color || "#26A65B" }}
+                        style={{ backgroundColor: currentSettings.primary_color || "#1e3a5f" }}
                       >
                         <Input
                           type="color"
-                          value={currentSettings.primary_color || "#26A65B"}
+                          value={currentSettings.primary_color || "#1e3a5f"}
                           onChange={(e) => updateSetting("primary_color", e.target.value)}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
                       </div>
                       <div className="flex-1">
-                        <div className="text-sm font-medium">Primary Color</div>
+                        <div className="text-sm font-medium">Primary Brand Color</div>
                         <div className="text-xs text-muted-foreground font-mono">
-                          {currentSettings.primary_color || "#26A65B"}
+                          {currentSettings.primary_color || "#1e3a5f"}
                         </div>
                       </div>
                     </div>
 
-                    {/* Accent Color */}
-                    <div className="flex items-center gap-3 p-2 rounded-lg">
-                      <div
-                        className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden"
-                        style={{ backgroundColor: currentSettings.accent_color || "#1F2D3D" }}
-                      >
-                        <Input
-                          type="color"
-                          value={currentSettings.accent_color || "#1F2D3D"}
-                          onChange={(e) => updateSetting("accent_color", e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-muted-foreground">Accent Color</div>
-                        <div className="text-xs font-mono text-muted-foreground">
-                          {currentSettings.accent_color || "#1F2D3D"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick Presets */}
-                    <div className="pt-2">
-                      <Label className="text-xs text-muted-foreground mb-2 block">Quick Presets</Label>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {designPresets.map((preset) => (
+                    {/* Professional Preset Colors */}
+                    <div className="pt-3">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Professional Presets</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { name: "Navy", color: "#1e3a5f" },
+                          { name: "Slate", color: "#475569" },
+                          { name: "Emerald", color: "#065f46" },
+                          { name: "Maroon", color: "#7f1d1d" },
+                          { name: "Indigo", color: "#3730a3" },
+                          { name: "Charcoal", color: "#1f2937" },
+                        ].map((preset) => (
                           <button
-                            key={preset.id}
-                            title={preset.name}
-                            className="w-8 h-8 rounded-md border border-border hover:ring-2 hover:ring-primary/50 transition-all"
-                            style={{ backgroundColor: preset.settings.primary_color }}
-                            onClick={() => applyPreset(preset)}
-                          />
+                            key={preset.name}
+                            className={`flex items-center gap-2 p-2 rounded-md border transition-all hover:ring-2 hover:ring-primary/50 ${
+                              currentSettings.primary_color === preset.color 
+                                ? "ring-2 ring-primary border-primary" 
+                                : "border-border"
+                            }`}
+                            onClick={() => updateSetting("primary_color", preset.color)}
+                          >
+                            <div
+                              className="w-5 h-5 rounded-full border border-border/50 flex-shrink-0"
+                              style={{ backgroundColor: preset.color }}
+                            />
+                            <span className="text-xs font-medium truncate">{preset.name}</span>
+                          </button>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* Accent Color (Secondary) */}
+                    <div className="pt-3">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Accent Color</Label>
+                      <div className="flex items-center gap-3 p-2 rounded-lg border border-border/50">
+                        <div
+                          className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden"
+                          style={{ backgroundColor: currentSettings.accent_color || "#1F2D3D" }}
+                        >
+                          <Input
+                            type="color"
+                            value={currentSettings.accent_color || "#1F2D3D"}
+                            onChange={(e) => updateSetting("accent_color", e.target.value)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs font-mono text-muted-foreground">
+                            {currentSettings.accent_color || "#1F2D3D"}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </TemplateControlSection>
