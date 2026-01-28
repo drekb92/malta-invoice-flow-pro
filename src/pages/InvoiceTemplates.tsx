@@ -527,49 +527,48 @@ const InvoiceTemplates = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/40">
+    <div className="min-h-screen bg-background">
       <Navigation />
 
-      <div className="md:ml-64">
+      <div className="md:ml-64 flex flex-col min-h-screen">
         {/* Sticky Header */}
         <header className="bg-card border-b border-border sticky top-0 z-20">
-          <div className="px-6 py-4">
+          <div className="px-6 py-3">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Invoice Template Designer</h1>
-                <p className="text-sm text-muted-foreground mt-1">Design beautiful invoices with live preview</p>
+                <h1 className="text-xl font-bold text-foreground">Invoice Template Designer</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Design and preview your invoice templates</p>
               </div>
               <div className="flex items-center gap-2">
                 <PreviewModeSelector mode={previewMode} onModeChange={setPreviewMode} />
                 <Button variant="outline" size="sm" onClick={resetToDefault} disabled={!selectedTemplate}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
+                  <RotateCcw className="h-4 w-4 mr-1.5" />
                   Reset
                 </Button>
                 <Button
-                  variant="outline"
                   size="sm"
                   onClick={handleSaveAndTest}
                   disabled={isSaving || !selectedTemplate}
                 >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Save & Test
+                  <FileDown className="h-4 w-4 mr-1.5" />
+                  Save & Test PDF
                 </Button>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Main Content: Two Column Layout */}
-        <div className="flex min-h-[calc(100vh-73px)]">
-          {/* LEFT SIDEBAR: Template Selection & Colors */}
-          <aside className="w-80 flex-shrink-0 border-r border-border bg-card overflow-y-auto">
-            <div className="p-4 space-y-4">
+        {/* Main Content: Two Column Editor Layout */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* LEFT SIDEBAR: Controls (350px) */}
+          <aside className="w-[350px] flex-shrink-0 border-r border-border bg-white overflow-y-auto">
+            <div className="p-4 space-y-1">
               {/* Validation Warnings */}
               {(!companyValid || !bankingValid) && (
-                <Alert className="mb-2">
+                <Alert className="mb-3">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-xs">
-                    <strong>Action Required:</strong>
+                    <strong>Setup Required:</strong>
                     <ul className="list-disc list-inside mt-1 space-y-0.5">
                       {companyErrors.slice(0, 2).map((error, i) => (
                         <li key={`company-${i}`}>{error}</li>
@@ -590,14 +589,13 @@ const InvoiceTemplates = () => {
                   <div className="text-muted-foreground text-sm">Loading templates...</div>
                 </div>
               ) : (
-                <>
+                <div className="space-y-1">
                   {/* Section: Template Selection */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Layout className="h-3.5 w-3.5" />
-                      Template Selection
-                    </h3>
-
+                  <TemplateControlSection 
+                    title="Template Selection" 
+                    icon={<Layout className="h-4 w-4 text-muted-foreground" />}
+                    defaultOpen={true}
+                  >
                     {/* Template Management */}
                     {user && (
                       <TemplateManagementPanel
@@ -648,16 +646,27 @@ const InvoiceTemplates = () => {
                         </Select>
                       </div>
                     )}
-                  </div>
 
-                  <Separator />
+                    {/* Set Default Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={handleSetDefault}
+                      disabled={!selectedTemplate || selectedTemplate?.is_default}
+                    >
+                      <Star className="h-4 w-4 mr-2" />
+                      {selectedTemplate?.is_default ? "Default Template" : "Set as Default"}
+                    </Button>
+                  </TemplateControlSection>
 
-                  {/* Section: Primary Brand Color */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Palette className="h-3.5 w-3.5" />
-                      Primary Brand Color
-                    </h3>
+                  {/* Section: Colors */}
+                  <TemplateControlSection 
+                    title="Brand Colors" 
+                    icon={<Palette className="h-4 w-4 text-muted-foreground" />}
+                    defaultOpen={true}
+                  >
+                    {/* Primary Color */}
                     <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
                       <div
                         className="w-12 h-12 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
@@ -671,14 +680,14 @@ const InvoiceTemplates = () => {
                         />
                       </div>
                       <div className="flex-1">
-                        <div className="text-sm font-medium">Header & Accent Color</div>
+                        <div className="text-sm font-medium">Primary Color</div>
                         <div className="text-xs text-muted-foreground font-mono">
                           {currentSettings.primary_color || "#26A65B"}
                         </div>
                       </div>
                     </div>
 
-                    {/* Secondary Accent Color */}
+                    {/* Accent Color */}
                     <div className="flex items-center gap-3 p-2 rounded-lg">
                       <div
                         className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden"
@@ -698,138 +707,157 @@ const InvoiceTemplates = () => {
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <Separator />
-
-                  {/* Section: Design Presets */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Quick Presets
-                    </h3>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {designPresets.map((preset) => (
-                        <Button
-                          key={preset.id}
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start h-auto py-2 px-3 text-left hover:bg-muted"
-                          onClick={() => applyPreset(preset)}
-                        >
-                          <div
-                            className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                    {/* Quick Presets */}
+                    <div className="pt-2">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Quick Presets</Label>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {designPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            title={preset.name}
+                            className="w-8 h-8 rounded-md border border-border hover:ring-2 hover:ring-primary/50 transition-all"
                             style={{ backgroundColor: preset.settings.primary_color }}
+                            onClick={() => applyPreset(preset)}
                           />
-                          <span className="text-sm truncate">{preset.name}</span>
-                        </Button>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-
-                  <Separator />
+                  </TemplateControlSection>
 
                   {/* Section: Typography */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Type className="h-3.5 w-3.5" />
-                      Typography
-                    </h3>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Font Family</Label>
-                      <Select
-                        value={currentSettings.font_family || "Inter"}
-                        onValueChange={(value) => updateSetting("font_family", value)}
-                      >
-                        <SelectTrigger className="bg-background">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover z-50">
-                          {fontFamilies.map((font) => (
-                            <SelectItem key={font.value} value={font.value}>
-                              {font.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <TemplateControlSection 
+                    title="Typography" 
+                    icon={<Type className="h-4 w-4 text-muted-foreground" />}
+                    defaultOpen={false}
+                  >
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Font Family</Label>
+                        <Select
+                          value={currentSettings.font_family || "Inter"}
+                          onValueChange={(value) => updateSetting("font_family", value)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            {fontFamilies.map((font) => (
+                              <SelectItem key={font.value} value={font.value}>
+                                <span style={{ fontFamily: font.value }}>{font.label}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <Separator />
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Font Size</Label>
+                        <Select
+                          value={currentSettings.font_size?.replace('px', '') || "14"}
+                          onValueChange={(value) => updateSetting("font_size", `${value}px`)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            {fontSizes.map((size) => (
+                              <SelectItem key={size.value} value={size.value}>
+                                {size.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </TemplateControlSection>
 
                   {/* Section: Layout Options */}
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Settings2 className="h-3.5 w-3.5" />
-                      Layout Options
-                    </h3>
+                  <TemplateControlSection 
+                    title="Layout Options" 
+                    icon={<Settings2 className="h-4 w-4 text-muted-foreground" />}
+                    defaultOpen={false}
+                  >
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Layout Style</Label>
+                        <Select
+                          value={currentSettings.layout || "default"}
+                          onValueChange={(value) => updateSetting("layout", value)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
+                            <SelectItem value="compact">Compact</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Layout Style</Label>
-                      <Select
-                        value={currentSettings.layout || "default"}
-                        onValueChange={(value) => updateSetting("layout", value)}
-                      >
-                        <SelectTrigger className="bg-background">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover z-50">
-                          <SelectItem value="default">Default</SelectItem>
-                          <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
-                          <SelectItem value="compact">Compact</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Table Style</Label>
+                        <Select
+                          value={currentSettings.table_style || "default"}
+                          onValueChange={(value) => updateSetting("table_style", value)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="striped">Striped Rows</SelectItem>
+                            <SelectItem value="bordered">Bordered</SelectItem>
+                            <SelectItem value="minimal">Minimal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Totals Style</Label>
+                        <Select
+                          value={currentSettings.totals_style || "default"}
+                          onValueChange={(value) => updateSetting("totals_style", value)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="boxed">Boxed</SelectItem>
+                            <SelectItem value="highlighted">Highlighted</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center justify-between py-2 px-1">
+                        <Label className="text-sm">Show Banking Details</Label>
+                        <Switch
+                          checked={currentSettings.banking_visibility !== false}
+                          onCheckedChange={(checked) => updateSetting("banking_visibility", checked)}
+                        />
+                      </div>
                     </div>
+                  </TemplateControlSection>
 
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Table Style</Label>
-                      <Select
-                        value={currentSettings.table_style || "default"}
-                        onValueChange={(value) => updateSetting("table_style", value)}
-                      >
-                        <SelectTrigger className="bg-background">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover z-50">
-                          <SelectItem value="default">Default</SelectItem>
-                          <SelectItem value="striped">Striped Rows</SelectItem>
-                          <SelectItem value="bordered">Bordered</SelectItem>
-                          <SelectItem value="minimal">Minimal</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {/* Section: Margins */}
+                  <TemplateControlSection 
+                    title="Page Margins" 
+                    icon={<Lock className="h-4 w-4 text-muted-foreground" />}
+                    defaultOpen={false}
+                  >
+                    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                      <Lock className="h-4 w-4" />
+                      <span>Margins fixed at 20mm for VAT compliance</span>
                     </div>
+                  </TemplateControlSection>
 
-                    <div className="flex items-center justify-between py-1">
-                      <Label className="text-xs text-muted-foreground">Show Banking Details</Label>
-                      <Switch
-                        checked={currentSettings.banking_visibility !== false}
-                        onCheckedChange={(checked) => updateSetting("banking_visibility", checked)}
-                      />
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Margins Info */}
-                  <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg text-xs text-muted-foreground">
-                    <Lock className="h-3.5 w-3.5" />
-                    <span>Margins: 20mm (fixed for VAT compliance)</span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="space-y-2 pt-2">
+                  {/* Save Button */}
+                  <div className="pt-4 space-y-2">
                     <Button className="w-full" onClick={handleSave} disabled={isSaving || !selectedTemplate}>
                       <Save className="h-4 w-4 mr-2" />
                       {isSaving ? "Saving..." : "Save Template"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={handleSetDefault}
-                      disabled={!selectedTemplate || selectedTemplate?.is_default}
-                    >
-                      <Star className="h-4 w-4 mr-2" />
-                      {selectedTemplate?.is_default ? "Default Template" : "Set as Default"}
                     </Button>
                     <Button
                       variant="ghost"
@@ -858,23 +886,20 @@ const InvoiceTemplates = () => {
                       Preview PDF
                     </Button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </aside>
 
-          {/* RIGHT SIDE: A4 Live Preview */}
-          <main className="flex-1 p-8 overflow-auto bg-muted/40">
-            <div className="flex items-center justify-center min-h-full">
-              {/* Paper-like Preview Container */}
+          {/* RIGHT CANVAS: A4 Live Preview */}
+          <main className="flex-1 overflow-auto bg-slate-50">
+            <div className="flex items-start justify-center min-h-full p-8">
+              {/* Paper Effect: White A4 with shadow */}
               <div
-                className={`
-                  ${getPreviewDimensions()}
-                  bg-white rounded-sm shadow-xl ring-1 ring-black/5
-                  overflow-hidden
-                `}
+                className="bg-white shadow-xl rounded-sm overflow-hidden"
                 style={{
-                  maxHeight: previewMode === "print" ? "297mm" : "85vh",
+                  width: previewMode === "mobile" ? "375px" : previewMode === "print" ? "210mm" : "794px",
+                  minHeight: previewMode === "print" ? "297mm" : "auto",
                   fontFamily: currentSettings.font_family || "Inter",
                 }}
               >
