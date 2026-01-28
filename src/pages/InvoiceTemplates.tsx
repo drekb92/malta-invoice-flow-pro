@@ -33,6 +33,9 @@ import { PreviewModeSelector, PreviewMode } from "@/components/templates/Preview
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Template style types
+type TemplateStyle = 'modern' | 'professional' | 'minimalist';
+
 interface InvoiceTemplate {
   id: string;
   name: string;
@@ -52,7 +55,30 @@ interface InvoiceTemplate {
   margin_bottom?: number;
   margin_left?: number;
   created_at?: string;
+  style?: TemplateStyle;
 }
+
+// Template style definitions with descriptions
+const TEMPLATE_STYLES: { value: TemplateStyle; label: string; description: string; icon: string }[] = [
+  { 
+    value: 'modern', 
+    label: 'Modern', 
+    description: 'Solid brand color header with white text',
+    icon: '◼'
+  },
+  { 
+    value: 'professional', 
+    label: 'Professional', 
+    description: 'White header with colored top border',
+    icon: '▬'
+  },
+  { 
+    value: 'minimalist', 
+    label: 'Minimalist', 
+    description: 'Clean design, color only on totals',
+    icon: '○'
+  },
+];
 
 const designPresets = [
   {
@@ -628,6 +654,41 @@ const InvoiceTemplates = () => {
                     </Button>
                   </TemplateControlSection>
 
+                  {/* Section: Template Style */}
+                  <TemplateControlSection 
+                    title="Template Style" 
+                    icon={<Layout className="h-4 w-4 text-muted-foreground" />}
+                    defaultOpen={true}
+                  >
+                    <div className="space-y-2">
+                      {TEMPLATE_STYLES.map((style) => (
+                        <button
+                          key={style.value}
+                          onClick={() => updateSetting("style", style.value)}
+                          className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-all text-left ${
+                            (currentSettings.style || 'modern') === style.value
+                              ? "border-primary bg-primary/5 ring-1 ring-primary"
+                              : "border-border hover:border-primary/50 hover:bg-muted/50"
+                          }`}
+                        >
+                          <div 
+                            className={`w-8 h-8 rounded flex items-center justify-center text-lg flex-shrink-0 ${
+                              (currentSettings.style || 'modern') === style.value
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {style.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{style.label}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{style.description}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </TemplateControlSection>
+
                   {/* Section: Brand Colors */}
                   <TemplateControlSection 
                     title="Brand Colors" 
@@ -949,6 +1010,7 @@ const InvoiceTemplates = () => {
                       marginRight: currentSettings.margin_right || 20,
                       marginBottom: currentSettings.margin_bottom || 20,
                       marginLeft: currentSettings.margin_left || 20,
+                      style: (currentSettings.style || 'modern') as 'modern' | 'professional' | 'minimalist',
                     }}
                   />
                 </div>
@@ -1017,6 +1079,7 @@ const InvoiceTemplates = () => {
             marginRight: currentSettings.margin_right || 20,
             marginBottom: currentSettings.margin_bottom || 20,
             marginLeft: currentSettings.margin_left || 20,
+            style: (currentSettings.style || 'modern') as 'modern' | 'professional' | 'minimalist',
           }}
         />
       </div>
