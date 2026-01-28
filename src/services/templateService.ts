@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type TemplateStyle = 'modern' | 'professional' | 'classic' | 'minimalist';
+// Simplified to 3 core styles: Modern, Professional, Minimalist
+export type TemplateStyle = 'modern' | 'professional' | 'minimalist';
 
 export interface InvoiceTemplate {
   id: string;
@@ -26,48 +27,49 @@ export interface InvoiceTemplate {
 }
 
 /**
- * Get style-specific settings for invoice templates
+ * Template Style Definitions:
+ * 
+ * MODERN: Solid brand color header background with white/contrast text.
+ *         Bold, contemporary look with colored table headers.
+ * 
+ * PROFESSIONAL: Clean white header with 4px TOP border in brand color.
+ *               Subtle, business-appropriate with minimal color accents.
+ * 
+ * MINIMALIST: No colored header or borders. Pure white design.
+ *             Brand color used ONLY for the Total Amount text.
+ * 
+ * All styles use standardized font sizes for line items to maintain consistency.
  */
 export const getStyleSettings = (style: TemplateStyle): Partial<InvoiceTemplate> => {
+  // Standard font for all templates
+  const standardFont = 'Inter';
+  
   switch (style) {
     case 'modern':
       return {
-        font_family: 'Inter',
-        primary_color: '#1e40af', // Bold blue
-        accent_color: '#0ea5e9',
+        font_family: standardFont,
         table_style: 'striped',
         totals_style: 'highlighted',
         banking_style: 'boxed',
       };
     case 'professional':
       return {
-        font_family: 'Inter',
-        primary_color: '#111827', // Dark gray
-        accent_color: '#374151',
-        table_style: 'bordered',
-        totals_style: 'boxed',
-        banking_style: 'default',
-      };
-    case 'classic':
-      return {
-        font_family: 'Georgia',
-        primary_color: '#1f2937', // Dark gray/black
-        accent_color: '#374151',
-        table_style: 'bordered',
-        totals_style: 'boxed',
+        font_family: standardFont,
+        table_style: 'default',
+        totals_style: 'default',
         banking_style: 'default',
       };
     case 'minimalist':
       return {
-        font_family: 'Inter',
-        primary_color: '#6b7280', // Muted gray
-        accent_color: '#9ca3af',
+        font_family: standardFont,
         table_style: 'minimal',
         totals_style: 'default',
         banking_style: 'minimal',
       };
     default:
-      return {};
+      return {
+        font_family: standardFont,
+      };
   }
 };
 
