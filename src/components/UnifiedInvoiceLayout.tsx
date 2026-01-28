@@ -64,7 +64,8 @@ export interface InvoiceData {
 
 export type DocumentType = "INVOICE" | "CREDIT NOTE" | "QUOTATION";
 
-export type TemplateStyle = 'modern' | 'professional' | 'classic' | 'minimalist';
+// Simplified to 3 core styles
+export type TemplateStyle = 'modern' | 'professional' | 'minimalist';
 
 export interface TemplateSettings {
   primaryColor?: string;
@@ -173,52 +174,51 @@ export const UnifiedInvoiceLayout = ({
     
     switch (templateStyle) {
       case 'modern':
+        // MODERN: Solid brand color header with white/contrast text
         return {
           fontFamily: STANDARD_FONT_STACK,
-          headerBg: brandColor, // Use brand color for solid header
-          headerTextColor: brandTextColor, // Contrast-aware text color
-          borderStyle: 'none',
+          headerBg: brandColor,
+          headerTextColor: brandTextColor,
+          headerBorderStyle: 'none',
           tableBorder: '1px solid #e5e7eb',
+          tableHeaderBg: brandColor,
+          tableHeaderColor: brandTextColor,
           rowAltBg: '#f8fafc',
-          spacing: 'normal',
+          totalBg: brandColor,
+          totalTextColor: brandTextColor,
           brandColor,
           brandDarkColor,
         };
       case 'professional':
+        // PROFESSIONAL: White header with 4px TOP border in brand color
         return {
           fontFamily: STANDARD_FONT_STACK,
-          headerBg: '#ffffff', // White header
+          headerBg: '#ffffff',
           headerTextColor: '#111827',
-          headerBorderColor: brandColor, // 4px bottom border in brand color
-          borderStyle: 'none',
+          headerBorderStyle: `${isPdf ? '1.2mm' : '4px'} solid ${brandColor}`,
           tableBorder: '1px solid #e5e7eb',
+          tableHeaderBg: '#f9fafb',
+          tableHeaderColor: '#374151',
+          tableHeaderBorder: `2px solid ${brandColor}`,
           rowAltBg: '#f9fafb',
-          spacing: 'normal',
-          brandColor,
-          brandDarkColor,
-        };
-      case 'classic':
-        return {
-          fontFamily: 'Georgia, Times New Roman, Times, serif',
-          headerBg: 'transparent',
-          headerTextColor: brandDarkColor, // Use darker brand color for readability
-          borderStyle: `1px solid ${brandColor}`,
-          borderTopColor: brandColor, // Top border accent
-          tableBorder: `1px solid ${brandColor}`,
-          rowAltBg: 'transparent',
-          spacing: 'compact',
+          totalBg: 'transparent',
+          totalTextColor: brandColor,
           brandColor,
           brandDarkColor,
         };
       case 'minimalist':
+        // MINIMALIST: No colored header/borders, brand color ONLY for Total Amount
         return {
           fontFamily: STANDARD_FONT_STACK,
           headerBg: 'transparent',
-          headerTextColor: '#6b7280',
-          borderStyle: 'none',
+          headerTextColor: '#374151',
+          headerBorderStyle: 'none',
           tableBorder: 'none',
+          tableHeaderBg: 'transparent',
+          tableHeaderColor: '#9ca3af',
           rowAltBg: 'transparent',
-          spacing: 'spacious',
+          totalBg: 'transparent',
+          totalTextColor: brandColor, // Only place brand color is used
           brandColor,
           brandDarkColor,
         };
@@ -227,10 +227,13 @@ export const UnifiedInvoiceLayout = ({
           fontFamily: STANDARD_FONT_STACK,
           headerBg: 'transparent',
           headerTextColor: '#111827',
-          borderStyle: 'none',
+          headerBorderStyle: 'none',
           tableBorder: '1px solid #e5e7eb',
+          tableHeaderBg: '#f9fafb',
+          tableHeaderColor: '#374151',
           rowAltBg: '#f9fafb',
-          spacing: 'normal',
+          totalBg: 'transparent',
+          totalTextColor: '#111827',
           brandColor,
           brandDarkColor,
         };
@@ -253,10 +256,8 @@ export const UnifiedInvoiceLayout = ({
   const showBanking = (templateSettings?.bankingVisibility ?? true) && !!bankingSettings;
 
   // Determine font sizes based on variant (pt for PDF, px for preview)
+  // All templates use standardized font sizes for consistency
   const isPdf = variant === "pdf";
-  
-  // Spacing multiplier based on style
-  const spacingMult = styleConfig.spacing === 'spacious' ? 1.5 : styleConfig.spacing === 'compact' ? 0.8 : 1;
   
   const fontSize = {
     body: isPdf ? '10pt' : '12px',
@@ -581,7 +582,7 @@ export const UnifiedInvoiceLayout = ({
     /* ============ STYLE-SPECIFIC OVERRIDES ============ */
     
     ${templateStyle === 'modern' ? `
-      /* Modern Style: Solid brand color header, white text */
+      /* MODERN: Solid brand color header with white/contrast text */
       #${id} .header {
         background: ${styleConfig.headerBg};
         color: ${styleConfig.headerTextColor};
@@ -607,8 +608,8 @@ export const UnifiedInvoiceLayout = ({
         font-weight: 900;
       }
       #${id} table.items thead th {
-        background: ${styleConfig.headerBg};
-        color: ${styleConfig.headerTextColor};
+        background: ${styleConfig.tableHeaderBg};
+        color: ${styleConfig.tableHeaderColor};
         border-bottom: none;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -617,8 +618,8 @@ export const UnifiedInvoiceLayout = ({
         background: ${styleConfig.rowAltBg};
       }
       #${id} .totals .total {
-        background: ${styleConfig.headerBg};
-        color: ${styleConfig.headerTextColor};
+        background: ${styleConfig.totalBg};
+        color: ${styleConfig.totalTextColor};
         padding: ${isPdf ? '2mm 3mm' : '8px 12px'};
         border-radius: ${isPdf ? '1mm' : '4px'};
         border-top: none;
@@ -627,12 +628,12 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} .totals .total .label,
       #${id} .totals .total .value {
-        color: ${styleConfig.headerTextColor};
+        color: ${styleConfig.totalTextColor};
       }
     ` : ''}
 
     ${templateStyle === 'professional' ? `
-      /* Professional Style: White header with 4px bottom border in brand color */
+      /* PROFESSIONAL: White header with 4px TOP border in brand color */
       #${id} .header {
         background: ${styleConfig.headerBg};
         color: ${styleConfig.headerTextColor};
@@ -640,7 +641,7 @@ export const UnifiedInvoiceLayout = ({
         margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
         padding-left: ${isPdf ? '15mm' : '24px'};
         padding-right: ${isPdf ? '15mm' : '24px'};
-        border-bottom: ${isPdf ? '1.2mm' : '4px'} solid ${primary};
+        border-top: ${styleConfig.headerBorderStyle};
         min-height: ${isPdf ? '40mm' : '150px'};
         height: auto;
         box-sizing: content-box;
@@ -658,16 +659,16 @@ export const UnifiedInvoiceLayout = ({
         color: #111827;
       }
       #${id} .doc-title {
-        color: ${primary};
+        color: ${styleConfig.brandColor};
         font-weight: 800;
       }
       #${id} .tax-invoice-label {
         color: #6b7280;
       }
       #${id} table.items thead th {
-        background: #f9fafb;
-        color: #374151;
-        border-bottom: 2px solid ${primary};
+        background: ${styleConfig.tableHeaderBg};
+        color: ${styleConfig.tableHeaderColor};
+        border-bottom: ${styleConfig.tableHeaderBorder};
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -675,93 +676,22 @@ export const UnifiedInvoiceLayout = ({
         background: ${styleConfig.rowAltBg};
       }
       #${id} .totals .total {
-        background: #f9fafb;
-        border-top: 2px solid ${primary};
-        padding: ${isPdf ? '2mm 3mm' : '8px 12px'};
-        border-radius: 0;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+        border-top: 2px solid ${styleConfig.brandColor};
+        padding: ${isPdf ? '2mm 0' : '8px 0'};
+        margin-top: ${isPdf ? '2mm' : '8px'};
       }
       #${id} .totals .total .label {
         color: #111827;
         font-weight: 700;
       }
       #${id} .totals .total .value {
-        color: ${primary};
+        color: ${styleConfig.totalTextColor};
         font-weight: 800;
       }
     ` : ''}
 
-    ${templateStyle === 'classic' ? `
-      /* Classic Style: Top border accent in brand color, serif font, traditional look */
-      #${id}.invoice-page {
-        font-family: Georgia, 'Times New Roman', Times, serif;
-      }
-      #${id} .header {
-        background: transparent;
-        border-top: ${isPdf ? '1.5mm' : '5px'} solid ${styleConfig.brandColor};
-        padding-top: ${isPdf ? '4mm' : '16px'};
-        padding-bottom: ${isPdf ? '4mm' : '16px'};
-        margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
-        padding-left: ${isPdf ? '15mm' : '24px'};
-        padding-right: ${isPdf ? '15mm' : '24px'};
-        min-height: ${isPdf ? '40mm' : '150px'};
-        height: auto;
-        box-sizing: content-box;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      #${id} .doc-title {
-        font-family: Georgia, 'Times New Roman', Times, serif;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        color: ${styleConfig.brandDarkColor};
-      }
-      #${id} .tax-invoice-label {
-        font-family: Georgia, 'Times New Roman', Times, serif;
-        font-style: italic;
-      }
-      #${id} table.items {
-        border: 1px solid ${styleConfig.brandColor};
-      }
-      #${id} table.items thead th {
-        background: transparent;
-        color: ${styleConfig.brandDarkColor};
-        border-bottom: 2px solid ${styleConfig.brandColor};
-        border-right: 1px solid #e5e7eb;
-        font-family: Georgia, 'Times New Roman', Times, serif;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      #${id} table.items thead th:last-child {
-        border-right: none;
-      }
-      #${id} table.items tbody td {
-        border-bottom: 1px solid #d1d5db;
-        border-right: 1px solid #e5e7eb;
-      }
-      #${id} table.items tbody td:last-child {
-        border-right: none;
-      }
-      #${id} .totals {
-        border: 1px solid ${styleConfig.brandColor};
-        padding: ${isPdf ? '3mm' : '12px'};
-      }
-      #${id} .totals .total .value {
-        color: ${styleConfig.brandDarkColor};
-      }
-      #${id} .banking {
-        border: 1px solid ${styleConfig.brandColor};
-        padding: ${isPdf ? '3mm' : '12px'};
-        margin-top: ${isPdf ? '4mm' : '16px'};
-      }
-      #${id} .divider {
-        border-top: 1px solid ${styleConfig.brandColor};
-      }
-    ` : ''}
-
     ${templateStyle === 'minimalist' ? `
-      /* Minimalist Style: Pure white, no heavy headers, primary accent on key elements only */
+      /* MINIMALIST: No colored header/borders. Brand color ONLY for Total Amount */
       #${id}.invoice-page {
         background: #ffffff !important;
       }
@@ -771,33 +701,34 @@ export const UnifiedInvoiceLayout = ({
       #${id} .header {
         background: transparent !important;
         padding-bottom: ${isPdf ? '8mm' : '32px'};
-        border: none;
+        border: none !important;
       }
-      #${id} .header .company-name,
-      #${id} .header .company-details,
-      #${id} .header .company-details div {
+      #${id} .header .company,
+      #${id} .header .company strong {
+        color: #374151;
+      }
+      #${id} .header .meta .label {
+        color: #9ca3af;
+      }
+      #${id} .header .meta .value {
         color: #374151;
       }
       #${id} .doc-title {
-        font-weight: 300;
-        letter-spacing: 0.2em;
-        color: #9ca3af;
+        font-weight: 400;
+        letter-spacing: 0.15em;
+        color: #6b7280;
         font-size: ${isPdf ? '14pt' : '20px'};
       }
-      #${id} .invoice-number {
-        color: ${primary} !important;
-        font-weight: 500;
+      #${id} .tax-invoice-label {
+        color: #9ca3af;
       }
       #${id} .divider {
         display: none;
       }
-      #${id} .billto {
-        margin-bottom: ${isPdf ? '8mm' : '32px'};
-      }
       #${id} .section-label {
         color: #9ca3af;
         font-weight: 400;
-        letter-spacing: 0.15em;
+        letter-spacing: 0.12em;
       }
       #${id} table.items {
         margin-top: ${isPdf ? '6mm' : '24px'};
@@ -805,51 +736,50 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} table.items thead th {
         background: transparent !important;
-        border-bottom: none;
+        border-bottom: 1px solid #e5e7eb;
         color: #9ca3af;
-        font-weight: 400;
-        padding-bottom: ${isPdf ? '4mm' : '16px'};
+        font-weight: 500;
       }
       #${id} table.items tbody td {
-        border-bottom: none;
-        padding: ${isPdf ? '3mm 2mm' : '12px 8px'};
+        border-bottom: 1px solid #f3f4f6;
         background: #ffffff;
       }
       #${id} .totals {
-        margin-top: ${isPdf ? '8mm' : '32px'};
-        padding-top: ${isPdf ? '4mm' : '16px'};
+        margin-top: ${isPdf ? '6mm' : '24px'};
+        padding-top: ${isPdf ? '3mm' : '12px'};
         border-top: 1px solid #e5e7eb;
         background: transparent;
       }
-      #${id} .totals .row {
+      #${id} .totals .row .label {
         color: #6b7280;
+      }
+      #${id} .totals .row .value {
+        color: #374151;
       }
       #${id} .totals .total {
         border-top: none;
-        margin-top: ${isPdf ? '4mm' : '16px'};
+        margin-top: ${isPdf ? '3mm' : '12px'};
+        padding-top: ${isPdf ? '2mm' : '8px'};
       }
       #${id} .totals .total .label {
-        font-weight: 500;
-        color: ${primary} !important;
+        font-weight: 600;
+        color: #374151;
       }
       #${id} .totals .total .value {
-        font-weight: 600;
-        color: ${primary} !important;
+        font-weight: 700;
+        color: ${styleConfig.totalTextColor} !important;
       }
       #${id} .banking {
-        margin-top: ${isPdf ? '8mm' : '32px'};
-        opacity: 0.7;
+        margin-top: ${isPdf ? '6mm' : '24px'};
         background: transparent;
       }
       #${id} .thanks {
-        border-top: none;
+        border-top: 1px solid #f3f4f6;
         color: #9ca3af;
-        font-weight: 300;
       }
-      /* Minimalist VAT Summary: Keep standard styling for consistency */
       #${id} .vat-summary-section {
-        margin-top: ${isPdf ? '8mm' : '32px'};
-        /* Inherit standard styling - do not override */
+        background: #fafafa !important;
+        border: 1px solid #f3f4f6 !important;
       }
     ` : ''}
 
