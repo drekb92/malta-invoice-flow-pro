@@ -18,7 +18,6 @@ import {
   AlertCircle,
   RotateCcw,
   FileDown,
-  Lock,
   Loader2,
 } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
@@ -455,12 +454,6 @@ const InvoiceTemplates = () => {
     { value: "Poppins", label: "Poppins" },
   ];
 
-  const fontSizes = [
-    { value: "12", label: "12px" },
-    { value: "14", label: "14px" },
-    { value: "16", label: "16px" },
-    { value: "18", label: "18px" },
-  ];
 
   const templateForPreview = {
     id: (currentSettings as any).id || "preview",
@@ -743,24 +736,6 @@ const InvoiceTemplates = () => {
                         </Select>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Font Size</Label>
-                        <Select
-                          value={currentSettings.font_size?.replace('px', '') || "14"}
-                          onValueChange={(value) => updateSetting("font_size", `${value}px`)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            {fontSizes.map((size) => (
-                              <SelectItem key={size.value} value={size.value}>
-                                {size.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
                   </TemplateControlSection>
 
@@ -833,17 +808,6 @@ const InvoiceTemplates = () => {
                     </div>
                   </TemplateControlSection>
 
-                  {/* Section: Margins */}
-                  <TemplateControlSection 
-                    title="Page Margins" 
-                    icon={<Lock className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={false}
-                  >
-                    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                      <Lock className="h-4 w-4" />
-                      <span>Margins fixed at 20mm for VAT compliance</span>
-                    </div>
-                  </TemplateControlSection>
 
                   {/* Save Button */}
                   <div className="pt-4 space-y-2">
