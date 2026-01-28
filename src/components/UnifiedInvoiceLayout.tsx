@@ -475,23 +475,23 @@ export const UnifiedInvoiceLayout = ({
       font-variant-numeric: tabular-nums;
     }
 
-    /* VAT Summary Table - Standardized grey-tinted box (identical across all templates) */
+    /* VAT Summary Table - Compact, appears BELOW Grand Total */
     #${id} .vat-summary-section {
-      margin-top: ${isPdf ? '6mm' : '24px'};
+      margin-top: ${isPdf ? '4mm' : '16px'};
       break-inside: avoid;
       page-break-inside: avoid;
-      background: #f1f5f9 !important;
-      border: 1px solid #cbd5e1 !important;
-      border-radius: ${isPdf ? '2mm' : '8px'};
-      padding: ${isPdf ? '4mm' : '16px'};
+      background: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: ${isPdf ? '1.5mm' : '6px'};
+      padding: ${isPdf ? '3mm' : '12px'};
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
     #${id} .vat-summary-section .section-label {
-      margin-bottom: ${isPdf ? '2mm' : '8px'};
-      color: #475569 !important;
-      font-size: ${fontSize.tiny};
-      font-weight: 700;
+      margin-bottom: ${isPdf ? '1.5mm' : '6px'};
+      color: #64748b !important;
+      font-size: ${isPdf ? '7pt' : '9px'};
+      font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -499,26 +499,26 @@ export const UnifiedInvoiceLayout = ({
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: ${fontSize.small};
+      font-size: ${isPdf ? '9pt' : '11px'};
       background: transparent !important;
     }
     #${id} table.vat-summary colgroup col:first-child { width: 34%; }
     #${id} table.vat-summary colgroup col:nth-child(2) { width: 33%; }
     #${id} table.vat-summary colgroup col:nth-child(3) { width: 33%; }
     #${id} table.vat-summary thead th {
-      padding: ${isPdf ? '2mm 2mm' : '8px'};
-      border-bottom: 1px solid #94a3b8;
-      font-weight: 700;
+      padding: ${isPdf ? '1.5mm 1.5mm' : '5px 6px'};
+      border-bottom: 1px solid #cbd5e1;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-size: ${fontSize.tiny};
-      color: #475569 !important;
+      letter-spacing: 0.05em;
+      font-size: ${isPdf ? '7pt' : '9px'};
+      color: #64748b !important;
       background: transparent !important;
     }
     #${id} table.vat-summary tbody td {
-      padding: ${isPdf ? '2mm 2mm' : '8px'};
-      border-bottom: 1px solid #cbd5e1;
-      color: #1e293b !important;
+      padding: ${isPdf ? '1.5mm 1.5mm' : '5px 6px'};
+      border-bottom: 1px solid #e2e8f0;
+      color: #334155 !important;
       font-weight: 500;
       background: transparent !important;
     }
@@ -526,7 +526,7 @@ export const UnifiedInvoiceLayout = ({
       border-bottom: none;
     }
     #${id} table.vat-summary .vat-summary-total {
-      font-weight: 700 !important;
+      font-weight: 600 !important;
       background: #e2e8f0 !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
@@ -1034,7 +1034,44 @@ export const UnifiedInvoiceLayout = ({
               </tbody>
             </table>
 
-            {/* VAT SUMMARY TABLE - Standardized 3-column layout (Rate, Net Amount, VAT Amount) */}
+            {/* TOTALS - Discount applied BEFORE VAT */}
+            <div className="totals totals-section">
+              {/* Subtotal (Net Amount) */}
+              <div className="row">
+                <div className="label">Subtotal</div>
+                <div className="value">{money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}</div>
+              </div>
+              
+              {/* Discount (if any) */}
+              {invoiceData.discount?.amount ? (
+                <>
+                  <div className="row">
+                    <div className="label">
+                      Discount{invoiceData.discount.type === "percent" ? ` (${invoiceData.discount.value}%)` : ""}
+                    </div>
+                    <div className="value">−{money(invoiceData.discount.amount)}</div>
+                  </div>
+                  <div className="row">
+                    <div className="label">Taxable Amount</div>
+                    <div className="value">{money(invoiceData.totals.netTotal)}</div>
+                  </div>
+                </>
+              ) : null}
+
+              {/* VAT (on taxable amount, after discount) */}
+              <div className="row">
+                <div className="label">VAT</div>
+                <div className="value">{money(invoiceData.totals.vatTotal)}</div>
+              </div>
+              
+              {/* Total */}
+              <div className="row total">
+                <div className="label">Total</div>
+                <div className="value">{money(invoiceData.totals.grandTotal)}</div>
+              </div>
+            </div>
+
+            {/* VAT SUMMARY TABLE - Compact layout BELOW totals */}
             {(() => {
               // Group items by VAT rate and calculate totals
               const vatGroups = invoiceData.items.reduce((acc, item) => {
@@ -1096,52 +1133,15 @@ export const UnifiedInvoiceLayout = ({
                       })}
                       {/* Total row */}
                       <tr className="vat-summary-total">
-                        <td style={{ fontWeight: 700 }}>Total</td>
-                        <td className="num" style={{ fontWeight: 700 }}>{money(totalNet)}</td>
-                        <td className="num" style={{ fontWeight: 700 }}>{money(totalVat)}</td>
+                        <td style={{ fontWeight: 600 }}>Total</td>
+                        <td className="num" style={{ fontWeight: 600 }}>{money(totalNet)}</td>
+                        <td className="num" style={{ fontWeight: 600 }}>{money(totalVat)}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               );
             })()}
-
-            {/* TOTALS - Discount applied BEFORE VAT */}
-            <div className="totals totals-section">
-              {/* Subtotal (Net Amount) */}
-              <div className="row">
-                <div className="label">Subtotal</div>
-                <div className="value">{money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}</div>
-              </div>
-              
-              {/* Discount (if any) */}
-              {invoiceData.discount?.amount ? (
-                <>
-                  <div className="row">
-                    <div className="label">
-                      Discount{invoiceData.discount.type === "percent" ? ` (${invoiceData.discount.value}%)` : ""}
-                    </div>
-                    <div className="value">−{money(invoiceData.discount.amount)}</div>
-                  </div>
-                  <div className="row">
-                    <div className="label">Taxable Amount</div>
-                    <div className="value">{money(invoiceData.totals.netTotal)}</div>
-                  </div>
-                </>
-              ) : null}
-
-              {/* VAT (on taxable amount, after discount) */}
-              <div className="row">
-                <div className="label">VAT</div>
-                <div className="value">{money(invoiceData.totals.vatTotal)}</div>
-              </div>
-              
-              {/* Total */}
-              <div className="row total">
-                <div className="label">Total</div>
-                <div className="value">{money(invoiceData.totals.grandTotal)}</div>
-              </div>
-            </div>
           </div>
 
           {/* FOOTER */}
