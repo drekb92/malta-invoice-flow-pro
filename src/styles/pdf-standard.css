@@ -1,0 +1,268 @@
+/**
+ * PDF Standard Styles
+ * 
+ * Standardized styles for invoice PDF generation.
+ * These styles ensure consistent A4 output with proper VAT compliance.
+ * 
+ * Usage: Import and apply via embedded <style> in layout components
+ * or reference via getPdfStandardStyles() function in pdfStyles.ts
+ */
+
+/* ===========================================
+   A4 PAGE SETUP
+   =========================================== */
+
+@page {
+  size: A4;
+  margin: 15mm;
+}
+
+/* ===========================================
+   COLOR PRESERVATION FOR PRINT
+   =========================================== */
+
+*, *::before, *::after {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+  color-adjust: exact !important;
+}
+
+/* ===========================================
+   PRINT MEDIA OVERRIDES
+   =========================================== */
+
+@media print {
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 210mm;
+    height: 297mm;
+  }
+
+  .invoice-page {
+    width: 210mm;
+    min-height: 297mm;
+    page-break-after: always;
+  }
+
+  .invoice-inner {
+    padding: 0; /* @page margin handles this */
+  }
+
+  /* Ensure table headers repeat on each page */
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  /* Prevent row splits across pages */
+  tr, td, th {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Keep important sections together */
+  .totals-section,
+  .banking-section,
+  .vat-summary-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* ===========================================
+   STANDARDIZED TABLE STYLES
+   =========================================== */
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.items-table thead th {
+  padding: 2.5mm 2mm;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 8pt;
+  color: #6b7280;
+  background: #f9fafb;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.items-table tbody td {
+  padding: 2.5mm 2mm;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+/* Numeric alignment for tables */
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================
+   VAT SUMMARY SECTION (STANDARDIZED)
+   =========================================== */
+
+.vat-summary-section {
+  margin-top: 6mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 2mm;
+  padding: 4mm;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.vat-summary-section .section-label {
+  margin-bottom: 2mm;
+  color: #475569 !important;
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vat-summary {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9pt;
+  background: transparent !important;
+}
+
+.vat-summary thead th {
+  padding: 2mm;
+  border-bottom: 1px solid #94a3b8;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 8pt;
+  color: #475569 !important;
+  background: transparent !important;
+}
+
+.vat-summary tbody td {
+  padding: 2mm;
+  border-bottom: 1px solid #cbd5e1;
+  color: #1e293b !important;
+  font-weight: 500;
+  background: transparent !important;
+}
+
+.vat-summary tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.vat-summary-total {
+  font-weight: 700 !important;
+  background: #e2e8f0 !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* ===========================================
+   TOTALS SECTION
+   =========================================== */
+
+.totals-section {
+  width: 45%;
+  margin-left: auto;
+  margin-top: 3mm;
+  font-size: 9pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.totals-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3mm;
+  padding: 1mm 0;
+  align-items: center;
+}
+
+.totals-row .label {
+  color: #6b7280;
+  text-align: right;
+}
+
+.totals-row .value {
+  text-align: right;
+  font-weight: 700;
+  color: #111827;
+}
+
+.totals-row.total {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 1.5mm;
+  padding-top: 2mm;
+}
+
+.totals-row.total .label {
+  font-size: 11pt;
+  font-weight: 800;
+  color: #111827;
+}
+
+.totals-row.total .value {
+  font-size: 11pt;
+  font-weight: 900;
+}
+
+/* ===========================================
+   BANKING SECTION
+   =========================================== */
+
+.banking-section {
+  font-size: 9pt;
+  line-height: 1.4;
+  color: #4b5563;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.banking-section .line {
+  margin: 0.5mm 0;
+}
+
+/* ===========================================
+   FOOTER SECTION
+   =========================================== */
+
+.footer-section {
+  margin-top: auto;
+  padding-top: 4mm;
+}
+
+.thanks-section {
+  margin-top: 3mm;
+  padding-top: 2.5mm;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+  font-size: 9pt;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* ===========================================
+   FONT SIZES (PDF/PRINT)
+   =========================================== */
+
+.pdf-font-body { font-size: 10pt; }
+.pdf-font-small { font-size: 9pt; }
+.pdf-font-tiny { font-size: 8pt; }
+.pdf-font-heading { font-size: 18pt; }
+.pdf-font-subheading { font-size: 11pt; }
+.pdf-font-total { font-size: 11pt; }

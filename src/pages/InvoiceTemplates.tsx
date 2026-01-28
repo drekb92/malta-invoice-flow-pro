@@ -1,46 +1,38 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Save,
-  Eye,
   Star,
   Palette,
   Type,
   Settings2,
   Layout,
-  Table,
-  DollarSign,
-  CreditCard,
-  Sparkles,
   AlertCircle,
   RotateCcw,
   FileDown,
   Lock,
+  Loader2,
 } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
-import { generatePDF } from "@/lib/pdfGenerator";
-import { useInvoiceTemplate, validateTemplateInvoiceData, normalizeInvoiceData } from "@/hooks/useInvoiceTemplate";
+import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
+import { useInvoicePreview, SAMPLE_INVOICE_DATA } from "@/hooks/useInvoicePreview";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateControlSection } from "@/components/templates/TemplateControlSection";
 import { TemplateManagementPanel } from "@/components/templates/TemplateManagementPanel";
 import { PreviewModeSelector, PreviewMode } from "@/components/templates/PreviewModeSelector";
-import { FontPreviewSelect } from "@/components/templates/FontPreviewSelect";
-import { MarginControl } from "@/components/templates/MarginControl";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface InvoiceTemplate {
   id: string;
@@ -486,28 +478,11 @@ const InvoiceTemplates = () => {
     banking_style: currentSettings.banking_style || "default",
   };
 
-  const rawSampleData = {
-    invoiceNumber: "INV-2024-001",
-    invoiceDate: "2024-01-15",
-    dueDate: "2024-02-14",
-    customer: {
-      name: "Sample Customer",
-      email: "customer@example.com",
-      address: "456 Customer Ave\nSliema, Malta SLM 1234",
-      vat_number: "MT98765432",
-    },
-    items: [
-      { description: "Professional Services", quantity: 10, unit_price: 50, vat_rate: 0.18, unit: "hours" },
-      { description: "Consultation Fee", quantity: 1, unit_price: 150, vat_rate: 0.18, unit: "service" },
-    ],
-    totals: {
-      netTotal: 650.0,
-      vatTotal: 117.0,
-      grandTotal: 767.0,
-    },
-  };
+  // Use the invoice preview hook for sample data and calculations
+  const { data: sampleInvoiceData } = useInvoicePreview({ useSampleData: true });
 
-  const sampleInvoiceData = normalizeInvoiceData(rawSampleData);
+  // Determine if preview is ready
+  const isPreviewLoading = isLoading || loadingCompany || loadingBanking;
 
   const getGoogleFontHref = (family: string) => {
     const familyParam = encodeURIComponent(family.trim());
@@ -911,62 +886,108 @@ const InvoiceTemplates = () => {
           {/* RIGHT CANVAS: A4 Live Preview */}
           <main className="flex-1 overflow-auto bg-slate-50">
             <div className="flex items-start justify-center min-h-full p-8">
-              {/* Paper Effect: White A4 with shadow */}
-              <div
-                className="bg-white shadow-xl rounded-sm overflow-hidden"
-                style={{
-                  width: previewMode === "mobile" ? "375px" : previewMode === "print" ? "210mm" : "794px",
-                  minHeight: previewMode === "print" ? "297mm" : "auto",
-                  fontFamily: currentSettings.font_family || "Inter",
-                }}
-              >
-                <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
-
-                <UnifiedInvoiceLayout
-                  invoiceData={sampleInvoiceData}
-                  companySettings={
-                    companySettings
-                      ? {
-                          name: companySettings.company_name || "",
-                          address: companySettings.company_address || "",
-                          city: companySettings.company_city || "",
-                          zipCode: companySettings.company_zip_code || "",
-                          country: companySettings.company_country || "",
-                          phone: companySettings.company_phone || "",
-                          email: companySettings.company_email || "",
-                          taxId: companySettings.company_vat_number || "",
-                          logo: companySettings.company_logo || "",
-                        }
-                      : undefined
-                  }
-                  bankingSettings={
-                    bankingSettings
-                      ? {
-                          bankName: bankingSettings.bank_name || "",
-                          accountName: bankingSettings.bank_account_name || "",
-                          iban: bankingSettings.bank_iban || "",
-                          swiftCode: bankingSettings.bank_swift_code || "",
-                        }
-                      : undefined
-                  }
-                  templateSettings={{
-                    primaryColor: templateForPreview.primary_color,
-                    accentColor: templateForPreview.accent_color,
-                    fontFamily: templateForPreview.font_family,
-                    fontSize: templateForPreview.font_size,
-                    layout: currentSettings.layout || "default",
-                    headerLayout: currentSettings.header_layout || "default",
-                    tableStyle: currentSettings.table_style || "default",
-                    totalsStyle: currentSettings.totals_style || "default",
-                    bankingVisibility: currentSettings.banking_visibility !== false,
-                    bankingStyle: currentSettings.banking_style || "default",
-                    marginTop: currentSettings.margin_top || 20,
-                    marginRight: currentSettings.margin_right || 20,
-                    marginBottom: currentSettings.margin_bottom || 20,
-                    marginLeft: currentSettings.margin_left || 20,
+              {/* Loading State */}
+              {isPreviewLoading ? (
+                <div
+                  className="bg-white shadow-xl rounded-sm overflow-hidden p-6"
+                  style={{
+                    width: previewMode === "mobile" ? "375px" : previewMode === "print" ? "210mm" : "794px",
+                    minHeight: "600px",
                   }}
-                />
-              </div>
+                >
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center space-y-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
+                      <div className="text-sm text-muted-foreground">Loading preview...</div>
+                    </div>
+                  </div>
+                  {/* Skeleton layout */}
+                  <div className="space-y-4 mt-8">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-16 w-32" />
+                      <div className="space-y-2 text-right">
+                        <Skeleton className="h-8 w-40 ml-auto" />
+                        <Skeleton className="h-4 w-24 ml-auto" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-px w-full" />
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-48" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-48" />
+                      </div>
+                    </div>
+                    <div className="space-y-2 mt-6">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Paper Effect: White A4 with shadow */
+                <div
+                  className="bg-white shadow-xl rounded-sm overflow-hidden transition-all duration-300"
+                  style={{
+                    width: previewMode === "mobile" ? "375px" : previewMode === "print" ? "210mm" : "794px",
+                    minHeight: previewMode === "print" ? "297mm" : "auto",
+                    fontFamily: currentSettings.font_family || "Inter",
+                  }}
+                >
+                  <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
+
+                  <UnifiedInvoiceLayout
+                    invoiceData={sampleInvoiceData}
+                    companySettings={
+                      companySettings
+                        ? {
+                            name: companySettings.company_name || "",
+                            address: companySettings.company_address || "",
+                            city: companySettings.company_city || "",
+                            zipCode: companySettings.company_zip_code || "",
+                            country: companySettings.company_country || "",
+                            phone: companySettings.company_phone || "",
+                            email: companySettings.company_email || "",
+                            taxId: companySettings.company_vat_number || "",
+                            logo: companySettings.company_logo || "",
+                          }
+                        : undefined
+                    }
+                    bankingSettings={
+                      bankingSettings
+                        ? {
+                            bankName: bankingSettings.bank_name || "",
+                            accountName: bankingSettings.bank_account_name || "",
+                            iban: bankingSettings.bank_iban || "",
+                            swiftCode: bankingSettings.bank_swift_code || "",
+                          }
+                        : undefined
+                    }
+                    templateSettings={{
+                      primaryColor: templateForPreview.primary_color,
+                      accentColor: templateForPreview.accent_color,
+                      fontFamily: templateForPreview.font_family,
+                      fontSize: templateForPreview.font_size,
+                      layout: currentSettings.layout || "default",
+                      headerLayout: currentSettings.header_layout || "default",
+                      tableStyle: currentSettings.table_style || "default",
+                      totalsStyle: currentSettings.totals_style || "default",
+                      bankingVisibility: currentSettings.banking_visibility !== false,
+                      bankingStyle: currentSettings.banking_style || "default",
+                      marginTop: currentSettings.margin_top || 20,
+                      marginRight: currentSettings.margin_right || 20,
+                      marginBottom: currentSettings.margin_bottom || 20,
+                      marginLeft: currentSettings.margin_left || 20,
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </main>
         </div>
