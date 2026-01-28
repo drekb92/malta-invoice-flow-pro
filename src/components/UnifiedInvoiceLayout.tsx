@@ -164,6 +164,9 @@ export const UnifiedInvoiceLayout = ({
   // Standard sans-serif font stack for consistency
   const STANDARD_FONT_STACK = 'Inter, Helvetica Neue, Helvetica, Arial, sans-serif';
   
+  // Determine if rendering for PDF (must be defined before getStyleConfig)
+  const isPdf = variant === "pdf";
+  
   // Get style-specific settings
   const getStyleConfig = () => {
     const brandColor = templateSettings?.primaryColor || '#1e3a5f';
@@ -255,9 +258,7 @@ export const UnifiedInvoiceLayout = ({
 
   const showBanking = (templateSettings?.bankingVisibility ?? true) && !!bankingSettings;
 
-  // Determine font sizes based on variant (pt for PDF, px for preview)
-  // All templates use standardized font sizes for consistency
-  const isPdf = variant === "pdf";
+  // Standardized font sizes for all templates
   
   const fontSize = {
     body: isPdf ? '10pt' : '12px',
