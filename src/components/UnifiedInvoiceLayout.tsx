@@ -429,44 +429,61 @@ export const UnifiedInvoiceLayout = ({
       font-variant-numeric: tabular-nums;
     }
 
-    /* VAT Summary Table - Grey-tinted box for distinction */
+    /* VAT Summary Table - Standardized grey-tinted box (identical across all templates) */
     #${id} .vat-summary-section {
       margin-top: ${isPdf ? '6mm' : '24px'};
       break-inside: avoid;
       page-break-inside: avoid;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: #f1f5f9 !important;
+      border: 1px solid #cbd5e1 !important;
       border-radius: ${isPdf ? '2mm' : '8px'};
       padding: ${isPdf ? '4mm' : '16px'};
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     #${id} .vat-summary-section .section-label {
       margin-bottom: ${isPdf ? '2mm' : '8px'};
+      color: #475569 !important;
+      font-size: ${fontSize.tiny};
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
     #${id} table.vat-summary {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
       font-size: ${fontSize.small};
-      background: transparent;
+      background: transparent !important;
     }
+    #${id} table.vat-summary colgroup col:first-child { width: 34%; }
+    #${id} table.vat-summary colgroup col:nth-child(2) { width: 33%; }
+    #${id} table.vat-summary colgroup col:nth-child(3) { width: 33%; }
     #${id} table.vat-summary thead th {
-      padding: ${isPdf ? '2mm' : '8px'};
-      border-bottom: 1px solid #e2e8f0;
+      padding: ${isPdf ? '2mm 2mm' : '8px'};
+      border-bottom: 1px solid #94a3b8;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       font-size: ${fontSize.tiny};
-      color: #64748b;
-      background: transparent;
+      color: #475569 !important;
+      background: transparent !important;
     }
     #${id} table.vat-summary tbody td {
-      padding: ${isPdf ? '2mm' : '8px'};
-      border-bottom: 1px solid #e2e8f0;
-      color: #374151;
-      background: transparent;
+      padding: ${isPdf ? '2mm 2mm' : '8px'};
+      border-bottom: 1px solid #cbd5e1;
+      color: #1e293b !important;
+      font-weight: 500;
+      background: transparent !important;
     }
     #${id} table.vat-summary tbody tr:last-child td {
       border-bottom: none;
+    }
+    #${id} table.vat-summary .vat-summary-total {
+      font-weight: 700 !important;
+      background: #e2e8f0 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     /* Totals */
@@ -776,21 +793,10 @@ export const UnifiedInvoiceLayout = ({
         color: #9ca3af;
         font-weight: 300;
       }
+      /* Minimalist VAT Summary: Keep standard styling for consistency */
       #${id} .vat-summary-section {
         margin-top: ${isPdf ? '8mm' : '32px'};
-      }
-      #${id} table.vat-summary {
-        border: none;
-        background: #ffffff;
-      }
-      #${id} table.vat-summary thead th {
-        background: transparent !important;
-        border-bottom: none;
-        font-weight: 400;
-      }
-      #${id} table.vat-summary tbody td {
-        border-bottom: none;
-        background: #ffffff;
+        /* Inherit standard styling - do not override */
       }
     ` : ''}
 
@@ -975,14 +981,14 @@ export const UnifiedInvoiceLayout = ({
               </tbody>
             </table>
 
-            {/* VAT SUMMARY TABLE */}
+            {/* VAT SUMMARY TABLE - Standardized 3-column layout (Rate, Net Amount, VAT Amount) */}
             {(() => {
               // Group items by VAT rate and calculate totals
               const vatGroups = invoiceData.items.reduce((acc, item) => {
                 const rate = Number(item.vat_rate) || 0;
                 const netAmount = mul(item.quantity, item.unit_price);
                 if (!acc[rate]) {
-                  acc[rate] = { netAmount: 0, vatAmount: 0, grossAmount: 0 };
+                  acc[rate] = { netAmount: 0, vatAmount: 0 };
                 }
                 acc[rate].netAmount += netAmount;
                 // Apply proportional discount if exists
@@ -990,11 +996,11 @@ export const UnifiedInvoiceLayout = ({
                   ? invoiceData.discount.amount / (invoiceData.totals.netTotal + invoiceData.discount.amount)
                   : 0;
                 const discountedNet = netAmount * (1 - discountRatio);
-                const vatAmount = discountedNet * (rate > 1 ? rate / 100 : rate);
+                const normalizedRate = rate > 1 ? rate / 100 : rate;
+                const vatAmount = discountedNet * normalizedRate;
                 acc[rate].vatAmount += vatAmount;
-                acc[rate].grossAmount += discountedNet + vatAmount;
                 return acc;
-              }, {} as Record<number, { netAmount: number; vatAmount: number; grossAmount: number }>);
+              }, {} as Record<number, { netAmount: number; vatAmount: number }>);
 
               const sortedRates = Object.keys(vatGroups)
                 .map(Number)
@@ -1003,16 +1009,24 @@ export const UnifiedInvoiceLayout = ({
               // Only show if there are items
               if (sortedRates.length === 0) return null;
 
+              // Calculate totals for the summary row
+              const totalNet = sortedRates.reduce((sum, rate) => sum + vatGroups[rate].netAmount, 0);
+              const totalVat = sortedRates.reduce((sum, rate) => sum + vatGroups[rate].vatAmount, 0);
+
               return (
                 <div className="vat-summary-section">
                   <div className="section-label">VAT Summary</div>
                   <table className="vat-summary">
+                    <colgroup>
+                      <col />
+                      <col />
+                      <col />
+                    </colgroup>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: "left" }}>VAT Rate</th>
+                        <th style={{ textAlign: "left" }}>Rate</th>
                         <th className="num">Net Amount</th>
                         <th className="num">VAT Amount</th>
-                        <th className="num">Gross Amount</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1024,10 +1038,15 @@ export const UnifiedInvoiceLayout = ({
                             <td>{displayRate}%</td>
                             <td className="num">{money(group.netAmount)}</td>
                             <td className="num">{money(group.vatAmount)}</td>
-                            <td className="num">{money(group.grossAmount)}</td>
                           </tr>
                         );
                       })}
+                      {/* Total row */}
+                      <tr className="vat-summary-total">
+                        <td style={{ fontWeight: 700 }}>Total</td>
+                        <td className="num" style={{ fontWeight: 700 }}>{money(totalNet)}</td>
+                        <td className="num" style={{ fontWeight: 700 }}>{money(totalVat)}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
