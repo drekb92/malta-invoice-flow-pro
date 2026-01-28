@@ -528,8 +528,8 @@ const InvoiceTemplates = () => {
 
         {/* Main Content: Two Column Editor Layout */}
         <div className="flex flex-1 overflow-hidden">
-          {/* LEFT SIDEBAR: Controls (350px) */}
-          <aside className="w-[350px] flex-shrink-0 border-r border-border bg-white overflow-y-auto">
+          {/* LEFT SIDEBAR: Controls (320px fixed) */}
+          <aside className="w-[320px] flex-shrink-0 border-r border-border bg-card overflow-y-auto">
             <div className="p-4 space-y-1">
               {/* Validation Warnings */}
               {(!companyValid || !bankingValid) && (
@@ -847,13 +847,13 @@ const InvoiceTemplates = () => {
             </div>
           </aside>
 
-          {/* RIGHT CANVAS: A4 Live Preview */}
-          <main className="flex-1 overflow-auto bg-slate-50">
-            <div className="flex items-start justify-center min-h-full p-8">
+          {/* RIGHT CANVAS: A4 Live Preview - Light gray background */}
+          <main className="flex-1 overflow-auto bg-muted/50">
+            <div className="flex items-center justify-center min-h-full py-12 px-8">
               {/* Loading State */}
               {isPreviewLoading ? (
                 <div
-                  className="bg-white shadow-xl rounded-sm overflow-hidden p-6"
+                  className="bg-white shadow-2xl rounded-sm overflow-hidden p-6 border border-border/30"
                   style={{
                     width: previewMode === "mobile" ? "375px" : previewMode === "print" ? "210mm" : "794px",
                     minHeight: "600px",
@@ -895,13 +895,14 @@ const InvoiceTemplates = () => {
                   </div>
                 </div>
               ) : (
-                /* Paper Effect: White A4 with shadow */
+                /* Paper Effect: White A4 with shadow - simulates physical paper */
                 <div
-                  className="bg-white shadow-xl rounded-sm overflow-hidden transition-all duration-300"
+                  className="bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-300 border border-border/20"
                   style={{
                     width: previewMode === "mobile" ? "375px" : previewMode === "print" ? "210mm" : "794px",
                     minHeight: previewMode === "print" ? "297mm" : "auto",
                     fontFamily: currentSettings.font_family || "Inter",
+                    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)",
                   }}
                 >
                   <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
