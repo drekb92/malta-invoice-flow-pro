@@ -67,8 +67,8 @@ export const invoiceService = {
         finalInvoiceNumber = nextNumber as string;
       }
 
-      // 5) Generate hash for integrity
-      const invoiceHash = await this.generateInvoiceHash(invoiceId);
+      // 5) Generate hash for integrity (pass finalized number to ensure consistency)
+      const invoiceHash = await this.generateInvoiceHash(invoiceId, finalInvoiceNumber);
 
       // 6) Update invoice to issued status, including the final invoice number
       const { error: updateError } = await supabase
@@ -305,9 +305,13 @@ export const invoiceService = {
 
   /**
    * Generate integrity hash for invoice (Malta VAT compliance)
-   * Creates a hash of critical invoice data to detect tampering
+   * Creates a deterministic hash of critical invoice data to detect tampering.
+   * Hash is stable across calls - only changes when invoice data changes.
+   * 
+   * @param invoiceId - The invoice UUID
+   * @param overrideInvoiceNumber - Optional: pass finalized number during issuance flow
    */
-  async generateInvoiceHash(invoiceId: string): Promise<string> {
+  async generateInvoiceHash(invoiceId: string, overrideInvoiceNumber?: string): Promise<string> {
     try {
       // Fetch invoice and all items
       const { data: invoice, error: invoiceError } = await supabase
@@ -321,21 +325,37 @@ export const invoiceService = {
 
       const invoiceData = invoice as InvoiceWithCompliance;
 
-      // Create hash input from critical fields
-      const hashInput = JSON.stringify({
-        invoice_number: invoiceData.invoice_number,
-        invoice_date: invoiceData.invoice_date,
-        customer_id: invoiceData.customer_id,
-        amount: invoiceData.amount,
-        vat_rate: invoiceData.vat_rate,
-        total_amount: invoiceData.total_amount,
-        items: (invoiceData.invoice_items || []).map((item: InvoiceItem) => ({
+      // Sort items deterministically by UUID for stable hash
+      const sortedItems = [...(invoiceData.invoice_items || [])]
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((item: InvoiceItem) => ({
+          id: item.id,
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
           vat_rate: item.vat_rate,
-        })),
-        timestamp: new Date().toISOString(),
+          unit: item.unit,
+        }));
+
+      // Use override if provided (for issuance flow where number is finalized but not yet saved)
+      const invoiceNumber = overrideInvoiceNumber ?? invoiceData.invoice_number;
+
+      // Hash input with ONLY immutable financial fields - NO timestamp for determinism
+      const hashInput = JSON.stringify({
+        invoice_number: invoiceNumber,
+        invoice_date: invoiceData.invoice_date,
+        due_date: invoiceData.due_date,
+        customer_id: invoiceData.customer_id,
+        // Discount fields
+        discount_type: invoiceData.discount_type,
+        discount_value: invoiceData.discount_value,
+        // Totals
+        amount: invoiceData.amount,
+        vat_amount: invoiceData.vat_amount,
+        vat_rate: invoiceData.vat_rate,
+        total_amount: invoiceData.total_amount,
+        // Sorted line items
+        items: sortedItems,
       });
 
       // Generate SHA-256 hash
@@ -343,9 +363,7 @@ export const invoiceService = {
       const data = encoder.encode(hashInput);
       const hashBuffer = await crypto.subtle.digest("SHA-256", data);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-
-      return hashHex;
+      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
     } catch (error) {
       const errorMessage = isSupabaseError(error) ? error.message : "Unknown error";
       console.error("Error generating invoice hash:", error);
