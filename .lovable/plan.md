@@ -1,166 +1,137 @@
 
-# Fix Invoice Hash Determinism
+# Remove Unused / Legacy PDF & Credit Note Services
 
-## Problem Analysis
+## Summary
 
-The current `generateInvoiceHash()` function produces different hashes on each call due to:
+This cleanup will remove 5 deprecated service files and extract the one shared TypeScript interface to a dedicated types file. All PDF exports will continue working via the production Edge HTML engine (`edgePdf.ts` + Unified layouts).
 
-1. **Timestamp inclusion** - `timestamp: new Date().toISOString()` changes every millisecond
-2. **Unsorted items** - Invoice items are hashed in arbitrary database order
-3. **Race condition in issueInvoice()** - Hash is computed before invoice_number is persisted, causing the stored hash to contain `null` for invoice_number while later verification reads the actual number
+## Analysis Results
 
-## Solution
+| File | Status | Reason |
+|------|--------|--------|
+| `src/services/edgePdfExportAction.ts` | DELETE | No imports found - completely unused |
+| `src/services/creditNotesService.ts` | DELETE | No imports - credit notes handled by `invoiceService.ts` |
+| `src/services/statementPdfService.ts` | DELETE | No imports - statements use `UnifiedStatementLayout` |
+| `src/services/pdfService.ts` | DELETE | Only used for type import - extract `InvoiceData` first |
+| `src/lib/pdfGenerator.ts` | DELETE | No imports - legacy jsPDF wrapper unused |
+| `jspdf` in package.json | REMOVE | No longer needed after file deletions |
+| `html2canvas` in package.json | KEEP | May be used elsewhere - needs verification |
 
-### 1. Fix `generateInvoiceHash()` - Make it Deterministic
+## Type Extraction
 
-Remove timestamp and include only immutable financial fields:
+The `InvoiceData` interface is currently imported by 2 components:
+- `src/components/InvoiceSettlementSheet.tsx`
+- `src/components/TransactionDrawer.tsx`
+
+This interface will be extracted to a new file:
+
+```
+src/types/pdf.ts
+```
+
+---
+
+## Implementation Steps
+
+### Step 1: Create `src/types/pdf.ts`
+
+Extract the `InvoiceData` interface from `pdfService.ts`:
 
 ```typescript
-async generateInvoiceHash(
-  invoiceId: string,
-  overrideInvoiceNumber?: string  // Allow passing finalized number
-): Promise<string> {
-  // Fetch invoice and all items
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .select("*, invoice_items(*)")
-    .eq("id", invoiceId)
-    .single();
-
-  if (error) throw error;
-  if (!invoice) throw new Error("Invoice not found");
-
-  // Sort items deterministically by id (stable UUID order)
-  const sortedItems = [...(invoice.invoice_items || [])]
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map(item => ({
-      id: item.id,
-      description: item.description,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      vat_rate: item.vat_rate,
-      unit: item.unit,
-    }));
-
-  // Use override if provided (for issuance flow)
-  const invoiceNumber = overrideInvoiceNumber ?? invoice.invoice_number;
-
-  // Hash input with ONLY immutable financial fields - NO timestamp
-  const hashInput = JSON.stringify({
-    invoice_number: invoiceNumber,
-    invoice_date: invoice.invoice_date,
-    due_date: invoice.due_date,
-    customer_id: invoice.customer_id,
-    // Discount fields
-    discount_type: invoice.discount_type,
-    discount_value: invoice.discount_value,
-    // Totals
-    amount: invoice.amount,
-    vat_amount: invoice.vat_amount,
-    vat_rate: invoice.vat_rate,
-    total_amount: invoice.total_amount,
-    // Sorted line items
-    items: sortedItems,
-  });
-
-  // Generate SHA-256 hash
-  const encoder = new TextEncoder();
-  const data = encoder.encode(hashInput);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+export interface InvoiceData {
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  documentType?: "INVOICE" | "CREDIT NOTE" | "QUOTATION";
+  customer: {
+    name: string;
+    email?: string;
+    address?: string;
+    address_line1?: string;
+    address_line2?: string;
+    locality?: string;
+    post_code?: string;
+    vat_number?: string;
+  };
+  items: Array<{
+    description: string;
+    quantity: number;
+    unit_price: number;
+    vat_rate: number;
+    unit?: string;
+  }>;
+  totals: {
+    netTotal: number;
+    vatTotal: number;
+    grandTotal: number;
+  };
 }
 ```
 
-### 2. Fix `issueInvoice()` - Finalize Number Before Hashing
+### Step 2: Update Imports in Components
 
-Update the sequence so invoice_number is saved first, then hash is computed with the correct value:
+Update the 2 components to import from the new types file:
 
-**Option A (Two Updates):**
+**InvoiceSettlementSheet.tsx:**
 ```typescript
-// Step 4: If no number, generate one
-let finalInvoiceNumber = invoiceData.invoice_number;
-if (!finalInvoiceNumber) {
-  const { data: nextNumber } = await supabase.rpc("next_invoice_number", {...});
-  finalInvoiceNumber = nextNumber;
-  
-  // Save invoice_number FIRST (before hashing)
-  await supabase
-    .from("invoices")
-    .update({ invoice_number: finalInvoiceNumber })
-    .eq("id", invoiceId);
-}
+// Before
+import type { InvoiceData } from "@/services/pdfService";
 
-// Step 5: Now generate hash (will read correct invoice_number)
-const invoiceHash = await this.generateInvoiceHash(invoiceId);
-
-// Step 6: Update remaining fields
-await supabase
-  .from("invoices")
-  .update({
-    is_issued: true,
-    issued_at: new Date().toISOString(),
-    invoice_hash: invoiceHash,
-    status: "issued",
-  })
-  .eq("id", invoiceId);
+// After
+import type { InvoiceData } from "@/types/pdf";
 ```
 
-**Option B (Pass Number to Hash Function):**
+**TransactionDrawer.tsx:**
 ```typescript
-// Generate hash with the finalized number passed directly
-const invoiceHash = await this.generateInvoiceHash(invoiceId, finalInvoiceNumber);
+// Before
+import type { InvoiceData } from "@/services/pdfService";
 
-// Single update with all fields
-await supabase
-  .from("invoices")
-  .update({
-    is_issued: true,
-    issued_at: new Date().toISOString(),
-    invoice_hash: invoiceHash,
-    status: "issued",
-    invoice_number: finalInvoiceNumber,
-  })
-  .eq("id", invoiceId);
+// After
+import type { InvoiceData } from "@/types/pdf";
 ```
 
-I'll implement **Option B** as it's more efficient (single database update) and cleaner.
+### Step 3: Delete Unused Service Files
 
-### 3. Update `verifyInvoiceIntegrity()` - No changes needed
+Delete these 5 files:
+1. `src/services/edgePdfExportAction.ts`
+2. `src/services/creditNotesService.ts`
+3. `src/services/statementPdfService.ts`
+4. `src/services/pdfService.ts`
+5. `src/lib/pdfGenerator.ts`
 
-Since hash is now deterministic and invoice_number is already saved, re-computing the hash will match.
+### Step 4: Remove jsPDF from Dependencies
 
----
+Update `package.json` to remove the jspdf dependency:
 
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/services/invoiceService.ts` | Fix `generateInvoiceHash()` and `issueInvoice()` |
-
----
-
-## Changes Summary
-
-| Function | Before | After |
-|----------|--------|-------|
-| `generateInvoiceHash()` | Includes `timestamp`, unsorted items | No timestamp, sorted by item.id, includes all financial fields |
-| `generateInvoiceHash()` | Takes only `invoiceId` | Takes optional `overrideInvoiceNumber` parameter |
-| `issueInvoice()` | Hashes before saving invoice_number | Passes finalized number to hash function |
-| Hash input | 7 fields + timestamp | 11 fields (no timestamp) + sorted items with full data |
+```json
+// Remove this line:
+"jspdf": "^3.0.1",
+```
 
 ---
 
-## Acceptance Criteria Verification
+## Verification Checklist
 
 After implementation:
+- [ ] Project builds successfully (`npm run build`)
+- [ ] No broken imports in any component
+- [ ] PDF download works for Invoices via Edge HTML engine
+- [ ] PDF download works for Statements via Edge HTML engine
+- [ ] PDF download works for Quotations via Edge HTML engine
+- [ ] Credit note creation still works (via `invoiceService.createCreditNote`)
 
-1. **Repeated `verifyInvoiceIntegrity()` returns `valid=true`** - Yes, because:
-   - No timestamp in hash input
-   - Items are sorted deterministically by UUID
-   - Invoice number is passed explicitly during issuance
+---
 
-2. **Hash stays same unless data changes** - Yes, because:
-   - All inputs are immutable invoice fields
-   - Sorting is deterministic
-   - No external time-dependent values
+## Files Changed
+
+| Action | File |
+|--------|------|
+| CREATE | `src/types/pdf.ts` |
+| MODIFY | `src/components/InvoiceSettlementSheet.tsx` |
+| MODIFY | `src/components/TransactionDrawer.tsx` |
+| DELETE | `src/services/edgePdfExportAction.ts` |
+| DELETE | `src/services/creditNotesService.ts` |
+| DELETE | `src/services/statementPdfService.ts` |
+| DELETE | `src/services/pdfService.ts` |
+| DELETE | `src/lib/pdfGenerator.ts` |
+| MODIFY | `package.json` (remove jspdf) |
