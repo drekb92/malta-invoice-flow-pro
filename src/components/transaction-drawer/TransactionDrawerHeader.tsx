@@ -2,6 +2,7 @@ import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import type { TransactionType } from "./types";
 import { StatusBadge } from "./statusBadges";
+import { format } from "date-fns";
 
 interface TransactionDrawerHeaderProps {
   type: TransactionType;
@@ -9,6 +10,8 @@ interface TransactionDrawerHeaderProps {
   customerName: string;
   status: string;
   isIssued?: boolean;
+  lastSentAt?: string | null;
+  lastSentChannel?: string | null;
 }
 
 export const TransactionDrawerHeader = ({
@@ -17,6 +20,8 @@ export const TransactionDrawerHeader = ({
   customerName,
   status,
   isIssued,
+  lastSentAt,
+  lastSentChannel,
 }: TransactionDrawerHeaderProps) => {
   const getDocumentTypeLabel = () => {
     switch (type) {
@@ -24,6 +29,12 @@ export const TransactionDrawerHeader = ({
       case 'quotation': return 'Quotation';
       default: return 'Invoice';
     }
+  };
+
+  const formatChannel = (channel: string) => {
+    if (channel === 'whatsapp') return 'WhatsApp';
+    if (channel === 'email') return 'Email';
+    return channel.charAt(0).toUpperCase() + channel.slice(1);
   };
 
   return (
@@ -39,8 +50,15 @@ export const TransactionDrawerHeader = ({
           </SheetTitle>
         </div>
         
-        {/* Customer name - secondary */}
-        <p className="text-sm text-muted-foreground">{customerName}</p>
+        {/* Customer name + delivery info */}
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm text-muted-foreground">{customerName}</p>
+          {lastSentAt && (
+            <p className="text-xs text-muted-foreground">
+              Last sent: {format(new Date(lastSentAt), "dd MMM, HH:mm")} via {formatChannel(lastSentChannel || 'email')}
+            </p>
+          )}
+        </div>
       </SheetHeader>
       <Separator className="bg-border/60" />
     </>

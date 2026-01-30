@@ -104,7 +104,7 @@ const handler = async (req: Request): Promise<Response> => {
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
     console.log(`[create-document-share-link] Share link created, expires: ${expiresAt}`);
 
-    // Step 4: Log to document_send_logs
+    // Step 4: Log to document_send_logs and update invoice delivery fields
     try {
       await supabase.from("document_send_logs").insert({
         user_id: userId,
@@ -118,6 +118,19 @@ const handler = async (req: Request): Promise<Response> => {
         success: true,
       });
       console.log("[create-document-share-link] Send logged successfully");
+
+      // Update invoice delivery tracking fields
+      if (documentType === 'invoice') {
+        await supabase
+          .from('invoices')
+          .update({
+            last_sent_at: new Date().toISOString(),
+            last_sent_channel: 'whatsapp',
+            last_sent_to: customerId ? 'customer' : 'manual',
+          })
+          .eq('id', documentId);
+        console.log("[create-document-share-link] Invoice delivery fields updated");
+      }
     } catch (logError) {
       console.warn("[create-document-share-link] Failed to log send:", logError);
       // Don't fail the request if logging fails

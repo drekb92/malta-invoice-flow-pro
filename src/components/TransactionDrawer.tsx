@@ -74,6 +74,8 @@ export const TransactionDrawer = ({
   const [originalInvoice, setOriginalInvoice] = useState<{ invoice_number: string } | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [issuedAt, setIssuedAt] = useState<string | null>(null);
+  const [lastSentAt, setLastSentAt] = useState<string | null>(null);
+  const [lastSentChannel, setLastSentChannel] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -136,7 +138,7 @@ export const TransactionDrawer = ({
         .order("created_at", { ascending: true }),
       supabase
         .from("invoices")
-        .select("created_at, issued_at, customer_id, customers(id, name, email, address, address_line1, address_line2, locality, post_code, vat_number)")
+        .select("created_at, issued_at, last_sent_at, last_sent_channel, customer_id, customers(id, name, email, address, address_line1, address_line2, locality, post_code, vat_number)")
         .eq("id", invoice.id)
         .maybeSingle(),
     ]);
@@ -160,6 +162,8 @@ export const TransactionDrawer = ({
     if (detailsResult.data) {
       setCreatedAt(detailsResult.data.created_at);
       setIssuedAt(detailsResult.data.issued_at);
+      setLastSentAt(detailsResult.data.last_sent_at || null);
+      setLastSentChannel(detailsResult.data.last_sent_channel || null);
       const data = detailsResult.data as { customers: Customer | null };
       if (data.customers) setCustomer(data.customers);
     }
@@ -451,6 +455,8 @@ export const TransactionDrawer = ({
             customerName={customer?.name || "Loading..."}
             status={transaction.status}
             isIssued={type === "invoice" ? (transaction as InvoiceTransaction).is_issued : undefined}
+            lastSentAt={type === "invoice" ? lastSentAt : null}
+            lastSentChannel={type === "invoice" ? lastSentChannel : null}
           />
 
           {loading ? (

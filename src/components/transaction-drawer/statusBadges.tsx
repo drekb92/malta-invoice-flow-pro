@@ -6,6 +6,7 @@ const STATUS_STYLES = {
   // Universal statuses
   draft: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
   issued: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-800",
+  void: "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700",
   paid: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800",
   partially_paid: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800",
   overdue: "bg-red-50 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-700",
@@ -23,6 +24,7 @@ const STATUS_STYLES = {
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   issued: "Issued",
+  void: "Void",
   paid: "Paid",
   partially_paid: "Partial",
   overdue: "Overdue",
