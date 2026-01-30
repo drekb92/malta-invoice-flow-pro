@@ -23,7 +23,7 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
-import type { InvoiceData } from "@/services/pdfService";
+import type { InvoiceData } from "@/types/pdf";
 
 interface Invoice {
   id: string;

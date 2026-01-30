@@ -10,7 +10,7 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { useDocumentSendLogs } from "@/hooks/useDocumentSendLogs";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
-import type { InvoiceData } from "@/services/pdfService";
+import type { InvoiceData } from "@/types/pdf";
 
 // Import reusable components
 import {
