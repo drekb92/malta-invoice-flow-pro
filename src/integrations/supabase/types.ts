@@ -718,6 +718,9 @@ export type Database = {
           invoice_number: string | null
           is_issued: boolean | null
           issued_at: string | null
+          last_sent_at: string | null
+          last_sent_channel: string | null
+          last_sent_to: string | null
           status: string | null
           total_amount: number | null
           user_id: string | null
@@ -738,6 +741,9 @@ export type Database = {
           invoice_number?: string | null
           is_issued?: boolean | null
           issued_at?: string | null
+          last_sent_at?: string | null
+          last_sent_channel?: string | null
+          last_sent_to?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null
@@ -758,6 +764,9 @@ export type Database = {
           invoice_number?: string | null
           is_issued?: boolean | null
           issued_at?: string | null
+          last_sent_at?: string | null
+          last_sent_channel?: string | null
+          last_sent_to?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null

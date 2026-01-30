@@ -104,7 +104,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("[send-document-email] Email sent:", emailResponse);
 
-    // Step 3: Log to document_send_logs if we have the required data
+    // Step 3: Log to document_send_logs and update invoice delivery fields
     if (userId && documentType && documentId && documentNumber) {
       try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -113,6 +113,7 @@ const handler = async (req: Request): Promise<Response> => {
         if (supabaseUrl && supabaseServiceKey) {
           const supabase = createClient(supabaseUrl, supabaseServiceKey);
           
+          // Log to document_send_logs
           await supabase.from("document_send_logs").insert({
             user_id: userId,
             document_type: documentType,
@@ -125,6 +126,19 @@ const handler = async (req: Request): Promise<Response> => {
             success: true,
           });
           console.log("[send-document-email] Send logged successfully");
+
+          // Update invoice delivery tracking fields
+          if (documentType === 'invoice') {
+            await supabase
+              .from('invoices')
+              .update({
+                last_sent_at: new Date().toISOString(),
+                last_sent_channel: 'email',
+                last_sent_to: to,
+              })
+              .eq('id', documentId);
+            console.log("[send-document-email] Invoice delivery fields updated");
+          }
         }
       } catch (logError) {
         console.warn("[send-document-email] Failed to log send:", logError);

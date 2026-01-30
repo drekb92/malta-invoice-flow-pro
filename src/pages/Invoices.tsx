@@ -75,6 +75,9 @@ interface Invoice {
   is_issued?: boolean;
   issued_at?: string;
   invoice_hash?: string;
+  last_sent_at?: string;
+  last_sent_channel?: string;
+  last_sent_to?: string;
   customers?: {
     name: string;
     email?: string;
@@ -573,12 +576,19 @@ const Invoices = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={statusBadge.className}>
-                              <span className="flex items-center gap-1.5">
-                                {StatusIcon && <StatusIcon className="h-3 w-3" />}
-                                {statusBadge.label}
-                              </span>
-                            </Badge>
+                            <div className="flex flex-col gap-0.5">
+                              <Badge className={statusBadge.className}>
+                                <span className="flex items-center gap-1.5">
+                                  {StatusIcon && <StatusIcon className="h-3 w-3" />}
+                                  {statusBadge.label}
+                                </span>
+                              </Badge>
+                              {invoice.last_sent_at && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  Sent {format(new Date(invoice.last_sent_at), "dd MMM")} via {invoice.last_sent_channel === 'whatsapp' ? 'WhatsApp' : 'Email'}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {format(new Date(invoice.invoice_date || invoice.created_at), "dd/MM/yyyy")}
