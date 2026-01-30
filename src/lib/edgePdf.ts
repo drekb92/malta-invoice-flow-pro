@@ -21,10 +21,10 @@ import { PDF_PRINT_STYLES } from "@/lib/pdfPrintStyles";
 type ExportMode = "print" | "edge";
 
 function getExportMode(): ExportMode {
-  // Default to edge engine (direct download, no popup).
-  // You can override by setting VITE_PDF_EXPORT_MODE=print in your environment for browser print dialog.
+  // Default to print engine (browser print dialog, free, no external API).
+  // Set VITE_PDF_EXPORT_MODE=edge in your environment to use the Edge Function for direct download.
   const mode = (import.meta as any)?.env?.VITE_PDF_EXPORT_MODE;
-  return mode === "print" ? "print" : "edge";
+  return mode === "edge" ? "edge" : "print";
 }
 
 export async function inlineImages(container: HTMLElement) {
@@ -234,7 +234,8 @@ export async function downloadPdfFromEdgeFunction(filename: string, selectedFont
 
 /**
  * Public API used by the app.
- * Default engine is PRINT (free). If VITE_PDF_EXPORT_MODE=edge, it will try edge.
+ * Default engine is PRINT (browser print dialog, free, no external API).
+ * Set VITE_PDF_EXPORT_MODE=edge to use the Edge Function for direct PDF download.
  */
 export async function downloadPdfFromFunction(filename: string, selectedFontFamily?: string, debug = false) {
   const mode = getExportMode();
