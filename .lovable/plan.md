@@ -1,122 +1,185 @@
 
 
-# Fix Template Not Saving Across Pages
+# Invoice Template Updates
 
-## Problem
-
-When you modify an invoice template in the Template Designer page (`/templates`) and then navigate to Invoices to download a PDF, the **old template** is still used. This happens because:
-
-1. The `useInvoiceTemplate` hook stores template data in local React state
-2. When you save a template, only the Template Designer page's local state is updated
-3. When you navigate to Invoices, that page has its own separate copy of the template from when it first loaded
-4. These two copies are never synchronized
-
-## Solution
-
-Convert the `useInvoiceTemplate` hook to use **TanStack React Query** (already installed). This provides:
-- Automatic cache invalidation across all components using the same query key
-- When you save a template in the Designer, invalidating the cache causes all other pages to refetch the fresh template
-- No more stale data between pages
+This plan addresses several layout and formatting improvements to the invoice template.
 
 ---
 
-## Implementation Steps
+## Summary of Changes
 
-### Step 1: Update `useInvoiceTemplate` Hook
+| Change | Description |
+|--------|-------------|
+| Remove Ship To | Delete the "Ship To" address block, keep only "Bill To" |
+| Fix VAT Display | Format VAT rates as percentages (18% not 0.18) |
+| Remove VAT Summary Box | Hide the VAT Summary section by default, add optional toggle |
+| Reorganize Header | Logo on left, supplier details below. Document info on right |
+| Fix Customer Section | Bill To on left, Invoice Date/Due Date on right |
 
-Convert from local `useState` to React Query's `useQuery`:
+---
 
+## Technical Implementation
+
+### 1. Remove Ship To Section
+
+**File:** `src/components/UnifiedInvoiceLayout.tsx`
+
+**Current:** Two-column grid with "Bill To" and "Ship To" (lines 897-935)
+```
+<div className="address-grid">
+  <div className="address-block billto">...</div>
+  <div className="address-block shipto">...</div>
+</div>
+```
+
+**Change:** Remove the Ship To block entirely, change grid to single column or reuse for invoice metadata.
+
+---
+
+### 2. Fix VAT Rate Display in Line Items
+
+**File:** `src/components/UnifiedInvoiceLayout.tsx`
+
+**Issue:** The local `percent` function (line 111) outputs `0.18%` when given decimal rates like `0.18`.
+
+**Current code:**
 ```typescript
-// src/hooks/useInvoiceTemplate.ts
+const percent = (val: number) => `${Number(val || 0)}%`;
+```
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getDefaultTemplate, InvoiceTemplate } from '@/services/templateService';
-import { useToast } from '@/hooks/use-toast';
-
-const TEMPLATE_QUERY_KEY = ['invoiceTemplate'];
-
-export const useInvoiceTemplate = () => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const { data: template, isLoading, error, refetch } = useQuery({
-    queryKey: TEMPLATE_QUERY_KEY,
-    queryFn: async () => {
-      const loadedTemplate = await getDefaultTemplate();
-      // Normalize template with defaults
-      return {
-        ...loadedTemplate,
-        font_family: loadedTemplate.font_family || 'Inter',
-        font_size: loadedTemplate.font_size || '14px',
-        primary_color: loadedTemplate.primary_color || '#26A65B',
-        accent_color: loadedTemplate.accent_color || '#1F2D3D',
-        layout: loadedTemplate.layout || 'default',
-        header_layout: loadedTemplate.header_layout || 'default',
-        table_style: loadedTemplate.table_style || 'default',
-        totals_style: loadedTemplate.totals_style || 'default',
-        banking_visibility: loadedTemplate.banking_visibility ?? true,
-        banking_style: loadedTemplate.banking_style || 'default',
-        margin_top: loadedTemplate.margin_top ?? 20,
-        margin_right: loadedTemplate.margin_right ?? 20,
-        margin_bottom: loadedTemplate.margin_bottom ?? 20,
-        margin_left: loadedTemplate.margin_left ?? 20,
-      } as InvoiceTemplate;
-    },
-    staleTime: 0, // Always check for fresh data
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-  });
-
-  // This function invalidates the cache globally
-  const refreshTemplate = async () => {
-    await queryClient.invalidateQueries({ queryKey: TEMPLATE_QUERY_KEY });
-  };
-
-  return {
-    template: template ?? null,
-    isLoading,
-    error: error ? String(error) : null,
-    refreshTemplate,
-  };
+**Fix:** Normalize VAT rates before display (multiply by 100 if less than 1):
+```typescript
+const percent = (val: number) => {
+  const normalized = Number(val || 0);
+  const displayRate = normalized > 1 ? normalized : normalized * 100;
+  return `${Math.round(displayRate)}%`;
 };
 ```
 
-### Step 2: Update Template Designer Save Handler
+This ensures both `0.18` and `18` inputs display as `18%`.
 
-In `InvoiceTemplates.tsx`, ensure `refreshTemplate()` is called after saving (already done, but now it will actually invalidate globally):
+---
 
+### 3. Remove VAT Summary Box (with optional toggle)
+
+**File:** `src/components/UnifiedInvoiceLayout.tsx`
+
+**Current:** VAT Summary section is always displayed (lines 1005-1075)
+
+**Change:** 
+- Add `vatSummaryVisibility` to `TemplateSettings` interface
+- Default to `false` (hidden)
+- Only render VAT Summary when explicitly enabled
+
+**File:** `src/services/templateService.ts`
+
+**Add to InvoiceTemplate interface:**
 ```typescript
-// Already in place at line 385:
-await refreshTemplate();
+vat_summary_visibility?: boolean;
 ```
 
-No change needed here - the existing code will now work correctly because `refreshTemplate()` will invalidate the React Query cache.
+**File:** `src/pages/InvoiceTemplates.tsx`
+
+**Add toggle in settings panel** (similar to banking_visibility toggle)
 
 ---
 
-## How It Works After The Fix
+### 4. Reorganize Header Layout
 
-1. User opens Template Designer and modifies settings
-2. User clicks "Save Template"
-3. Template is saved to Supabase database
-4. `refreshTemplate()` is called, which invalidates the `['invoiceTemplate']` query cache
-5. User navigates to Invoices page
-6. `useInvoiceTemplate()` sees the cache is invalid and refetches from database
-7. PDF download uses the fresh template settings
+**File:** `src/components/UnifiedInvoiceLayout.tsx`
 
----
+**Current Layout:**
+- Left: Logo + Company details
+- Right: Document title + Invoice number, Date, Due date
 
-## Files Changed
+**Target Layout:**
+- Left: Logo + Company/supplier details (same as current)
+- Right: Document meta box with Invoice No, Date, Due Date
 
-| Action | File |
-|--------|------|
-| MODIFY | `src/hooks/useInvoiceTemplate.ts` |
+This is already the current layout, but we need to ensure proper alignment.
 
 ---
 
-## Technical Notes
+### 5. Bill To Left / Invoice Dates Right
 
-- The existing helper functions (`validateTemplateInvoiceData`, `normalizeInvoiceData`) at the bottom of the hook file will remain unchanged
-- Error handling will use React Query's built-in error state
-- The fallback template logic moves into the query function with proper error boundaries
-- `staleTime: 0` ensures fresh data on every mount while still benefiting from cache invalidation
+**File:** `src/components/UnifiedInvoiceLayout.tsx`
+
+**Change the address grid section (lines 897-935):**
+
+Replace the "Bill To / Ship To" grid with:
+- **Left column:** Bill To (customer info)
+- **Right column:** Invoice metadata (Date, Due Date, No.) - moved from header
+
+This creates a cleaner layout:
+```
+[Logo]                    [TAX INVOICE]
+[Company Details]         [INVOICE #XXX]
+
+[Bill To]                 [Date: XX/XX/XXXX]
+[Customer Name]           [Due: XX/XX/XXXX]
+[Customer Address]
+[Customer VAT]
+```
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/UnifiedInvoiceLayout.tsx` | Remove Ship To, fix percent function, conditionally hide VAT Summary, adjust layout |
+| `src/services/templateService.ts` | Add `vat_summary_visibility` to InvoiceTemplate interface |
+| `src/pages/InvoiceTemplates.tsx` | Add VAT Summary visibility toggle in settings |
+| `src/hooks/useInvoiceTemplate.ts` | Add default for `vat_summary_visibility` |
+
+---
+
+## Visual Before/After
+
+**Before:**
+```text
+┌─────────────────────────────────────────────────┐
+│ [Logo]              TAX INVOICE                 │
+│ Company Name        INVOICE                     │
+│ Address             No: INV-001                 │
+│ Email               Date: 15/01/2026            │
+│ VAT: MT12345        Due: 30/01/2026             │
+├─────────────────────────────────────────────────┤
+│ Bill To          │  Ship To                     │
+│ Customer Name    │  Customer Name               │
+│ Address          │  Address                     │
+├─────────────────────────────────────────────────┤
+│ Description  Qty  Price  VAT   Total            │
+│ Service A     1   €100   0.18  €100             │  <- VAT shows 0.18
+├─────────────────────────────────────────────────┤
+│ VAT Summary Box (always shown)                  │
+└─────────────────────────────────────────────────┘
+```
+
+**After:**
+```text
+┌─────────────────────────────────────────────────┐
+│ [Logo]              TAX INVOICE                 │
+│ Company Name        INVOICE                     │
+│ Address             No: INV-001                 │
+│ Email               Date: 15/01/2026            │
+│ VAT: MT12345        Due: 30/01/2026             │
+├─────────────────────────────────────────────────┤
+│ Bill To                                         │
+│ Customer Name                                   │
+│ Address                                         │
+│ [VAT: MT67890]                                  │
+├─────────────────────────────────────────────────┤
+│ Description  Qty  Price  VAT   Total            │
+│ Service A     1   €100   18%   €100             │  <- VAT shows 18%
+├─────────────────────────────────────────────────┤
+│ (No VAT Summary - hidden by default)            │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Database Consideration
+
+The `vat_summary_visibility` field may need to be added to the `invoice_templates` table. If the column doesn't exist, it will be handled gracefully with a default value of `false` in the TypeScript code.
 
