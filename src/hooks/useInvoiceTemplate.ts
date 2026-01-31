@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDefaultTemplate, InvoiceTemplate } from '@/services/templateService';
-import { useToast } from '@/hooks/use-toast';
+
+const TEMPLATE_QUERY_KEY = ['invoiceTemplate'];
 
 interface UseInvoiceTemplateReturn {
   template: InvoiceTemplate | null;
@@ -11,19 +12,14 @@ interface UseInvoiceTemplateReturn {
 
 /**
  * Unified hook for loading and managing invoice templates
- * Ensures consistent template data across all components
+ * Uses React Query for global cache invalidation across all components
  */
 export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
-  const [template, setTemplate] = useState<InvoiceTemplate | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const loadTemplate = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
+  const { data: template, isLoading, error } = useQuery({
+    queryKey: TEMPLATE_QUERY_KEY,
+    queryFn: async () => {
       console.log('[useInvoiceTemplate] Loading template...');
       const loadedTemplate = await getDefaultTemplate();
       console.log('[useInvoiceTemplate] Template loaded:', loadedTemplate);
@@ -33,7 +29,7 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         console.warn('[useInvoiceTemplate] Template missing required color fields, using defaults');
       }
       
-      // Ensure consistent font family format and all template fields have defaults
+      // Normalize template with defaults
       const normalizedTemplate = {
         ...loadedTemplate,
         font_family: loadedTemplate.font_family || 'Inter',
@@ -44,7 +40,7 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
         header_layout: loadedTemplate.header_layout || 'default',
         table_style: loadedTemplate.table_style || 'default',
         totals_style: loadedTemplate.totals_style || 'default',
-        banking_visibility: loadedTemplate.banking_visibility !== undefined ? loadedTemplate.banking_visibility : true,
+        banking_visibility: loadedTemplate.banking_visibility ?? true,
         banking_style: loadedTemplate.banking_style || 'default',
         margin_top: loadedTemplate.margin_top ?? 20,
         margin_right: loadedTemplate.margin_right ?? 20,
@@ -53,58 +49,22 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
       } as InvoiceTemplate;
       
       console.log('[useInvoiceTemplate] Normalized template:', normalizedTemplate);
-      setTemplate(normalizedTemplate);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load template';
-      setError(errorMessage);
-      console.error('[useInvoiceTemplate] Template loading error:', err);
-      
-      // Set fallback template to prevent complete failure
-      const fallbackTemplate: InvoiceTemplate = {
-        id: 'fallback',
-        name: 'Fallback Template',
-        is_default: true,
-        primary_color: '#26A65B',
-        accent_color: '#1F2D3D',
-        font_family: 'Inter',
-        font_size: '14px',
-        layout: 'default',
-        header_layout: 'default',
-        table_style: 'default',
-        totals_style: 'default',
-        banking_visibility: true,
-        banking_style: 'default',
-        margin_top: 20,
-        margin_right: 20,
-        margin_bottom: 20,
-        margin_left: 20,
-      };
-      
-      console.log('[useInvoiceTemplate] Using fallback template');
-      setTemplate(fallbackTemplate);
-      
-      toast({
-        title: 'Template Loading Warning',
-        description: 'Using fallback template. Please check your template settings.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+      return normalizedTemplate;
+    },
+    staleTime: 0, // Always check for fresh data
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+  });
 
-  useEffect(() => {
-    loadTemplate();
-  }, [loadTemplate]);
-
-  const refreshTemplate = useCallback(async () => {
-    await loadTemplate();
-  }, [loadTemplate]);
+  // This function invalidates the cache globally
+  const refreshTemplate = async () => {
+    console.log('[useInvoiceTemplate] Invalidating template cache...');
+    await queryClient.invalidateQueries({ queryKey: TEMPLATE_QUERY_KEY });
+  };
 
   return {
-    template,
+    template: template ?? null,
     isLoading,
-    error,
+    error: error ? String(error) : null,
     refreshTemplate,
   };
 };
