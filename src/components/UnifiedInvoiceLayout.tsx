@@ -78,6 +78,7 @@ export interface TemplateSettings {
   totalsStyle?: string;
   bankingVisibility?: boolean;
   bankingStyle?: string;
+  vatSummaryVisibility?: boolean;
   style?: TemplateStyle;
   // NOTE: margins exist in DB but are intentionally ignored (locked)
   marginTop?: number;
@@ -108,7 +109,12 @@ const formatDate = (dateStr: string) => {
 const money = (val: number) =>
   `€${Number(val || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const percent = (val: number) => `${Number(val || 0)}%`;
+const percent = (val: number) => {
+  const normalized = Number(val || 0);
+  // Normalize: if value is <= 1 (like 0.18), multiply by 100 to get 18%
+  const displayRate = normalized > 1 ? normalized : normalized * 100;
+  return `${Math.round(displayRate)}%`;
+};
 
 const mul = (a: number, b: number) => Number(a || 0) * Number(b || 0);
 
@@ -257,6 +263,7 @@ export const UnifiedInvoiceLayout = ({
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
   const showBanking = (templateSettings?.bankingVisibility ?? true) && !!bankingSettings;
+  const showVatSummary = templateSettings?.vatSummaryVisibility ?? false; // Hidden by default
 
   // Standardized font sizes for all templates
   
@@ -894,44 +901,28 @@ export const UnifiedInvoiceLayout = ({
 
             <hr className="divider" />
 
-            {/* BILL TO / SHIP TO Grid */}
-            <div className="address-grid">
-              <div className="address-block billto">
-                <div className="section-label">Bill To</div>
-                <div className="customer-name">{invoiceData.customer.name}</div>
-                <div className="customer-info">
-                  {/* Structured address fields */}
-                  {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
-                  {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
-                  {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
-                  {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
-                  {/* Legacy address field fallback */}
-                  {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
-                    <div className="desc">{invoiceData.customer.address}</div>
-                  )}
-                </div>
-                {/* Prominent VAT Number for business customers */}
-                {invoiceData.customer.vat_number && (
-                  <div className="customer-vat">
-                    <span className="vat-label">VAT Registration:</span>
-                    <span className="vat-value">{invoiceData.customer.vat_number}</span>
-                  </div>
+            {/* BILL TO (Ship To removed) */}
+            <div className="address-block billto">
+              <div className="section-label">Bill To</div>
+              <div className="customer-name">{invoiceData.customer.name}</div>
+              <div className="customer-info">
+                {/* Structured address fields */}
+                {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
+                {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
+                {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
+                {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
+                {/* Legacy address field fallback */}
+                {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
+                  <div className="desc">{invoiceData.customer.address}</div>
                 )}
               </div>
-              <div className="address-block shipto">
-                <div className="section-label">Ship To</div>
-                <div className="customer-name">{invoiceData.customer.name}</div>
-                <div className="customer-info">
-                  {/* Same address for now - can be extended later */}
-                  {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
-                  {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
-                  {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
-                  {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
-                  {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
-                    <div className="desc">{invoiceData.customer.address}</div>
-                  )}
+              {/* Prominent VAT Number for business customers */}
+              {invoiceData.customer.vat_number && (
+                <div className="customer-vat">
+                  <span className="vat-label">VAT Registration:</span>
+                  <span className="vat-value">{invoiceData.customer.vat_number}</span>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* ITEMS */}
@@ -1002,8 +993,8 @@ export const UnifiedInvoiceLayout = ({
               </div>
             </div>
 
-            {/* VAT SUMMARY TABLE - Compact layout BELOW totals */}
-            {(() => {
+            {/* VAT SUMMARY TABLE - Compact layout BELOW totals (hidden by default) */}
+            {showVatSummary && (() => {
               // Group items by VAT rate and calculate totals
               const vatGroups = invoiceData.items.reduce((acc, item) => {
                 const rate = Number(item.vat_rate) || 0;
