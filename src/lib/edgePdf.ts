@@ -21,10 +21,10 @@ import { PDF_PRINT_STYLES } from "@/lib/pdfPrintStyles";
 type ExportMode = "print" | "edge";
 
 function getExportMode(): ExportMode {
-  // Default to print engine (browser print dialog, free, no external API).
-  // Set VITE_PDF_EXPORT_MODE=edge in your environment to use the Edge Function for direct download.
+  // Default to edge engine (direct PDF download via html2pdf.app API).
+  // Set VITE_PDF_EXPORT_MODE=print to use browser print dialog (free, no API).
   const mode = (import.meta as any)?.env?.VITE_PDF_EXPORT_MODE;
-  return mode === "edge" ? "edge" : "print";
+  return mode === "print" ? "print" : "edge";
 }
 
 export async function inlineImages(container: HTMLElement) {
