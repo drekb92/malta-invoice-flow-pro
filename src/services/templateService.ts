@@ -136,7 +136,7 @@ export const getDefaultTemplate = async (style?: TemplateStyle): Promise<Invoice
       margin_right: data.margin_right || 20,
       margin_bottom: data.margin_bottom || 20,
       margin_left: data.margin_left || 20,
-      style: style || 'modern',
+      style: (data.style as TemplateStyle) || 'modern',
     };
 
     return style ? applyStyleToTemplate(template, style) : template;

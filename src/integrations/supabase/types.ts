@@ -637,6 +637,7 @@ export type Database = {
           margin_top: number | null
           name: string
           primary_color: string | null
+          style: string
           table_style: string | null
           totals_style: string | null
           user_id: string | null
@@ -667,6 +668,7 @@ export type Database = {
           margin_top?: number | null
           name: string
           primary_color?: string | null
+          style?: string
           table_style?: string | null
           totals_style?: string | null
           user_id?: string | null
@@ -697,6 +699,7 @@ export type Database = {
           margin_top?: number | null
           name?: string
           primary_color?: string | null
+          style?: string
           table_style?: string | null
           totals_style?: string | null
           user_id?: string | null
