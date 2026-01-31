@@ -915,14 +915,11 @@ export const UnifiedInvoiceLayout = ({
                 {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
                   <div className="desc">{invoiceData.customer.address}</div>
                 )}
+                {/* VAT Number - inline with customer details */}
+                {invoiceData.customer.vat_number && (
+                  <div>VAT No: {invoiceData.customer.vat_number}</div>
+                )}
               </div>
-              {/* Prominent VAT Number for business customers */}
-              {invoiceData.customer.vat_number && (
-                <div className="customer-vat">
-                  <span className="vat-label">VAT Registration:</span>
-                  <span className="vat-value">{invoiceData.customer.vat_number}</span>
-                </div>
-              )}
             </div>
 
             {/* ITEMS */}
