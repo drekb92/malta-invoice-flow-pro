@@ -222,6 +222,7 @@ const InvoiceTemplates = () => {
           banking_visibility: t.banking_visibility !== undefined ? t.banking_visibility : true,
           banking_style: (t.banking_style || "default") as "default" | "boxed" | "minimal",
           vat_summary_visibility: (t as any).vat_summary_visibility ?? false,
+          style: ((t as any).style || 'modern') as TemplateStyle,
           margin_top: t.margin_top || 20,
           margin_right: t.margin_right || 20,
           margin_bottom: t.margin_bottom || 20,
@@ -266,6 +267,7 @@ const InvoiceTemplates = () => {
         totals_style: "default",
         banking_visibility: true,
         banking_style: "default",
+        style: "modern",
         margin_top: 20,
         margin_right: 20,
         margin_bottom: 20,
@@ -277,7 +279,7 @@ const InvoiceTemplates = () => {
 
       if (error) throw error;
 
-      const typedData = {
+      const typedData: InvoiceTemplate = {
         ...data,
         layout: "default" as const,
         header_layout: "default" as const,
@@ -285,6 +287,7 @@ const InvoiceTemplates = () => {
         totals_style: "default" as const,
         banking_visibility: true,
         banking_style: "default" as const,
+        style: (data.style as TemplateStyle) || "modern",
       };
       setTemplates([typedData]);
       setSelectedTemplate(typedData);
@@ -370,6 +373,7 @@ const InvoiceTemplates = () => {
           totals_style: currentSettings.totals_style,
           banking_visibility: currentSettings.banking_visibility,
           banking_style: currentSettings.banking_style,
+          style: currentSettings.style,
           margin_top: currentSettings.margin_top,
           margin_right: currentSettings.margin_right,
           margin_bottom: currentSettings.margin_bottom,
