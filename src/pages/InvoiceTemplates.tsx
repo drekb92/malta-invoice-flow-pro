@@ -442,14 +442,20 @@ const InvoiceTemplates = () => {
 
   // Set as default
   const handleSetDefault = async () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || !user?.id) return;
 
     try {
-      await supabase
+      // First, set all user's templates to non-default
+      const { error: clearError } = await supabase
         .from("invoice_templates")
         .update({ is_default: false })
-        .neq("id", "00000000-0000-0000-0000-000000000000");
+        .eq("user_id", user.id);
 
+      if (clearError) {
+        console.error("Error clearing defaults:", clearError);
+      }
+
+      // Then set the selected template as default
       const { error } = await supabase
         .from("invoice_templates")
         .update({ is_default: true })
@@ -463,6 +469,9 @@ const InvoiceTemplates = () => {
           is_default: t.id === selectedTemplate.id,
         })),
       );
+
+      // Refresh the global template cache
+      await refreshTemplate();
 
       toast({
         title: "Default template set",
