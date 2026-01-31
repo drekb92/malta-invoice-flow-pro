@@ -143,46 +143,57 @@ export function buildA4HtmlDocument(opts: { filename: string; fontFamily: string
 }
 
 async function exportViaPrintWindow(filename: string, selectedFontFamily?: string, debug = false) {
-  const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
-  if (!root) throw new Error("Preview root not found (invoice-preview-root).");
-
-  const fontFamily = selectedFontFamily || "Inter";
-
-  // Clone and inline images so logos render in the print window.
-  const cloned = root.cloneNode(true) as HTMLElement;
-  await inlineImages(cloned);
-
-  // Preserve CSS variables from on-screen preview.
-  const cssVars = captureCssVars(root);
-  if (cssVars) {
-    const existing = cloned.getAttribute("style") || "";
-    cloned.setAttribute("style", `${existing}${existing ? " " : ""}${cssVars}`);
-  }
-
-  const html = buildA4HtmlDocument({ filename, fontFamily, clonedRoot: cloned, debug });
-
-  const w = window.open("", "_blank", "noopener,noreferrer");
+  // Open window IMMEDIATELY in user gesture context to avoid popup blockers.
+  // This must happen synchronously before any async work.
+  const w = window.open("", "_blank");
   if (!w) throw new Error("Popup blocked. Please allow popups to export PDF.");
 
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-
-  // Print after fonts load (best-effort).
-  // @ts-ignore
-  const fontsReady = (w.document as any)?.fonts?.ready;
-  if (fontsReady?.then) {
-    try {
-      await fontsReady;
-    } catch {
-      // ignore
+  try {
+    const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
+    if (!root) {
+      w.close();
+      throw new Error("Preview root not found (invoice-preview-root).");
     }
-  }
 
-  // Give layout a moment to settle
-  await new Promise((r) => setTimeout(r, 150));
-  w.focus();
-  w.print();
+    const fontFamily = selectedFontFamily || "Inter";
+
+    // Clone and inline images so logos render in the print window.
+    const cloned = root.cloneNode(true) as HTMLElement;
+    await inlineImages(cloned);
+
+    // Preserve CSS variables from on-screen preview.
+    const cssVars = captureCssVars(root);
+    if (cssVars) {
+      const existing = cloned.getAttribute("style") || "";
+      cloned.setAttribute("style", `${existing}${existing ? " " : ""}${cssVars}`);
+    }
+
+    const html = buildA4HtmlDocument({ filename, fontFamily, clonedRoot: cloned, debug });
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+
+    // Print after fonts load (best-effort).
+    // @ts-ignore
+    const fontsReady = (w.document as any)?.fonts?.ready;
+    if (fontsReady?.then) {
+      try {
+        await fontsReady;
+      } catch {
+        // ignore
+      }
+    }
+
+    // Give layout a moment to settle
+    await new Promise((r) => setTimeout(r, 150));
+    w.focus();
+    w.print();
+  } catch (error) {
+    // Close the window if something fails after opening
+    try { w.close(); } catch { /* ignore */ }
+    throw error;
+  }
 }
 
 /**
