@@ -88,15 +88,16 @@ export const applyStyleToTemplate = (template: InvoiceTemplate, style: TemplateS
 
 export const getDefaultTemplate = async (style?: TemplateStyle): Promise<InvoiceTemplate> => {
   try {
-    // Use .limit(1) instead of .maybeSingle() to handle cases where multiple defaults exist
-    // Order by created_at desc to get the most recently updated default template
-    const { data, error } = await supabase
+    // Use limit(1) and select first result to handle cases where multiple defaults exist
+    // Order by created_at desc to get the most recently created default template
+    const { data: templates, error } = await supabase
       .from('invoice_templates')
       .select('*')
       .eq('is_default', true)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
+
+    const data = templates?.[0];
 
     if (error || !data) {
       console.warn('[getDefaultTemplate] No default template found, using fallback');
