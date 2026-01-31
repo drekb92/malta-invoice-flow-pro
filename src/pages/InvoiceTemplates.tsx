@@ -50,6 +50,7 @@ interface InvoiceTemplate {
   totals_style?: "default" | "boxed" | "highlighted";
   banking_visibility?: boolean;
   banking_style?: "default" | "boxed" | "minimal";
+  vat_summary_visibility?: boolean;
   margin_top?: number;
   margin_right?: number;
   margin_bottom?: number;
@@ -220,6 +221,7 @@ const InvoiceTemplates = () => {
           totals_style: (t.totals_style || "default") as "default" | "boxed" | "highlighted",
           banking_visibility: t.banking_visibility !== undefined ? t.banking_visibility : true,
           banking_style: (t.banking_style || "default") as "default" | "boxed" | "minimal",
+          vat_summary_visibility: (t as any).vat_summary_visibility ?? false,
           margin_top: t.margin_top || 20,
           margin_right: t.margin_right || 20,
           margin_bottom: t.margin_bottom || 20,
@@ -866,6 +868,14 @@ const InvoiceTemplates = () => {
                           onCheckedChange={(checked) => updateSetting("banking_visibility", checked)}
                         />
                       </div>
+
+                      <div className="flex items-center justify-between py-2 px-1">
+                        <Label className="text-sm">Show VAT Summary</Label>
+                        <Switch
+                          checked={currentSettings.vat_summary_visibility === true}
+                          onCheckedChange={(checked) => updateSetting("vat_summary_visibility", checked)}
+                        />
+                      </div>
                     </div>
                   </TemplateControlSection>
 
@@ -1006,6 +1016,7 @@ const InvoiceTemplates = () => {
                       totalsStyle: currentSettings.totals_style || "default",
                       bankingVisibility: currentSettings.banking_visibility !== false,
                       bankingStyle: currentSettings.banking_style || "default",
+                      vatSummaryVisibility: currentSettings.vat_summary_visibility === true,
                       marginTop: currentSettings.margin_top || 20,
                       marginRight: currentSettings.margin_right || 20,
                       marginBottom: currentSettings.margin_bottom || 20,

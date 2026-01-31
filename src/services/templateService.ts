@@ -17,6 +17,7 @@ export interface InvoiceTemplate {
   totals_style?: 'default' | 'boxed' | 'highlighted';
   banking_visibility?: boolean;
   banking_style?: 'default' | 'boxed' | 'minimal';
+  vat_summary_visibility?: boolean;
   company_position?: 'left' | 'right' | 'top-right';
   banking_position?: 'after-totals' | 'bottom' | 'footer';
   margin_top?: number;
