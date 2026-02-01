@@ -156,10 +156,10 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
     }
   }
 
-  // Sort by timestamp descending and take top 8
+  // Sort by timestamp descending and take top 5
   return activities
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-    .slice(0, 8);
+    .slice(0, 5);
 };
 
 interface RecentActivityProps {
