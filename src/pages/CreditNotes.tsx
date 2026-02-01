@@ -25,6 +25,7 @@ import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLa
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 
 interface CreditNoteWithRelations extends CreditNoteType {
@@ -57,6 +58,7 @@ const CreditNotes = () => {
   const { template } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
 
   const fetchCreditNotes = async () => {
     try {
@@ -544,7 +546,9 @@ const CreditNotes = () => {
               marginRight: template.margin_right,
               marginBottom: template.margin_bottom,
               marginLeft: template.margin_left,
+              style: template.style as any || 'modern',
             } : undefined}
+            footerText={invoiceSettings?.invoice_footer_text}
           />
         </div>
       )}
