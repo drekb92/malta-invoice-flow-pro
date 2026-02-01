@@ -1,160 +1,138 @@
 
 
-# Fix Invoice Footer Text from Settings
+# Unified Template Styling for All Documents
 
-The footer text in invoices is hardcoded as "Thank you for your business. All amounts in EUR." even though the Settings page allows users to customize it. This plan connects the saved `invoice_footer_text` from the database to the invoice layout.
+This plan ensures Credit Notes and Statements use the same template style (Modern/Professional/Minimalist) as Invoices.
 
 ---
 
-## Root Cause
+## Current Problem
 
-| Component | Current Behavior | Problem |
-|-----------|-----------------|---------|
-| Settings page | Saves footer to `invoice_settings.invoice_footer_text` | Works correctly |
-| UnifiedInvoiceLayout | Hardcoded footer on lines 1100-1104 | Ignores saved setting |
-| Invoices.tsx / NewInvoice.tsx | Don't load invoice_settings | No data to pass |
-
-The footer text is saved to the database but never retrieved or passed to the invoice layout component.
+| Document | Template Style Applied? | Issue |
+|----------|------------------------|-------|
+| Invoice | Yes (`style: template?.style`) | Works correctly |
+| Credit Note | No | Missing `style` property in templateSettings |
+| Statement | No | UnifiedStatementLayout doesn't support `style` property |
 
 ---
 
 ## Solution Overview
 
-1. Create a new `useInvoiceSettings` hook to load invoice settings from the database
-2. Add `footerText` prop to `UnifiedInvoiceLayout` interface
-3. Update the footer rendering to use the dynamic text
-4. Pass the footer text from both `Invoices.tsx` and `NewInvoice.tsx`
+1. **CreditNotes.tsx**: Add the missing `style` property and `footerText` prop
+2. **UnifiedStatementLayout.tsx**: Add `style` property support to the TemplateSettings interface and implement the three visual styles
+3. **StatementModal.tsx**: Pass the full template settings including `style`
 
 ---
 
 ## Technical Implementation
 
-### Step 1: Create useInvoiceSettings Hook
+### Step 1: Fix CreditNotes.tsx
 
-**New file:** `src/hooks/useInvoiceSettings.ts`
+**File:** `src/pages/CreditNotes.tsx`
 
-Create a hook similar to `useBankingSettings` that loads from `invoice_settings` table:
-
-```typescript
-export interface InvoiceSettings {
-  id: string;
-  user_id: string;
-  invoice_footer_text?: string;
-  default_invoice_notes?: string;
-  reverse_charge_note?: string;
-  default_payment_days?: number;
-  // ... other fields as needed
-}
-
-export const useInvoiceSettings = (): UseInvoiceSettingsReturn => {
-  // Load from supabase invoice_settings table
-  // Return settings, isLoading, error, refresh
-};
-```
-
-### Step 2: Update UnifiedInvoiceLayout Props
-
-**File:** `src/components/UnifiedInvoiceLayout.tsx`
-
-Add `footerText` to the props interface:
-
-```typescript
-export interface UnifiedInvoiceLayoutProps {
-  invoiceData: InvoiceData;
-  companySettings?: CompanySettings;
-  bankingSettings?: BankingSettings;
-  templateSettings?: TemplateSettings;
-  variant?: "preview" | "pdf";
-  id?: string;
-  documentType?: DocumentType;
-  debug?: boolean;
-  footerText?: string;  // NEW: Custom footer text from settings
-}
-```
-
-### Step 3: Update Footer Rendering
-
-**File:** `src/components/UnifiedInvoiceLayout.tsx` (lines 1100-1104)
-
-Change from hardcoded text to using the prop with a fallback:
-
-```typescript
-// BEFORE (hardcoded):
-<div className="thanks">
-  Thank you for your business
-  <br />
-  All amounts in EUR.
-</div>
-
-// AFTER (dynamic with fallback):
-<div className="thanks">
-  {footerText || "Thank you for your business. All amounts in EUR."}
-</div>
-```
-
-### Step 4: Update Invoices.tsx
-
-**File:** `src/pages/Invoices.tsx`
-
-1. Import and use the new hook:
+**Change 1:** Add import for `useInvoiceSettings`
 ```typescript
 import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
+```
 
+**Change 2:** Add hook usage after other hooks (around line 59)
+```typescript
 const { settings: invoiceSettings } = useInvoiceSettings();
 ```
 
-2. Pass footer text to UnifiedInvoiceLayout:
+**Change 3:** Add `style` property to templateSettings (line 532-546)
 ```typescript
-<UnifiedInvoiceLayout
-  // ... existing props
-  footerText={invoiceSettings?.invoice_footer_text}
-/>
+templateSettings={template ? {
+  primaryColor: template.primary_color,
+  accentColor: template.accent_color,
+  fontFamily: template.font_family,
+  fontSize: template.font_size,
+  layout: template.layout as any,
+  headerLayout: template.header_layout as any,
+  tableStyle: template.table_style as any,
+  totalsStyle: template.totals_style as any,
+  bankingVisibility: template.banking_visibility,
+  bankingStyle: template.banking_style as any,
+  marginTop: template.margin_top,
+  marginRight: template.margin_right,
+  marginBottom: template.margin_bottom,
+  marginLeft: template.margin_left,
+  style: template.style || 'modern',  // ADD THIS
+} : undefined}
 ```
 
-### Step 5: Update NewInvoice.tsx
-
-**File:** `src/pages/NewInvoice.tsx`
-
-Same pattern as Invoices.tsx - import the hook and pass the footer text.
-
----
-
-## Files to Create/Modify
-
-| File | Action | Change |
-|------|--------|--------|
-| `src/hooks/useInvoiceSettings.ts` | Create | New hook to load invoice settings |
-| `src/components/UnifiedInvoiceLayout.tsx` | Modify | Add `footerText` prop, update footer rendering |
-| `src/pages/Invoices.tsx` | Modify | Load invoice settings, pass footer text |
-| `src/pages/NewInvoice.tsx` | Modify | Load invoice settings, pass footer text |
-
----
-
-## Data Flow After Fix
-
-```text
-User edits footer in Settings → Document Content tab
-    ↓
-Saved to invoice_settings.invoice_footer_text
-    ↓
-useInvoiceSettings hook loads settings
-    ↓
-Invoices.tsx / NewInvoice.tsx pass footerText prop
-    ↓
-UnifiedInvoiceLayout renders custom footer
-    ↓
-PDF export includes custom footer text
+**Change 4:** Add `footerText` prop to UnifiedInvoiceLayout
+```typescript
+footerText={invoiceSettings?.invoice_footer_text}
 ```
 
 ---
 
-## Testing Steps
+### Step 2: Update UnifiedStatementLayout
+
+**File:** `src/components/UnifiedStatementLayout.tsx`
+
+**Change 1:** Add `style` to TemplateSettings interface (lines 29-39)
+```typescript
+export interface TemplateSettings {
+  primaryColor?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  marginTop?: number;
+  marginRight?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  bankingVisibility?: boolean;
+  style?: 'modern' | 'professional' | 'minimalist';  // ADD THIS
+}
+```
+
+**Change 2:** Add style-based header rendering logic
+
+Extract the `style` prop in the component function:
+```typescript
+const style = templateSettings?.style || 'modern';
+```
+
+Apply conditional styling to the header section based on `style`:
+- **Modern**: Solid color header background with white/contrasting text
+- **Professional**: White header with colored top border
+- **Minimalist**: Plain white header, no border, primary color only on title
+
+---
+
+### Step 3: Update StatementModal.tsx
+
+**File:** `src/components/StatementModal.tsx`
+
+**Change:** Pass `style` in templateSettings (lines 646-650)
+```typescript
+templateSettings={{
+  primaryColor: template?.primary_color || '#26A65B',
+  accentColor: template?.accent_color || '#1F2D3D',
+  fontFamily: template?.font_family || 'Inter',
+  style: template?.style || 'modern',  // ADD THIS
+}}
+```
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/pages/CreditNotes.tsx` | Add `style` to templateSettings, import useInvoiceSettings, add footerText prop |
+| `src/components/UnifiedStatementLayout.tsx` | Add `style` to TemplateSettings interface, implement style-based header rendering |
+| `src/components/StatementModal.tsx` | Pass `style` property to UnifiedStatementLayout |
+
+---
+
+## Visual Result
 
 After implementation:
-1. Go to Settings → Document Content tab
-2. Update the Invoice Footer field (e.g., "Thank you! Payment due within 14 days.")
-3. Save the settings
-4. Create a new invoice - preview should show the custom footer
-5. Download a PDF from the Invoices list - should show the same custom footer
-6. Test with empty footer - should fall back to default text
+- Credit Note PDFs will match the selected template style (Modern/Professional/Minimalist)
+- Statement PDFs will also use the selected template style
+- All documents will have consistent branding across the application
+- Credit Notes will include the custom footer text from Document Content settings
 
