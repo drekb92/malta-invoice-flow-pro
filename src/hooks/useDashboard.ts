@@ -6,6 +6,7 @@ import {
   getRecentCustomersWithOutstanding,
   getOverdueInvoices,
   getPendingReminders,
+  getInvoicesNeedingSending,
 } from "@/lib/dashboard";
 
 export const useSetupStatus = (userId: string | undefined) =>
@@ -40,5 +41,12 @@ export const usePendingReminders = (userId: string | undefined) =>
   useQuery({
     queryKey: ["pendingReminders", userId],
     queryFn: () => getPendingReminders(userId!),
+    enabled: !!userId,
+  });
+
+export const useInvoicesNeedingSending = (userId: string | undefined) =>
+  useQuery({
+    queryKey: ["invoicesNeedingSending", userId],
+    queryFn: () => getInvoicesNeedingSending(userId!),
     enabled: !!userId,
   });

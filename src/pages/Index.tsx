@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
 import { RecentActivity } from "@/components/RecentActivity";
 import { DashboardCommandBar } from "@/components/DashboardCommandBar";
 import { PendingRemindersWidget } from "@/components/PendingRemindersWidget";
 import { ReceivablesAgingCard } from "@/components/ReceivablesAgingCard";
+import { NeedsSendingCard } from "@/components/NeedsSendingCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,14 +17,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +25,7 @@ import {
   useDashboardMetrics,
   useRecentCustomers,
   useOverdueInvoices,
+  useInvoicesNeedingSending,
 } from "@/hooks/useDashboard";
 import {
   FileText,
@@ -45,9 +39,6 @@ import {
   Building,
   Sparkles,
   Clock,
-  ChevronDown,
-  FileSpreadsheet,
-  BarChart3,
 } from "lucide-react";
 
 interface SetupStatus {
@@ -116,6 +107,7 @@ const Index = () => {
   const { data: metricsData } = useDashboardMetrics(userId);
   const { data: recentCustomersData } = useRecentCustomers(userId);
   const { data: overdueInvoicesData, refetch: refetchOverdueInvoices } = useOverdueInvoices(userId);
+  const { data: needsSendingData, refetch: refetchNeedsSending } = useInvoicesNeedingSending(userId);
 
   // === Fallbacks / derived values ===
   const setupStatus: SetupStatus = setupData ?? defaultSetupStatus;
@@ -124,6 +116,7 @@ const Index = () => {
     (recentCustomersData as Customer[] | undefined) ?? [];
   const overdueInvoices =
     (overdueInvoicesData as OverdueInvoice[] | undefined) ?? [];
+  const needsSendingInvoices = needsSendingData ?? [];
 
   const completionPercentage = Number(
     setupStatus?.completionPercentage ?? 0
@@ -466,46 +459,12 @@ const Index = () => {
                   formatCurrency={formatCurrency}
                 />
 
-                {/* More Actions Card */}
-                <Card className="flex flex-col">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-primary" />
-                      More Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-1">
-                    <div className="space-y-2">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="w-full justify-start"
-                        onClick={() => navigate("/customers")}
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        Customers
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="w-full justify-start"
-                        onClick={() => navigate("/credit-notes")}
-                      >
-                        <FileSpreadsheet className="h-4 w-4 mr-2" />
-                        Credit Notes
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="w-full justify-start"
-                        onClick={() => navigate("/reports")}
-                      >
-                        <BarChart3 className="h-4 w-4 mr-2" />
-                        Reports
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Needs Sending Card */}
+                <NeedsSendingCard
+                  invoices={needsSendingInvoices}
+                  formatCurrency={formatCurrency}
+                  onSent={() => refetchNeedsSending()}
+                />
               </div>
 
               {/* Row 2: Pending Reminders + Recent Activity */}
