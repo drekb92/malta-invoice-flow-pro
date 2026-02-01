@@ -184,3 +184,39 @@ export async function getPendingReminders(userId: string) {
 
   return count || 0;
 }
+
+// --- Invoices needing sending -------------------------------------------------
+export async function getInvoicesNeedingSending(userId: string) {
+  // Get invoices that are draft OR issued but never sent
+  const { data: invoices } = await supabase
+    .from("invoices")
+    .select("id, invoice_number, customer_id, total_amount, status, last_sent_at")
+    .eq("user_id", userId)
+    .or("status.eq.draft,and(status.neq.draft,last_sent_at.is.null)")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (!invoices || invoices.length === 0) return [];
+
+  const customerIds = [...new Set(invoices.map((inv) => inv.customer_id).filter(Boolean))];
+
+  const { data: customers } = await supabase
+    .from("customers")
+    .select("id, name, email")
+    .in("id", customerIds);
+
+  const customerMap = new Map((customers || []).map((c) => [c.id, { name: c.name, email: c.email }]));
+
+  return invoices.map((invoice) => {
+    const customer = customerMap.get(invoice.customer_id) || { name: "Unknown", email: null };
+    return {
+      id: invoice.id,
+      invoice_number: invoice.invoice_number || "Draft",
+      customer_id: invoice.customer_id,
+      customer_name: customer.name,
+      customer_email: customer.email,
+      total_amount: Number(invoice.total_amount || 0),
+      status: invoice.status || "draft",
+    };
+  });
+}
