@@ -74,6 +74,9 @@ interface OverdueInvoice {
   total_amount: number;
   due_date: string;
   days_overdue: number;
+  last_sent_at?: string | null;
+  last_sent_channel?: string | null;
+  last_reminded_at?: string | null;
 }
 
 const defaultSetupStatus: SetupStatus = {

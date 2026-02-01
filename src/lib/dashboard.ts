@@ -120,7 +120,7 @@ export async function getOverdueInvoices(userId: string) {
 
   const { data: invoices } = await supabase
     .from("invoices")
-    .select("id, invoice_number, customer_id, total_amount, due_date, status")
+    .select("id, invoice_number, customer_id, total_amount, due_date, status, last_sent_at, last_sent_channel")
     .eq("user_id", userId)
     .neq("status", "paid")
     .lt("due_date", todayStr)
@@ -134,6 +134,20 @@ export async function getOverdueInvoices(userId: string) {
   const { data: customers } = await supabase.from("customers").select("id, name").in("id", customerIds);
 
   const customerMap = new Map((customers || []).map((c) => [c.id, c.name]));
+
+  // Get last reminder sent for each invoice
+  const { data: reminderLogs } = await supabase
+    .from("reminder_logs")
+    .select("invoice_id, sent_at")
+    .in("invoice_id", invoices.map((inv) => inv.id))
+    .order("sent_at", { ascending: false });
+
+  const lastReminderMap = new Map<string, string>();
+  reminderLogs?.forEach((log) => {
+    if (!lastReminderMap.has(log.invoice_id)) {
+      lastReminderMap.set(log.invoice_id, log.sent_at || "");
+    }
+  });
 
   const today = new Date();
 
@@ -149,6 +163,9 @@ export async function getOverdueInvoices(userId: string) {
       total_amount: Number(invoice.total_amount || 0),
       due_date: invoice.due_date,
       days_overdue: daysOverdue,
+      last_sent_at: invoice.last_sent_at || null,
+      last_sent_channel: invoice.last_sent_channel || null,
+      last_reminded_at: lastReminderMap.get(invoice.id) || null,
     };
   });
 }
