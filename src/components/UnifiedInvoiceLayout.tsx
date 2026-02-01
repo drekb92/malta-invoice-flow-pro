@@ -346,9 +346,12 @@ export const UnifiedInvoiceLayout = ({
     #${id} .header-left { flex: 0 0 56%; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
     #${id} .header-right { flex: 1; text-align: right; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
     #${id} .logo {
+      width: auto;
       height: auto;
       max-height: ${variant === "preview" ? "60px" : "18mm"};
-      max-width: ${variant === "preview" ? "200px" : "50mm"};
+      max-width: ${variant === "preview" ? "160px" : "45mm"};
+      object-fit: contain;
+      object-position: left top;
       display: block;
       margin-bottom: ${isPdf ? '2mm' : '8px'};
     }
