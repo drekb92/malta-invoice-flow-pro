@@ -66,26 +66,17 @@ export async function getDashboardMetrics(userId: string) {
 
   const customersCount = customers?.length || 0;
 
-  // Credit notes stats
-  const { data: creditNotes } = await supabase
-    .from("credit_notes" as any)
-    .select("amount, vat_rate, status")
-    .eq("user_id", userId);
-
-  const creditNotesCount = creditNotes?.length || 0;
-  const creditNotesTotal =
-    (creditNotes as any[])?.reduce(
-      (sum: number, cn: any) => sum + Number(cn.amount || 0) * (1 + Number(cn.vat_rate || 0)),
-      0,
-    ) || 0;
+  // Invoices issued stats (count and total value)
+  const invoicesCount = invoices?.length || 0;
+  const invoicesTotal = totalInvoiced;
 
   return {
     outstanding,
     customers: customersCount,
     payments,
     collectionRate,
-    creditNotes: creditNotesCount,
-    creditNotesTotal,
+    invoicesCount,
+    invoicesTotal,
   };
 }
 

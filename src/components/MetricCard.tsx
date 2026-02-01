@@ -8,9 +8,10 @@ interface MetricCardProps {
   change: string;
   changeType: "positive" | "negative" | "neutral";
   icon: LucideIcon;
+  onClick?: () => void;
 }
 
-export function MetricCard({ title, value, change, changeType, icon: Icon }: MetricCardProps) {
+export function MetricCard({ title, value, change, changeType, icon: Icon, onClick }: MetricCardProps) {
   const changeColor = {
     positive: "text-green-600",
     negative: "text-red-600",
@@ -18,7 +19,10 @@ export function MetricCard({ title, value, change, changeType, icon: Icon }: Met
   }[changeType];
 
   return (
-    <Card>
+    <Card 
+      className={onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
+      onClick={onClick}
+    >
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
