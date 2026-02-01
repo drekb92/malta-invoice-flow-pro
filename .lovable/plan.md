@@ -1,24 +1,26 @@
 
 
-# Fix Logo Sizing in Invoice PDF
+# Fix Minimalist Template Company/Customer Address Overlap
 
-The logo in invoices appears stretched/widened because the current CSS allows the image to scale freely within max-width/max-height bounds without preserving the original aspect ratio.
+The minimalist template has overlapping company and customer details because the header height is constrained while Modern and Professional styles set `height: auto`.
 
 ---
 
-## Root Cause
+## Root Cause Analysis
 
-| Issue | Current CSS | Problem |
-|-------|-------------|---------|
-| No aspect ratio preservation | `height: auto` only | Image can stretch to fill max-width |
-| Missing object-fit | Not specified | No instruction to maintain proportions |
-| Width not constrained | Only max-width set | Wide logos fill available space |
+| Style | Header Height Setting | Result |
+|-------|----------------------|--------|
+| Modern | `height: auto` (line 604) | Expands with content ✓ |
+| Professional | `height: auto` (line 658) | Expands with content ✓ |
+| Minimalist | Uses base `height: 40mm` (line 343) | Fixed, causes overlap ✗ |
+
+The minimalist style overrides many things (lines 704-795) but doesn't override the header height behavior, so when company details are longer than the fixed header height, they overlap with the Bill To section below.
 
 ---
 
 ## Solution
 
-Add `object-fit: contain` to the logo CSS to ensure the image scales proportionally within its container bounds, and set an explicit width constraint.
+Add `height: auto` to the minimalist header CSS overrides to match the behavior of Modern and Professional styles. Also ensure proper bottom margin to separate the header from the Bill To section.
 
 ---
 
@@ -26,30 +28,26 @@ Add `object-fit: contain` to the logo CSS to ensure the image scales proportiona
 
 ### File: `src/components/UnifiedInvoiceLayout.tsx`
 
-**Location:** Lines 348-354 (logo CSS class)
+**Location:** Lines 712-716 (minimalist header overrides)
 
 **Current code:**
 ```css
-#${id} .logo {
-  height: auto;
-  max-height: ${variant === "preview" ? "60px" : "18mm"};
-  max-width: ${variant === "preview" ? "200px" : "50mm"};
-  display: block;
-  margin-bottom: ${isPdf ? '2mm' : '8px'};
+#${id} .header {
+  background: transparent !important;
+  padding-bottom: ${isPdf ? '8mm' : '32px'};
+  border: none !important;
 }
 ```
 
 **Updated code:**
 ```css
-#${id} .logo {
-  width: auto;
+#${id} .header {
+  background: transparent !important;
+  padding-bottom: ${isPdf ? '5mm' : '20px'};
+  margin-bottom: ${isPdf ? '4mm' : '16px'};
+  border: none !important;
   height: auto;
-  max-height: ${variant === "preview" ? "60px" : "18mm"};
-  max-width: ${variant === "preview" ? "160px" : "45mm"};
-  object-fit: contain;
-  object-position: left top;
-  display: block;
-  margin-bottom: ${isPdf ? '2mm' : '8px'};
+  min-height: ${isPdf ? '40mm' : '150px'};
 }
 ```
 
@@ -59,24 +57,23 @@ Add `object-fit: contain` to the logo CSS to ensure the image scales proportiona
 
 | Property | Value | Purpose |
 |----------|-------|---------|
-| `width: auto` | auto | Let width be determined by aspect ratio |
-| `object-fit: contain` | contain | Scale image to fit container while preserving aspect ratio |
-| `object-position: left top` | left top | Align image to top-left corner |
-| `max-width` reduced | 160px / 45mm | Slightly smaller max to prevent oversized logos |
+| `height: auto` | auto | Allow header to expand with content |
+| `min-height` | 40mm / 150px | Maintain minimum height for short content |
+| `margin-bottom` | 4mm / 16px | Add spacing between header and Bill To section |
+| `padding-bottom` | Reduced slightly | Balanced spacing with the new margin |
 
 ---
 
 ## Visual Impact
 
 **Before:**
-- Logo stretched horizontally to fill available space
-- Aspect ratio distorted
-- Logo appears wider than intended
+- Company details overlap with "Bill To" section
+- Text layers on top of each other, unreadable
 
 **After:**
-- Logo maintains original aspect ratio
-- Scales proportionally within max bounds
-- Professional appearance matching original design
+- Header expands to fit all company information
+- Clear separation between company info and customer details
+- Matches the layout behavior of Modern and Professional styles
 
 ---
 
@@ -84,5 +81,5 @@ Add `object-fit: contain` to the logo CSS to ensure the image scales proportiona
 
 | File | Change |
 |------|--------|
-| `src/components/UnifiedInvoiceLayout.tsx` | Add `object-fit: contain` and adjust logo constraints |
+| `src/components/UnifiedInvoiceLayout.tsx` | Add `height: auto` and `margin-bottom` to minimalist header CSS |
 
