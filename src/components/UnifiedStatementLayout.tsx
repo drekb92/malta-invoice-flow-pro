@@ -36,6 +36,7 @@ export interface TemplateSettings {
   marginBottom?: number;
   marginLeft?: number;
   bankingVisibility?: boolean;
+  style?: 'modern' | 'professional' | 'minimalist';
 }
 
 export interface StatementCustomer {
@@ -126,6 +127,37 @@ export const UnifiedStatementLayout = ({
   const fontFamily = templateSettings?.fontFamily || 'Inter';
   const fontSize = templateSettings?.fontSize || '14px';
   const bankingVisibility = templateSettings?.bankingVisibility !== false;
+  const style = templateSettings?.style || 'modern';
+
+  // Style-based header configuration (matching UnifiedInvoiceLayout)
+  const getHeaderStyles = () => {
+    switch (style) {
+      case 'professional':
+        return {
+          headerBg: 'white',
+          headerBorder: `4px solid ${primaryColor}`,
+          titleColor: primaryColor,
+          textColor: accentColor,
+        };
+      case 'minimalist':
+        return {
+          headerBg: 'white',
+          headerBorder: 'none',
+          titleColor: accentColor,
+          textColor: accentColor,
+        };
+      case 'modern':
+      default:
+        return {
+          headerBg: primaryColor,
+          headerBorder: 'none',
+          titleColor: 'white',
+          textColor: 'white',
+        };
+    }
+  };
+  
+  const headerStyles = getHeaderStyles();
 
   // Locked margins (ignore template values)
   const marginTop = STANDARD_MARGIN_MM;
@@ -228,8 +260,19 @@ export const UnifiedStatementLayout = ({
 
       {/* Main content area - flex-grow to push footer down */}
       <div style={{ flex: 1 }}>
-        {/* Header Section - Two Column (matching invoice) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        {/* Header Section - Style-aware (matching UnifiedInvoiceLayout) */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'flex-start', 
+            marginBottom: '24px',
+            padding: style === 'modern' ? '16px' : '0',
+            backgroundColor: headerStyles.headerBg,
+            borderTop: headerStyles.headerBorder,
+            borderRadius: style === 'modern' ? '4px' : '0',
+          }}
+        >
           {/* Left: Logo + Company Block */}
           <div>
             {logoUrl && (
@@ -246,8 +289,16 @@ export const UnifiedStatementLayout = ({
               />
             )}
             {companySettings && (
-              <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
-                {companySettings.name && <div style={{ fontWeight: 500 }}>{companySettings.name}</div>}
+              <div style={{ 
+                fontSize: '12px', 
+                color: style === 'modern' ? 'rgba(255,255,255,0.85)' : '#6b7280', 
+                lineHeight: 1.5 
+              }}>
+                {companySettings.name && (
+                  <div style={{ fontWeight: 500, color: style === 'modern' ? 'white' : accentColor }}>
+                    {companySettings.name}
+                  </div>
+                )}
                 {companySettings.address && <div style={{ whiteSpace: 'pre-line' }}>{companySettings.address}</div>}
                 {companySettings.city && (
                   <div>{companySettings.city}{companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}</div>
@@ -259,7 +310,7 @@ export const UnifiedStatementLayout = ({
             )}
           </div>
 
-          {/* Right: Document Title + Meta (no bordered box - matching invoice) */}
+          {/* Right: Document Title + Meta */}
           <div style={{ textAlign: 'right' }}>
             <h1
               style={{
@@ -267,12 +318,16 @@ export const UnifiedStatementLayout = ({
                 fontWeight: 800,
                 letterSpacing: '0.08em',
                 marginBottom: '8px',
-                color: 'var(--invoice-primary-color)',
+                color: headerStyles.titleColor,
               }}
             >
               {statementType === 'outstanding' ? 'OUTSTANDING STATEMENT' : 'ACTIVITY STATEMENT'}
             </h1>
-            <div style={{ fontSize: '11px', color: '#4b5563', lineHeight: 1.6 }}>
+            <div style={{ 
+              fontSize: '11px', 
+              color: style === 'modern' ? 'rgba(255,255,255,0.85)' : '#4b5563', 
+              lineHeight: 1.6 
+            }}>
               <div>
                 <span style={{ fontWeight: 500 }}>Statement Date:</span> {format(new Date(), 'dd/MM/yyyy')}
               </div>
@@ -283,8 +338,10 @@ export const UnifiedStatementLayout = ({
           </div>
         </div>
 
-        {/* Divider */}
-        <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: '1.5rem' }} />
+        {/* Divider - only for non-modern styles */}
+        {style !== 'modern' && (
+          <div style={{ borderTop: '1px solid #e5e7eb', marginBottom: '1.5rem' }} />
+        )}
 
       {/* Customer Info */}
       <div style={{ marginBottom: '1.5rem' }}>

@@ -647,6 +647,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                   primaryColor: template?.primary_color || '#26A65B',
                   accentColor: template?.accent_color || '#1F2D3D',
                   fontFamily: template?.font_family || 'Inter',
+                  style: (template?.style as 'modern' | 'professional' | 'minimalist') || 'modern',
                 }}
                 statementLines={converted.statementLines}
                 dateRange={converted.dateRange}
