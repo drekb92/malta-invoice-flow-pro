@@ -1,7 +1,8 @@
+import { useState, useMemo } from "react";
 import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
 import { RecentActivity } from "@/components/RecentActivity";
-import { DashboardFilters } from "@/components/DashboardFilters";
+import { DashboardCommandBar } from "@/components/DashboardCommandBar";
 import { PendingRemindersWidget } from "@/components/PendingRemindersWidget";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,6 +99,10 @@ const Index = () => {
   const { toast } = useToast();
 
   const userId = user?.id;
+
+  // Filter state
+  const [dateRange, setDateRange] = useState("30-days");
+  const [customerId, setCustomerId] = useState("all");
 
   // === React Query hooks for dashboard data ===
   const {
@@ -329,8 +334,16 @@ const Index = () => {
             </Alert>
           )}
 
-          {/* Dashboard Filters - Only show if setup complete */}
-          {setupStatus.isComplete && <DashboardFilters />}
+          {/* Dashboard Command Bar - Only show if setup complete */}
+          {setupStatus.isComplete && (
+            <DashboardCommandBar
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              customerId={customerId}
+              onCustomerIdChange={setCustomerId}
+              customers={recentCustomers.map((c) => ({ id: c.id, name: c.name }))}
+            />
+          )}
 
           {/* Metrics Grid - Only show if setup complete */}
           {setupStatus.isComplete && (
