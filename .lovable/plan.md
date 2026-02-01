@@ -1,177 +1,126 @@
 
 
-# Persist Template Style Across the App
+# Fix Template Style Persistence Across Invoice Generation
 
-This plan ensures the `style` property (modern/professional/minimalist) is properly saved to and loaded from the database, and persists across all template operations.
+This plan addresses why the saved template style is not being used when generating invoices, and ensures the style persists correctly throughout the application.
 
 ---
 
-## Summary of Changes
+## Root Causes Identified
 
-| File | Change |
-|------|--------|
-| `src/pages/InvoiceTemplates.tsx` | Map `style` when loading templates, include in save, set in createDefaultTemplate |
-| `src/components/templates/TemplateManagementPanel.tsx` | Include `style` in create, duplicate, and import operations |
-| `src/hooks/useInvoiceTemplate.ts` | Add `style` to normalization with default "modern" |
-| `src/services/templateService.ts` | Use `data.style` from DB instead of always forcing "modern" |
+| Issue | Location | Problem |
+|-------|----------|---------|
+| Duplicate defaults in database | `invoice_templates` table | Two templates marked as `is_default: true` |
+| Missing style in Invoices page | `src/pages/Invoices.tsx` line 743-758 | `templateSettings` doesn't include `style` property |
+| Wrong style source in NewInvoice | `src/pages/NewInvoice.tsx` line 1367 | Uses local `selectedStyle` state (always 'modern') instead of template's style |
+| Unused local state | `src/pages/NewInvoice.tsx` line 131 | `selectedStyle` state is set but never synced with template |
+
+---
+
+## Solution Overview
+
+1. **Invoices.tsx**: Add missing `style` property to templateSettings
+2. **NewInvoice.tsx**: Use template's style directly instead of local state, or sync local state with loaded template
+3. **Template page**: Ensure style selector reflects the current template's style (already works correctly)
 
 ---
 
 ## Technical Implementation
 
-### 1. InvoiceTemplates.tsx - Loading Templates
+### 1. Invoices.tsx - Add Missing Style Property
 
-**Location:** Lines 213-229 (loadTemplates function)
+**Location:** Lines 743-758
 
-Add `style` to the template mapping with a default of "modern":
+Add `style: template?.style || 'modern'` to the templateSettings object:
 
 ```typescript
-const typedData: InvoiceTemplate[] = data.map((t) => ({
-  ...t,
-  // ... existing mappings
-  vat_summary_visibility: (t as any).vat_summary_visibility ?? false,
-  style: (t as any).style || 'modern',  // ADD THIS LINE
-  margin_top: t.margin_top || 20,
-  // ...
-}));
+templateSettings={{
+  primaryColor: template.primary_color,
+  accentColor: template.accent_color,
+  fontFamily: template.font_family,
+  fontSize: template.font_size,
+  layout: template?.layout || "default",
+  headerLayout: template?.header_layout || "default",
+  tableStyle: template?.table_style || "default",
+  totalsStyle: template?.totals_style || "default",
+  bankingVisibility: template?.banking_visibility !== false,
+  bankingStyle: template?.banking_style || "default",
+  style: template?.style || 'modern',  // ADD THIS LINE
+  marginTop: template?.margin_top || 20,
+  marginRight: template?.margin_right || 20,
+  marginBottom: template?.margin_bottom || 20,
+  marginLeft: template?.margin_left || 20,
+}}
 ```
 
-### 2. InvoiceTemplates.tsx - Saving Templates
+### 2. NewInvoice.tsx - Use Template Style Instead of Local State
 
-**Location:** Lines 360-377 (handleSave function)
+**Option A (Recommended):** Remove the unused `selectedStyle` state and use template style directly
 
-Add `style` to the update payload:
-
+**Location:** Line 131 - Remove or update the local state:
 ```typescript
-const { error } = await supabase
-  .from("invoice_templates")
-  .update({
-    // ... existing fields
-    margin_left: currentSettings.margin_left,
-    style: currentSettings.style,  // ADD THIS LINE
-  })
-  .eq("id", currentSettings.id);
+// Remove this line, or sync it with template
+// const [selectedStyle, setSelectedStyle] = useState<TemplateStyle>('modern');
 ```
 
-### 3. InvoiceTemplates.tsx - Creating Default Template
-
-**Location:** Lines 256-274 (createDefaultTemplate function)
-
-Add `style: 'modern'` to the default template:
-
+**Location:** Line 1367 - Change from local state to template style:
 ```typescript
-const defaultTemplate = {
-  // ... existing fields
-  margin_left: 20,
-  style: 'modern',  // ADD THIS LINE
-  user_id: user.id,
-};
+// BEFORE:
+style: selectedStyle,
+
+// AFTER:
+style: templateForPreview?.style || 'modern',
 ```
 
-### 4. TemplateManagementPanel.tsx - Creating New Templates
+**Option B (Alternative):** Sync local state with template when it loads
 
-**Location:** Lines 86-106 (handleCreateTemplate)
-
-Add `style: 'modern'` to the insert payload:
-
+Add a `useEffect` to sync `selectedStyle` when the template loads:
 ```typescript
-.insert([{
-  // ... existing fields
-  margin_left: 20,
-  style: 'modern',  // ADD THIS LINE
-  user_id: userId,
-}])
+useEffect(() => {
+  if (templateForPreview?.style) {
+    setSelectedStyle(templateForPreview.style);
+  }
+}, [templateForPreview?.style]);
 ```
 
-### 5. TemplateManagementPanel.tsx - Duplicating Templates
+I recommend **Option A** since `selectedStyle` is never used elsewhere - it's set but only referenced on line 1367.
 
-**Location:** Lines 136-156 (handleDuplicateTemplate)
+---
 
-Add `style` to the duplicated template:
+## Files to Modify
 
-```typescript
-.insert([{
-  // ... existing fields
-  margin_left: currentSettings.margin_left || selectedTemplate.margin_left,
-  style: currentSettings.style || selectedTemplate.style || 'modern',  // ADD THIS LINE
-  user_id: userId,
-}])
-```
+| File | Change |
+|------|--------|
+| `src/pages/Invoices.tsx` | Add `style` to templateSettings (line ~758) |
+| `src/pages/NewInvoice.tsx` | Use `templateForPreview?.style` instead of `selectedStyle` (line 1367) |
 
-### 6. TemplateManagementPanel.tsx - Importing Templates
+---
 
-**Location:** Lines 250-271 (handleImportTemplate)
+## Data Flow After Fix
 
-Add `style` to the imported template:
-
-```typescript
-.insert([{
-  // ... existing fields
-  margin_left: importedData.margin_left || 20,
-  style: importedData.style || 'modern',  // ADD THIS LINE
-  user_id: userId,
-}])
-```
-
-### 7. useInvoiceTemplate.ts - Normalization
-
-**Location:** Lines 33-50 (queryFn normalization)
-
-Add `style` to the normalized template:
-
-```typescript
-const normalizedTemplate = {
-  ...loadedTemplate,
-  // ... existing normalizations
-  vat_summary_visibility: loadedTemplate.vat_summary_visibility ?? false,
-  style: loadedTemplate.style || 'modern',  // ADD THIS LINE
-  margin_top: loadedTemplate.margin_top ?? 20,
-  // ...
-} as InvoiceTemplate;
-```
-
-### 8. templateService.ts - Loading from DB
-
-**Location:** Lines 107-130 (getDefaultTemplate function)
-
-Use `data.style` from the database instead of always forcing 'modern':
-
-```typescript
-const template: InvoiceTemplate = {
-  ...data,
-  // ... existing mappings
-  banking_position: ((data as any).banking_position || 'after-totals') as 'after-totals' | 'bottom' | 'footer',
-  style: data.style || 'modern',  // CHANGE: Use DB value with fallback
-  margin_top: data.margin_top || 20,
-  // ...
-};
-```
-
-Also update the return statement at the bottom to preserve the style:
-
-```typescript
-// Only apply style overrides if explicitly requested via parameter
-return style ? applyStyleToTemplate(template, style) : template;
+```text
+User saves template with style "Professional"
+    ↓
+Database stores: style = 'professional'
+    ↓
+useInvoiceTemplate() hook loads template with style
+    ↓
+NewInvoice.tsx uses templateForPreview.style → 'professional'
+Invoices.tsx uses template.style → 'professional'
+    ↓
+UnifiedInvoiceLayout renders with correct style
+    ↓
+PDF generation captures correct styling
 ```
 
 ---
 
-## Files Modified
+## Testing Steps
 
-| File | Changes |
-|------|---------|
-| `src/pages/InvoiceTemplates.tsx` | 3 changes: loadTemplates, handleSave, createDefaultTemplate |
-| `src/components/templates/TemplateManagementPanel.tsx` | 3 changes: create, duplicate, import |
-| `src/hooks/useInvoiceTemplate.ts` | 1 change: normalization |
-| `src/services/templateService.ts` | 1 change: DB loading |
-
----
-
-## Flow After Implementation
-
-1. User selects "Professional" style in Template Designer
-2. User clicks "Save" - `style: 'professional'` is saved to `invoice_templates` table
-3. User navigates to Invoices page
-4. `useInvoiceTemplate` hook loads template from DB with `style: 'professional'`
-5. PDF generation uses the correct "professional" style
+After implementation:
+1. Go to Template Designer, select "Professional" style, save
+2. Create a new invoice - preview should show Professional style
+3. Go to Invoices list, download PDF - should match Professional style
+4. Change template to "Minimalist", save
+5. Download an invoice PDF again - should now be Minimalist
 
