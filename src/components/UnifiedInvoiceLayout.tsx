@@ -711,8 +711,11 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} .header {
         background: transparent !important;
-        padding-bottom: ${isPdf ? '8mm' : '32px'};
+        padding-bottom: ${isPdf ? '5mm' : '20px'};
+        margin-bottom: ${isPdf ? '4mm' : '16px'};
         border: none !important;
+        height: auto;
+        min-height: ${isPdf ? '40mm' : '150px'};
       }
       #${id} .header .company,
       #${id} .header .company strong {
