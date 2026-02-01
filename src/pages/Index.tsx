@@ -45,7 +45,6 @@ import {
   Clock,
   ChevronDown,
   FileSpreadsheet,
-  Shield,
   BarChart3,
 } from "lucide-react";
 
@@ -396,8 +395,9 @@ const Index = () => {
           {/* Quick Actions - Show for complete setups */}
           {setupStatus.isComplete && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                {/* Invoice Recent Customer */}
+              {/* Row 1: Quick Invoice, Overdue Invoices, More Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-start">
+                {/* Quick Invoice Card */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -473,7 +473,7 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                {/* Overdue Invoices */}
+                {/* Overdue Invoices Card */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -562,106 +562,70 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                {/* Pending Reminders Widget */}
+                {/* More Actions Card */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-primary" />
+                      More Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => navigate("/customers")}
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        Customers
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => navigate("/credit-notes")}
+                      >
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Credit Notes
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => navigate("/reports")}
+                      >
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Reports
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => navigate("/invoices/export")}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Row 2: Pending Reminders + Recent Activity */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <PendingRemindersWidget
                   overdueInvoices={overdueInvoices}
                   maxDisplay={3}
                   formatCurrency={formatCurrency}
                   onReminderSent={() => refetchOverdueInvoices()}
                 />
-              </div>
-
-              {/* Malta VAT Notice */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 dark:bg-blue-950 dark:border-blue-800">
-                <div className="flex items-center space-x-2">
-                  <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Malta VAT Compliance & Immutability
-                  </h3>
-                </div>
-                <p className="text-sm text-blue-700 dark:text-blue-200 mt-1">
-                  All invoices include 18% VAT rate, sequential numbering, and
-                  immutability protection once issued. Issued invoices cannot be
-                  modified - use credit notes for corrections. Documents are
-                  automatically archived for the mandatory 6-year period.
-                </p>
-                {metrics.creditNotes > 0 && (
-                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-200 flex items-center gap-2">
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                    <span>
-                      {metrics.creditNotes} credit note
-                      {metrics.creditNotes !== 1 ? "s" : ""} issued for invoice
-                      corrections
-                    </span>
-                  </div>
-                )}
+                <RecentActivity userId={userId} />
               </div>
             </>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Secondary Actions */}
-            {setupStatus.isComplete && (
-              <div className="lg:col-span-2">
-                <h2 className="text-lg font-semibold mb-4">
-                  More Actions
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button
-                    variant="outline"
-                    className="h-auto py-4 flex flex-col gap-2"
-                    onClick={() => navigate("/customers")}
-                  >
-                    <Users className="h-6 w-6 text-primary" />
-                    <span className="font-semibold">Manage Customers</span>
-                    <span className="text-xs text-muted-foreground">
-                      {metrics.customers} total
-                    </span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-auto py-4 flex flex-col gap-2"
-                    onClick={() => navigate("/credit-notes")}
-                  >
-                    <FileSpreadsheet className="h-6 w-6 text-primary" />
-                    <span className="font-semibold">Credit Notes</span>
-                    <span className="text-xs text-muted-foreground">
-                      {metrics.creditNotes} issued
-                    </span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-auto py-4 flex flex-col gap-2"
-                    onClick={() => navigate("/reports")}
-                  >
-                    <BarChart3 className="h-6 w-6 text-primary" />
-                    <span className="font-semibold">Financial Reports</span>
-                    <span className="text-xs text-muted-foreground">
-                      View analytics
-                    </span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-auto py-4 flex flex-col gap-2"
-                    onClick={() => navigate("/invoices/export")}
-                  >
-                    <Download className="h-6 w-6 text-primary" />
-                    <span className="font-semibold">Export Data</span>
-                    <span className="text-xs text-muted-foreground">
-                      6-year archive
-                    </span>
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Recent Activity */}
-            {setupStatus.isComplete && (
-              <div>
-                <RecentActivity userId={userId} />
-              </div>
-            )}
-          </div>
 
           {/* Currency Info */}
           <div className="mt-8 bg-muted/50 rounded-lg p-4">
