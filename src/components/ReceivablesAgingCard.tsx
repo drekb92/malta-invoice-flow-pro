@@ -87,11 +87,12 @@ export function ReceivablesAgingCard({
   };
 
   const getBucketColor = (index: number) => {
+    // Subtle, muted colors that don't overwhelm - following badge color system
     const colors = [
-      "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200",
-      "bg-orange-100 text-orange-800 hover:bg-orange-200 border-orange-200",
-      "bg-red-100 text-red-800 hover:bg-red-200 border-red-200",
-      "bg-red-200 text-red-900 hover:bg-red-300 border-red-300",
+      "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200",
+      "bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200",
+      "bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200",
+      "bg-red-50 text-red-700 hover:bg-red-100 border-red-200",
     ];
     return colors[index] || colors[0];
   };
@@ -101,14 +102,18 @@ export function ReceivablesAgingCard({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-4 w-4 text-primary" />
             Receivables Aging
           </CardTitle>
-          {overdueInvoices.length > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {formatCurrency(totalOverdue)}
-            </Badge>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground hover:text-foreground h-6 px-2"
+            onClick={() => navigate("/invoices?status=overdue")}
+          >
+            View all
+            <ArrowRight className="h-3 w-3 ml-1" />
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="flex-1 space-y-4">
@@ -189,12 +194,12 @@ export function ReceivablesAgingCard({
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <div className="font-bold text-destructive">
+                            <div className="font-semibold tabular-nums">
                               {formatCurrency(invoice.total_amount)}
                             </div>
                             <Badge
-                              variant="destructive"
-                              className="text-xs mt-1"
+                              variant="outline"
+                              className="text-xs mt-1 border-rose-200 text-rose-700 bg-rose-50"
                             >
                               {invoice.days_overdue}d overdue
                             </Badge>

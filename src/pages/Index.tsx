@@ -159,49 +159,58 @@ const Index = () => {
       currency: "EUR",
     }).format(amount);
 
+  // Get date range label for helper text
+  const getDateRangeLabel = () => {
+    switch (dateRange) {
+      case "7-days": return "Last 7 days";
+      case "30-days": return "Last 30 days";
+      case "90-days": return "Last 90 days";
+      case "12-months": return "Last 12 months";
+      case "ytd": return "Year to date";
+      default: return "All time";
+    }
+  };
+
   const metricCards =
     setupStatus.isComplete
       ? [
           {
-            title: "Outstanding Invoices",
+            title: "Outstanding",
             value: formatCurrency(metrics.outstanding),
-            change:
-              metrics.outstanding > 0
-                ? "Requires attention"
-                : "All paid",
-            changeType:
-              metrics.outstanding > 0
-                ? ("neutral" as const)
-                : ("positive" as const),
+            change: metrics.outstanding > 0 ? "Requires attention" : "All paid",
+            changeType: metrics.outstanding > 0 ? ("neutral" as const) : ("positive" as const),
             icon: FileText,
+            onClick: () => navigate("/invoices?status=unpaid"),
+            viewAllLabel: "View unpaid",
           },
           {
-            title: "Active Customers",
+            title: "Customers",
             value: metrics.customers.toString(),
-            change:
-              metrics.customers > 0
-                ? "Total in database"
-                : "No customers yet",
+            change: getDateRangeLabel(),
             changeType: "neutral" as const,
             icon: Users,
+            onClick: () => navigate("/customers"),
+            viewAllLabel: "View all",
           },
           {
-            title: "Total Collected",
+            title: "Collected",
             value: formatCurrency(metrics.payments),
-            change: "Year to date",
+            change: getDateRangeLabel(),
             changeType: "positive" as const,
             icon: CreditCard,
+            onClick: () => navigate("/invoices?status=paid"),
+            viewAllLabel: "View paid",
           },
           {
             title: "Invoices Issued",
             value: metrics.invoicesCount.toString(),
-            change:
-              metrics.invoicesTotal > 0
-                ? formatCurrency(metrics.invoicesTotal) + " total"
-                : "No invoices yet",
+            change: metrics.invoicesTotal > 0 
+              ? `${formatCurrency(metrics.invoicesTotal)} total` 
+              : getDateRangeLabel(),
             changeType: "neutral" as const,
             icon: FileText,
             onClick: () => navigate("/invoices"),
+            viewAllLabel: "View all",
           },
         ]
       : [];
@@ -344,7 +353,7 @@ const Index = () => {
 
           {/* Metrics Grid - Only show if setup complete */}
           {setupStatus.isComplete && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
               {metricCards.map((metric, index) => (
                 <MetricCard key={index} {...metric} />
               ))}
@@ -406,8 +415,8 @@ const Index = () => {
           {/* Quick Actions - Show for complete setups */}
           {setupStatus.isComplete && (
             <>
-              {/* Row 1: Quick Invoice, Overdue Invoices, More Actions */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-start">
+              {/* Row 1: Primary Actions, Receivables Aging, Needs Sending */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8 items-start">
                 {/* Primary Actions Card */}
                 <Card className="flex flex-col">
                   <CardHeader className="pb-3">
@@ -468,7 +477,7 @@ const Index = () => {
               </div>
 
               {/* Row 2: Pending Reminders + Recent Activity */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-8">
                 <PendingRemindersWidget
                   overdueInvoices={overdueInvoices}
                   maxDisplay={3}
