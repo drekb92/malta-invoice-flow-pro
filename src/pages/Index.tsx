@@ -411,88 +411,48 @@ const Index = () => {
             <>
               {/* Row 1: Quick Invoice, Overdue Invoices, More Actions */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-start">
-                {/* Quick Create Card */}
+                {/* Primary Actions Card */}
                 <Card className="flex flex-col">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <Plus className="h-4 w-4 text-primary" />
-                      Quick Create
+                      Primary Actions
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-1 space-y-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button className="w-full" size="lg">
-                          <FileText className="h-4 w-4 mr-2" />
-                          New Invoice
-                          <ChevronDown className="h-4 w-4 ml-2" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="start"
-                        className="w-80 bg-popover z-50"
+                  <CardContent className="flex-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Button 
+                        className="w-full justify-start" 
+                        onClick={() => navigate("/invoices/new")}
                       >
-                        <DropdownMenuLabel>Recent Customers</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {recentCustomers.length > 0 ? (
-                          recentCustomers.map((customer) => (
-                            <DropdownMenuItem
-                              key={customer.id}
-                              onClick={() =>
-                                navigate(
-                                  `/invoices/new?client=${customer.id}`
-                                )
-                              }
-                              className="flex items-center justify-between cursor-pointer"
-                            >
-                              <div>
-                                <div className="font-medium">
-                                  {customer.name}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {customer.email}
-                                </div>
-                              </div>
-                              {customer.outstanding_amount &&
-                                customer.outstanding_amount > 0 && (
-                                  <Badge
-                                    variant="outline"
-                                    className="ml-2"
-                                  >
-                                    {formatCurrency(
-                                      customer.outstanding_amount
-                                    )}
-                                  </Badge>
-                                )}
-                            </DropdownMenuItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>
-                            No customers yet
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => navigate("/customers")}
-                        >
-                          <Users className="h-4 w-4 mr-2" />
-                          View All Customers
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button 
-                      variant="outline" 
-                      className="w-full" 
-                      size="lg"
-                      onClick={() => navigate("/quotations/new")}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      New Quotation
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      {recentCustomers.length} customer
-                      {recentCustomers.length !== 1 ? "s" : ""} in database
-                    </p>
+                        <FileText className="h-4 w-4 mr-2" />
+                        New Invoice
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => navigate("/invoices?action=record-payment")}
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Record Payment
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => navigate("/quotations/new")}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        New Quotation
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => navigate("/reminders")}
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Send Reminders
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
 
