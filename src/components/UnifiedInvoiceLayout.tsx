@@ -96,6 +96,7 @@ export interface UnifiedInvoiceLayoutProps {
   id?: string;
   documentType?: DocumentType;
   debug?: boolean;
+  footerText?: string;
 }
 
 /* ===================== UTILITIES ===================== */
@@ -164,6 +165,7 @@ export const UnifiedInvoiceLayout = ({
   variant = "preview",
   id = "invoice-preview-root",
   documentType = "INVOICE",
+  footerText,
 }: UnifiedInvoiceLayoutProps) => {
   const templateStyle = templateSettings?.style || 'modern';
   
@@ -1098,9 +1100,7 @@ export const UnifiedInvoiceLayout = ({
             )}
 
             <div className="thanks">
-              Thank you for your business
-              <br />
-              All amounts in EUR.
+              {footerText || "Thank you for your business. All amounts in EUR."}
             </div>
           </div>
         </div>

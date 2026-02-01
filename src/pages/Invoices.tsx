@@ -51,6 +51,7 @@ import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
@@ -107,6 +108,7 @@ const Invoices = () => {
   // Load company and banking settings
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
 
   const [exportInvoice, setExportInvoice] = useState<Invoice | null>(null);
   const [exportItems, setExportItems] = useState<any[]>([]);
@@ -788,6 +790,7 @@ const Invoices = () => {
                       }
                     : undefined
                 }
+                footerText={invoiceSettings?.invoice_footer_text}
               />
             </InvoiceErrorBoundary>
           )}
