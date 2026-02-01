@@ -1,119 +1,119 @@
 
 
-# Unified Template Styling for All Documents
+# Dashboard Layout Improvements
 
-This plan ensures Credit Notes and Statements use the same template style (Modern/Professional/Minimalist) as Invoices.
-
----
-
-## Current Problem
-
-| Document | Template Style Applied? | Issue |
-|----------|------------------------|-------|
-| Invoice | Yes (`style: template?.style`) | Works correctly |
-| Credit Note | No | Missing `style` property in templateSettings |
-| Statement | No | UnifiedStatementLayout doesn't support `style` property |
+Reorganizing the dashboard to align all boxes consistently, reduce the Recent Activity length, move More Actions higher, and remove the Malta VAT Compliance box.
 
 ---
 
-## Solution Overview
+## Current Layout Issues
 
-1. **CreditNotes.tsx**: Add the missing `style` property and `footerText` prop
-2. **UnifiedStatementLayout.tsx**: Add `style` property support to the TemplateSettings interface and implement the three visual styles
-3. **StatementModal.tsx**: Pass the full template settings including `style`
+| Issue | Current State | Problem |
+|-------|---------------|---------|
+| Quick Invoice / Overdue boxes | Same row as Pending Reminders | Height stretches to match the taller Pending Reminders widget |
+| Recent Activity | Shows 8 items | Too long, takes excessive vertical space |
+| More Actions | At the bottom of the page | Users have to scroll to see it |
+| Malta VAT Compliance box | Shows between Quick Actions and More Actions | User requested removal |
 
 ---
 
-## Technical Implementation
+## Proposed New Layout
 
-### Step 1: Fix CreditNotes.tsx
-
-**File:** `src/pages/CreditNotes.tsx`
-
-**Change 1:** Add import for `useInvoiceSettings`
-```typescript
-import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
-```
-
-**Change 2:** Add hook usage after other hooks (around line 59)
-```typescript
-const { settings: invoiceSettings } = useInvoiceSettings();
-```
-
-**Change 3:** Add `style` property to templateSettings (line 532-546)
-```typescript
-templateSettings={template ? {
-  primaryColor: template.primary_color,
-  accentColor: template.accent_color,
-  fontFamily: template.font_family,
-  fontSize: template.font_size,
-  layout: template.layout as any,
-  headerLayout: template.header_layout as any,
-  tableStyle: template.table_style as any,
-  totalsStyle: template.totals_style as any,
-  bankingVisibility: template.banking_visibility,
-  bankingStyle: template.banking_style as any,
-  marginTop: template.margin_top,
-  marginRight: template.margin_right,
-  marginBottom: template.margin_bottom,
-  marginLeft: template.margin_left,
-  style: template.style || 'modern',  // ADD THIS
-} : undefined}
-```
-
-**Change 4:** Add `footerText` prop to UnifiedInvoiceLayout
-```typescript
-footerText={invoiceSettings?.invoice_footer_text}
+```text
++--------------------------------------------------+
+| Dashboard Header (remains unchanged)              |
++--------------------------------------------------+
+| Metrics Grid - 4 cards (unchanged)               |
++--------------------------------------------------+
+| Quick Invoice | Overdue Invoices | More Actions  |  <- New row
++--------------------------------------------------+
+| Pending Reminders       | Recent Activity        |  <- Combined row
++--------------------------------------------------+
+| Currency Info (unchanged)                         |
++--------------------------------------------------+
 ```
 
 ---
 
-### Step 2: Update UnifiedStatementLayout
+## Technical Changes
 
-**File:** `src/components/UnifiedStatementLayout.tsx`
+### File: `src/pages/Index.tsx`
 
-**Change 1:** Add `style` to TemplateSettings interface (lines 29-39)
-```typescript
-export interface TemplateSettings {
-  primaryColor?: string;
-  accentColor?: string;
-  fontFamily?: string;
-  fontSize?: string;
-  marginTop?: number;
-  marginRight?: number;
-  marginBottom?: number;
-  marginLeft?: number;
-  bankingVisibility?: boolean;
-  style?: 'modern' | 'professional' | 'minimalist';  // ADD THIS
-}
-```
+**Change 1: Remove Malta VAT Compliance Box**
+- Delete lines 574-598 (the blue alert box with Malta VAT info)
 
-**Change 2:** Add style-based header rendering logic
+**Change 2: Restructure Quick Actions Row**
+- Move More Actions section up into the same row as Quick Invoice and Overdue Invoices
+- Change the Quick Actions row from 3 compact cards to include "More Actions" as a third card
+- Convert the current "More Actions" grid section into a single compact card with an expandable dropdown or reduced button set
 
-Extract the `style` prop in the component function:
-```typescript
-const style = templateSettings?.style || 'modern';
-```
+**Change 3: Create Combined Second Row**
+- Create a new 2-column grid row below Quick Actions
+- Left side: Pending Reminders Widget (50% width)
+- Right side: Recent Activity (50% width)
 
-Apply conditional styling to the header section based on `style`:
-- **Modern**: Solid color header background with white/contrasting text
-- **Professional**: White header with colored top border
-- **Minimalist**: Plain white header, no border, primary color only on title
+**Change 4: Add height constraints to balance cards**
+- Add `self-start` class to Quick Invoice and Overdue Invoices cards to prevent stretching
+- Or use `items-start` on the parent grid to align all cards to top
 
 ---
 
-### Step 3: Update StatementModal.tsx
+### File: `src/components/RecentActivity.tsx`
 
-**File:** `src/components/StatementModal.tsx`
+**Change: Reduce activity limit from 8 to 5**
+- Line 162: Change `.slice(0, 8)` to `.slice(0, 5)`
 
-**Change:** Pass `style` in templateSettings (lines 646-650)
-```typescript
-templateSettings={{
-  primaryColor: template?.primary_color || '#26A65B',
-  accentColor: template?.accent_color || '#1F2D3D',
-  fontFamily: template?.font_family || 'Inter',
-  style: template?.style || 'modern',  // ADD THIS
-}}
+This reduces the vertical height of the Recent Activity card.
+
+---
+
+## Layout Changes in Detail
+
+### New Quick Actions Row (Top Row)
+
+```tsx
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 items-start">
+  {/* Quick Invoice Card */}
+  <Card>...</Card>
+  
+  {/* Overdue Invoices Card */}
+  <Card>...</Card>
+  
+  {/* More Actions Card - NEW COMPACT VERSION */}
+  <Card>
+    <CardHeader>
+      <CardTitle>More Actions</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="outline" onClick={() => navigate("/customers")}>
+          <Users /> Customers
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/credit-notes")}>
+          <FileSpreadsheet /> Credit Notes
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/reports")}>
+          <BarChart3 /> Reports
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/invoices/export")}>
+          <Download /> Export
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+</div>
+```
+
+### New Second Row (Pending Reminders + Recent Activity)
+
+```tsx
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+  {/* Pending Reminders - Left side */}
+  <PendingRemindersWidget ... />
+  
+  {/* Recent Activity - Right side */}
+  <RecentActivity userId={userId} />
+</div>
 ```
 
 ---
@@ -122,17 +122,18 @@ templateSettings={{
 
 | File | Changes |
 |------|---------|
-| `src/pages/CreditNotes.tsx` | Add `style` to templateSettings, import useInvoiceSettings, add footerText prop |
-| `src/components/UnifiedStatementLayout.tsx` | Add `style` to TemplateSettings interface, implement style-based header rendering |
-| `src/components/StatementModal.tsx` | Pass `style` property to UnifiedStatementLayout |
+| `src/pages/Index.tsx` | Remove VAT compliance box, restructure layout, move More Actions up |
+| `src/components/RecentActivity.tsx` | Reduce activity limit from 8 to 5 |
 
 ---
 
 ## Visual Result
 
 After implementation:
-- Credit Note PDFs will match the selected template style (Modern/Professional/Minimalist)
-- Statement PDFs will also use the selected template style
-- All documents will have consistent branding across the application
-- Credit Notes will include the custom footer text from Document Content settings
+- All three top cards (Quick Invoice, Overdue, More Actions) will align at the top and not stretch
+- More Actions is now visible without scrolling
+- Pending Reminders and Recent Activity share a row below, balanced in width
+- Recent Activity shows only 5 items instead of 8
+- Malta VAT Compliance box is removed entirely
+- Cleaner, more compact dashboard with better visual hierarchy
 
