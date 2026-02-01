@@ -128,7 +128,7 @@ const NewInvoice = () => {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [selectedStyle, setSelectedStyle] = useState<TemplateStyle>('modern');
+  // Template style now comes directly from templateForPreview.style
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1007,7 +1007,7 @@ const NewInvoice = () => {
               {/* RIGHT SIDEBAR: Summary + Actions */}
               <div className="lg:col-span-1">
                 <div className="lg:sticky lg:top-16 space-y-4">
-                  {/* Template Style Selector */}
+                  {/* Template Style Display - Set in Template Designer */}
                   <Card>
                     <CardHeader className="py-3 px-4">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1016,74 +1016,10 @@ const NewInvoice = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="px-4 pb-4 pt-0">
-                      <Select 
-                        value={selectedStyle} 
-                        onValueChange={(v) => setSelectedStyle(v as TemplateStyle)}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="Select style" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover z-50">
-                          <SelectItem value="modern">
-                            <div className="flex flex-col">
-                              <span className="font-medium">Modern</span>
-                              <span className="text-xs text-muted-foreground">Colored header, bold fonts</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="classic">
-                            <div className="flex flex-col">
-                              <span className="font-medium">Classic</span>
-                              <span className="text-xs text-muted-foreground">Serif font, thin borders</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="minimalist">
-                            <div className="flex flex-col">
-                              <span className="font-medium">Minimalist</span>
-                              <span className="text-xs text-muted-foreground">No borders, white space</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      {/* Inline Preview - Shows mini preview of selected style */}
-                      {selectedCustomer && templateForPreview && !templateLoading && (
-                        <div className="mt-3 p-2 bg-muted/30 rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-2">Preview</p>
-                          <div className="transform scale-[0.15] origin-top-left w-[210mm] h-[100mm] overflow-hidden pointer-events-none">
-                            <UnifiedInvoiceLayout
-                              id="style-preview"
-                              variant="preview"
-                              debug={false}
-                              invoiceData={{
-                                invoiceNumber: invoiceNumber || 'INV-PREVIEW',
-                                invoiceDate: invoiceDate,
-                                dueDate: invoiceDate,
-                                customer: {
-                                  name: customers.find(c => c.id === selectedCustomer)?.name || 'Sample Customer',
-                                  vat_number: customers.find(c => c.id === selectedCustomer)?.vat_number || undefined,
-                                },
-                                items: items.length > 0 ? items.slice(0, 2) : [{ description: 'Sample Item', quantity: 1, unit_price: 100, vat_rate: 0.18 }],
-                                totals: {
-                                  netTotal: totals.taxable || 100,
-                                  vatTotal: totals.vatTotal || 18,
-                                  grandTotal: totals.grandTotal || 118,
-                                },
-                              }}
-                              templateSettings={{
-                                primaryColor: templateForPreview.primary_color,
-                                accentColor: templateForPreview.accent_color,
-                                fontFamily: templateForPreview.font_family,
-                                fontSize: templateForPreview.font_size,
-                                style: selectedStyle,
-                              }}
-                              companySettings={companySettings ? {
-                                name: companySettings.company_name || 'Your Company',
-                                logo: companySettings.company_logo || undefined,
-                              } : undefined}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="capitalize font-medium">{templateForPreview?.style || 'modern'}</span>
+                        <span className="text-xs text-muted-foreground">(set in Template Designer)</span>
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -1364,7 +1300,7 @@ const NewInvoice = () => {
                 marginRight: templateForPreview?.margin_right ?? 1.2,
                 marginBottom: templateForPreview?.margin_bottom ?? 1.2,
                 marginLeft: templateForPreview?.margin_left ?? 1.2,
-                style: selectedStyle,
+                style: templateForPreview?.style || 'modern',
               }}
               companySettings={companySettings ? {
                 name: companySettings.company_name || '',
