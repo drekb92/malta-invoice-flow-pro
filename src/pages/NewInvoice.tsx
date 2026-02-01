@@ -41,6 +41,7 @@ import { UnifiedInvoiceLayout, TemplateStyle } from "@/components/UnifiedInvoice
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { downloadPdfFromFunction } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
@@ -139,6 +140,7 @@ const NewInvoice = () => {
   const { template: templateForPreview, isLoading: templateLoading } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -1321,6 +1323,7 @@ const NewInvoice = () => {
                 iban: bankingSettings.bank_iban || undefined,
                 swiftCode: bankingSettings.bank_swift_code || undefined,
               } : undefined}
+              footerText={invoiceSettings?.invoice_footer_text}
             />
           </InvoiceErrorBoundary>
         )}
