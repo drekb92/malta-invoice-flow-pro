@@ -7,6 +7,7 @@ import {
   getOverdueInvoices,
   getPendingReminders,
   getInvoicesNeedingSending,
+  getTodaySnapshot,
 } from "@/lib/dashboard";
 
 export const useSetupStatus = (userId: string | undefined) =>
@@ -48,5 +49,12 @@ export const useInvoicesNeedingSending = (userId: string | undefined) =>
   useQuery({
     queryKey: ["invoicesNeedingSending", userId],
     queryFn: () => getInvoicesNeedingSending(userId!),
+    enabled: !!userId,
+  });
+
+export const useTodaySnapshot = (userId: string | undefined) =>
+  useQuery({
+    queryKey: ["todaySnapshot", userId],
+    queryFn: () => getTodaySnapshot(userId!),
     enabled: !!userId,
   });
