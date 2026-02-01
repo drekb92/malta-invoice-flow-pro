@@ -4,6 +4,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { RecentActivity } from "@/components/RecentActivity";
 import { DashboardCommandBar } from "@/components/DashboardCommandBar";
 import { PendingRemindersWidget } from "@/components/PendingRemindersWidget";
+import { ReceivablesAgingCard } from "@/components/ReceivablesAgingCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -456,94 +457,11 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                {/* Overdue Invoices Card */}
-                <Card className="flex flex-col">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-destructive" />
-                      Overdue Invoices
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-1">
-                    {overdueInvoices.length > 0 ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="destructive"
-                            className="w-full"
-                            size="lg"
-                          >
-                            <AlertCircle className="h-4 w-4 mr-2" />
-                            Follow Up on {overdueInvoices.length}
-                            <ChevronDown className="h-4 w-4 ml-2" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="start"
-                          className="w-80 bg-popover z-50"
-                        >
-                          <DropdownMenuLabel>
-                            Overdue Invoices
-                          </DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {overdueInvoices.map((invoice) => (
-                            <DropdownMenuItem
-                              key={invoice.id}
-                              onClick={() =>
-                                navigate(`/invoices/${invoice.id}`)
-                              }
-                              className="flex items-center justify-between cursor-pointer"
-                            >
-                              <div>
-                                <div className="font-medium">
-                                  {invoice.invoice_number}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {invoice.customer_name} •{" "}
-                                  {invoice.days_overdue} days overdue
-                                </div>
-                              </div>
-                              <div className="text-right ml-2">
-                                <div className="font-semibold text-destructive">
-                                  {formatCurrency(invoice.total_amount)}
-                                </div>
-                              </div>
-                            </DropdownMenuItem>
-                          ))}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() =>
-                              navigate("/invoices?status=overdue")
-                            }
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            View All Overdue
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        size="lg"
-                        disabled
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-2 text-primary" />
-                        No Overdue Invoices
-                      </Button>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-3">
-                      {overdueInvoices.length > 0
-                        ? `Total: ${formatCurrency(
-                            overdueInvoices.reduce(
-                              (sum, inv) => sum + inv.total_amount,
-                              0
-                            )
-                          )}`
-                        : "All invoices paid on time"}
-                    </p>
-                  </CardContent>
-                </Card>
+                {/* Receivables Aging Card */}
+                <ReceivablesAgingCard
+                  overdueInvoices={overdueInvoices}
+                  formatCurrency={formatCurrency}
+                />
 
                 {/* More Actions Card */}
                 <Card className="flex flex-col">
