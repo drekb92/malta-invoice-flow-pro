@@ -397,20 +397,20 @@ const Index = () => {
             <>
               {/* Row 1: Quick Invoice, Overdue Invoices, More Actions */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-start">
-                {/* Quick Invoice Card */}
-                <Card>
+                {/* Quick Create Card */}
+                <Card className="flex flex-col">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-primary" />
-                      Quick Invoice
+                      <Plus className="h-4 w-4 text-primary" />
+                      Quick Create
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex-1 space-y-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button className="w-full" size="lg">
-                          <Plus className="h-4 w-4 mr-2" />
-                          Invoice Customer
+                          <FileText className="h-4 w-4 mr-2" />
+                          New Invoice
                           <ChevronDown className="h-4 w-4 ml-2" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -466,7 +466,16 @@ const Index = () => {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <p className="text-xs text-muted-foreground mt-3">
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
+                      size="lg"
+                      onClick={() => navigate("/quotations/new")}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      New Quotation
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
                       {recentCustomers.length} customer
                       {recentCustomers.length !== 1 ? "s" : ""} in database
                     </p>
@@ -474,14 +483,14 @@ const Index = () => {
                 </Card>
 
                 {/* Overdue Invoices Card */}
-                <Card>
+                <Card className="flex flex-col">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <Clock className="h-4 w-4 text-destructive" />
                       Overdue Invoices
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex-1">
                     {overdueInvoices.length > 0 ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -563,19 +572,19 @@ const Index = () => {
                 </Card>
 
                 {/* More Actions Card */}
-                <Card>
+                <Card className="flex flex-col">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <BarChart3 className="h-4 w-4 text-primary" />
                       More Actions
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-2">
+                  <CardContent className="flex-1">
+                    <div className="space-y-2">
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="justify-start"
+                        size="lg"
+                        className="w-full justify-start"
                         onClick={() => navigate("/customers")}
                       >
                         <Users className="h-4 w-4 mr-2" />
@@ -583,8 +592,8 @@ const Index = () => {
                       </Button>
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="justify-start"
+                        size="lg"
+                        className="w-full justify-start"
                         onClick={() => navigate("/credit-notes")}
                       >
                         <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -592,21 +601,12 @@ const Index = () => {
                       </Button>
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="justify-start"
+                        size="lg"
+                        className="w-full justify-start"
                         onClick={() => navigate("/reports")}
                       >
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Reports
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="justify-start"
-                        onClick={() => navigate("/invoices/export")}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
                       </Button>
                     </div>
                   </CardContent>
