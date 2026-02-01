@@ -185,6 +185,40 @@ export async function getPendingReminders(userId: string) {
   return count || 0;
 }
 
+// --- Today's snapshot ---------------------------------------------------------
+export async function getTodaySnapshot(userId: string) {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStr = todayStart.toISOString();
+
+  // Invoices created today
+  const { data: invoicesToday } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("user_id", userId)
+    .gte("created_at", todayStr);
+
+  // Payments received today
+  const { data: paymentsToday } = await supabase
+    .from("payments")
+    .select("id, amount")
+    .eq("user_id", userId)
+    .gte("created_at", todayStr);
+
+  const invoicesCreatedToday = invoicesToday?.length || 0;
+  const paymentsReceivedToday = paymentsToday?.length || 0;
+  const amountCollectedToday = paymentsToday?.reduce(
+    (sum, p) => sum + Number(p.amount || 0),
+    0
+  ) || 0;
+
+  return {
+    invoicesCreatedToday,
+    paymentsReceivedToday,
+    amountCollectedToday,
+  };
+}
+
 // --- Invoices needing sending -------------------------------------------------
 export async function getInvoicesNeedingSending(userId: string) {
   // Get invoices that are draft OR issued but never sent
