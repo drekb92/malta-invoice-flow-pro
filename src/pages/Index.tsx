@@ -88,8 +88,8 @@ const defaultMetrics = {
   customers: 0,
   payments: 0,
   collectionRate: 0,
-  creditNotes: 0,
-  creditNotesTotal: 0,
+  invoicesCount: 0,
+  invoicesTotal: 0,
 };
 
 const Index = () => {
@@ -191,14 +191,15 @@ const Index = () => {
             icon: CreditCard,
           },
           {
-            title: "Credit Notes Issued",
-            value: metrics.creditNotes.toString(),
+            title: "Invoices Issued",
+            value: metrics.invoicesCount.toString(),
             change:
-              metrics.creditNotesTotal > 0
-                ? formatCurrency(metrics.creditNotesTotal) + " total"
-                : "Malta VAT compliant",
+              metrics.invoicesTotal > 0
+                ? formatCurrency(metrics.invoicesTotal) + " total"
+                : "No invoices yet",
             changeType: "neutral" as const,
-            icon: FileSpreadsheet,
+            icon: FileText,
+            onClick: () => navigate("/invoices"),
           },
         ]
       : [];
