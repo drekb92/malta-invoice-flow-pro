@@ -1,77 +1,31 @@
 
-# Fix: Dashboard Lists Not Updating After Email Send
+# Fix: Remove Invalid `paid_amount` Reference from Trigger
 
-## Problem Analysis
+## Problem Identified
 
-After sending an invoice email from the Dashboard "Needs Sending" widget, the list doesn't update because:
+The database trigger `prevent_issued_invoice_edits` references a column `paid_amount` that **does not exist** in the invoices table. When the edge function tries to update delivery tracking fields (`last_sent_at`, `last_sent_channel`, `last_sent_to`), the trigger throws an error:
 
-1. **Database Trigger Blocking Updates**: The `prevent_issued_invoice_edits` trigger only allows `status` and `paid_amount` changes on issued invoices. When the edge function tries to update `last_sent_at`, `last_sent_channel`, and `last_sent_to`, the trigger raises an exception.
+```
+record "new" has no field "paid_amount"
+```
 
-2. **Silent Failure in Edge Function**: The edge function catches the error but logs success anyway because the success log happens before the await resolves properly.
+This prevents the invoice from being updated, so it remains in the "Needs Sending" list.
 
-3. **Query Filter Logic**: The `getInvoicesNeedingSending` function filters by `status.eq.draft,and(status.neq.draft,last_sent_at.is.null)` - meaning it shows invoices where `last_sent_at` is null. Since the update fails, the invoice stays in the list.
+## Evidence
+
+| Check | Result |
+|-------|--------|
+| Invoice INV-2025-020 `last_sent_at` | `null` (update failed) |
+| Invoice INV-2025-020 `is_issued` | `true` |
+| Invoices table columns | No `paid_amount` column exists |
+| Edge function logs | `Failed to update invoice delivery fields: record "new" has no field "paid_amount"` |
 
 ## Solution
 
-### Part 1: Update Database Trigger
-Modify the `prevent_issued_invoice_edits` trigger to allow communication tracking fields to be updated on issued invoices.
+Update the `prevent_issued_invoice_edits` trigger to remove the invalid `paid_amount` reference. The trigger should only check for fields that actually exist.
 
-**Allowed Fields to Add:**
-- `last_sent_at`
-- `last_sent_channel`
-- `last_sent_to`
+## Database Migration
 
-```sql
--- Updated trigger logic (pseudocode)
-if old.is_issued = true then
-    -- allow status, paid_amount, and delivery tracking columns to change
-    if (new.status is distinct from old.status)
-       or (coalesce(new.paid_amount,0) is distinct from coalesce(old.paid_amount,0))
-       or (new.last_sent_at is distinct from old.last_sent_at)
-       or (new.last_sent_channel is distinct from old.last_sent_channel)
-       or (new.last_sent_to is distinct from old.last_sent_to) then
-      return new;
-    end if;
-    -- ... rest of logic
-end if;
-```
-
-### Part 2: Fix Edge Function Error Handling
-Update the edge function to properly check update results and log actual success/failure.
-
-```typescript
-// Update invoice delivery tracking fields
-if (documentType === 'invoice') {
-  const { error: updateError, count } = await supabase
-    .from('invoices')
-    .update({
-      last_sent_at: new Date().toISOString(),
-      last_sent_channel: 'email',
-      last_sent_to: to,
-    })
-    .eq('id', documentId);
-    
-  if (updateError) {
-    console.warn("[send-document-email] Failed to update invoice fields:", updateError);
-  } else {
-    console.log("[send-document-email] Invoice delivery fields updated");
-  }
-}
-```
-
-### Part 3: Ensure React Query Cache Invalidation
-The current implementation already calls `refetchNeedsSending()` on success - this should work once the database update succeeds.
-
-## Files to Modify
-
-| File | Action | Description |
-|------|--------|-------------|
-| Database Migration | Create | Update `prevent_issued_invoice_edits` trigger to allow delivery tracking fields |
-| `supabase/functions/send-document-email/index.ts` | Modify | Add proper error handling for the invoice update |
-
-## Technical Details
-
-### Database Migration SQL
 ```sql
 CREATE OR REPLACE FUNCTION public.prevent_issued_invoice_edits()
  RETURNS trigger
@@ -81,9 +35,8 @@ CREATE OR REPLACE FUNCTION public.prevent_issued_invoice_edits()
 AS $function$
 begin
   if old.is_issued = true then
-    -- allow status, paid_amount, and delivery tracking columns to change
+    -- allow status and delivery tracking columns to change
     if (new.status is distinct from old.status)
-       or (coalesce(new.paid_amount,0) is distinct from coalesce(old.paid_amount,0))
        or (new.last_sent_at is distinct from old.last_sent_at)
        or (new.last_sent_channel is distinct from old.last_sent_channel)
        or (new.last_sent_to is distinct from old.last_sent_to) then
@@ -99,20 +52,24 @@ end;
 $function$;
 ```
 
-### Edge Function Update
-Add error checking to the update operation to provide better debugging information.
+**Key Change**: Removed line 11 which referenced `new.paid_amount` / `old.paid_amount`.
 
-## Expected Behavior After Fix
+## Files to Modify
 
-1. User clicks "Send" on an invoice in the Dashboard "Needs Sending" widget
-2. Email is sent successfully
-3. Edge function updates `invoices.last_sent_at`, `last_sent_channel`, `last_sent_to`
-4. `onInvoiceSent()` callback triggers `refetchNeedsSending()`
-5. The query refetches and the invoice no longer appears (because `last_sent_at` is no longer null)
-6. List updates to show the invoice has been removed
+| File | Action |
+|------|--------|
+| Database Migration | Create new migration to fix trigger |
+
+## Expected Result After Fix
+
+1. Email is sent from Dashboard
+2. Edge function updates `last_sent_at`, `last_sent_channel`, `last_sent_to` successfully
+3. Invoice disappears from "Needs Sending" list
+4. INV-2025-020 should update correctly on next send attempt
 
 ## Testing Checklist
-- Send email from Dashboard "Needs Sending" tab - invoice should disappear from list
-- Send email from Invoice Details page - should still work correctly
-- Verify `last_sent_at` is properly updated in the database after send
-- Verify edge function logs show actual success/failure status
+
+- Verify trigger no longer references `paid_amount`
+- Send email for INV-2025-020 again
+- Confirm invoice disappears from "Needs Sending" list
+- Verify `last_sent_at` is populated in database
