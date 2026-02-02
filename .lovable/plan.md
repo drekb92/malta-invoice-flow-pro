@@ -1,130 +1,118 @@
 
-# Fix: Dashboard Email Send - Missing Invoice Preview
+# Fix: Dashboard Lists Not Updating After Email Send
 
-## Problem Summary
-When sending an invoice email from the Dashboard's "Needs Sending" widget, the system fails with error: "Preview root not found (invoice-preview-root)."
+## Problem Analysis
 
-This happens because:
-- The `SendDocumentEmailDialog` relies on finding a hidden `<UnifiedInvoiceLayout id="invoice-preview-root">` element in the DOM
-- The Invoice Details page includes this hidden element, so sending works there
-- The Dashboard page does NOT include this element, causing the failure
+After sending an invoice email from the Dashboard "Needs Sending" widget, the list doesn't update because:
 
-## Solution Overview
-Modify the send dialog to dynamically render the invoice preview when no existing preview root is found. This involves:
-1. Fetching invoice data when the dialog opens
-2. Rendering a hidden `UnifiedInvoiceLayout` within the dialog itself
-3. Using that rendered preview to generate the PDF
+1. **Database Trigger Blocking Updates**: The `prevent_issued_invoice_edits` trigger only allows `status` and `paid_amount` changes on issued invoices. When the edge function tries to update `last_sent_at`, `last_sent_channel`, and `last_sent_to`, the trigger raises an exception.
 
-## Implementation Plan
+2. **Silent Failure in Edge Function**: The edge function catches the error but logs success anyway because the success log happens before the await resolves properly.
 
-### Step 1: Create a Hook to Fetch Invoice Data for PDF
-Create a new hook that fetches all the data needed to render an invoice for PDF generation.
+3. **Query Filter Logic**: The `getInvoicesNeedingSending` function filters by `status.eq.draft,and(status.neq.draft,last_sent_at.is.null)` - meaning it shows invoices where `last_sent_at` is null. Since the update fails, the invoice stays in the list.
 
-**New File:** `src/hooks/useInvoicePdfData.ts`
-- Fetch invoice, items, totals, customer, company settings, banking settings, and template
-- Return the complete data structure needed by `UnifiedInvoiceLayout`
-- Include loading and error states
+## Solution
 
-### Step 2: Update SendDocumentEmailDialog
-**File:** `src/components/SendDocumentEmailDialog.tsx`
+### Part 1: Update Database Trigger
+Modify the `prevent_issued_invoice_edits` trigger to allow communication tracking fields to be updated on issued invoices.
 
-Changes:
-1. Add optional `previewAvailable?: boolean` prop (defaults to checking DOM for existing preview)
-2. When no preview is available, use the new hook to fetch invoice data
-3. Render a hidden `UnifiedInvoiceLayout` inside the dialog with the fetched data
-4. Wait for the layout to render before enabling the send button
-5. Use the dynamically rendered preview for PDF generation
+**Allowed Fields to Add:**
+- `last_sent_at`
+- `last_sent_channel`
+- `last_sent_to`
 
-```tsx
-interface SendDocumentEmailDialogProps {
-  // ... existing props
-  /** Set to true if an invoice-preview-root element already exists in the DOM */
-  previewAvailable?: boolean;
+```sql
+-- Updated trigger logic (pseudocode)
+if old.is_issued = true then
+    -- allow status, paid_amount, and delivery tracking columns to change
+    if (new.status is distinct from old.status)
+       or (coalesce(new.paid_amount,0) is distinct from coalesce(old.paid_amount,0))
+       or (new.last_sent_at is distinct from old.last_sent_at)
+       or (new.last_sent_channel is distinct from old.last_sent_channel)
+       or (new.last_sent_to is distinct from old.last_sent_to) then
+      return new;
+    end if;
+    -- ... rest of logic
+end if;
+```
+
+### Part 2: Fix Edge Function Error Handling
+Update the edge function to properly check update results and log actual success/failure.
+
+```typescript
+// Update invoice delivery tracking fields
+if (documentType === 'invoice') {
+  const { error: updateError, count } = await supabase
+    .from('invoices')
+    .update({
+      last_sent_at: new Date().toISOString(),
+      last_sent_channel: 'email',
+      last_sent_to: to,
+    })
+    .eq('id', documentId);
+    
+  if (updateError) {
+    console.warn("[send-document-email] Failed to update invoice fields:", updateError);
+  } else {
+    console.log("[send-document-email] Invoice delivery fields updated");
+  }
 }
 ```
 
-### Step 3: Modify handleSend Logic
-Update the `handleSend` function to:
-1. Check if `invoice-preview-root` exists in DOM
-2. If not, wait for the internal preview to render (via a ref)
-3. Use whichever preview is available for PDF generation
-
-### Step 4: Update WorkQueueCard
-**File:** `src/components/WorkQueueCard.tsx`
-
-Changes:
-1. Pass `previewAvailable={false}` to `SendDocumentEmailDialog` since the dashboard doesn't have a preview
-2. No other changes needed - the dialog will handle data fetching internally
-
-## Technical Implementation Details
-
-### New Hook: useInvoicePdfData
-```tsx
-export function useInvoicePdfData(invoiceId: string | null, enabled: boolean) {
-  // Fetch invoice with customer
-  // Fetch invoice items
-  // Fetch invoice totals
-  // Use existing hooks for: template, company settings, banking settings
-  
-  // Return formatted data matching UnifiedInvoiceLayout's invoiceData prop
-  return {
-    data: invoiceData | null,
-    isLoading: boolean,
-    isReady: boolean, // All data loaded
-    error: Error | null
-  };
-}
-```
-
-### Dialog Internal Preview Rendering
-```tsx
-{/* Hidden preview for PDF generation when no external preview exists */}
-{!previewAvailable && invoicePdfData && (
-  <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-    <UnifiedInvoiceLayout
-      id="invoice-preview-root"
-      variant="pdf"
-      invoiceData={invoicePdfData}
-      // ... other required props
-    />
-  </div>
-)}
-```
-
-### Updated handleSend Flow
-```tsx
-const handleSend = async () => {
-  // Validate email...
-  
-  // Wait for preview to be available
-  await waitForPreviewRoot(); // Small polling/timeout function
-  
-  // Generate PDF using prepareHtmlForPdf()
-  const html = await prepareHtmlForPdf(...);
-  
-  // Send email via edge function...
-};
-```
+### Part 3: Ensure React Query Cache Invalidation
+The current implementation already calls `refetchNeedsSending()` on success - this should work once the database update succeeds.
 
 ## Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/hooks/useInvoicePdfData.ts` | Create | New hook to fetch all invoice data for PDF rendering |
-| `src/components/SendDocumentEmailDialog.tsx` | Modify | Add dynamic preview rendering when no external preview exists |
-| `src/components/WorkQueueCard.tsx` | Modify | Pass `previewAvailable={false}` to the dialog |
+| Database Migration | Create | Update `prevent_issued_invoice_edits` trigger to allow delivery tracking fields |
+| `supabase/functions/send-document-email/index.ts` | Modify | Add proper error handling for the invoice update |
 
-## Edge Cases Handled
+## Technical Details
 
-1. **Existing preview available**: Uses existing DOM element (no change in behavior)
-2. **No preview, dialog just opened**: Shows loading state while fetching data
-3. **Invoice not found**: Shows error toast and prevents send
-4. **Slow data loading**: Disables send button until ready
-5. **User closes dialog before data loads**: Cleanup handled by React unmount
+### Database Migration SQL
+```sql
+CREATE OR REPLACE FUNCTION public.prevent_issued_invoice_edits()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+begin
+  if old.is_issued = true then
+    -- allow status, paid_amount, and delivery tracking columns to change
+    if (new.status is distinct from old.status)
+       or (coalesce(new.paid_amount,0) is distinct from coalesce(old.paid_amount,0))
+       or (new.last_sent_at is distinct from old.last_sent_at)
+       or (new.last_sent_channel is distinct from old.last_sent_channel)
+       or (new.last_sent_to is distinct from old.last_sent_to) then
+      return new;
+    end if;
+    -- if anything else changed, block
+    if row(new.*) is distinct from row(old.*) then
+      raise exception 'Issued invoices are immutable. Use a credit note to correct.';
+    end if;
+  end if;
+  return new;
+end;
+$function$;
+```
+
+### Edge Function Update
+Add error checking to the update operation to provide better debugging information.
+
+## Expected Behavior After Fix
+
+1. User clicks "Send" on an invoice in the Dashboard "Needs Sending" widget
+2. Email is sent successfully
+3. Edge function updates `invoices.last_sent_at`, `last_sent_channel`, `last_sent_to`
+4. `onInvoiceSent()` callback triggers `refetchNeedsSending()`
+5. The query refetches and the invoice no longer appears (because `last_sent_at` is no longer null)
+6. List updates to show the invoice has been removed
 
 ## Testing Checklist
-- Send invoice from Dashboard "Needs Sending" tab (should now work)
-- Send invoice from Invoice Details page (should still work as before)
-- Send quotation, credit note, statement from their respective pages (no regression)
-- Error handling when invoice data fails to load
-- Loading state displays correctly while data is being fetched
+- Send email from Dashboard "Needs Sending" tab - invoice should disappear from list
+- Send email from Invoice Details page - should still work correctly
+- Verify `last_sent_at` is properly updated in the database after send
+- Verify edge function logs show actual success/failure status
