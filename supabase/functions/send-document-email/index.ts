@@ -129,7 +129,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           // Update invoice delivery tracking fields
           if (documentType === 'invoice') {
-            await supabase
+            const { error: updateError } = await supabase
               .from('invoices')
               .update({
                 last_sent_at: new Date().toISOString(),
@@ -137,7 +137,12 @@ const handler = async (req: Request): Promise<Response> => {
                 last_sent_to: to,
               })
               .eq('id', documentId);
-            console.log("[send-document-email] Invoice delivery fields updated");
+            
+            if (updateError) {
+              console.warn("[send-document-email] Failed to update invoice delivery fields:", updateError.message);
+            } else {
+              console.log("[send-document-email] Invoice delivery fields updated successfully");
+            }
           }
         }
       } catch (logError) {
