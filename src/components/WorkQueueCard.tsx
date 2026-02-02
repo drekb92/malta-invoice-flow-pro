@@ -4,13 +4,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
@@ -18,17 +11,11 @@ import { useReminders } from "@/hooks/useReminders";
 import {
   Bell,
   CheckCircle2,
-  ChevronDown,
   Loader2,
-  Mail,
-  MessageCircle,
-  Clock,
-  Calendar,
   Send,
-  FileText,
   ExternalLink,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+
 
 interface OverdueInvoice {
   id: string;
@@ -61,11 +48,6 @@ interface WorkQueueCardProps {
   onInvoiceSent?: () => void;
 }
 
-type Channel = "email" | "whatsapp";
-
-interface InvoiceChannelState {
-  [invoiceId: string]: Channel;
-}
 
 export function WorkQueueCard({
   overdueInvoices,
@@ -83,22 +65,13 @@ export function WorkQueueCard({
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<UnsentInvoice | null>(null);
-  
-  // Track selected channel per invoice for reminders
-  const [channelState, setChannelState] = useState<InvoiceChannelState>(() => {
-    const initial: InvoiceChannelState = {};
-    overdueInvoices.forEach((inv) => {
-      initial[inv.id] = (inv.last_sent_channel === "whatsapp" ? "whatsapp" : "email");
-    });
-    return initial;
-  });
 
-  // Sort by days overdue (most urgent first) and take top 5
+  // Sort by days overdue (most urgent first) and take top 6
   const sortedOverdueInvoices = [...overdueInvoices].sort(
     (a, b) => b.days_overdue - a.days_overdue
   );
-  const topOverdueInvoices = sortedOverdueInvoices.slice(0, 5);
-  const remainingOverdueCount = overdueInvoices.length - 5;
+  const topOverdueInvoices = sortedOverdueInvoices.slice(0, 6);
+  const remainingOverdueCount = overdueInvoices.length - 6;
 
   const handleSendReminder = async (invoice: OverdueInvoice) => {
     setSendingInvoiceId(invoice.id);
@@ -116,31 +89,12 @@ export function WorkQueueCard({
     }
   };
 
-  const handleSchedule = (invoiceId: string, when: string) => {
-    navigate(`/reminders?schedule=${when}&invoice=${invoiceId}`);
-  };
-
-  const toggleChannel = (invoiceId: string, channel: Channel) => {
-    setChannelState((prev) => ({
-      ...prev,
-      [invoiceId]: channel,
-    }));
-  };
-
   const getOverdueBadgeVariant = (daysOverdue: number) => {
     if (daysOverdue >= 14) return "destructive";
     if (daysOverdue >= 7) return "secondary";
     return "outline";
   };
 
-  const formatLastReminded = (lastRemindedAt: string | null | undefined) => {
-    if (!lastRemindedAt) return "Never";
-    try {
-      return formatDistanceToNow(new Date(lastRemindedAt), { addSuffix: true });
-    } catch {
-      return "Unknown";
-    }
-  };
 
   // Needs Sending handlers
   const handleSendClick = (invoice: UnsentInvoice) => {
@@ -213,137 +167,61 @@ export function WorkQueueCard({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3 pr-1">
+                <div className="space-y-1 pr-1">
                   {topOverdueInvoices.map((invoice) => (
                     <div
                       key={invoice.id}
-                      className="p-3 border rounded-lg bg-card hover:bg-muted/30 transition-colors space-y-3"
+                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-muted/50 transition-colors"
                     >
-                      {/* Row 1: Invoice details */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Link
-                              to={`/invoices/${invoice.id}`}
-                              className="font-semibold text-sm hover:underline text-foreground"
-                            >
-                              {invoice.invoice_number}
-                            </Link>
-                            <Badge
-                              variant={getOverdueBadgeVariant(invoice.days_overdue)}
-                              className="text-xs"
-                            >
-                              {invoice.days_overdue}d overdue
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                            {invoice.customer_name}
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="font-bold text-sm">
-                            {formatCurrency(invoice.total_amount)}
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Link
+                          to={`/invoices/${invoice.id}`}
+                          className="font-medium text-sm hover:text-primary transition-colors truncate shrink-0"
+                        >
+                          {invoice.invoice_number}
+                        </Link>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {invoice.customer_name}
+                        </span>
                       </div>
-
-                      {/* Row 2: Last reminded */}
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>Last reminded: {formatLastReminded(invoice.last_reminded_at)}</span>
-                      </div>
-
-                      {/* Row 3: Channel chips + Actions */}
-                      <div className="flex items-center justify-between gap-2">
-                        {/* Channel selector chips */}
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => toggleChannel(invoice.id, "email")}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                              channelState[invoice.id] === "email"
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-muted-foreground hover:bg-muted/80"
-                            }`}
-                          >
-                            <Mail className="h-3 w-3" />
-                            Email
-                          </button>
-                          <button
-                            onClick={() => toggleChannel(invoice.id, "whatsapp")}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                              channelState[invoice.id] === "whatsapp"
-                                ? "bg-green-600 text-white"
-                                : "bg-muted text-muted-foreground hover:bg-muted/80"
-                            }`}
-                          >
-                            <MessageCircle className="h-3 w-3" />
-                            WhatsApp
-                          </button>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            size="sm"
-                            className="h-7 px-3 text-xs"
-                            onClick={() => handleSendReminder(invoice)}
-                            disabled={sending && sendingInvoiceId === invoice.id}
-                          >
-                            {sending && sendingInvoiceId === invoice.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <>
-                                <Send className="h-3 w-3 mr-1" />
-                                Send now
-                              </>
-                            )}
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs"
-                                disabled={sending && sendingInvoiceId === invoice.id}
-                              >
-                                <Calendar className="h-3 w-3 mr-1" />
-                                <ChevronDown className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
-                                onClick={() => handleSchedule(invoice.id, "tomorrow")}
-                              >
-                                Tomorrow 9am
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleSchedule(invoice.id, "next-week")}
-                              >
-                                Next week
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleSchedule(invoice.id, "custom")}
-                              >
-                                Custom...
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                      <span className="text-sm font-medium tabular-nums shrink-0">
+                        {formatCurrency(invoice.total_amount)}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant={getOverdueBadgeVariant(invoice.days_overdue)}
+                          className="text-xs h-5 px-1.5"
+                        >
+                          {invoice.days_overdue}d overdue
+                        </Badge>
+                        <Button
+                          size="sm"
+                          className="h-7 px-3 text-xs"
+                          onClick={() => handleSendReminder(invoice)}
+                          disabled={sending && sendingInvoiceId === invoice.id}
+                        >
+                          {sending && sendingInvoiceId === invoice.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Bell className="h-3 w-3 mr-1" />
+                              Remind
+                            </>
+                          )}
+                        </Button>
                       </div>
                     </div>
                   ))}
 
                   {remainingOverdueCount > 0 && (
-                    <div className="text-center pt-2">
+                    <div className="text-center pt-2 border-t mt-2">
                       <Button
                         variant="link"
                         size="sm"
                         className="text-xs"
                         onClick={() => navigate("/invoices?status=overdue")}
                       >
-                        {remainingOverdueCount} more invoice{remainingOverdueCount !== 1 ? "s" : ""}{" "}
-                        need attention →
+                        {remainingOverdueCount} more need attention →
                       </Button>
                     </div>
                   )}
@@ -364,39 +242,36 @@ export function WorkQueueCard({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3 pr-1">
-                  {needsSendingInvoices.slice(0, 5).map((invoice) => (
+                <div className="space-y-1 pr-1">
+                  {needsSendingInvoices.slice(0, 6).map((invoice) => (
                     <div
                       key={invoice.id}
-                      className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => navigate(`/invoices/${invoice.id}`)}
-                            className="font-medium text-sm hover:text-primary transition-colors truncate"
-                          >
-                            {invoice.invoice_number}
-                          </button>
-                          <Badge
-                            variant={invoice.status === "draft" ? "secondary" : "outline"}
-                            className="text-xs shrink-0"
-                          >
-                            {invoice.status === "draft" ? "Draft" : "Not sent"}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <button
+                          onClick={() => navigate(`/invoices/${invoice.id}`)}
+                          className="font-medium text-sm hover:text-primary transition-colors truncate shrink-0"
+                        >
+                          {invoice.invoice_number}
+                        </button>
+                        <span className="text-xs text-muted-foreground truncate">
                           {invoice.customer_name}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-medium">
-                          {formatCurrency(invoice.total_amount)}
                         </span>
+                      </div>
+                      <span className="text-sm font-medium tabular-nums shrink-0">
+                        {formatCurrency(invoice.total_amount)}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant={invoice.status === "draft" ? "secondary" : "outline"}
+                          className="text-xs h-5 px-1.5"
+                        >
+                          {invoice.status === "draft" ? "Draft" : "Not sent"}
+                        </Badge>
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-7 px-2"
+                          className="h-7 px-3 text-xs"
                           onClick={() => handleSendClick(invoice)}
                         >
                           <Send className="h-3 w-3 mr-1" />
@@ -406,16 +281,15 @@ export function WorkQueueCard({
                     </div>
                   ))}
 
-                  {needsSendingInvoices.length > 5 && (
-                    <div className="text-center pt-2">
+                  {needsSendingInvoices.length > 6 && (
+                    <div className="text-center pt-2 border-t mt-2">
                       <Button
                         variant="link"
                         size="sm"
                         className="text-xs"
                         onClick={() => navigate("/invoices?needsSending=true")}
                       >
-                        {needsSendingInvoices.length - 5} more invoice{needsSendingInvoices.length - 5 !== 1 ? "s" : ""}{" "}
-                        to send →
+                        {needsSendingInvoices.length - 6} more to send →
                       </Button>
                     </div>
                   )}
