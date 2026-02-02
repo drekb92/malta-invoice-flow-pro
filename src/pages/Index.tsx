@@ -4,7 +4,6 @@ import { MetricCard } from "@/components/MetricCard";
 import { RecentActivity } from "@/components/RecentActivity";
 import { DashboardCommandBar } from "@/components/DashboardCommandBar";
 import { ReceivablesAgingCard } from "@/components/ReceivablesAgingCard";
-import { DashboardFAB } from "@/components/DashboardFAB";
 import { TodaySnapshotCard } from "@/components/TodaySnapshotCard";
 import { WorkQueueCard } from "@/components/WorkQueueCard";
 import { Button } from "@/components/ui/button";
@@ -33,14 +32,11 @@ import {
   FileText,
   Users,
   CreditCard,
-  Plus,
-  Download,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
   Building,
   Sparkles,
-  Clock,
 } from "lucide-react";
 
 interface SetupStatus {
@@ -239,12 +235,6 @@ const Index = () => {
                   Welcome to your Malta receivables management system
                 </p>
               </div>
-              <div className="hidden md:flex items-center space-x-3">
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              </div>
             </div>
           </div>
         </header>
@@ -417,50 +407,6 @@ const Index = () => {
 
               {/* Mobile Layout - Stacked sections */}
               <div className="lg:hidden space-y-6">
-                {/* Primary Actions - Mobile only */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <Plus className="h-4 w-4 text-primary" />
-                      Primary Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button 
-                        className="w-full justify-start" 
-                        onClick={() => navigate("/invoices/new")}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        New Invoice
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => navigate("/invoices?action=record-payment")}
-                      >
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        Record Payment
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => navigate("/quotations/new")}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        New Quotation
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => navigate("/reminders")}
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        Send Reminders
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
 
                 {/* Work Queue - Mobile */}
                 <WorkQueueCard
@@ -547,8 +493,6 @@ const Index = () => {
           </div>
         </main>
 
-        {/* Floating Action Button - Mobile only */}
-        <DashboardFAB />
       </div>
     </div>
   );
