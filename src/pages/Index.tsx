@@ -471,26 +471,6 @@ const Index = () => {
               </div>
             </div>
           )}
-
-          {/* Currency Info */}
-          <div className="mt-8 bg-muted/50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium">
-                  Multi-Currency Support
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  EUR base currency with live exchange rates
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-semibold">€1.00 EUR</p>
-                <p className="text-xs text-muted-foreground">
-                  Base currency
-                </p>
-              </div>
-            </div>
-          </div>
         </main>
 
       </div>
