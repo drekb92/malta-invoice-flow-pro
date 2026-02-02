@@ -86,15 +86,18 @@ export function ReceivablesAgingCard({
     navigate(`/invoices?status=overdue&aging=${bucket.range}`);
   };
 
-  const getBucketColor = (index: number) => {
-    // Subtle, muted colors that don't overwhelm - following badge color system
-    const colors = [
-      "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200",
-      "bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200",
-      "bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200",
-      "bg-red-50 text-red-700 hover:bg-red-100 border-red-200",
+  const getBucketStyle = (index: number, hasItems: boolean) => {
+    if (!hasItems) {
+      return "bg-muted/30 text-muted-foreground border-transparent";
+    }
+    // Soft, subtle backgrounds with minimal visual weight
+    const styles = [
+      "bg-amber-50/60 text-amber-800 border-amber-100 hover:bg-amber-50",
+      "bg-orange-50/60 text-orange-800 border-orange-100 hover:bg-orange-50",
+      "bg-rose-50/60 text-rose-800 border-rose-100 hover:bg-rose-50",
+      "bg-red-50/60 text-red-800 border-red-100 hover:bg-red-50",
     ];
-    return colors[index] || colors[0];
+    return styles[index] || styles[0];
   };
 
   return (
@@ -119,28 +122,28 @@ export function ReceivablesAgingCard({
       <CardContent className="flex-1 space-y-4">
         {overdueInvoices.length > 0 ? (
           <>
-            {/* Aging Buckets Grid */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Aging Tiles - 2x2 desktop, 1x4 mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {agingBuckets.map((bucket, index) => (
                 <button
                   key={bucket.range}
                   onClick={() => bucket.count > 0 && handleBucketClick(bucket)}
                   disabled={bucket.count === 0}
-                  className={`p-3 rounded-lg border text-left transition-colors ${
-                    bucket.count > 0
-                      ? `${getBucketColor(index)} cursor-pointer`
-                      : "bg-muted/50 text-muted-foreground border-muted cursor-not-allowed opacity-60"
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-md border transition-colors ${getBucketStyle(index, bucket.count > 0)} ${
+                    bucket.count > 0 ? "cursor-pointer" : "cursor-default opacity-50"
                   }`}
                 >
-                  <div className="text-xs font-medium opacity-80">
-                    {bucket.label}
+                  <div className="flex flex-col items-start gap-0.5">
+                    <span className="text-xs font-medium opacity-75">
+                      {bucket.label}
+                    </span>
+                    <span className="text-xs opacity-60">
+                      {bucket.count} invoice{bucket.count !== 1 ? "s" : ""}
+                    </span>
                   </div>
-                  <div className="text-sm font-bold mt-1">
+                  <span className="text-sm font-semibold tabular-nums">
                     {bucket.count > 0 ? formatCurrency(bucket.amount) : "—"}
-                  </div>
-                  <div className="text-xs opacity-70">
-                    {bucket.count} invoice{bucket.count !== 1 ? "s" : ""}
-                  </div>
+                  </span>
                 </button>
               ))}
             </div>
