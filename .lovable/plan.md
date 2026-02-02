@@ -1,106 +1,124 @@
 
-# Work Queue Widget Refinement
+# Dashboard Visual Consistency Refinement
 
 ## Overview
-Refine the existing `WorkQueueCard` component to create a more compact, consistent layout across both tabs. The current implementation is functional but the "Follow-ups" tab has taller, multi-row cards while the "Needs Sending" tab is more compact. This plan unifies the row design and increases the item limit.
+Apply consistent visual rules across all dashboard components to create a polished, unified appearance with proper spacing, subtle shadows, and consistent styling.
 
-## Current State
-- `WorkQueueCard.tsx` already exists with two tabs: "Follow-up Queue" and "Needs Sending"
-- "Needs Sending" tab has compact single-row items
-- "Follow-ups" tab has tall multi-row cards with channel selectors, last reminded info, and schedule dropdowns
-- Both tabs limited to 5 items
+## Target Visual Rules
 
-## Target Layout
+| Property | Value | Tailwind Class |
+|----------|-------|----------------|
+| Card padding | 16-20px | `p-4` to `p-5` |
+| Border | Lighter/reduced opacity | `border-border/50` or custom CSS variable |
+| Shadow | Very subtle | `shadow-[0_1px_3px_rgba(0,0,0,0.04)]` |
+| Section spacing | 24px between major blocks | `gap-6` / `space-y-6` (already in place) |
+| "View all" links | Consistent placement (top-right) and style | Standardized component |
 
-```text
-+------------------------------------------------------------------+
-| Work Queue                                        [View all →]   |
-+------------------------------------------------------------------+
-| [Follow-ups (3)]  [Needs Sending (5)]                            |
-+------------------------------------------------------------------+
-| INV-001  |  Customer A  |  €500.00  | [14d overdue] | [Remind]   |
-| INV-002  |  Customer B  |  €250.00  | [7d overdue]  | [Remind]   |
-| INV-003  |  Customer C  |  €125.00  | [3d overdue]  | [Remind]   |
-| ... scrollable list up to 6 visible ...                          |
-| ───────────────────────────────────────────────────────────────  |
-|                    3 more need attention →                       |
-+------------------------------------------------------------------+
-```
+## Current State Analysis
 
-Each row: `[Invoice #] [Customer] [Amount] [Status Pill] [Action Button]`
+### Cards Using Different Padding
+- `MetricCard`: Uses `p-5` - **Good**
+- `RecentActivity`: Uses default `p-6` from CardContent - **Needs adjustment**
+- `WorkQueueCard`: Uses `pb-2` header, default content - **Needs adjustment**
+- `TodaySnapshotCard`: Uses `pb-3` header, default content - **Needs adjustment**
+- `ReceivablesAgingCard`: Uses `pb-3` header, default content - **Needs adjustment**
 
-## Key Changes
+### Border & Shadow Inconsistencies
+- Base `Card` component uses `border` and `shadow-sm`
+- Need to reduce both for a more subtle, refined look
 
-### 1. Unify Row Height and Layout
-Create a consistent single-row layout for both tabs:
-- Fixed row height (~44px) for visual consistency
-- Horizontal layout: Invoice number → Customer name → Amount → Status badge → Action button
-- Remove multi-row content from follow-ups (channel chips, last reminded, schedule dropdown)
-- Move advanced options (channel selection, scheduling) to a modal or inline dropdown on the action button
+### "View all" Link Variations
+- `MetricCard`: Button with `ExternalLink` icon, positioned top-right
+- `RecentActivity`: Link with `ArrowRight` icon, positioned in header right
+- `WorkQueueCard`: Link with `ExternalLink` icon, positioned in header
+- `ReceivablesAgingCard`: Button with `ArrowRight` icon, positioned in header right
 
-### 2. Increase Item Limit
-- Change from 5 to 6 items per tab
-- Maintain internal scrolling when content exceeds container height
+## Implementation Plan
 
-### 3. Compact Row Design
+### 1. Update Base Card Component
+**File:** `src/components/ui/card.tsx`
 
-**Follow-ups Tab Row:**
-| Invoice # | Customer | Amount | `[Xd overdue]` badge | `[Send reminder]` button |
+Update the Card base styles to use:
+- Lighter border: `border-border/60`
+- Subtler shadow: `shadow-[0_1px_2px_rgba(0,0,0,0.03)]`
+- Keep `rounded-lg` for consistent corners
 
-**Needs Sending Tab Row:**
-| Invoice # | Customer | Amount | `[Draft]` or `[Not sent]` badge | `[Send]` button |
-
-### 4. Simplified Action Buttons
-- Follow-ups: Single "Remind" button (opens reminder dialog with channel/level options)
-- Needs Sending: Single "Send" button (opens email dialog)
-
-## Technical Implementation
-
-### File: `src/components/WorkQueueCard.tsx`
-
-**Changes:**
-1. Create a shared `CompactInvoiceRow` sub-component for consistent styling
-2. Update both tabs to use the compact row layout
-3. Change item limits from 5 to 6
-4. Remove inline channel chips and schedule dropdown from the main list
-5. Add a reminder dialog trigger instead of inline "Send now"
-6. Ensure proper overflow handling with `overflow-y-auto`
-
-**Row Structure (both tabs):**
 ```tsx
-<div className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-muted/50">
-  {/* Left: Invoice info */}
-  <div className="flex items-center gap-3 flex-1 min-w-0">
-    <span className="font-medium text-sm truncate">{invoiceNumber}</span>
-    <span className="text-xs text-muted-foreground truncate">{customerName}</span>
-  </div>
-  
-  {/* Center: Amount */}
-  <span className="text-sm font-medium tabular-nums shrink-0">{amount}</span>
-  
-  {/* Right: Status + Action */}
-  <div className="flex items-center gap-2 shrink-0">
-    <Badge>{status}</Badge>
-    <Button size="sm">{action}</Button>
-  </div>
-</div>
+// Updated Card className
+"rounded-lg border border-border/60 bg-card text-card-foreground shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
 ```
 
-### 5. Optional: Add SendReminderDialog Integration
-For the "Remind" button, integrate with the existing `SendReminderDialog` component to allow users to:
-- Select escalation level (Friendly, Firm, Final)
-- Preview email before sending
-- Choose channel if needed
+Also update CardHeader to use `p-5` instead of `p-6` and CardContent to use `p-5 pt-0`:
+
+```tsx
+// CardHeader: p-6 -> p-5
+"flex flex-col space-y-1.5 p-5"
+
+// CardContent: p-6 pt-0 -> p-5 pt-0
+"p-5 pt-0"
+```
+
+### 2. Standardize "View All" Links
+Create a consistent pattern using a Link/Button with the following style:
+- Text: `text-xs text-muted-foreground hover:text-foreground`
+- Icon: `ArrowRight` (3x3 size) with `ml-1`
+- Position: Always in CardHeader, right-aligned
+
+**Files to update:**
+- `MetricCard.tsx` - Change `ExternalLink` to `ArrowRight` for consistency
+- `WorkQueueCard.tsx` - Already uses `ExternalLink`, switch to `ArrowRight`
+- `ReceivablesAgingCard.tsx` - Already correct
+- `RecentActivity.tsx` - Already correct
+- `TodaySnapshotCard.tsx` - Add "View all" link if appropriate
+
+### 3. Adjust Individual Component Padding
+
+**MetricCard.tsx:**
+- Change from `p-5` to `p-4` for slightly tighter fit within fixed height
+- Adjust internal spacing to compensate
+
+**TodaySnapshotCard.tsx:**
+- Add consistent CardHeader styling with proper spacing
+- Use `pb-3` in header for tighter spacing
+
+**RecentActivity.tsx:**
+- Header already uses `pb-2` - keep as is
+- Ensure content area uses proper padding
+
+**WorkQueueCard.tsx:**
+- Header already uses `pb-2` - keep as is
+- Ensure internal list spacing is consistent
+
+**ReceivablesAgingCard.tsx:**
+- Header already uses `pb-3` - keep as is
+
+### 4. Section Spacing Verification
+Confirm all major layout gaps use `gap-6` (24px):
+- KPI row grid: Currently `gap-4 lg:gap-6` - **Update to consistent `gap-6`**
+- Desktop 12-column grid: Uses `gap-6` - **Correct**
+- Mobile stacked sections: Uses `space-y-6` - **Correct**
 
 ## Files to Modify
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/components/WorkQueueCard.tsx` | Modify | Refactor to compact row layout, increase limit to 6 |
+| File | Changes |
+|------|---------|
+| `src/components/ui/card.tsx` | Update border opacity, shadow, and default padding |
+| `src/components/MetricCard.tsx` | Adjust padding, change icon to ArrowRight |
+| `src/components/TodaySnapshotCard.tsx` | Add View all link, adjust padding |
+| `src/components/WorkQueueCard.tsx` | Change ExternalLink to ArrowRight |
+| `src/pages/Index.tsx` | Update KPI grid gap to consistent `gap-6` |
 
-## Visual Consistency Checklist
-- Row height: ~44px (py-2 + content)
-- Typography: `text-sm` for invoice numbers and amounts, `text-xs` for customer names
-- Badge sizing: `text-xs` with compact padding
-- Button sizing: `size="sm"` with `h-7` height
-- Spacing: `gap-2` between elements, consistent with dashboard cards
+## Visual Comparison
+
+### Before
+- Mixed padding (p-5, p-6)
+- Standard border (`border`)
+- Visible shadow (`shadow-sm`)
+- Inconsistent "View all" icons
+
+### After
+- Consistent padding (p-4 to p-5)
+- Lighter border (`border-border/60`)
+- Subtle shadow (`shadow-[0_1px_2px_rgba(0,0,0,0.03)]`)
+- Unified "View all" with ArrowRight icon
+- Consistent 24px section spacing everywhere
