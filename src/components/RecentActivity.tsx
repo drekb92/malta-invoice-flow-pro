@@ -175,12 +175,12 @@ export function RecentActivity({ userId }: RecentActivityProps) {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest updates from your receivables</CardDescription>
+      <Card className="flex flex-col max-h-[360px]">
+        <CardHeader className="shrink-0">
+          <CardTitle className="text-base">Recent Activity</CardTitle>
+          <CardDescription className="text-xs">Latest updates from your receivables</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-hidden">
           <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-start space-x-3">
@@ -199,10 +199,10 @@ export function RecentActivity({ userId }: RecentActivityProps) {
 
   if (!activities || activities.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest updates from your receivables</CardDescription>
+      <Card className="flex flex-col max-h-[360px]">
+        <CardHeader className="shrink-0">
+          <CardTitle className="text-base">Recent Activity</CardTitle>
+          <CardDescription className="text-xs">Latest updates from your receivables</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-8">
@@ -214,22 +214,22 @@ export function RecentActivity({ userId }: RecentActivityProps) {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+    <Card className="flex flex-col max-h-[360px]">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 shrink-0">
         <div>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest updates from your receivables</CardDescription>
+          <CardTitle className="text-base">Recent Activity</CardTitle>
+          <CardDescription className="text-xs">Latest updates from your receivables</CardDescription>
         </div>
         <Link 
           to="/activity" 
-          className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
         >
-          View All
+          View all
           <ArrowRight className="h-3 w-3" />
         </Link>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="flex-1 overflow-auto">
+        <div className="space-y-4 pr-1">
           {activities.map((activity) => {
             const Icon = iconMap[activity.type];
             return (

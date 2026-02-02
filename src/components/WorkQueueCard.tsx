@@ -162,8 +162,8 @@ export function WorkQueueCard({
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className="flex flex-col max-h-[360px]">
+        <CardHeader className="pb-2 shrink-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="flex items-center justify-between">
               <TabsList>
@@ -189,7 +189,7 @@ export function WorkQueueCard({
               
               <Link
                 to={getViewAllLink()}
-                className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
               >
                 View all
                 <ExternalLink className="h-3 w-3" />
@@ -198,10 +198,10 @@ export function WorkQueueCard({
           </Tabs>
         </CardHeader>
         
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <CardContent className="flex-1 overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             {/* Follow-up Queue Tab */}
-            <TabsContent value="reminders" className="mt-0">
+            <TabsContent value="reminders" className="mt-0 flex-1 overflow-auto">
               {overdueInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
@@ -213,7 +213,7 @@ export function WorkQueueCard({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 pr-1">
                   {topOverdueInvoices.map((invoice) => (
                     <div
                       key={invoice.id}
@@ -352,7 +352,7 @@ export function WorkQueueCard({
             </TabsContent>
 
             {/* Needs Sending Tab */}
-            <TabsContent value="sending" className="mt-0">
+            <TabsContent value="sending" className="mt-0 flex-1 overflow-auto">
               {needsSendingInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
@@ -364,7 +364,7 @@ export function WorkQueueCard({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 pr-1">
                   {needsSendingInvoices.slice(0, 5).map((invoice) => (
                     <div
                       key={invoice.id}

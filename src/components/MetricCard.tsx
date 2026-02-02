@@ -29,10 +29,10 @@ export function MetricCard({
 
   return (
     <Card 
-      className={onClick ? "cursor-pointer hover:shadow-md transition-all hover:border-primary/20" : ""}
+      className={`h-[130px] ${onClick ? "cursor-pointer hover:shadow-md transition-all hover:border-primary/20" : ""}`}
       onClick={onClick}
     >
-      <CardContent className="p-5">
+      <CardContent className="p-5 h-full flex flex-col justify-between">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
