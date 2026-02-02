@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Mail, Loader2 } from "lucide-react";
-import { buildA4HtmlDocument, prepareHtmlForPdf } from "@/lib/edgePdf";
+import { buildA4HtmlDocument, prepareHtmlForPdf, inlineImages, captureCssVars } from "@/lib/edgePdf";
+import { useInvoicePdfData } from "@/hooks/useInvoicePdfData";
+import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 
 interface SendDocumentEmailDialogProps {
   open: boolean;
@@ -35,6 +37,8 @@ interface SendDocumentEmailDialogProps {
   defaultSubjectOverride?: string;
   /** Override the default message body */
   defaultMessageOverride?: string;
+  /** Set to true if an invoice-preview-root element already exists in the DOM */
+  previewAvailable?: boolean;
 }
 
 export function SendDocumentEmailDialog({
@@ -50,9 +54,20 @@ export function SendDocumentEmailDialog({
   onSuccess,
   defaultSubjectOverride,
   defaultMessageOverride,
+  previewAvailable,
 }: SendDocumentEmailDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  // Determine if we need to fetch invoice data for dynamic preview
+  const needsDynamicPreview = documentType === 'invoice' && previewAvailable === false;
+  
+  // Fetch invoice data only when dialog is open and we need dynamic preview
+  const { data: invoicePdfData, isLoading: pdfDataLoading, isReady: pdfDataReady } = useInvoicePdfData(
+    needsDynamicPreview ? documentId : null,
+    needsDynamicPreview && open
+  );
 
   const documentTypeLabel = documentType.charAt(0).toUpperCase() + documentType.slice(1).replace('_', ' ');
   
@@ -80,6 +95,53 @@ ${companyName}`;
     }
   }, [open, customer.email, computedDefaultSubject, computedDefaultMessage]);
 
+  /**
+   * Wait for the invoice-preview-root element to be available in the DOM
+   */
+  const waitForPreviewRoot = async (maxWaitMs = 3000): Promise<HTMLElement | null> => {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      const root = document.getElementById("invoice-preview-root");
+      if (root) return root;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    return null;
+  };
+
+  /**
+   * Generate HTML for PDF from the preview root (either external or internal)
+   */
+  const generatePdfHtml = async (): Promise<string> => {
+    // First check if an external preview root exists
+    let root = document.getElementById("invoice-preview-root");
+    
+    // If no external preview and we're using dynamic preview, wait for internal one
+    if (!root && needsDynamicPreview) {
+      root = await waitForPreviewRoot();
+    }
+    
+    if (!root) {
+      throw new Error("Preview root not found (invoice-preview-root).");
+    }
+
+    const cloned = root.cloneNode(true) as HTMLElement;
+    await inlineImages(cloned);
+
+    const cssVars = captureCssVars(root);
+    if (cssVars) {
+      const existingStyle = cloned.getAttribute("style") || "";
+      cloned.setAttribute("style", `${existingStyle}${existingStyle ? " " : ""}${cssVars}`);
+    }
+
+    return buildA4HtmlDocument({
+      filename: `${documentTypeLabel}-${documentNumber}`,
+      fontFamily,
+      clonedRoot: cloned,
+    });
+  };
+
   const handleSend = async () => {
     if (!recipientEmail || !recipientEmail.includes("@")) {
       toast({
@@ -90,13 +152,20 @@ ${companyName}`;
       return;
     }
 
+    // For dynamic preview, ensure data is ready
+    if (needsDynamicPreview && !pdfDataReady) {
+      toast({
+        title: "Loading invoice data",
+        description: "Please wait while invoice data is being loaded.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // Prepare HTML with inlined images and CSS variables
-      const html = await prepareHtmlForPdf(
-        `${documentTypeLabel}-${documentNumber}`,
-        fontFamily
-      );
+      // Generate HTML from preview
+      const html = await generatePdfHtml();
 
       const messageHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -144,6 +213,9 @@ ${companyName}`;
     }
   };
 
+  // Determine if send button should be disabled
+  const isSendDisabled = loading || (needsDynamicPreview && !pdfDataReady);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -190,7 +262,14 @@ ${companyName}`;
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
             <Mail className="h-4 w-4" />
-            PDF attachment will be included automatically
+            {needsDynamicPreview && pdfDataLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading invoice data...
+              </>
+            ) : (
+              "PDF attachment will be included automatically"
+            )}
           </div>
         </div>
 
@@ -198,7 +277,7 @@ ${companyName}`;
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSend} disabled={loading}>
+          <Button onClick={handleSend} disabled={isSendDisabled}>
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -213,6 +292,32 @@ ${companyName}`;
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Hidden preview for PDF generation when no external preview exists */}
+      {needsDynamicPreview && pdfDataReady && invoicePdfData && (
+        <div
+          ref={previewContainerRef}
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: 0,
+            width: '210mm',
+            pointerEvents: 'none',
+          }}
+          aria-hidden="true"
+        >
+          <UnifiedInvoiceLayout
+            id="invoice-preview-root"
+            variant="pdf"
+            invoiceData={invoicePdfData.invoiceData}
+            companySettings={invoicePdfData.companySettings}
+            bankingSettings={invoicePdfData.bankingSettings}
+            templateSettings={invoicePdfData.templateSettings}
+            footerText={invoicePdfData.footerText}
+            documentType="INVOICE"
+          />
+        </div>
+      )}
     </Dialog>
   );
 }

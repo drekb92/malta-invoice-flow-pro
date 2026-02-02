@@ -315,6 +315,7 @@ export function WorkQueueCard({
           companyName={companySettings?.company_name || ""}
           userId={user.id}
           onSuccess={handleSendSuccess}
+          previewAvailable={false}
         />
       )}
     </>
