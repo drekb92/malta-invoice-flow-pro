@@ -1,137 +1,106 @@
 
-# Dashboard 12-Column Grid Layout Refactor
+# Work Queue Widget Refinement
 
 ## Overview
-Restructure the Dashboard page to use a proper 12-column responsive grid system with a main content area (8 columns) and a sidebar (4 columns). This will create a more organized, scannable layout with clear visual hierarchy.
+Refine the existing `WorkQueueCard` component to create a more compact, consistent layout across both tabs. The current implementation is functional but the "Follow-ups" tab has taller, multi-row cards while the "Needs Sending" tab is more compact. This plan unifies the row design and increases the item limit.
+
+## Current State
+- `WorkQueueCard.tsx` already exists with two tabs: "Follow-up Queue" and "Needs Sending"
+- "Needs Sending" tab has compact single-row items
+- "Follow-ups" tab has tall multi-row cards with channel selectors, last reminded info, and schedule dropdowns
+- Both tabs limited to 5 items
 
 ## Target Layout
 
 ```text
-+--------------------------------------------------------------+
-| Top Toolbar (full width - 12 cols)                           |
-| [Search...] [Date filter] [Customer filter]      [New ▼]     |
-+--------------------------------------------------------------+
-| KPI Row (full width - 12 cols = 4 x 3 cols each)             |
-| [Outstanding] [Customers] [Collected] [Invoices Issued]      |
-+--------------------------------------------------------------+
-|                                              |                |
-| Main Content (8 cols)                        | Sidebar (4 col)|
-| +------------------------------------------+ | +------------+ |
-| | Work Queue (Tabbed)                      | | | Today      | |
-| | [Reminders] [Needs Sending]              | | | Snapshot   | |
-| |                                          | | |            | |
-| +------------------------------------------+ | +------------+ |
-| +------------------------------------------+ | +------------+ |
-| | Receivables Aging                        | | | Recent     | |
-| |                                          | | | Activity   | |
-| +------------------------------------------+ | +------------+ |
-|                                              |                |
-+--------------------------------------------------------------+
++------------------------------------------------------------------+
+| Work Queue                                        [View all →]   |
++------------------------------------------------------------------+
+| [Follow-ups (3)]  [Needs Sending (5)]                            |
++------------------------------------------------------------------+
+| INV-001  |  Customer A  |  €500.00  | [14d overdue] | [Remind]   |
+| INV-002  |  Customer B  |  €250.00  | [7d overdue]  | [Remind]   |
+| INV-003  |  Customer C  |  €125.00  | [3d overdue]  | [Remind]   |
+| ... scrollable list up to 6 visible ...                          |
+| ───────────────────────────────────────────────────────────────  |
+|                    3 more need attention →                       |
++------------------------------------------------------------------+
 ```
 
-## Implementation Steps
+Each row: `[Invoice #] [Customer] [Amount] [Status Pill] [Action Button]`
 
-### 1. Create Work Queue Tabbed Component
-Create a new component `WorkQueueCard.tsx` that combines Pending Reminders and Needs Sending into a single tabbed interface.
+## Key Changes
 
-**File:** `src/components/WorkQueueCard.tsx`
+### 1. Unify Row Height and Layout
+Create a consistent single-row layout for both tabs:
+- Fixed row height (~44px) for visual consistency
+- Horizontal layout: Invoice number → Customer name → Amount → Status badge → Action button
+- Remove multi-row content from follow-ups (channel chips, last reminded, schedule dropdown)
+- Move advanced options (channel selection, scheduling) to a modal or inline dropdown on the action button
 
-- Uses Radix UI Tabs component
-- Two tabs: "Follow-up Queue" (pending reminders) and "Needs Sending"
-- Each tab displays its respective content
-- Shared "View all" link updates based on active tab
+### 2. Increase Item Limit
+- Change from 5 to 6 items per tab
+- Maintain internal scrolling when content exceeds container height
 
-### 2. Refactor Dashboard Grid Layout
+### 3. Compact Row Design
 
-**File:** `src/pages/Index.tsx`
+**Follow-ups Tab Row:**
+| Invoice # | Customer | Amount | `[Xd overdue]` badge | `[Send reminder]` button |
 
-- **Desktop Layout (lg breakpoint and up)**:
-  - Full-width toolbar row
-  - Full-width KPI row (4 cards in `grid-cols-4`)
-  - 12-column grid: `grid-cols-12`
-    - Main content: `col-span-8`
-    - Sidebar: `col-span-4`
+**Needs Sending Tab Row:**
+| Invoice # | Customer | Amount | `[Draft]` or `[Not sent]` badge | `[Send]` button |
 
-- **Tablet Layout (md breakpoint)**:
-  - Stack main content and sidebar vertically
-  - KPI cards: 2 per row
+### 4. Simplified Action Buttons
+- Follow-ups: Single "Remind" button (opens reminder dialog with channel/level options)
+- Needs Sending: Single "Send" button (opens email dialog)
 
-- **Mobile Layout**:
-  - Single column layout
-  - Keep existing mobile-first ordering
-  - FAB remains for quick actions
+## Technical Implementation
 
-### 3. Update Toolbar
-Modify `DashboardCommandBar.tsx` to include the "New" button in the same row as filters (already implemented, minor positioning adjustments).
+### File: `src/components/WorkQueueCard.tsx`
 
-### 4. Spacing and Alignment
-- Consistent vertical gap between all cards: `gap-6`
-- Cards stretch to fill available height where appropriate
-- Equal padding and margins throughout
+**Changes:**
+1. Create a shared `CompactInvoiceRow` sub-component for consistent styling
+2. Update both tabs to use the compact row layout
+3. Change item limits from 5 to 6
+4. Remove inline channel chips and schedule dropdown from the main list
+5. Add a reminder dialog trigger instead of inline "Send now"
+6. Ensure proper overflow handling with `overflow-y-auto`
 
----
-
-## Technical Details
-
-### Grid CSS Structure
-
+**Row Structure (both tabs):**
 ```tsx
-{/* Desktop: 12-column grid */}
-<div className="grid grid-cols-12 gap-6">
-  {/* Main Content - 8 columns */}
-  <div className="col-span-12 lg:col-span-8 space-y-6">
-    <WorkQueueCard ... />
-    <ReceivablesAgingCard ... />
+<div className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-muted/50">
+  {/* Left: Invoice info */}
+  <div className="flex items-center gap-3 flex-1 min-w-0">
+    <span className="font-medium text-sm truncate">{invoiceNumber}</span>
+    <span className="text-xs text-muted-foreground truncate">{customerName}</span>
   </div>
   
-  {/* Sidebar - 4 columns */}
-  <div className="col-span-12 lg:col-span-4 space-y-6">
-    <TodaySnapshotCard ... />
-    <RecentActivity ... />
+  {/* Center: Amount */}
+  <span className="text-sm font-medium tabular-nums shrink-0">{amount}</span>
+  
+  {/* Right: Status + Action */}
+  <div className="flex items-center gap-2 shrink-0">
+    <Badge>{status}</Badge>
+    <Button size="sm">{action}</Button>
   </div>
 </div>
 ```
 
-### WorkQueueCard Component Structure
+### 5. Optional: Add SendReminderDialog Integration
+For the "Remind" button, integrate with the existing `SendReminderDialog` component to allow users to:
+- Select escalation level (Friendly, Firm, Final)
+- Preview email before sending
+- Choose channel if needed
 
-```tsx
-<Card>
-  <CardHeader>
-    <Tabs defaultValue="reminders">
-      <TabsList>
-        <TabsTrigger value="reminders">Follow-up Queue</TabsTrigger>
-        <TabsTrigger value="sending">Needs Sending</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  </CardHeader>
-  <CardContent>
-    <TabsContent value="reminders">
-      {/* Pending reminders content */}
-    </TabsContent>
-    <TabsContent value="sending">
-      {/* Needs sending content */}
-    </TabsContent>
-  </CardContent>
-</Card>
-```
-
-### Mobile Responsive Behavior
-- On mobile (`< lg`): Full 12-column span for all sections, stacked vertically
-- Toolbar filters stack vertically on mobile (existing behavior preserved)
-- FAB remains visible on mobile for quick actions
-
----
-
-## Files to Create/Modify
+## Files to Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/components/WorkQueueCard.tsx` | Create | New tabbed component combining reminders and needs sending |
-| `src/pages/Index.tsx` | Modify | Implement 12-column grid layout |
-| `src/components/DashboardCommandBar.tsx` | Minor tweak | Ensure proper alignment in toolbar |
+| `src/components/WorkQueueCard.tsx` | Modify | Refactor to compact row layout, increase limit to 6 |
 
-## Visual Rhythm Consistency
-- All cards use consistent padding: `p-5` or `p-6`
-- Vertical spacing between rows: `gap-6` (24px)
-- Card headers use `pb-3` for consistent title spacing
-- Typography hierarchy maintained across all sections
+## Visual Consistency Checklist
+- Row height: ~44px (py-2 + content)
+- Typography: `text-sm` for invoice numbers and amounts, `text-xs` for customer names
+- Badge sizing: `text-xs` with compact padding
+- Button sizing: `size="sm"` with `h-7` height
+- Spacing: `gap-2` between elements, consistent with dashboard cards
