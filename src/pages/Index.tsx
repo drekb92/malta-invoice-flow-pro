@@ -3,11 +3,10 @@ import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
 import { RecentActivity } from "@/components/RecentActivity";
 import { DashboardCommandBar } from "@/components/DashboardCommandBar";
-import { PendingRemindersWidget } from "@/components/PendingRemindersWidget";
 import { ReceivablesAgingCard } from "@/components/ReceivablesAgingCard";
-import { NeedsSendingCard } from "@/components/NeedsSendingCard";
 import { DashboardFAB } from "@/components/DashboardFAB";
 import { TodaySnapshotCard } from "@/components/TodaySnapshotCard";
+import { WorkQueueCard } from "@/components/WorkQueueCard";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -240,14 +239,10 @@ const Index = () => {
                   Welcome to your Malta receivables management system
                 </p>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="hidden md:flex items-center space-x-3">
                 <Button variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Export
-                </Button>
-                <Button size="sm" onClick={() => navigate("/invoices/new")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Invoice
                 </Button>
               </div>
             </div>
@@ -349,17 +344,6 @@ const Index = () => {
             </Alert>
           )}
 
-          {/* Dashboard Command Bar - Only show if setup complete */}
-          {setupStatus.isComplete && (
-            <DashboardCommandBar
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              customerId={customerId}
-              onCustomerIdChange={setCustomerId}
-              customers={recentCustomers.map((c) => ({ id: c.id, name: c.name }))}
-            />
-          )}
-
           {/* Getting Started Cards - Show if setup incomplete */}
           {!setupStatus.isComplete && !setupLoading && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -412,110 +396,36 @@ const Index = () => {
             </div>
           )}
 
-          {/* Dashboard Content - Mobile-first ordering */}
+          {/* Dashboard Content - Complete setup view */}
           {setupStatus.isComplete && (
             <div className="space-y-6">
-              {/* 
-                Mobile order: KPIs, Primary Actions, Follow-up Queue, Receivables Aging, Today, Recent Activity
-                Desktop: Row layout with 3-column grids
-              */}
-              
-              {/* KPIs - 2 per row on mobile, 4 on desktop */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+              {/* Top Toolbar - Full width */}
+              <DashboardCommandBar
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                customerId={customerId}
+                onCustomerIdChange={setCustomerId}
+                customers={recentCustomers.map((c) => ({ id: c.id, name: c.name }))}
+              />
+
+              {/* KPI Row - 4 cards, 2 per row on mobile, 4 on desktop */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 {metricCards.map((metric, index) => (
                   <MetricCard key={index} {...metric} />
                 ))}
               </div>
 
-              {/* Primary Actions - Full width on mobile, first in row on desktop */}
-              <Card className="md:hidden">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Plus className="h-4 w-4 text-primary" />
-                    Primary Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button 
-                      className="w-full justify-start" 
-                      onClick={() => navigate("/invoices/new")}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      New Invoice
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={() => navigate("/invoices?action=record-payment")}
-                    >
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Record Payment
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={() => navigate("/quotations/new")}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      New Quotation
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start"
-                      onClick={() => navigate("/reminders")}
-                    >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Send Reminders
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Follow-up Queue (Pending Reminders) - Mobile only here */}
-              <div className="md:hidden">
-                <PendingRemindersWidget
-                  overdueInvoices={overdueInvoices}
-                  maxDisplay={3}
-                  formatCurrency={formatCurrency}
-                  onReminderSent={() => refetchOverdueInvoices()}
-                />
-              </div>
-
-              {/* Receivables Aging - Mobile only here */}
-              <div className="md:hidden">
-                <ReceivablesAgingCard
-                  overdueInvoices={overdueInvoices}
-                  formatCurrency={formatCurrency}
-                />
-              </div>
-
-              {/* Today Snapshot - Mobile only here */}
-              <div className="md:hidden">
-                <TodaySnapshotCard
-                  invoicesCreatedToday={todaySnapshot.invoicesCreatedToday}
-                  paymentsReceivedToday={todaySnapshot.paymentsReceivedToday}
-                  amountCollectedToday={todaySnapshot.amountCollectedToday}
-                  formatCurrency={formatCurrency}
-                />
-              </div>
-
-              {/* Recent Activity - Mobile only here */}
-              <div className="md:hidden">
-                <RecentActivity userId={userId} />
-              </div>
-
-              {/* Desktop Layout - Row 1: Primary Actions, Receivables Aging, Needs Sending */}
-              <div className="hidden md:grid md:grid-cols-3 gap-5 items-start">
-                {/* Primary Actions Card */}
-                <Card className="flex flex-col">
+              {/* Mobile Layout - Stacked sections */}
+              <div className="lg:hidden space-y-6">
+                {/* Primary Actions - Mobile only */}
+                <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <Plus className="h-4 w-4 text-primary" />
                       Primary Actions
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-1">
+                  <CardContent>
                     <div className="grid grid-cols-2 gap-3">
                       <Button 
                         className="w-full justify-start" 
@@ -552,44 +462,66 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                {/* Receivables Aging Card */}
+                {/* Work Queue - Mobile */}
+                <WorkQueueCard
+                  overdueInvoices={overdueInvoices}
+                  needsSendingInvoices={needsSendingInvoices}
+                  formatCurrency={formatCurrency}
+                  onReminderSent={() => refetchOverdueInvoices()}
+                  onInvoiceSent={() => refetchNeedsSending()}
+                />
+
+                {/* Receivables Aging - Mobile */}
                 <ReceivablesAgingCard
                   overdueInvoices={overdueInvoices}
                   formatCurrency={formatCurrency}
                 />
 
-                {/* Needs Sending Card */}
-                <NeedsSendingCard
-                  invoices={needsSendingInvoices}
-                  formatCurrency={formatCurrency}
-                  onSent={() => refetchNeedsSending()}
-                />
-              </div>
-
-              {/* Desktop Layout - Row 2: Follow-up Queue, Today Snapshot, Recent Activity */}
-              <div className="hidden md:grid md:grid-cols-3 gap-5 items-start">
-                <PendingRemindersWidget
-                  overdueInvoices={overdueInvoices}
-                  maxDisplay={3}
-                  formatCurrency={formatCurrency}
-                  onReminderSent={() => refetchOverdueInvoices()}
-                />
+                {/* Today Snapshot - Mobile */}
                 <TodaySnapshotCard
                   invoicesCreatedToday={todaySnapshot.invoicesCreatedToday}
                   paymentsReceivedToday={todaySnapshot.paymentsReceivedToday}
                   amountCollectedToday={todaySnapshot.amountCollectedToday}
                   formatCurrency={formatCurrency}
                 />
+
+                {/* Recent Activity - Mobile */}
                 <RecentActivity userId={userId} />
               </div>
 
-              {/* Needs Sending - Mobile only (after Recent Activity) */}
-              <div className="md:hidden">
-                <NeedsSendingCard
-                  invoices={needsSendingInvoices}
-                  formatCurrency={formatCurrency}
-                  onSent={() => refetchNeedsSending()}
-                />
+              {/* Desktop Layout - 12-column grid (8 + 4) */}
+              <div className="hidden lg:grid lg:grid-cols-12 gap-6">
+                {/* Main Content - 8 columns */}
+                <div className="col-span-8 space-y-6">
+                  {/* Work Queue Card (Tabbed) */}
+                  <WorkQueueCard
+                    overdueInvoices={overdueInvoices}
+                    needsSendingInvoices={needsSendingInvoices}
+                    formatCurrency={formatCurrency}
+                    onReminderSent={() => refetchOverdueInvoices()}
+                    onInvoiceSent={() => refetchNeedsSending()}
+                  />
+
+                  {/* Receivables Aging */}
+                  <ReceivablesAgingCard
+                    overdueInvoices={overdueInvoices}
+                    formatCurrency={formatCurrency}
+                  />
+                </div>
+
+                {/* Sidebar - 4 columns */}
+                <div className="col-span-4 space-y-6">
+                  {/* Today Snapshot */}
+                  <TodaySnapshotCard
+                    invoicesCreatedToday={todaySnapshot.invoicesCreatedToday}
+                    paymentsReceivedToday={todaySnapshot.paymentsReceivedToday}
+                    amountCollectedToday={todaySnapshot.amountCollectedToday}
+                    formatCurrency={formatCurrency}
+                  />
+
+                  {/* Recent Activity */}
+                  <RecentActivity userId={userId} />
+                </div>
               </div>
             </div>
           )}
