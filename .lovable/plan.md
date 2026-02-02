@@ -1,107 +1,137 @@
 
+# Dashboard 12-Column Grid Layout Refactor
 
-# Dashboard Quick Actions Enhancement
+## Overview
+Restructure the Dashboard page to use a proper 12-column responsive grid system with a main content area (8 columns) and a sidebar (4 columns). This will create a more organized, scannable layout with clear visual hierarchy.
 
-Adding a Quick Quotation button and balancing the card sizes in the dashboard's Quick Actions row.
+## Target Layout
+
+```text
++--------------------------------------------------------------+
+| Top Toolbar (full width - 12 cols)                           |
+| [Search...] [Date filter] [Customer filter]      [New ▼]     |
++--------------------------------------------------------------+
+| KPI Row (full width - 12 cols = 4 x 3 cols each)             |
+| [Outstanding] [Customers] [Collected] [Invoices Issued]      |
++--------------------------------------------------------------+
+|                                              |                |
+| Main Content (8 cols)                        | Sidebar (4 col)|
+| +------------------------------------------+ | +------------+ |
+| | Work Queue (Tabbed)                      | | | Today      | |
+| | [Reminders] [Needs Sending]              | | | Snapshot   | |
+| |                                          | | |            | |
+| +------------------------------------------+ | +------------+ |
+| +------------------------------------------+ | +------------+ |
+| | Receivables Aging                        | | | Recent     | |
+| |                                          | | | Activity   | |
+| +------------------------------------------+ | +------------+ |
+|                                              |                |
++--------------------------------------------------------------+
+```
+
+## Implementation Steps
+
+### 1. Create Work Queue Tabbed Component
+Create a new component `WorkQueueCard.tsx` that combines Pending Reminders and Needs Sending into a single tabbed interface.
+
+**File:** `src/components/WorkQueueCard.tsx`
+
+- Uses Radix UI Tabs component
+- Two tabs: "Follow-up Queue" (pending reminders) and "Needs Sending"
+- Each tab displays its respective content
+- Shared "View all" link updates based on active tab
+
+### 2. Refactor Dashboard Grid Layout
+
+**File:** `src/pages/Index.tsx`
+
+- **Desktop Layout (lg breakpoint and up)**:
+  - Full-width toolbar row
+  - Full-width KPI row (4 cards in `grid-cols-4`)
+  - 12-column grid: `grid-cols-12`
+    - Main content: `col-span-8`
+    - Sidebar: `col-span-4`
+
+- **Tablet Layout (md breakpoint)**:
+  - Stack main content and sidebar vertically
+  - KPI cards: 2 per row
+
+- **Mobile Layout**:
+  - Single column layout
+  - Keep existing mobile-first ordering
+  - FAB remains for quick actions
+
+### 3. Update Toolbar
+Modify `DashboardCommandBar.tsx` to include the "New" button in the same row as filters (already implemented, minor positioning adjustments).
+
+### 4. Spacing and Alignment
+- Consistent vertical gap between all cards: `gap-6`
+- Cards stretch to fill available height where appropriate
+- Equal padding and margins throughout
 
 ---
 
-## Changes Requested
+## Technical Details
 
-| Change | Current State | Target State |
-|--------|---------------|--------------|
-| Quick Quotation | Not present | Add as quick button similar to Quick Invoice |
-| Export button | Present in More Actions | Remove it |
-| Card alignment | More Actions slightly taller due to 2x2 grid | All three cards same height |
-
----
-
-## Technical Implementation
-
-### File: `src/pages/Index.tsx`
-
-**Change 1: Add Quotation Icon Import**
-
-Add `FileEdit` or use existing `FileText` icon for quotation (line ~35-49 imports section).
-
-**Change 2: Convert Quick Invoice Card to Quick Invoice + Quotation Card**
-
-Rename the card to "Quick Create" and add both buttons:
+### Grid CSS Structure
 
 ```tsx
-{/* Quick Create Card */}
-<Card className="flex flex-col">
-  <CardHeader className="pb-3">
-    <CardTitle className="text-base font-semibold flex items-center gap-2">
-      <Plus className="h-4 w-4 text-primary" />
-      Quick Create
-    </CardTitle>
+{/* Desktop: 12-column grid */}
+<div className="grid grid-cols-12 gap-6">
+  {/* Main Content - 8 columns */}
+  <div className="col-span-12 lg:col-span-8 space-y-6">
+    <WorkQueueCard ... />
+    <ReceivablesAgingCard ... />
+  </div>
+  
+  {/* Sidebar - 4 columns */}
+  <div className="col-span-12 lg:col-span-4 space-y-6">
+    <TodaySnapshotCard ... />
+    <RecentActivity ... />
+  </div>
+</div>
+```
+
+### WorkQueueCard Component Structure
+
+```tsx
+<Card>
+  <CardHeader>
+    <Tabs defaultValue="reminders">
+      <TabsList>
+        <TabsTrigger value="reminders">Follow-up Queue</TabsTrigger>
+        <TabsTrigger value="sending">Needs Sending</TabsTrigger>
+      </TabsList>
+    </Tabs>
   </CardHeader>
-  <CardContent className="flex-1 space-y-2">
-    {/* Existing Invoice Dropdown */}
-    <DropdownMenu>...</DropdownMenu>
-    
-    {/* NEW: Quotation Button */}
-    <Button 
-      variant="outline" 
-      className="w-full" 
-      size="lg"
-      onClick={() => navigate("/quotations/new")}
-    >
-      <FileText className="h-4 w-4 mr-2" />
-      New Quotation
-    </Button>
+  <CardContent>
+    <TabsContent value="reminders">
+      {/* Pending reminders content */}
+    </TabsContent>
+    <TabsContent value="sending">
+      {/* Needs sending content */}
+    </TabsContent>
   </CardContent>
 </Card>
 ```
 
-**Change 3: Remove Export Button from More Actions**
-
-Remove lines 602-610 (the Export button), leaving only 3 buttons:
-- Customers
-- Credit Notes  
-- Reports
-
-**Change 4: Balance Card Heights**
-
-Add `flex flex-col` to all three cards and `flex-1` to CardContent to ensure equal heights:
-
-```tsx
-<Card className="flex flex-col">
-  <CardHeader className="pb-3">...</CardHeader>
-  <CardContent className="flex-1">...</CardContent>
-</Card>
-```
+### Mobile Responsive Behavior
+- On mobile (`< lg`): Full 12-column span for all sections, stacked vertically
+- Toolbar filters stack vertically on mobile (existing behavior preserved)
+- FAB remains visible on mobile for quick actions
 
 ---
 
-## Resulting Layout
+## Files to Create/Modify
 
-```text
-+--------------------------------------------------+
-| Quick Create      | Overdue Invoices | More Actions |
-|-------------------|------------------|--------------|
-| [Invoice ▼]       | [Follow Up ▼]    | [Customers]  |
-| [New Quotation]   | X days overdue   | [Credit Notes]|
-| X customers       | Total: €XXX      | [Reports]    |
-+--------------------------------------------------+
-```
+| File | Action | Description |
+|------|--------|-------------|
+| `src/components/WorkQueueCard.tsx` | Create | New tabbed component combining reminders and needs sending |
+| `src/pages/Index.tsx` | Modify | Implement 12-column grid layout |
+| `src/components/DashboardCommandBar.tsx` | Minor tweak | Ensure proper alignment in toolbar |
 
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/pages/Index.tsx` | Add Quotation button, remove Export button, balance card heights with flex classes |
-
----
-
-## Visual Result
-
-After implementation:
-- Quick Create card has both Invoice dropdown and New Quotation button
-- More Actions has 3 buttons (Customers, Credit Notes, Reports) - Export removed
-- All three cards are the same height due to flex layout
-- Clean, balanced appearance with quick access to create both invoices and quotations
-
+## Visual Rhythm Consistency
+- All cards use consistent padding: `p-5` or `p-6`
+- Vertical spacing between rows: `gap-6` (24px)
+- Card headers use `pb-3` for consistent title spacing
+- Typography hierarchy maintained across all sections
