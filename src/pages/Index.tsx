@@ -399,7 +399,7 @@ const Index = () => {
               />
 
               {/* KPI Row - 4 cards, 2 per row on mobile, 4 on desktop */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 {metricCards.map((metric, index) => (
                   <MetricCard key={index} {...metric} />
                 ))}

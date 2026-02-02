@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   Loader2,
   Send,
-  ExternalLink,
+  ArrowRight,
 } from "lucide-react";
 
 
@@ -146,7 +146,7 @@ export function WorkQueueCard({
                 className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
               >
                 View all
-                <ExternalLink className="h-3 w-3" />
+                <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
           </Tabs>
