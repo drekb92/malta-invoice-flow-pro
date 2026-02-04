@@ -1,125 +1,96 @@
 
-# Fix: Quotation View Navigation 404 Error
+# Remove "TAX INVOICE" Label from Documents
 
-## Problem Summary
+## Summary
 
-When attempting to view a quotation from the dropdown menu or TransactionDrawer, users see a 404 error because the app navigates to `/quotations/{id}` - a route that doesn't exist.
+Remove the "TAX INVOICE" label that appears above the document title on invoices, credit notes, and quotations. The document type heading (INVOICE, CREDIT NOTE, QUOTATION) already clearly identifies the document.
 
-**Console errors observed:**
+---
+
+## Current State
+
+The header currently displays:
 ```
-404 Error: User attempted to access non-existent route: /quotations/0aad97b8-79b1-4fcf-99be-2c76fbe7ebb9
-404 Error: User attempted to access non-existent route: /quotations/5dfa82cc-2a80-45dd-b109-d36fe46d71b3
+TAX INVOICE     <-- Remove this
+INVOICE         <-- Keep this (document type)
+No: INV-2026-002
+Date: 04 Feb 2026
+Due: 04 Mar 2026
+```
+
+## After Change
+
+The header will display:
+```
+INVOICE
+No: INV-2026-002
+Date: 04 Feb 2026
+Due: 04 Mar 2026
 ```
 
 ---
 
-## Root Cause
+## Implementation
 
-The routing structure differs between invoices and quotations:
+### File: `src/components/UnifiedInvoiceLayout.tsx`
 
-| Document | View Route | Edit Route | Detail Page |
-|----------|------------|------------|-------------|
-| Invoice | `/invoices/:id` | `/invoices/edit/:id` | `InvoiceDetails.tsx` |
-| Quotation | **Missing** | `/quotations/:id/edit` | None |
-
-The code incorrectly tries to navigate to `/quotations/:id` which doesn't exist. Additionally, there's a mismatched edit URL pattern.
-
----
-
-## Current Navigation Issues
-
-| Location | Current Code | Problem |
-|----------|--------------|---------|
-| `Quotations.tsx` line 643 | `<Link to={/quotations/${q.id}}>` | Route doesn't exist |
-| `Quotations.tsx` line 649 | `<Link to={/quotations/edit/${q.id}}>` | Wrong format (should be `/:id/edit`) |
-| `TransactionDrawer.tsx` line 343 | `navigate(/quotations/${transaction.id})` | Route doesn't exist |
-
----
-
-## Solution
-
-Since quotations don't have a dedicated detail page (and the drawer already provides view functionality when clicking the quotation number), the fix is to:
-
-1. **Change "View" menu item** to open the TransactionDrawer instead of navigating
-2. **Fix "Edit" link** to use the correct route format: `/quotations/:id/edit`
-3. **Fix TransactionDrawer** to navigate to edit page for quotations (since there's no detail page)
-
----
-
-## Implementation Details
-
-### File 1: `src/pages/Quotations.tsx`
-
-**Change 1 - View menu item (line 642-647):**
-
-Replace the Link navigation with a button that opens the drawer:
+**Change 1 - Remove the HTML element (line 891):**
 ```tsx
-// Before:
-<DropdownMenuItem asChild>
-  <Link to={`/quotations/${q.id}`}>
-    <Eye className="h-4 w-4 mr-2" />
-    View
-  </Link>
-</DropdownMenuItem>
-
-// After:
-<DropdownMenuItem onClick={() => setDrawerQuotation(q)}>
-  <Eye className="h-4 w-4 mr-2" />
-  View
-</DropdownMenuItem>
+// Remove this line:
+<div className="tax-invoice-label">TAX INVOICE</div>
 ```
 
-**Change 2 - Edit link (line 648-653):**
-
-Fix the URL pattern to match the route defined in App.tsx:
-```tsx
-// Before:
-<Link to={`/quotations/edit/${q.id}`}>
-
-// After:
-<Link to={`/quotations/${q.id}/edit`}>
+**Change 2 - Remove the base CSS styles (lines 460-468):**
+```css
+/* Remove this entire block: */
+/* Tax Invoice Label */
+#${id} .tax-invoice-label {
+  font-size: ${fontSize.tiny};
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: ${isPdf ? '1mm' : '4px'};
+}
 ```
 
-### File 2: `src/components/TransactionDrawer.tsx`
+**Change 3 - Remove from header color override (lines 614-618):**
+```css
+// Remove the tax-invoice-label reference from this rule
+```
 
-**Change 3 - handleNavigate function (around line 343):**
+**Change 4 - Remove Elegant template override (lines 678-680):**
+```css
+/* Remove this block: */
+#${id} .tax-invoice-label {
+  color: #6b7280;
+}
+```
 
-For quotations, navigate to the edit page since there's no detail page:
-```tsx
-// Before:
-else navigate(`/quotations/${transaction.id}`);
-
-// After:
-else navigate(`/quotations/${transaction.id}/edit`);
+**Change 5 - Remove Modern template override (lines 738-740):**
+```css
+/* Remove this block: */
+#${id} .tax-invoice-label {
+  color: #9ca3af;
+}
 ```
 
 ---
 
-## Files to Modify
+## Impact
 
-| File | Changes |
-|------|---------|
-| `src/pages/Quotations.tsx` | Fix View to open drawer, fix Edit URL pattern |
-| `src/components/TransactionDrawer.tsx` | Fix quotation navigation to use edit route |
-
----
-
-## Expected Behavior After Fix
-
-| Action | Before | After |
-|--------|--------|-------|
-| Click "View" in dropdown | 404 error | Opens TransactionDrawer |
-| Click "Edit" in dropdown | 404 error | Opens edit page correctly |
-| Click quotation number | Opens drawer | Opens drawer (unchanged) |
-| Click "View Full Details" in drawer | 404 error | Opens edit page |
+| Document Type | Before | After |
+|--------------|--------|-------|
+| Invoice | Shows "TAX INVOICE" + "INVOICE" | Shows only "INVOICE" |
+| Credit Note | Shows "TAX INVOICE" + "CREDIT NOTE" | Shows only "CREDIT NOTE" |
+| Quotation | Shows "TAX INVOICE" + "QUOTATION" | Shows only "QUOTATION" |
 
 ---
 
-## Testing Verification
+## Testing
 
-1. Navigate to Quotations page
-2. Click on quotation number - drawer should open
-3. Click "View" in dropdown menu - drawer should open
-4. Click "Edit" in dropdown menu - edit page should load
-5. In drawer, click "View Full Details" - edit page should load
-6. Verify converted quotations also work correctly
+1. Navigate to Invoice Templates page
+2. Preview an invoice - verify "TAX INVOICE" label is gone
+3. Preview a credit note - verify "TAX INVOICE" label is gone  
+4. Preview a quotation - verify "TAX INVOICE" label is gone
+5. Download a PDF - verify the label is removed in the PDF output
