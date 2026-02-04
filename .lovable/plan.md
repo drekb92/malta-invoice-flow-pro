@@ -1,153 +1,159 @@
 
-# Fix: Duplicate Invoice Numbers
+# Plan: Disable Actions for Fully Paid Invoices + Payment Confirmation Email
 
-## Problem Identified
+## Overview
 
-The application has **two numbering systems** creating duplicates:
-
-| System | Format | Example | Source |
-|--------|--------|---------|--------|
-| New RPC | `INV-YYYY-NNN` | `INV-2025-020` | `next_invoice_number` RPC function |
-| Legacy Fallback | `INV-NNNNNN` | `INV-002026` | Fallback code in NewInvoice.tsx |
-
-### How the Duplicate Happened
-
-1. **Oct 2025**: Invoice `INV-002026` created using legacy fallback format
-2. **Feb 2026**: When creating a new invoice, the RPC was called but the fallback code executed and generated `INV-002026` again by parsing the wrong format
-
-### Root Cause
-
-The `generateInvoiceNumber()` function in `NewInvoice.tsx`:
-1. **Pre-generates numbers on page load** (lines 165-201) - consumes counter sequences even if invoice is never saved
-2. Falls back to a legacy format that doesn't match the RPC format
-3. The fallback regex `INV-(\d+)` incorrectly parses both formats
-
-Additionally, there's **no unique constraint** on `invoice_number` column to prevent duplicates at the database level.
+This plan addresses two related requests:
+1. **Disable "Email Reminder", "WhatsApp", and "Credit Note" actions when an invoice is fully paid** - across the Invoice Details page header menu, sidebar quick actions, and Transaction Drawer
+2. **Send a payment confirmation email when a payment is recorded** - to notify the customer that their payment has been received
 
 ---
 
-## Solution
+## Current Behavior Analysis
 
-### Phase 1: Immediate Data Fix
+### Actions That Need Fixing
 
-Delete or renumber the duplicate invoice to resolve the immediate conflict.
+| Location | Action | Current State | Should Be |
+|----------|--------|---------------|-----------|
+| Invoice Details - Header "..." menu | Create Credit Note | Shows when issued | Hide when paid |
+| Invoice Details - Header "..." menu | Email Reminder | Shows when issued | Hide when paid |
+| Invoice Details - Header "..." menu | WhatsApp | Shows when issued | Hide when paid |
+| Invoice Details - Sidebar Quick Actions | Create Credit Note | Always shows when issued | Hide when paid |
+| Transaction Drawer Footer | Credit Note button | Shows when issued | Hide when paid |
 
-**Option A**: Delete the newer duplicate (if it's not needed)
-```sql
-DELETE FROM invoices WHERE id = 'eb51ce40-190f-48af-9e2e-05b7a93df0ec';
-```
+### Actions Already Correct
 
-**Option B**: Renumber the newer invoice to the next available number
-```sql
-UPDATE invoices 
-SET invoice_number = 'INV-2026-001' 
-WHERE id = 'eb51ce40-190f-48af-9e2e-05b7a93df0ec';
-```
+| Location | Action | Current State |
+|----------|--------|---------------|
+| Invoice Details - Sidebar Quick Actions | Email/WhatsApp | Already hidden when `isSettled` |
+| Invoice Details - Header | Add Payment button | Already hidden when `remainingBalance <= 0` |
+| Transaction Drawer Footer | Payment button | Already hidden when `remainingBalance <= 0` |
+| Transaction Drawer Footer | Remind button | Already hidden when `remainingBalance <= 0` |
+| Invoices List - Menu | Credit Note | Already hidden when status = "paid" |
 
 ---
 
-### Phase 2: Prevent Future Duplicates
+## Implementation Plan
 
-#### A. Add Unique Constraint on invoice_number
+### Part 1: Disable Actions When Invoice is Fully Paid
 
-Create a partial unique index that prevents duplicates for non-null invoice numbers:
+#### File: `src/pages/InvoiceDetails.tsx`
 
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS unique_invoice_number_per_user 
-ON invoices (user_id, invoice_number) 
-WHERE invoice_number IS NOT NULL;
+**Change 1 - Header three-dot menu (lines 685-704):**
+- Add `!isSettled` condition to hide "Create Credit Note", "Email Reminder", and "WhatsApp" when the invoice is fully paid
+- Users will still see the menu with "Download PDF" option
+
+**Change 2 - Sidebar Quick Actions (line 1415):**
+- Add `!isSettled` condition to hide "Create Credit Note" button when paid
+
+#### File: `src/components/transaction-drawer/TransactionFooterActions.tsx`
+
+**Change 3 - Credit Note button (line 84):**
+- Add `remainingBalance > 0` condition similar to the "Payment" and "Remind" buttons
+
+---
+
+### Part 2: Payment Confirmation Email
+
+#### Approach
+
+When a payment is recorded and the invoice becomes fully paid OR when any payment is recorded:
+1. Invoke a new edge function `send-payment-confirmation` to email the customer
+2. The email will include: payment amount, remaining balance (if any), and invoice details
+3. Log the send in `document_send_logs` for audit trail
+
+#### File: `supabase/functions/send-payment-confirmation/index.ts` (New)
+
+Create a new edge function that:
+- Accepts: `invoiceId`, `paymentAmount`, `paymentMethod`, `customerEmail`, `customerName`, `invoiceNumber`, `remainingBalance`
+- Sends a professional email confirming the payment received
+- Uses Resend API (already configured with `RESEND_API_KEY`)
+- Logs to `document_send_logs` table
+
+Example email content:
+```
+Subject: Payment Received - Invoice {invoiceNumber}
+
+Dear {customerName},
+
+We have received your payment of €{amount} for Invoice {invoiceNumber}.
+
+{If paid in full: "Your invoice is now fully paid. Thank you for your prompt payment."}
+{If partial: "Your remaining balance is €{remainingBalance}."}
+
+Payment Details:
+- Amount: €{amount}
+- Method: {method}
+- Date: {date}
+
+Thank you for your business.
 ```
 
-#### B. Remove Pre-generation of Invoice Numbers
+#### File: `src/pages/InvoiceDetails.tsx`
 
-**Problem**: `generateInvoiceNumber()` is called on component mount, which:
-- Consumes counter sequences unnecessarily
-- Can generate numbers that are never used (if user abandons the form)
-- Creates race conditions when multiple tabs are open
+**Change 4 - handleAddPayment function (around line 550):**
+- After successfully recording the payment
+- If the customer has an email address, invoke `send-payment-confirmation` edge function
+- Show a toast indicating email was sent (or failed gracefully)
 
-**Solution**: Only generate invoice numbers at the moment of issuance/save, never for preview.
+---
 
-**File**: `src/pages/NewInvoice.tsx`
+## Technical Details
 
-Remove or comment out the `generateInvoiceNumber()` function call on mount. Invoice numbers should only be generated when:
-1. User clicks "Save & Issue" 
-2. The invoice is being issued from draft state
+### Condition Logic
 
-Draft invoices should display "DRAFT" or be left blank until issued.
+For determining if an invoice is "fully paid":
+- `isSettled` = `remainingBalance <= 0` (already computed at line 591)
+- This accounts for payments AND credit notes applied
 
-#### C. Remove Legacy Fallback Code
+### Edge Function Structure
 
-The fallback code creates inconsistent numbering. Remove it entirely and rely only on the RPC:
-
-```tsx
-// BEFORE: Has fallback that creates wrong format
-const generateInvoiceNumber = async () => {
-  try {
-    const { data, error } = await callRpc('next_invoice_number', {...});
-    if (error) throw error;
-    if (data) setInvoiceNumber(data);
-  } catch (error) {
-    // REMOVE THIS FALLBACK - it creates wrong format
-    try {
-      // ... legacy fallback code
-    } catch (...) {}
-  }
-};
-
-// AFTER: No fallback, fail gracefully
-const generateInvoiceNumber = async () => {
-  try {
-    const { data, error } = await callRpc('next_invoice_number', {...});
-    if (error) throw error;
-    if (data) setInvoiceNumber(data);
-  } catch (error) {
-    console.error("Error generating invoice number:", error);
-    toast({
-      title: "Error",
-      description: "Failed to generate invoice number. Please try again.",
-      variant: "destructive",
-    });
-  }
-};
+```typescript
+// send-payment-confirmation/index.ts
+interface PaymentConfirmationRequest {
+  invoiceId: string;
+  invoiceNumber: string;
+  paymentAmount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  customerEmail: string;
+  customerName: string;
+  remainingBalance: number;
+  isFullyPaid: boolean;
+  userId: string;
+  customerId?: string;
+}
 ```
 
-#### D. Initialize 2026 Counter
+### Error Handling
 
-The counter table only has 2025. Ensure 2026 is properly initialized:
-
-```sql
-INSERT INTO invoice_counters (business_id, year, prefix, last_seq)
-VALUES ('d28aef93-2cb5-44e8-96f5-5f9e5d911225', 2026, 'INV-', 1)
-ON CONFLICT (business_id, year) DO NOTHING;
-```
+- If customer has no email: skip sending, no error
+- If email send fails: log warning, show toast, but don't fail the payment recording
+- Email is optional/nice-to-have, not a blocker
 
 ---
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| Database Migration | Add unique index on `invoice_number` |
-| `src/pages/NewInvoice.tsx` | Remove `generateInvoiceNumber()` on mount; remove legacy fallback |
+| File | Type | Changes |
+|------|------|---------|
+| `src/pages/InvoiceDetails.tsx` | Modify | Add `!isSettled` conditions to header menu and sidebar; call payment confirmation email |
+| `src/components/transaction-drawer/TransactionFooterActions.tsx` | Modify | Add `remainingBalance > 0` condition to Credit Note button |
+| `supabase/functions/send-payment-confirmation/index.ts` | Create | New edge function for payment confirmation emails |
+| `supabase/config.toml` | Modify | Add entry for new function with `verify_jwt = false` |
 
 ---
 
-## Summary of Changes
+## Expected Behavior After Implementation
 
-1. **Data fix**: Renumber or delete the duplicate `INV-002026`
-2. **Unique constraint**: Prevent duplicates at database level  
-3. **Remove pre-generation**: Only generate numbers when issuing
-4. **Remove fallback**: Single source of truth for number generation
-5. **Initialize 2026 counter**: Ensure new year has proper counter
+| Scenario | Email Reminder | WhatsApp | Credit Note | Add Payment |
+|----------|----------------|----------|-------------|-------------|
+| Draft invoice | Hidden | Hidden | Hidden | Hidden |
+| Issued, unpaid | Visible | Visible | Visible | Visible |
+| Issued, partially paid | Visible | Visible | Visible | Visible |
+| Issued, fully paid | **Hidden** | **Hidden** | **Hidden** | Hidden |
 
----
-
-## Expected Behavior After Fix
-
-| Action | Before | After |
-|--------|--------|-------|
-| Open new invoice form | Number pre-generated, sequence consumed | Shows "Draft" or blank |
-| Abandon form without saving | Number wasted | No sequence consumed |
-| Save as draft | Number assigned immediately | Number stays blank |
-| Issue invoice | Number already set | Number generated on issue |
-| Try to save duplicate number | Saves successfully | Database rejects with error |
+When payment is recorded:
+- Customer receives email confirmation (if email exists)
+- Email indicates if fully paid or shows remaining balance
+- Activity is logged in `document_send_logs`
