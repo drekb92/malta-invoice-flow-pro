@@ -639,14 +639,12 @@ const Quotations = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/quotations/${q.id}`}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    View
-                                  </Link>
+                                <DropdownMenuItem onClick={() => setDrawerQuotation(q)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View
                                 </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
-                                  <Link to={`/quotations/edit/${q.id}`}>
+                                  <Link to={`/quotations/${q.id}/edit`}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit
                                   </Link>
