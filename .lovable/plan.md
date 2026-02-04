@@ -1,137 +1,153 @@
 
-# Plan: Disable Actions on Draft Invoices
+# Fix: Duplicate Invoice Numbers
 
-## Overview
+## Problem Identified
 
-When an invoice is still in draft status (`is_issued = false`), certain actions should be disabled because:
-- **Send/Email**: You shouldn't send an incomplete, un-finalized document to customers
-- **Add Payment**: Payments should only be recorded against issued invoices for proper accounting
-- **Send Reminders**: Reminders are for issued invoices that are due/overdue
+The application has **two numbering systems** creating duplicates:
 
-These actions will be enabled once the invoice is issued.
+| System | Format | Example | Source |
+|--------|--------|---------|--------|
+| New RPC | `INV-YYYY-NNN` | `INV-2025-020` | `next_invoice_number` RPC function |
+| Legacy Fallback | `INV-NNNNNN` | `INV-002026` | Fallback code in NewInvoice.tsx |
 
-## Changes Required
+### How the Duplicate Happened
 
-### 1. Invoice Details Page (`src/pages/InvoiceDetails.tsx`)
+1. **Oct 2025**: Invoice `INV-002026` created using legacy fallback format
+2. **Feb 2026**: When creating a new invoice, the RPC was called but the fallback code executed and generated `INV-002026` again by parsing the wrong format
 
-**Current State**: The "Add Payment" button only checks `remainingBalance > 0`. Email/WhatsApp actions are available regardless of draft status.
+### Root Cause
 
-**Changes**:
-| Action | Current Condition | New Condition |
-|--------|------------------|---------------|
-| Add Payment | `remainingBalance > 0` | `isIssued && remainingBalance > 0` |
-| Email Reminder | Always shown | Only when `isIssued` |
-| WhatsApp | Always shown | Only when `isIssued` |
+The `generateInvoiceNumber()` function in `NewInvoice.tsx`:
+1. **Pre-generates numbers on page load** (lines 165-201) - consumes counter sequences even if invoice is never saved
+2. Falls back to a legacy format that doesn't match the RPC format
+3. The fallback regex `INV-(\d+)` incorrectly parses both formats
 
-### 2. Invoices List Page (`src/pages/Invoices.tsx`)
-
-**Current State**: "Add Payment" button checks `status !== "draft"` but not `is_issued`.
-
-**Changes**:
-| Action | Current Condition | New Condition |
-|--------|------------------|---------------|
-| Add Payment | `status !== "paid" && status !== "credited" && status !== "draft"` | Add `&& invoice.is_issued` |
-
-### 3. Transaction Drawer Footer (`src/components/transaction-drawer/TransactionFooterActions.tsx`)
-
-**Current State**: Actions check `remainingBalance > 0` but don't check `is_issued`.
-
-**Changes**:
-| Action | Current Condition | New Condition |
-|--------|------------------|---------------|
-| Add Payment | `remainingBalance > 0` | `isIssued && remainingBalance > 0` |
-| Send Reminder | `remainingBalance > 0` | `isIssued && remainingBalance > 0` |
-| Credit Note | `is_issued` | Already correct |
-
-The component needs to receive `isIssued` prop from parent.
+Additionally, there's **no unique constraint** on `invoice_number` column to prevent duplicates at the database level.
 
 ---
 
-## Technical Details
+## Solution
 
-### File: `src/pages/InvoiceDetails.tsx`
+### Phase 1: Immediate Data Fix
 
-```tsx
-// Line ~673-678: Add isIssued check to Add Payment button
-{isIssued && remainingBalance > 0 && (
-  <Button onClick={() => setShowPaymentDialog(true)} variant="secondary" size="sm">
-    <Plus className="h-4 w-4 mr-1" />
-    Add Payment
-  </Button>
-)}
+Delete or renumber the duplicate invoice to resolve the immediate conflict.
 
-// Line ~692-699: Wrap Email/WhatsApp menu items with isIssued check
-{isIssued && (
-  <>
-    <DropdownMenuItem onClick={handleEmailReminder}>
-      <Mail className="h-4 w-4 mr-2" />
-      Email Reminder
-    </DropdownMenuItem>
-    <DropdownMenuItem onClick={handleWhatsAppReminder}>
-      <MessageCircle className="h-4 w-4 mr-2" />
-      WhatsApp
-    </DropdownMenuItem>
-  </>
-)}
+**Option A**: Delete the newer duplicate (if it's not needed)
+```sql
+DELETE FROM invoices WHERE id = 'eb51ce40-190f-48af-9e2e-05b7a93df0ec';
 ```
 
-### File: `src/pages/Invoices.tsx`
-
-```tsx
-// Line ~601: Add is_issued check
-{invoice.status !== "paid" && 
- invoice.status !== "credited" && 
- invoice.status !== "cancelled" && 
- (invoice as any).is_issued && (
-  // Add payment button
-)}
-```
-
-### File: `src/components/transaction-drawer/TransactionFooterActions.tsx`
-
-```tsx
-// Add isIssued prop to interface
-interface TransactionFooterActionsProps {
-  // ... existing props
-  isIssued?: boolean; // New prop
-}
-
-// Update Payment button condition
-{isIssued && remainingBalance > 0 && onAddPayment && (
-  <Button ...>Payment</Button>
-)}
-
-// Update Remind button condition
-{isIssued && remainingBalance > 0 && onSendReminder && (
-  <Button ...>Remind</Button>
-)}
-```
-
-### File: `src/components/TransactionDrawer.tsx`
-
-Pass `isIssued` prop to footer:
-
-```tsx
-<TransactionFooterActions
-  // ... existing props
-  isIssued={type === "invoice" ? (transaction as InvoiceTransaction).is_issued : true}
-/>
+**Option B**: Renumber the newer invoice to the next available number
+```sql
+UPDATE invoices 
+SET invoice_number = 'INV-2026-001' 
+WHERE id = 'eb51ce40-190f-48af-9e2e-05b7a93df0ec';
 ```
 
 ---
 
-## User Experience
+### Phase 2: Prevent Future Duplicates
 
-| State | Available Actions | Disabled Actions |
-|-------|------------------|------------------|
-| **Draft** | View, Download PDF, Edit, Delete, Issue | Add Payment, Send Email, Send Reminder, Credit Note |
-| **Issued** | View, Download PDF, Add Payment, Send Email, Send Reminder, Credit Note | Edit, Delete |
-| **Paid** | View, Download PDF | Add Payment, Send Reminder |
+#### A. Add Unique Constraint on invoice_number
 
-## Testing Checklist
+Create a partial unique index that prevents duplicates for non-null invoice numbers:
 
-- Verify draft invoice shows Issue button but not Add Payment
-- Verify draft invoice hides Email/WhatsApp reminder options
-- Verify issued invoice shows all actions appropriately
-- Verify paid invoice hides Add Payment button
-- Test Transaction Drawer actions mirror the detail page behavior
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS unique_invoice_number_per_user 
+ON invoices (user_id, invoice_number) 
+WHERE invoice_number IS NOT NULL;
+```
+
+#### B. Remove Pre-generation of Invoice Numbers
+
+**Problem**: `generateInvoiceNumber()` is called on component mount, which:
+- Consumes counter sequences unnecessarily
+- Can generate numbers that are never used (if user abandons the form)
+- Creates race conditions when multiple tabs are open
+
+**Solution**: Only generate invoice numbers at the moment of issuance/save, never for preview.
+
+**File**: `src/pages/NewInvoice.tsx`
+
+Remove or comment out the `generateInvoiceNumber()` function call on mount. Invoice numbers should only be generated when:
+1. User clicks "Save & Issue" 
+2. The invoice is being issued from draft state
+
+Draft invoices should display "DRAFT" or be left blank until issued.
+
+#### C. Remove Legacy Fallback Code
+
+The fallback code creates inconsistent numbering. Remove it entirely and rely only on the RPC:
+
+```tsx
+// BEFORE: Has fallback that creates wrong format
+const generateInvoiceNumber = async () => {
+  try {
+    const { data, error } = await callRpc('next_invoice_number', {...});
+    if (error) throw error;
+    if (data) setInvoiceNumber(data);
+  } catch (error) {
+    // REMOVE THIS FALLBACK - it creates wrong format
+    try {
+      // ... legacy fallback code
+    } catch (...) {}
+  }
+};
+
+// AFTER: No fallback, fail gracefully
+const generateInvoiceNumber = async () => {
+  try {
+    const { data, error } = await callRpc('next_invoice_number', {...});
+    if (error) throw error;
+    if (data) setInvoiceNumber(data);
+  } catch (error) {
+    console.error("Error generating invoice number:", error);
+    toast({
+      title: "Error",
+      description: "Failed to generate invoice number. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
+```
+
+#### D. Initialize 2026 Counter
+
+The counter table only has 2025. Ensure 2026 is properly initialized:
+
+```sql
+INSERT INTO invoice_counters (business_id, year, prefix, last_seq)
+VALUES ('d28aef93-2cb5-44e8-96f5-5f9e5d911225', 2026, 'INV-', 1)
+ON CONFLICT (business_id, year) DO NOTHING;
+```
+
+---
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| Database Migration | Add unique index on `invoice_number` |
+| `src/pages/NewInvoice.tsx` | Remove `generateInvoiceNumber()` on mount; remove legacy fallback |
+
+---
+
+## Summary of Changes
+
+1. **Data fix**: Renumber or delete the duplicate `INV-002026`
+2. **Unique constraint**: Prevent duplicates at database level  
+3. **Remove pre-generation**: Only generate numbers when issuing
+4. **Remove fallback**: Single source of truth for number generation
+5. **Initialize 2026 counter**: Ensure new year has proper counter
+
+---
+
+## Expected Behavior After Fix
+
+| Action | Before | After |
+|--------|--------|-------|
+| Open new invoice form | Number pre-generated, sequence consumed | Shows "Draft" or blank |
+| Abandon form without saving | Number wasted | No sequence consumed |
+| Save as draft | Number assigned immediately | Number stays blank |
+| Issue invoice | Number already set | Number generated on issue |
+| Try to save duplicate number | Saves successfully | Database rejects with error |
