@@ -1,87 +1,125 @@
 
+# Fix: Quotation View Navigation 404 Error
 
-# Fix: Quotation Conversion Creates Non-Editable Invoice
+## Problem Summary
 
-## Problem
+When attempting to view a quotation from the dropdown menu or TransactionDrawer, users see a 404 error because the app navigates to `/quotations/{id}` - a route that doesn't exist.
 
-When converting a quotation to an invoice:
-1. The invoice is created with `status: "pending"` and `is_issued: false`
-2. The `canEditInvoice` function checks `if (status !== 'draft')` to block editing
-3. Since `"pending" !== "draft"`, the system incorrectly treats the invoice as immutable
-4. Error displayed: "Invoice -2026-002 has been issued and cannot be edited"
-
-**Database evidence:**
+**Console errors observed:**
 ```
-invoice_number: INV-2026-002
-status: pending      <-- Should be 'draft'
-is_issued: false     <-- Correctly false
+404 Error: User attempted to access non-existent route: /quotations/0aad97b8-79b1-4fcf-99be-2c76fbe7ebb9
+404 Error: User attempted to access non-existent route: /quotations/5dfa82cc-2a80-45dd-b109-d36fe46d71b3
 ```
+
+---
 
 ## Root Cause
 
-There's a mismatch between:
-- **Quotation conversion** (`Quotations.tsx` line 435): Sets `status: "pending"`
-- **Edit check** (`invoiceService.ts` line 138): Only allows editing when `status === 'draft'`
+The routing structure differs between invoices and quotations:
+
+| Document | View Route | Edit Route | Detail Page |
+|----------|------------|------------|-------------|
+| Invoice | `/invoices/:id` | `/invoices/edit/:id` | `InvoiceDetails.tsx` |
+| Quotation | **Missing** | `/quotations/:id/edit` | None |
+
+The code incorrectly tries to navigate to `/quotations/:id` which doesn't exist. Additionally, there's a mismatched edit URL pattern.
+
+---
+
+## Current Navigation Issues
+
+| Location | Current Code | Problem |
+|----------|--------------|---------|
+| `Quotations.tsx` line 643 | `<Link to={/quotations/${q.id}}>` | Route doesn't exist |
+| `Quotations.tsx` line 649 | `<Link to={/quotations/edit/${q.id}}>` | Wrong format (should be `/:id/edit`) |
+| `TransactionDrawer.tsx` line 343 | `navigate(/quotations/${transaction.id})` | Route doesn't exist |
+
+---
 
 ## Solution
 
-Two changes are needed:
+Since quotations don't have a dedicated detail page (and the drawer already provides view functionality when clicking the quotation number), the fix is to:
 
-### 1. Fix Quotation Conversion to Use Correct Status
+1. **Change "View" menu item** to open the TransactionDrawer instead of navigating
+2. **Fix "Edit" link** to use the correct route format: `/quotations/:id/edit`
+3. **Fix TransactionDrawer** to navigate to edit page for quotations (since there's no detail page)
 
-**File: `src/pages/Quotations.tsx`** (line 435)
+---
 
-Change:
-```typescript
-status: "pending",
+## Implementation Details
+
+### File 1: `src/pages/Quotations.tsx`
+
+**Change 1 - View menu item (line 642-647):**
+
+Replace the Link navigation with a button that opens the drawer:
+```tsx
+// Before:
+<DropdownMenuItem asChild>
+  <Link to={`/quotations/${q.id}`}>
+    <Eye className="h-4 w-4 mr-2" />
+    View
+  </Link>
+</DropdownMenuItem>
+
+// After:
+<DropdownMenuItem onClick={() => setDrawerQuotation(q)}>
+  <Eye className="h-4 w-4 mr-2" />
+  View
+</DropdownMenuItem>
 ```
-To:
-```typescript
-status: "draft",
+
+**Change 2 - Edit link (line 648-653):**
+
+Fix the URL pattern to match the route defined in App.tsx:
+```tsx
+// Before:
+<Link to={`/quotations/edit/${q.id}`}>
+
+// After:
+<Link to={`/quotations/${q.id}/edit`}>
 ```
 
-This ensures converted quotations start as editable drafts that can be modified before issuing.
+### File 2: `src/components/TransactionDrawer.tsx`
 
-### 2. Fix Existing Data in Database
+**Change 3 - handleNavigate function (around line 343):**
 
-The invoice `d10e8737-3abc-4a38-916c-77d6ab3f3122` currently has `status: 'pending'` and needs to be corrected to `status: 'draft'`.
+For quotations, navigate to the edit page since there's no detail page:
+```tsx
+// Before:
+else navigate(`/quotations/${transaction.id}`);
 
-**Database migration:**
-```sql
-UPDATE invoices 
-SET status = 'draft' 
-WHERE id = 'd10e8737-3abc-4a38-916c-77d6ab3f3122' 
-  AND is_issued = false;
+// After:
+else navigate(`/quotations/${transaction.id}/edit`);
 ```
 
-## Why Not Change the `canEditInvoice` Logic?
-
-The current check (`status !== 'draft'`) is correct per the invoice status model architecture:
-- **Draft**: Editable, not yet finalized
-- **Issued/Sent/Paid/Overdue**: Immutable, locked for VAT compliance
-
-Adding `pending` as another editable status would create inconsistency. The root problem is using `pending` at all for converted quotations.
-
-## Expected Behavior After Fix
-
-| Action | Before Fix | After Fix |
-|--------|-----------|-----------|
-| Convert quotation | Creates with `status: pending` | Creates with `status: draft` |
-| Edit converted invoice | Error: "Cannot be edited" | Works normally |
-| Save & Issue | Error: "Cannot be edited" | Issues successfully |
+---
 
 ## Files to Modify
 
-| File | Type | Change |
-|------|------|--------|
-| `src/pages/Quotations.tsx` | Modify | Line 435: `status: "pending"` -> `status: "draft"` |
-| Database migration | Create | Fix the specific invoice status to `draft` |
+| File | Changes |
+|------|---------|
+| `src/pages/Quotations.tsx` | Fix View to open drawer, fix Edit URL pattern |
+| `src/components/TransactionDrawer.tsx` | Fix quotation navigation to use edit route |
+
+---
+
+## Expected Behavior After Fix
+
+| Action | Before | After |
+|--------|--------|-------|
+| Click "View" in dropdown | 404 error | Opens TransactionDrawer |
+| Click "Edit" in dropdown | 404 error | Opens edit page correctly |
+| Click quotation number | Opens drawer | Opens drawer (unchanged) |
+| Click "View Full Details" in drawer | 404 error | Opens edit page |
+
+---
 
 ## Testing Verification
 
-After implementation:
-1. The invoice INV-2026-002 should be editable
-2. Adding items should work
-3. "Save & Issue" should successfully issue the invoice
-4. Future quotation conversions will create proper draft invoices
-
+1. Navigate to Quotations page
+2. Click on quotation number - drawer should open
+3. Click "View" in dropdown menu - drawer should open
+4. Click "Edit" in dropdown menu - edit page should load
+5. In drawer, click "View Full Details" - edit page should load
+6. Verify converted quotations also work correctly
