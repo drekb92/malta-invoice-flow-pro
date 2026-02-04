@@ -340,7 +340,7 @@ export const TransactionDrawer = ({
     onOpenChange(false);
     if (type === "invoice") navigate(`/invoices/${transaction.id}`);
     else if (type === "credit_note") navigate(`/credit-notes/${transaction.id}`);
-    else navigate(`/quotations/${transaction.id}`);
+    else navigate(`/quotations/${transaction.id}/edit`);
   };
 
   const handleDownloadPdf = useCallback(async () => {
