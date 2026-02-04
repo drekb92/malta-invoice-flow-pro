@@ -432,7 +432,7 @@ const Quotations = () => {
         total_amount: qData.total_amount,
         invoice_date: baseDateObj.toISOString().split("T")[0],
         due_date: dueDate.toISOString().split("T")[0],
-        status: "pending",
+        status: "draft",
         user_id: (qData as any).user_id,
         discount_type: "amount",
         discount_value: 0,
