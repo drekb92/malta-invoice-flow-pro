@@ -457,15 +457,6 @@ export const UnifiedInvoiceLayout = ({
     }
     #${id} .muted { color: #6b7280; }
 
-    /* Tax Invoice Label */
-    #${id} .tax-invoice-label {
-      font-size: ${fontSize.tiny};
-      font-weight: 700;
-      color: #6b7280;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: ${isPdf ? '1mm' : '4px'};
-    }
 
     /* Customer VAT Number - Prominent Display */
     #${id} .customer-vat {
@@ -612,8 +603,7 @@ export const UnifiedInvoiceLayout = ({
       #${id} .header .company strong,
       #${id} .header .meta,
       #${id} .header .meta .label,
-      #${id} .header .meta .value,
-      #${id} .header .tax-invoice-label {
+      #${id} .header .meta .value {
         color: ${styleConfig.headerTextColor};
       }
       #${id} .doc-title {
@@ -675,9 +665,6 @@ export const UnifiedInvoiceLayout = ({
         color: ${styleConfig.brandColor};
         font-weight: 800;
       }
-      #${id} .tax-invoice-label {
-        color: #6b7280;
-      }
       #${id} table.items thead th {
         background: ${styleConfig.tableHeaderBg};
         color: ${styleConfig.tableHeaderColor};
@@ -734,9 +721,6 @@ export const UnifiedInvoiceLayout = ({
         letter-spacing: 0.15em;
         color: #6b7280;
         font-size: ${isPdf ? '14pt' : '20px'};
-      }
-      #${id} .tax-invoice-label {
-        color: #9ca3af;
       }
       #${id} .divider {
         display: none;
@@ -888,7 +872,6 @@ export const UnifiedInvoiceLayout = ({
               </div>
 
               <div className="header-right">
-                <div className="tax-invoice-label">TAX INVOICE</div>
                 <div className="doc-title">{documentType}</div>
                 <div className="meta">
                   <div className="row">
