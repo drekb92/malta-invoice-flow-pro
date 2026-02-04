@@ -161,8 +161,8 @@ const NewInvoice = () => {
     }
   };
 
-  // Generate invoice number using RPC
-  const generateInvoiceNumber = async () => {
+  // Generate invoice number using RPC - ONLY called when issuing, not on mount
+  const generateInvoiceNumber = async (): Promise<string | null> => {
     try {
       const { data, error } = await callRpc('next_invoice_number', {
         p_business_id: user?.id,
@@ -172,32 +172,17 @@ const NewInvoice = () => {
       if (error) throw error;
       if (data) {
         setInvoiceNumber(data);
+        return data;
       }
+      return null;
     } catch (error) {
       console.error("Error generating invoice number:", error);
-      try {
-        const { data, error } = await supabase
-          .from("invoices")
-          .select("invoice_number")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (error) throw error;
-
-        let nextNumber = 1;
-        if (data && data.length > 0) {
-          const lastNumber = data[0].invoice_number;
-          const match = lastNumber.match(/INV-(\d+)/);
-          if (match) {
-            nextNumber = parseInt(match[1]) + 1;
-          }
-        }
-
-        const invoiceNum = `INV-${String(nextNumber).padStart(6, '0')}`;
-        setInvoiceNumber(invoiceNum);
-      } catch (fallbackError) {
-        console.error("Fallback invoice number generation failed:", fallbackError);
-      }
+      toast({
+        title: "Error",
+        description: "Failed to generate invoice number. Please try again.",
+        variant: "destructive",
+      });
+      return null;
     }
   };
 
