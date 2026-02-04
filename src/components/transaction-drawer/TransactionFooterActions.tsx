@@ -10,6 +10,7 @@ interface TransactionFooterActionsProps {
   lineItemsCount: number;
   remainingBalance: number;
   originalInvoice: { invoice_number: string } | null;
+  isIssued?: boolean;
   onDownloadPdf: () => void;
   onViewFull: () => void;
   onAddPayment?: (invoiceId: string) => void;
@@ -28,6 +29,7 @@ export const TransactionFooterActions = ({
   lineItemsCount,
   remainingBalance,
   originalInvoice,
+  isIssued,
   onDownloadPdf,
   onViewFull,
   onAddPayment,
@@ -64,7 +66,7 @@ export const TransactionFooterActions = ({
           {/* INVOICE ACTIONS */}
           {type === "invoice" && (
             <>
-              {remainingBalance > 0 && onAddPayment && (
+              {isIssued && remainingBalance > 0 && onAddPayment && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -79,7 +81,7 @@ export const TransactionFooterActions = ({
                 </Button>
               )}
               
-              {onIssueCreditNote && (transaction as InvoiceTransaction).is_issued && (
+              {onIssueCreditNote && isIssued && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -94,7 +96,7 @@ export const TransactionFooterActions = ({
                 </Button>
               )}
               
-              {remainingBalance > 0 && onSendReminder && (
+              {isIssued && remainingBalance > 0 && onSendReminder && (
                 <Button
                   variant="outline"
                   size="sm"

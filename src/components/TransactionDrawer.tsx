@@ -522,6 +522,7 @@ export const TransactionDrawer = ({
                 lineItemsCount={lineItems.length}
                 remainingBalance={remainingBalance}
                 originalInvoice={originalInvoice}
+                isIssued={type === "invoice" ? (transaction as InvoiceTransaction).is_issued : true}
                 onDownloadPdf={handleDownloadPdf}
                 onViewFull={handleViewFull}
                 onAddPayment={onAddPayment}
