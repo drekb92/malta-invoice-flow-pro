@@ -598,7 +598,7 @@ const Invoices = () => {
                           <TableCell>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              {invoice.status !== "paid" && invoice.status !== "credited" && invoice.status !== "draft" && invoice.status !== "cancelled" && (
+                              {invoice.status !== "paid" && invoice.status !== "credited" && invoice.status !== "draft" && invoice.status !== "cancelled" && (invoice as any).is_issued && (
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>

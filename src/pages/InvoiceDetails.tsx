@@ -670,7 +670,7 @@ const InvoiceDetails = () => {
                   <Download className="h-4 w-4 mr-1" />
                   Download PDF
                 </Button>
-                {remainingBalance > 0 && (
+                {isIssued && remainingBalance > 0 && (
                   <Button onClick={() => setShowPaymentDialog(true)} variant="secondary" size="sm">
                     <Plus className="h-4 w-4 mr-1" />
                     Add Payment
@@ -689,14 +689,18 @@ const InvoiceDetails = () => {
                         Create Credit Note
                       </DropdownMenuItem>
                     )}
-                    <DropdownMenuItem onClick={handleEmailReminder}>
-                      <Mail className="h-4 w-4 mr-2" />
-                      Email Reminder
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleWhatsAppReminder}>
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      WhatsApp
-                    </DropdownMenuItem>
+                    {isIssued && (
+                      <>
+                        <DropdownMenuItem onClick={handleEmailReminder}>
+                          <Mail className="h-4 w-4 mr-2" />
+                          Email Reminder
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleWhatsAppReminder}>
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          WhatsApp
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
