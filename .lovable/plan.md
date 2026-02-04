@@ -1,100 +1,87 @@
 
 
-# Fix: Quotation to Invoice Conversion - Duplicate Number Error
+# Fix: Quotation Conversion Creates Non-Editable Invoice
 
-## Problem Summary
+## Problem
 
-When converting quotation QUO-000008 to an invoice, the system fails with:
+When converting a quotation to an invoice:
+1. The invoice is created with `status: "pending"` and `is_issued: false`
+2. The `canEditInvoice` function checks `if (status !== 'draft')` to block editing
+3. Since `"pending" !== "draft"`, the system incorrectly treats the invoice as immutable
+4. Error displayed: "Invoice -2026-002 has been issued and cannot be edited"
+
+**Database evidence:**
 ```
-duplicate key value violates unique constraint "unique_invoice_number_per_user"
+invoice_number: INV-2026-002
+status: pending      <-- Should be 'draft'
+is_issued: false     <-- Correctly false
 ```
 
-## Root Cause Analysis
+## Root Cause
 
-The `Quotations.tsx` file contains a **legacy** `generateNextInvoiceNumber` function that:
-
-1. Fetches the most recent invoice (`INV-2026-001`)
-2. Uses regex `/INV-(\d+)/` to extract a number
-3. This incorrectly extracts "2026" from the year portion
-4. Adds 1 and generates `INV-002027`
-5. But `INV-002027` already exists in the database!
-
-Meanwhile, the rest of the app uses the `next_invoice_number` RPC which properly generates sequential numbers like `INV-2026-002`.
-
-| File | Current Approach | Correct Approach |
-|------|------------------|------------------|
-| `NewInvoice.tsx` | Uses `next_invoice_number` RPC | Correct |
-| `invoiceService.ts` | Uses `next_invoice_number` RPC | Correct |
-| `Quotations.tsx` | Uses **legacy regex parsing** | **Needs fix** |
-
----
+There's a mismatch between:
+- **Quotation conversion** (`Quotations.tsx` line 435): Sets `status: "pending"`
+- **Edit check** (`invoiceService.ts` line 138): Only allows editing when `status === 'draft'`
 
 ## Solution
 
-Replace the legacy `generateNextInvoiceNumber` function in `Quotations.tsx` with a call to the `next_invoice_number` RPC, matching the pattern used elsewhere.
+Two changes are needed:
 
----
+### 1. Fix Quotation Conversion to Use Correct Status
 
-## Implementation Plan
+**File: `src/pages/Quotations.tsx`** (line 435)
 
-### File: `src/pages/Quotations.tsx`
-
-**Change 1 - Replace `generateNextInvoiceNumber` function (lines 384-405):**
-
-Remove the legacy function:
+Change:
 ```typescript
-// REMOVE THIS
-const generateNextInvoiceNumber = async () => {
-  try {
-    const { data, error } = await supabase
-      .from("invoices")
-      .select("invoice_number")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    // ... regex parsing logic
-  }
-};
+status: "pending",
+```
+To:
+```typescript
+status: "draft",
 ```
 
-Replace with RPC call:
-```typescript
-// REPLACE WITH
-const generateNextInvoiceNumber = async (): Promise<string> => {
-  const { data, error } = await supabase.rpc("next_invoice_number", {
-    p_business_id: user!.id,
-    p_prefix: "INV-",
-  });
-  
-  if (error) throw error;
-  if (!data) throw new Error("Failed to generate invoice number");
-  
-  return data;
-};
+This ensures converted quotations start as editable drafts that can be modified before issuing.
+
+### 2. Fix Existing Data in Database
+
+The invoice `d10e8737-3abc-4a38-916c-77d6ab3f3122` currently has `status: 'pending'` and needs to be corrected to `status: 'draft'`.
+
+**Database migration:**
+```sql
+UPDATE invoices 
+SET status = 'draft' 
+WHERE id = 'd10e8737-3abc-4a38-916c-77d6ab3f3122' 
+  AND is_issued = false;
 ```
 
-This ensures:
-- Proper `INV-YYYY-NNN` format
-- Atomically incremented sequence via the database
-- No collisions with existing numbers
-- Consistency with the rest of the application
+## Why Not Change the `canEditInvoice` Logic?
 
----
+The current check (`status !== 'draft'`) is correct per the invoice status model architecture:
+- **Draft**: Editable, not yet finalized
+- **Issued/Sent/Paid/Overdue**: Immutable, locked for VAT compliance
+
+Adding `pending` as another editable status would create inconsistency. The root problem is using `pending` at all for converted quotations.
+
+## Expected Behavior After Fix
+
+| Action | Before Fix | After Fix |
+|--------|-----------|-----------|
+| Convert quotation | Creates with `status: pending` | Creates with `status: draft` |
+| Edit converted invoice | Error: "Cannot be edited" | Works normally |
+| Save & Issue | Error: "Cannot be edited" | Issues successfully |
+
+## Files to Modify
+
+| File | Type | Change |
+|------|------|--------|
+| `src/pages/Quotations.tsx` | Modify | Line 435: `status: "pending"` -> `status: "draft"` |
+| Database migration | Create | Fix the specific invoice status to `draft` |
 
 ## Testing Verification
 
 After implementation:
-1. Navigate to Quotations page
-2. Select QUO-000008
-3. Click "Convert to Invoice"
-4. Should successfully create invoice with number like `INV-2026-002`
-5. Verify invoice appears in invoice list
-
----
-
-## Technical Notes
-
-- The `next_invoice_number` RPC uses an atomic counter table (`invoice_counters`) 
-- It generates year-based sequences: `INV-{YEAR}-{SEQ}`
-- The current 2026 counter is at `last_seq = 1`, so next will be `INV-2026-002`
-- No database changes required - only frontend code fix
+1. The invoice INV-2026-002 should be editable
+2. Adding items should work
+3. "Save & Issue" should successfully issue the invoice
+4. Future quotation conversions will create proper draft invoices
 
