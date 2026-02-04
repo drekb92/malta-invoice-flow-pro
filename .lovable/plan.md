@@ -1,159 +1,100 @@
 
-# Plan: Disable Actions for Fully Paid Invoices + Payment Confirmation Email
 
-## Overview
+# Fix: Quotation to Invoice Conversion - Duplicate Number Error
 
-This plan addresses two related requests:
-1. **Disable "Email Reminder", "WhatsApp", and "Credit Note" actions when an invoice is fully paid** - across the Invoice Details page header menu, sidebar quick actions, and Transaction Drawer
-2. **Send a payment confirmation email when a payment is recorded** - to notify the customer that their payment has been received
+## Problem Summary
+
+When converting quotation QUO-000008 to an invoice, the system fails with:
+```
+duplicate key value violates unique constraint "unique_invoice_number_per_user"
+```
+
+## Root Cause Analysis
+
+The `Quotations.tsx` file contains a **legacy** `generateNextInvoiceNumber` function that:
+
+1. Fetches the most recent invoice (`INV-2026-001`)
+2. Uses regex `/INV-(\d+)/` to extract a number
+3. This incorrectly extracts "2026" from the year portion
+4. Adds 1 and generates `INV-002027`
+5. But `INV-002027` already exists in the database!
+
+Meanwhile, the rest of the app uses the `next_invoice_number` RPC which properly generates sequential numbers like `INV-2026-002`.
+
+| File | Current Approach | Correct Approach |
+|------|------------------|------------------|
+| `NewInvoice.tsx` | Uses `next_invoice_number` RPC | Correct |
+| `invoiceService.ts` | Uses `next_invoice_number` RPC | Correct |
+| `Quotations.tsx` | Uses **legacy regex parsing** | **Needs fix** |
 
 ---
 
-## Current Behavior Analysis
+## Solution
 
-### Actions That Need Fixing
-
-| Location | Action | Current State | Should Be |
-|----------|--------|---------------|-----------|
-| Invoice Details - Header "..." menu | Create Credit Note | Shows when issued | Hide when paid |
-| Invoice Details - Header "..." menu | Email Reminder | Shows when issued | Hide when paid |
-| Invoice Details - Header "..." menu | WhatsApp | Shows when issued | Hide when paid |
-| Invoice Details - Sidebar Quick Actions | Create Credit Note | Always shows when issued | Hide when paid |
-| Transaction Drawer Footer | Credit Note button | Shows when issued | Hide when paid |
-
-### Actions Already Correct
-
-| Location | Action | Current State |
-|----------|--------|---------------|
-| Invoice Details - Sidebar Quick Actions | Email/WhatsApp | Already hidden when `isSettled` |
-| Invoice Details - Header | Add Payment button | Already hidden when `remainingBalance <= 0` |
-| Transaction Drawer Footer | Payment button | Already hidden when `remainingBalance <= 0` |
-| Transaction Drawer Footer | Remind button | Already hidden when `remainingBalance <= 0` |
-| Invoices List - Menu | Credit Note | Already hidden when status = "paid" |
+Replace the legacy `generateNextInvoiceNumber` function in `Quotations.tsx` with a call to the `next_invoice_number` RPC, matching the pattern used elsewhere.
 
 ---
 
 ## Implementation Plan
 
-### Part 1: Disable Actions When Invoice is Fully Paid
+### File: `src/pages/Quotations.tsx`
 
-#### File: `src/pages/InvoiceDetails.tsx`
+**Change 1 - Replace `generateNextInvoiceNumber` function (lines 384-405):**
 
-**Change 1 - Header three-dot menu (lines 685-704):**
-- Add `!isSettled` condition to hide "Create Credit Note", "Email Reminder", and "WhatsApp" when the invoice is fully paid
-- Users will still see the menu with "Download PDF" option
-
-**Change 2 - Sidebar Quick Actions (line 1415):**
-- Add `!isSettled` condition to hide "Create Credit Note" button when paid
-
-#### File: `src/components/transaction-drawer/TransactionFooterActions.tsx`
-
-**Change 3 - Credit Note button (line 84):**
-- Add `remainingBalance > 0` condition similar to the "Payment" and "Remind" buttons
-
----
-
-### Part 2: Payment Confirmation Email
-
-#### Approach
-
-When a payment is recorded and the invoice becomes fully paid OR when any payment is recorded:
-1. Invoke a new edge function `send-payment-confirmation` to email the customer
-2. The email will include: payment amount, remaining balance (if any), and invoice details
-3. Log the send in `document_send_logs` for audit trail
-
-#### File: `supabase/functions/send-payment-confirmation/index.ts` (New)
-
-Create a new edge function that:
-- Accepts: `invoiceId`, `paymentAmount`, `paymentMethod`, `customerEmail`, `customerName`, `invoiceNumber`, `remainingBalance`
-- Sends a professional email confirming the payment received
-- Uses Resend API (already configured with `RESEND_API_KEY`)
-- Logs to `document_send_logs` table
-
-Example email content:
-```
-Subject: Payment Received - Invoice {invoiceNumber}
-
-Dear {customerName},
-
-We have received your payment of €{amount} for Invoice {invoiceNumber}.
-
-{If paid in full: "Your invoice is now fully paid. Thank you for your prompt payment."}
-{If partial: "Your remaining balance is €{remainingBalance}."}
-
-Payment Details:
-- Amount: €{amount}
-- Method: {method}
-- Date: {date}
-
-Thank you for your business.
-```
-
-#### File: `src/pages/InvoiceDetails.tsx`
-
-**Change 4 - handleAddPayment function (around line 550):**
-- After successfully recording the payment
-- If the customer has an email address, invoke `send-payment-confirmation` edge function
-- Show a toast indicating email was sent (or failed gracefully)
-
----
-
-## Technical Details
-
-### Condition Logic
-
-For determining if an invoice is "fully paid":
-- `isSettled` = `remainingBalance <= 0` (already computed at line 591)
-- This accounts for payments AND credit notes applied
-
-### Edge Function Structure
-
+Remove the legacy function:
 ```typescript
-// send-payment-confirmation/index.ts
-interface PaymentConfirmationRequest {
-  invoiceId: string;
-  invoiceNumber: string;
-  paymentAmount: number;
-  paymentMethod: string;
-  paymentDate: string;
-  customerEmail: string;
-  customerName: string;
-  remainingBalance: number;
-  isFullyPaid: boolean;
-  userId: string;
-  customerId?: string;
-}
+// REMOVE THIS
+const generateNextInvoiceNumber = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("invoice_number")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    // ... regex parsing logic
+  }
+};
 ```
 
-### Error Handling
+Replace with RPC call:
+```typescript
+// REPLACE WITH
+const generateNextInvoiceNumber = async (): Promise<string> => {
+  const { data, error } = await supabase.rpc("next_invoice_number", {
+    p_business_id: user!.id,
+    p_prefix: "INV-",
+  });
+  
+  if (error) throw error;
+  if (!data) throw new Error("Failed to generate invoice number");
+  
+  return data;
+};
+```
 
-- If customer has no email: skip sending, no error
-- If email send fails: log warning, show toast, but don't fail the payment recording
-- Email is optional/nice-to-have, not a blocker
+This ensures:
+- Proper `INV-YYYY-NNN` format
+- Atomically incremented sequence via the database
+- No collisions with existing numbers
+- Consistency with the rest of the application
 
 ---
 
-## Files to Modify
+## Testing Verification
 
-| File | Type | Changes |
-|------|------|---------|
-| `src/pages/InvoiceDetails.tsx` | Modify | Add `!isSettled` conditions to header menu and sidebar; call payment confirmation email |
-| `src/components/transaction-drawer/TransactionFooterActions.tsx` | Modify | Add `remainingBalance > 0` condition to Credit Note button |
-| `supabase/functions/send-payment-confirmation/index.ts` | Create | New edge function for payment confirmation emails |
-| `supabase/config.toml` | Modify | Add entry for new function with `verify_jwt = false` |
+After implementation:
+1. Navigate to Quotations page
+2. Select QUO-000008
+3. Click "Convert to Invoice"
+4. Should successfully create invoice with number like `INV-2026-002`
+5. Verify invoice appears in invoice list
 
 ---
 
-## Expected Behavior After Implementation
+## Technical Notes
 
-| Scenario | Email Reminder | WhatsApp | Credit Note | Add Payment |
-|----------|----------------|----------|-------------|-------------|
-| Draft invoice | Hidden | Hidden | Hidden | Hidden |
-| Issued, unpaid | Visible | Visible | Visible | Visible |
-| Issued, partially paid | Visible | Visible | Visible | Visible |
-| Issued, fully paid | **Hidden** | **Hidden** | **Hidden** | Hidden |
+- The `next_invoice_number` RPC uses an atomic counter table (`invoice_counters`) 
+- It generates year-based sequences: `INV-{YEAR}-{SEQ}`
+- The current 2026 counter is at `last_seq = 1`, so next will be `INV-2026-002`
+- No database changes required - only frontend code fix
 
-When payment is recorded:
-- Customer receives email confirmation (if email exists)
-- Email indicates if fully paid or shows remaining balance
-- Activity is logged in `document_send_logs`
