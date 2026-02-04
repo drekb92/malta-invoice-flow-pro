@@ -381,27 +381,16 @@ const Quotations = () => {
     }
   };
 
-  const generateNextInvoiceNumber = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("invoices")
-        .select("invoice_number")
-        .order("created_at", { ascending: false })
-        .limit(1);
+  const generateNextInvoiceNumber = async (): Promise<string> => {
+    const { data, error } = await supabase.rpc("next_invoice_number", {
+      p_business_id: user!.id,
+      p_prefix: "INV-",
+    });
 
-      if (error) throw error;
+    if (error) throw error;
+    if (!data) throw new Error("Failed to generate invoice number");
 
-      let next = 1;
-      if (data && data.length > 0) {
-        const last = data[0].invoice_number || "";
-        const match = last.match(/INV-(\d+)/);
-        if (match) next = parseInt(match[1]) + 1;
-      }
-
-      return `INV-${String(next).padStart(6, "0")}`;
-    } catch {
-      return "INV-000001";
-    }
+    return data;
   };
 
   const handleConvertToInvoice = async (quotationId: string, invoiceDateOverride?: Date) => {
