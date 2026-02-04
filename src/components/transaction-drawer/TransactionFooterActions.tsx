@@ -81,7 +81,7 @@ export const TransactionFooterActions = ({
                 </Button>
               )}
               
-              {onIssueCreditNote && isIssued && (
+              {onIssueCreditNote && isIssued && remainingBalance > 0 && (
                 <Button
                   variant="outline"
                   size="sm"

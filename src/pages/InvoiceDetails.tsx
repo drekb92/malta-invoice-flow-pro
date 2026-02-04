@@ -540,8 +540,9 @@ const InvoiceDetails = () => {
       const invoiceTotal = Number(invoiceTotals?.total_amount ?? computedTotals.total);
       const adjustedTotal = invoiceTotal - totalCreditNotesAmount;
       const newRemainingBalance = adjustedTotal - newTotalPaid;
+      const isNowFullyPaid = newRemainingBalance <= 0.01;
 
-      if (newRemainingBalance <= 0.01) {
+      if (isNowFullyPaid) {
         await supabase.from("invoices").update({ status: "paid" }).eq("id", id).eq("user_id", user.id);
         setInvoice({ ...invoice, status: "paid" });
       } else if (newTotalPaid > 0 && newRemainingBalance > 0.01) {
@@ -553,6 +554,43 @@ const InvoiceDetails = () => {
         title: "Payment recorded",
         description: `Payment of €${formatNumber(amount, 2)} has been added.`,
       });
+
+      // Send payment confirmation email if customer has email
+      const customerEmail = invoice.customers?.email;
+      if (customerEmail) {
+        try {
+          const { error: emailError } = await supabase.functions.invoke("send-payment-confirmation", {
+            body: {
+              invoiceId: id,
+              invoiceNumber: invoice.invoice_number,
+              paymentAmount: amount,
+              paymentMethod: newPayment.method,
+              paymentDate: newPayment.payment_date,
+              customerEmail: customerEmail,
+              customerName: invoice.customers?.name || "Customer",
+              remainingBalance: Math.max(0, newRemainingBalance),
+              isFullyPaid: isNowFullyPaid,
+              userId: user.id,
+              customerId: invoice.customer_id,
+              currencyCode: companySettings?.currency_code || "EUR",
+              companyName: companySettings?.company_name || "Our Company",
+            },
+          });
+
+          if (emailError) {
+            console.warn("[InvoiceDetails] Payment confirmation email failed:", emailError);
+          } else {
+            toast({
+              title: "Confirmation sent",
+              description: `Payment receipt emailed to ${customerEmail}.`,
+            });
+            refetchSendLogs();
+          }
+        } catch (emailErr) {
+          console.warn("[InvoiceDetails] Payment confirmation email error:", emailErr);
+          // Don't show error toast - email is optional
+        }
+      }
 
       setNewPayment({
         amount: "",
@@ -683,13 +721,13 @@ const InvoiceDetails = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="bg-popover">
-                    {isIssued && (
+                    {isIssued && !isSettled && (
                       <DropdownMenuItem onClick={handleCreateCreditNote}>
                         <FileText className="h-4 w-4 mr-2" />
                         Create Credit Note
                       </DropdownMenuItem>
                     )}
-                    {isIssued && (
+                    {isIssued && !isSettled && (
                       <>
                         <DropdownMenuItem onClick={handleEmailReminder}>
                           <Mail className="h-4 w-4 mr-2" />
@@ -1412,7 +1450,7 @@ const SidebarCard = ({
                   {whatsappLoading ? "Creating link..." : lastWhatsAppSent?.sentAt ? "Send WhatsApp Reminder" : "Send via WhatsApp"}
                 </Button>
               )}
-              {onCreateCreditNote && (
+              {!isSettled && onCreateCreditNote && (
                 <Button
                   onClick={onCreateCreditNote}
                   variant="outline"
