@@ -129,24 +129,36 @@ export async function getOverdueInvoices(userId: string) {
 
   if (!invoices || invoices.length === 0) return [];
 
+  const invoiceIds = invoices.map((inv) => inv.id);
   const customerIds = [...new Set(invoices.map((inv) => inv.customer_id))];
 
-  const { data: customers } = await supabase.from("customers").select("id, name").in("id", customerIds);
+  // Fetch customers, reminder logs, and payments in parallel
+  const [customersRes, reminderRes, paymentsRes] = await Promise.all([
+    supabase.from("customers").select("id, name").in("id", customerIds),
+    supabase
+      .from("reminder_logs")
+      .select("invoice_id, sent_at")
+      .in("invoice_id", invoiceIds)
+      .order("sent_at", { ascending: false }),
+    supabase
+      .from("payments")
+      .select("invoice_id, amount")
+      .in("invoice_id", invoiceIds),
+  ]);
 
-  const customerMap = new Map((customers || []).map((c) => [c.id, c.name]));
-
-  // Get last reminder sent for each invoice
-  const { data: reminderLogs } = await supabase
-    .from("reminder_logs")
-    .select("invoice_id, sent_at")
-    .in("invoice_id", invoices.map((inv) => inv.id))
-    .order("sent_at", { ascending: false });
+  const customerMap = new Map((customersRes.data || []).map((c) => [c.id, c.name]));
 
   const lastReminderMap = new Map<string, string>();
-  reminderLogs?.forEach((log) => {
+  reminderRes.data?.forEach((log) => {
     if (!lastReminderMap.has(log.invoice_id)) {
       lastReminderMap.set(log.invoice_id, log.sent_at || "");
     }
+  });
+
+  // Sum payments per invoice
+  const paidMap = new Map<string, number>();
+  paymentsRes.data?.forEach((p) => {
+    paidMap.set(p.invoice_id, (paidMap.get(p.invoice_id) || 0) + Number(p.amount || 0));
   });
 
   const today = new Date();
@@ -154,13 +166,17 @@ export async function getOverdueInvoices(userId: string) {
   return invoices.map((invoice) => {
     const dueDate = new Date(invoice.due_date);
     const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+    const totalAmount = Number(invoice.total_amount || 0);
+    const totalPaid = paidMap.get(invoice.id) || 0;
+    const balanceDue = Math.max(totalAmount - totalPaid, 0);
 
     return {
       id: invoice.id,
       invoice_number: invoice.invoice_number,
       customer_id: invoice.customer_id,
       customer_name: customerMap.get(invoice.customer_id) || "Unknown",
-      total_amount: Number(invoice.total_amount || 0),
+      total_amount: totalAmount,
+      balance_due: balanceDue,
       due_date: invoice.due_date,
       days_overdue: daysOverdue,
       last_sent_at: invoice.last_sent_at || null,

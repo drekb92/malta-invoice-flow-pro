@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
@@ -23,6 +24,7 @@ interface OverdueInvoice {
   customer_id: string;
   customer_name?: string;
   total_amount: number;
+  balance_due: number;
   due_date: string;
   days_overdue: number;
   last_sent_at?: string | null;
@@ -191,7 +193,20 @@ export function WorkQueueCard({
                           {invoice.customer_name}
                         </span>
                         <span className="w-[90px] text-right text-sm font-medium tabular-nums shrink-0">
-                          {formatCurrency(invoice.total_amount)}
+                          {invoice.balance_due > 0 ? (
+                            formatCurrency(invoice.balance_due)
+                          ) : invoice.total_amount > 0 ? (
+                            formatCurrency(0)
+                          ) : (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-muted-foreground cursor-help">—</span>
+                                </TooltipTrigger>
+                                <TooltipContent>Amount not available</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </span>
                         <div className="w-[80px] flex justify-end shrink-0">
                           <Badge
