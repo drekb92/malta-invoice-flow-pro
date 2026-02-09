@@ -1,77 +1,62 @@
 
 
-# Polish Work Queue List Layout
+# Fix Work Queue Table Spacing and Alignment
 
 ## File: `src/components/WorkQueueCard.tsx`
 
-### Changes
+### Problem
+The Amount, Overdue, and Action columns stretch too far right because the flex layout fills the full container width, creating excessive gaps between the Customer column and the right-side columns.
 
-**1. Add a subtle header row to both tabs**
+### Solution
+Update column widths to the requested values and wrap the table content in a `max-w-[700px]` container so it doesn't stretch across wide screens. Center-align the Overdue/Status column. Reduce row height slightly.
 
-Before the list of items in each tab, insert a muted label row with columns: Invoice, Customer, Amount, Status/Overdue, and Action. The header uses `text-[11px] text-muted-foreground uppercase tracking-wide` styling with a bottom border divider.
+### Column width changes
 
-```tsx
-{/* Header row - shown only when items exist */}
-<div className="flex items-center gap-2 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-  <span className="w-[100px] shrink-0">Invoice</span>
-  <span className="flex-1 min-w-0">Customer</span>
-  <span className="w-[90px] text-right shrink-0">Amount</span>
-  <span className="w-[80px] text-right shrink-0">Overdue</span>  {/* or "Status" for Needs Sending tab */}
-  <span className="w-[72px] text-right shrink-0">Action</span>
-</div>
-```
-
-**2. Reduce row vertical padding**
-
-Change each data row from `py-2 px-3` to `py-1.5 px-3` for a more compact feel.
-
-**3. Use fixed column widths for consistent alignment**
-
-Replace the current flex-based layout with explicit widths matching the header columns. Amount and Overdue/Status columns get `text-right` alignment.
-
-**4. Replace `space-y-1` with dividers between rows**
-
-Remove the `space-y-1` wrapper and instead apply `divide-y divide-border/60` on the row container so rows are separated by subtle lines instead of gaps.
-
-### Detailed row structure (Follow-up Queue tab)
-
-```tsx
-<div className="divide-y divide-border/60 pr-1">
-  {topOverdueInvoices.map((invoice) => (
-    <div key={invoice.id} className="flex items-center gap-2 py-1.5 px-3 hover:bg-muted/50 transition-colors">
-      <Link to={...} className="w-[100px] shrink-0 font-medium text-sm truncate ...">
-        {invoice.invoice_number}
-      </Link>
-      <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
-        {invoice.customer_name}
-      </span>
-      <span className="w-[90px] text-right text-sm font-medium tabular-nums shrink-0">
-        {formatCurrency(invoice.total_amount)}
-      </span>
-      <div className="w-[80px] flex justify-end shrink-0">
-        <Badge ...>{invoice.days_overdue}d</Badge>
-      </div>
-      <div className="w-[72px] flex justify-end shrink-0">
-        <Button ...>Remind</Button>
-      </div>
-    </div>
-  ))}
-</div>
-```
-
-### Needs Sending tab
-
-Same structure, but the 4th column header reads **Status** instead of **Overdue**, and shows the Draft/Not sent badge.
-
-### Summary of changes
-
-| Aspect | Before | After |
+| Column | Before | After |
 |--------|--------|-------|
-| Header row | None | Muted label row with column names |
-| Row padding | `py-2` | `py-1.5` |
-| Row separation | `space-y-1` (gaps) | `divide-y divide-border/60` (subtle lines) |
-| Amount alignment | Inline, inconsistent | Fixed width, right-aligned |
-| Overdue/Status alignment | Inline with action | Fixed width, right-aligned |
-| Column widths | Flexible/auto | Fixed widths matching header |
+| Invoice | `w-[100px]` | `w-[140px]` |
+| Customer | `flex-1` | `flex-1` (unchanged) |
+| Amount | `w-[90px]` | `w-[140px]` right-aligned |
+| Overdue/Status | `w-[80px]` | `w-[120px]` center-aligned |
+| Action | `w-[72px]` | `w-[120px]` right-aligned |
 
-Only one file is modified: `src/components/WorkQueueCard.tsx`.
+### Detailed changes
+
+**1. Wrap table content in a max-width container**
+
+Add `max-w-[700px]` to the header row and the row container so content stays compact and doesn't stretch edge-to-edge on wide cards.
+
+**2. Update header row widths (both tabs)**
+
+```tsx
+<div className="flex items-center gap-1.5 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider max-w-[700px]">
+  <span className="w-[140px] shrink-0">Invoice</span>
+  <span className="flex-1 min-w-0">Customer</span>
+  <span className="w-[140px] text-right shrink-0">Amount</span>
+  <span className="w-[120px] text-center shrink-0">Overdue</span>
+  <span className="w-[120px] text-right shrink-0">Action</span>
+</div>
+```
+
+For the Needs Sending tab, the 4th column reads "Status" instead of "Overdue".
+
+**3. Update data row widths and reduce gaps**
+
+- Change row `gap-2` to `gap-1.5` to tighten spacing
+- Change `py-1.5` to `py-1` for slightly shorter rows
+- Add `max-w-[700px]` to the row container
+- Update each column cell to match new widths
+- Change Overdue/Status from `justify-end` to `justify-center`
+
+**4. Apply to both tabs**
+
+Both the Follow-up Queue and Needs Sending tabs get the same width and alignment updates.
+
+### Technical details
+
+All changes are in a single file: `src/components/WorkQueueCard.tsx`. The changes touch:
+- Lines 173-178 (Follow-up header row)
+- Lines 180-235 (Follow-up data rows)
+- Lines 269-274 (Needs Sending header row)  
+- Lines 276-313 (Needs Sending data rows)
+
