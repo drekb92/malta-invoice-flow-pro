@@ -16,7 +16,6 @@ import {
   Send,
   ArrowRight,
 } from "lucide-react";
-import { WorkQueueSummary } from "@/components/work-queue/WorkQueueSummary";
 
 
 interface OverdueInvoice {
@@ -156,193 +155,180 @@ export function WorkQueueCard({
         </CardHeader>
         
         <CardContent className="flex-1 overflow-hidden">
-          <div className="flex h-full gap-0">
-            {/* Left: Table list (70%) */}
-            <div className="w-[70%] min-w-0 overflow-hidden">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                {/* Follow-up Queue Tab */}
-                <TabsContent value="reminders" className="mt-0 flex-1 overflow-auto">
-                  {overdueInvoices.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
-                      <p className="text-sm font-medium text-foreground">
-                        All invoices are on track!
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        No overdue invoices need attention
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-1.5 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                        <span className="w-[140px] shrink-0">Invoice</span>
-                        <span className="flex-1 min-w-0">Customer</span>
-                        <span className="w-[100px] text-right shrink-0">Amount</span>
-                        <span className="w-[70px] text-center shrink-0">Overdue</span>
-                        <span className="w-[90px] text-right shrink-0">Action</span>
-                      </div>
-                      <div className="divide-y divide-border/60 pr-1">
-                        {topOverdueInvoices.map((invoice) => (
-                          <div
-                            key={invoice.id}
-                            className="flex items-center gap-1.5 py-1 px-3 hover:bg-muted/50 transition-colors"
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            {/* Follow-up Queue Tab */}
+            <TabsContent value="reminders" className="mt-0 flex-1 overflow-auto">
+              {overdueInvoices.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
+                  <p className="text-sm font-medium text-foreground">
+                    All invoices are on track!
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No overdue invoices need attention
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider max-w-[700px]">
+                    <span className="w-[140px] shrink-0">Invoice</span>
+                    <span className="flex-1 min-w-0">Customer</span>
+                    <span className="w-[140px] text-right shrink-0">Amount</span>
+                    <span className="w-[120px] text-center shrink-0">Overdue</span>
+                    <span className="w-[120px] text-right shrink-0">Action</span>
+                  </div>
+                  <div className="divide-y divide-border/60 pr-1 max-w-[700px]">
+                    {topOverdueInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center gap-1.5 py-1 px-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <Link
+                          to={`/invoices/${invoice.id}`}
+                          className="w-[140px] shrink-0 font-medium text-sm hover:text-primary transition-colors truncate"
+                        >
+                          {invoice.invoice_number}
+                        </Link>
+                        <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+                          {invoice.customer_name}
+                        </span>
+                        <span className="w-[140px] text-right text-sm font-medium tabular-nums shrink-0">
+                          {invoice.balance_due > 0 ? (
+                            formatCurrency(invoice.balance_due)
+                          ) : invoice.total_amount > 0 ? (
+                            formatCurrency(0)
+                          ) : (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-muted-foreground cursor-help">—</span>
+                                </TooltipTrigger>
+                                <TooltipContent>Amount not available</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </span>
+                        <div className="w-[120px] flex justify-center shrink-0">
+                          <span
+                            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-semibold leading-none ${getOverdueBadgeClasses(invoice.days_overdue)}`}
                           >
-                            <Link
-                              to={`/invoices/${invoice.id}`}
-                              className="w-[140px] shrink-0 font-medium text-sm hover:text-primary transition-colors truncate"
-                            >
-                              {invoice.invoice_number}
-                            </Link>
-                            <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
-                              {invoice.customer_name}
-                            </span>
-                            <span className="w-[100px] text-right text-sm font-medium tabular-nums shrink-0">
-                              {invoice.balance_due > 0 ? (
-                                formatCurrency(invoice.balance_due)
-                              ) : invoice.total_amount > 0 ? (
-                                formatCurrency(0)
-                              ) : (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="text-muted-foreground cursor-help">—</span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Amount not available</TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </span>
-                            <div className="w-[70px] flex justify-center shrink-0">
-                              <span
-                                className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-semibold leading-none ${getOverdueBadgeClasses(invoice.days_overdue)}`}
-                              >
-                                {invoice.days_overdue}d
-                              </span>
-                            </div>
-                            <div className="w-[90px] flex justify-end shrink-0">
-                              <Button
-                                size="sm"
-                                className="h-7 px-3 text-xs"
-                                onClick={() => handleSendReminder(invoice)}
-                                disabled={sending && sendingInvoiceId === invoice.id}
-                              >
-                                {sending && sendingInvoiceId === invoice.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <>
-                                    <Bell className="h-3 w-3 mr-1" />
-                                    Remind
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {remainingOverdueCount > 0 && (
-                        <div className="text-center pt-2 border-t mt-2">
+                            {invoice.days_overdue}d
+                          </span>
+                        </div>
+                        <div className="w-[120px] flex justify-end shrink-0">
                           <Button
-                            variant="link"
                             size="sm"
-                            className="text-xs"
-                            onClick={() => navigate("/invoices?status=overdue")}
+                            className="h-7 px-3 text-xs"
+                            onClick={() => handleSendReminder(invoice)}
+                            disabled={sending && sendingInvoiceId === invoice.id}
                           >
-                            {remainingOverdueCount} more need attention →
+                            {sending && sendingInvoiceId === invoice.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <>
+                                <Bell className="h-3 w-3 mr-1" />
+                                Remind
+                              </>
+                            )}
                           </Button>
                         </div>
-                      )}
-                    </>
-                  )}
-                </TabsContent>
+                      </div>
+                    ))}
+                  </div>
 
-                {/* Needs Sending Tab */}
-                <TabsContent value="sending" className="mt-0 flex-1 overflow-auto">
-                  {needsSendingInvoices.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
-                      <p className="text-sm font-medium text-foreground">
-                        All invoices have been sent!
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        No drafts or unsent invoices
-                      </p>
+                  {remainingOverdueCount > 0 && (
+                    <div className="text-center pt-2 border-t mt-2">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => navigate("/invoices?status=overdue")}
+                      >
+                        {remainingOverdueCount} more need attention →
+                      </Button>
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-1.5 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                        <span className="w-[140px] shrink-0">Invoice</span>
-                        <span className="flex-1 min-w-0">Customer</span>
-                        <span className="w-[100px] text-right shrink-0">Amount</span>
-                        <span className="w-[70px] text-center shrink-0">Status</span>
-                        <span className="w-[90px] text-right shrink-0">Action</span>
-                      </div>
-                      <div className="divide-y divide-border/60 pr-1">
-                        {needsSendingInvoices.slice(0, 6).map((invoice) => (
-                          <div
-                            key={invoice.id}
-                            className="flex items-center gap-1.5 py-1 px-3 hover:bg-muted/50 transition-colors"
-                          >
-                            <button
-                              onClick={() => navigate(`/invoices/${invoice.id}`)}
-                              className="w-[140px] shrink-0 font-medium text-sm hover:text-primary transition-colors truncate text-left"
-                            >
-                              {invoice.invoice_number}
-                            </button>
-                            <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
-                              {invoice.customer_name}
-                            </span>
-                            <span className="w-[100px] text-right text-sm font-medium tabular-nums shrink-0">
-                              {formatCurrency(invoice.total_amount)}
-                            </span>
-                            <div className="w-[70px] flex justify-center shrink-0">
-                              <Badge
-                                variant={invoice.status === "draft" ? "secondary" : "outline"}
-                                className="text-xs h-5 px-1.5"
-                              >
-                                {invoice.status === "draft" ? "Draft" : "Not sent"}
-                              </Badge>
-                            </div>
-                            <div className="w-[90px] flex justify-end shrink-0">
-                              <Button
-                                size="sm"
-                                className="h-7 px-3 text-xs"
-                                onClick={() => handleSendClick(invoice)}
-                              >
-                                <Send className="h-3 w-3 mr-1" />
-                                Send
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  )}
+                </>
+              )}
+            </TabsContent>
 
-                      {needsSendingInvoices.length > 6 && (
-                        <div className="text-center pt-2 border-t mt-2">
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => navigate("/invoices?needsSending=true")}
+            {/* Needs Sending Tab */}
+            <TabsContent value="sending" className="mt-0 flex-1 overflow-auto">
+              {needsSendingInvoices.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
+                  <p className="text-sm font-medium text-foreground">
+                    All invoices have been sent!
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No drafts or unsent invoices
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider max-w-[700px]">
+                    <span className="w-[140px] shrink-0">Invoice</span>
+                    <span className="flex-1 min-w-0">Customer</span>
+                    <span className="w-[140px] text-right shrink-0">Amount</span>
+                    <span className="w-[120px] text-center shrink-0">Status</span>
+                    <span className="w-[120px] text-right shrink-0">Action</span>
+                  </div>
+                  <div className="divide-y divide-border/60 pr-1 max-w-[700px]">
+                    {needsSendingInvoices.slice(0, 6).map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center gap-1.5 py-1 px-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <button
+                          onClick={() => navigate(`/invoices/${invoice.id}`)}
+                          className="w-[140px] shrink-0 font-medium text-sm hover:text-primary transition-colors truncate text-left"
+                        >
+                          {invoice.invoice_number}
+                        </button>
+                        <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+                          {invoice.customer_name}
+                        </span>
+                        <span className="w-[140px] text-right text-sm font-medium tabular-nums shrink-0">
+                          {formatCurrency(invoice.total_amount)}
+                        </span>
+                        <div className="w-[120px] flex justify-center shrink-0">
+                          <Badge
+                            variant={invoice.status === "draft" ? "secondary" : "outline"}
+                            className="text-xs h-5 px-1.5"
                           >
-                            {needsSendingInvoices.length - 6} more to send →
+                            {invoice.status === "draft" ? "Draft" : "Not sent"}
+                          </Badge>
+                        </div>
+                        <div className="w-[120px] flex justify-end shrink-0">
+                          <Button
+                            size="sm"
+                            className="h-7 px-3 text-xs"
+                            onClick={() => handleSendClick(invoice)}
+                          >
+                            <Send className="h-3 w-3 mr-1" />
+                            Send
                           </Button>
                         </div>
-                      )}
-                    </>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </div>
+                      </div>
+                    ))}
+                  </div>
 
-            {/* Right: Summary panel (30%) */}
-            <div className="w-[30%] shrink-0 hidden md:block">
-              <WorkQueueSummary
-                overdueInvoices={overdueInvoices}
-                formatCurrency={formatCurrency}
-              />
-            </div>
-          </div>
+                  {needsSendingInvoices.length > 6 && (
+                    <div className="text-center pt-2 border-t mt-2">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => navigate("/invoices?needsSending=true")}
+                      >
+                        {needsSendingInvoices.length - 6} more to send →
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
