@@ -577,7 +577,7 @@ const Quotations = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
                   <TableRow>
                     <TableHead>Quotation #</TableHead>
                     <TableHead>Customer</TableHead>

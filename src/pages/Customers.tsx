@@ -314,9 +314,9 @@ const Customers = () => {
               <CardTitle className="text-base">Customer List</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div>
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
                     <TableRow>
                       <TableHead className="min-w-[180px]">
                         <Button 

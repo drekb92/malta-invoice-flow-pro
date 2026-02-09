@@ -349,7 +349,7 @@ const CreditNotes = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
                   <TableRow>
                     <TableHead>Credit Note #</TableHead>
                     <TableHead>Client</TableHead>
