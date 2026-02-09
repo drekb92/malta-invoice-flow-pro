@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FileText, Users, CreditCard, Mail, Bell, Receipt, ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+
 interface Activity {
   id: string;
   type: "invoice" | "payment" | "customer" | "email" | "reminder" | "credit";
@@ -16,13 +19,13 @@ interface Activity {
 }
 
 const statusColors: Record<string, string> = {
-  created: "bg-blue-100 text-blue-800",
-  issued: "bg-blue-100 text-blue-800",
-  received: "bg-green-100 text-green-800",
-  new: "bg-purple-100 text-purple-800",
-  sent: "bg-orange-100 text-orange-800",
-  reminder: "bg-amber-100 text-amber-800",
-  credited: "bg-red-100 text-red-800",
+  created: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  issued: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  received: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  new: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+  sent: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+  reminder: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300",
+  credited: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
 };
 
 const iconMap = {
@@ -34,17 +37,19 @@ const iconMap = {
   credit: Receipt,
 };
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("en-MT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat("en-MT", { style: "currency", currency: "EUR" }).format(amount);
+
+const TAB_FILTERS: Record<string, Activity["type"][]> = {
+  all: ["invoice", "payment", "customer", "email", "reminder", "credit"],
+  invoices: ["invoice", "credit"],
+  payments: ["payment"],
+  reminders: ["reminder", "email"],
 };
 
 const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
   const activities: Activity[] = [];
 
-  // Fetch invoices, payments, customers, send logs, and credit notes in parallel
   const [invoicesResult, paymentsResult, customersResult, sendLogsResult, creditNotesResult] = await Promise.all([
     supabase
       .from("invoices")
@@ -81,7 +86,6 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
       .limit(5),
   ]);
 
-  // Transform invoices
   if (invoicesResult.data) {
     for (const inv of invoicesResult.data) {
       const customer = inv.customers as { name: string } | null;
@@ -96,7 +100,6 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
     }
   }
 
-  // Transform payments
   if (paymentsResult.data) {
     for (const pay of paymentsResult.data) {
       const invoice = pay.invoices as { invoice_number: string; customers: { name: string } | null } | null;
@@ -111,7 +114,6 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
     }
   }
 
-  // Transform customers
   if (customersResult.data) {
     for (const cust of customersResult.data) {
       activities.push({
@@ -125,7 +127,6 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
     }
   }
 
-  // Transform send logs (emails/documents)
   if (sendLogsResult.data) {
     for (const log of sendLogsResult.data) {
       const customer = log.customers as { name: string } | null;
@@ -141,7 +142,6 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
     }
   }
 
-  // Transform credit notes
   if (creditNotesResult.data) {
     for (const cn of creditNotesResult.data) {
       const customer = cn.customers as { name: string } | null;
@@ -156,38 +156,66 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
     }
   }
 
-  // Sort by timestamp descending and take top 5
-  return activities
-    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-    .slice(0, 5);
+  return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 15);
 };
+
+function ActivityRow({ activity }: { activity: Activity }) {
+  const Icon = iconMap[activity.type];
+  return (
+    <div className="flex items-center gap-2.5 py-1.5 px-1">
+      <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center shrink-0">
+        <Icon className="h-3 w-3 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1.5">
+          <p className="text-xs font-medium text-foreground truncate">{activity.title}</p>
+          <Badge
+            variant="secondary"
+            className={`${statusColors[activity.status]} text-[10px] leading-none px-1.5 py-0.5 h-auto shrink-0`}
+          >
+            {activity.status}
+          </Badge>
+        </div>
+        <div className="flex items-center justify-between gap-1">
+          <p className="text-[11px] text-muted-foreground truncate">{activity.description}</p>
+          <span className="text-[10px] text-muted-foreground shrink-0">
+            {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface RecentActivityProps {
   userId?: string;
 }
 
 export function RecentActivity({ userId }: RecentActivityProps) {
+  const [tab, setTab] = useState("all");
   const { data: activities, isLoading } = useQuery({
     queryKey: ["recentActivities", userId],
     queryFn: () => fetchRecentActivities(userId!),
     enabled: !!userId,
   });
 
+  const filtered = activities?.filter((a) => TAB_FILTERS[tab]?.includes(a.type)).slice(0, 5) ?? [];
+
   if (isLoading) {
     return (
       <Card className="flex flex-col max-h-[360px]">
-        <CardHeader className="shrink-0">
+        <CardHeader className="shrink-0 pb-2">
           <CardTitle className="text-base">Recent Activity</CardTitle>
-          <CardDescription className="text-xs">Latest updates from your receivables</CardDescription>
+          <CardDescription className="text-xs">Latest updates</CardDescription>
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden">
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-start space-x-3">
-                <Skeleton className="w-8 h-8 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
+              <div key={i} className="flex items-center gap-2.5">
+                <Skeleton className="w-6 h-6 rounded-full" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3 w-3/4" />
+                  <Skeleton className="h-2.5 w-1/2" />
                 </div>
               </div>
             ))}
@@ -197,65 +225,43 @@ export function RecentActivity({ userId }: RecentActivityProps) {
     );
   }
 
-  if (!activities || activities.length === 0) {
-    return (
-      <Card className="flex flex-col max-h-[360px]">
-        <CardHeader className="shrink-0">
-          <CardTitle className="text-base">Recent Activity</CardTitle>
-          <CardDescription className="text-xs">Latest updates from your receivables</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No recent activity yet. Start by adding customers or creating invoices.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card className="flex flex-col max-h-[360px]">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 shrink-0">
+    <Card className="flex flex-col max-h-[360px] overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 shrink-0 px-4 pt-4">
         <div>
           <CardTitle className="text-base">Recent Activity</CardTitle>
-          <CardDescription className="text-xs">Latest updates from your receivables</CardDescription>
         </div>
-        <Link 
-          to="/activity" 
+        <Link
+          to="/activity"
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
         >
           View all
           <ArrowRight className="h-3 w-3" />
         </Link>
       </CardHeader>
-      <CardContent className="flex-1 overflow-auto">
-        <div className="space-y-4 pr-1">
-          {activities.map((activity) => {
-            const Icon = iconMap[activity.type];
-            return (
-              <div key={activity.id} className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {activity.title}
-                    </p>
-                    <Badge variant="secondary" className={statusColors[activity.status]}>
-                      {activity.status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground truncate">{activity.description}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+
+      <Tabs value={tab} onValueChange={setTab} className="flex flex-col flex-1 min-h-0">
+        <div className="px-4 pt-1 pb-1 shrink-0">
+          <TabsList className="h-7 w-full bg-muted/60">
+            <TabsTrigger value="all" className="text-[11px] px-2.5 py-1 h-5 data-[state=active]:shadow-none">All</TabsTrigger>
+            <TabsTrigger value="invoices" className="text-[11px] px-2.5 py-1 h-5 data-[state=active]:shadow-none">Invoices</TabsTrigger>
+            <TabsTrigger value="payments" className="text-[11px] px-2.5 py-1 h-5 data-[state=active]:shadow-none">Payments</TabsTrigger>
+            <TabsTrigger value="reminders" className="text-[11px] px-2.5 py-1 h-5 data-[state=active]:shadow-none">Reminders</TabsTrigger>
+          </TabsList>
         </div>
-      </CardContent>
+
+        <CardContent className="flex-1 overflow-auto pt-1 pb-3 px-3">
+          {filtered.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">No activity yet.</p>
+          ) : (
+            <div className="divide-y divide-border/50">
+              {filtered.map((activity) => (
+                <ActivityRow key={activity.id} activity={activity} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Tabs>
     </Card>
   );
 }
