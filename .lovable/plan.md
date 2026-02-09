@@ -1,96 +1,77 @@
 
-# Remove "TAX INVOICE" Label from Documents
 
-## Summary
+# Polish Work Queue List Layout
 
-Remove the "TAX INVOICE" label that appears above the document title on invoices, credit notes, and quotations. The document type heading (INVOICE, CREDIT NOTE, QUOTATION) already clearly identifies the document.
+## File: `src/components/WorkQueueCard.tsx`
 
----
+### Changes
 
-## Current State
+**1. Add a subtle header row to both tabs**
 
-The header currently displays:
-```
-TAX INVOICE     <-- Remove this
-INVOICE         <-- Keep this (document type)
-No: INV-2026-002
-Date: 04 Feb 2026
-Due: 04 Mar 2026
-```
+Before the list of items in each tab, insert a muted label row with columns: Invoice, Customer, Amount, Status/Overdue, and Action. The header uses `text-[11px] text-muted-foreground uppercase tracking-wide` styling with a bottom border divider.
 
-## After Change
-
-The header will display:
-```
-INVOICE
-No: INV-2026-002
-Date: 04 Feb 2026
-Due: 04 Mar 2026
-```
-
----
-
-## Implementation
-
-### File: `src/components/UnifiedInvoiceLayout.tsx`
-
-**Change 1 - Remove the HTML element (line 891):**
 ```tsx
-// Remove this line:
-<div className="tax-invoice-label">TAX INVOICE</div>
+{/* Header row - shown only when items exist */}
+<div className="flex items-center gap-2 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+  <span className="w-[100px] shrink-0">Invoice</span>
+  <span className="flex-1 min-w-0">Customer</span>
+  <span className="w-[90px] text-right shrink-0">Amount</span>
+  <span className="w-[80px] text-right shrink-0">Overdue</span>  {/* or "Status" for Needs Sending tab */}
+  <span className="w-[72px] text-right shrink-0">Action</span>
+</div>
 ```
 
-**Change 2 - Remove the base CSS styles (lines 460-468):**
-```css
-/* Remove this entire block: */
-/* Tax Invoice Label */
-#${id} .tax-invoice-label {
-  font-size: ${fontSize.tiny};
-  font-weight: 700;
-  color: #6b7280;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: ${isPdf ? '1mm' : '4px'};
-}
+**2. Reduce row vertical padding**
+
+Change each data row from `py-2 px-3` to `py-1.5 px-3` for a more compact feel.
+
+**3. Use fixed column widths for consistent alignment**
+
+Replace the current flex-based layout with explicit widths matching the header columns. Amount and Overdue/Status columns get `text-right` alignment.
+
+**4. Replace `space-y-1` with dividers between rows**
+
+Remove the `space-y-1` wrapper and instead apply `divide-y divide-border/60` on the row container so rows are separated by subtle lines instead of gaps.
+
+### Detailed row structure (Follow-up Queue tab)
+
+```tsx
+<div className="divide-y divide-border/60 pr-1">
+  {topOverdueInvoices.map((invoice) => (
+    <div key={invoice.id} className="flex items-center gap-2 py-1.5 px-3 hover:bg-muted/50 transition-colors">
+      <Link to={...} className="w-[100px] shrink-0 font-medium text-sm truncate ...">
+        {invoice.invoice_number}
+      </Link>
+      <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+        {invoice.customer_name}
+      </span>
+      <span className="w-[90px] text-right text-sm font-medium tabular-nums shrink-0">
+        {formatCurrency(invoice.total_amount)}
+      </span>
+      <div className="w-[80px] flex justify-end shrink-0">
+        <Badge ...>{invoice.days_overdue}d</Badge>
+      </div>
+      <div className="w-[72px] flex justify-end shrink-0">
+        <Button ...>Remind</Button>
+      </div>
+    </div>
+  ))}
+</div>
 ```
 
-**Change 3 - Remove from header color override (lines 614-618):**
-```css
-// Remove the tax-invoice-label reference from this rule
-```
+### Needs Sending tab
 
-**Change 4 - Remove Elegant template override (lines 678-680):**
-```css
-/* Remove this block: */
-#${id} .tax-invoice-label {
-  color: #6b7280;
-}
-```
+Same structure, but the 4th column header reads **Status** instead of **Overdue**, and shows the Draft/Not sent badge.
 
-**Change 5 - Remove Modern template override (lines 738-740):**
-```css
-/* Remove this block: */
-#${id} .tax-invoice-label {
-  color: #9ca3af;
-}
-```
+### Summary of changes
 
----
+| Aspect | Before | After |
+|--------|--------|-------|
+| Header row | None | Muted label row with column names |
+| Row padding | `py-2` | `py-1.5` |
+| Row separation | `space-y-1` (gaps) | `divide-y divide-border/60` (subtle lines) |
+| Amount alignment | Inline, inconsistent | Fixed width, right-aligned |
+| Overdue/Status alignment | Inline with action | Fixed width, right-aligned |
+| Column widths | Flexible/auto | Fixed widths matching header |
 
-## Impact
-
-| Document Type | Before | After |
-|--------------|--------|-------|
-| Invoice | Shows "TAX INVOICE" + "INVOICE" | Shows only "INVOICE" |
-| Credit Note | Shows "TAX INVOICE" + "CREDIT NOTE" | Shows only "CREDIT NOTE" |
-| Quotation | Shows "TAX INVOICE" + "QUOTATION" | Shows only "QUOTATION" |
-
----
-
-## Testing
-
-1. Navigate to Invoice Templates page
-2. Preview an invoice - verify "TAX INVOICE" label is gone
-3. Preview a credit note - verify "TAX INVOICE" label is gone  
-4. Preview a quotation - verify "TAX INVOICE" label is gone
-5. Download a PDF - verify the label is removed in the PDF output
+Only one file is modified: `src/components/WorkQueueCard.tsx`.
