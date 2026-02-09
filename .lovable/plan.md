@@ -1,62 +1,75 @@
 
-
-# Fix Work Queue Table Spacing and Alignment
+# Fix Work Queue Overflow — Responsive Compact List Layout
 
 ## File: `src/components/WorkQueueCard.tsx`
 
 ### Problem
-The Amount, Overdue, and Action columns stretch too far right because the flex layout fills the full container width, creating excessive gaps between the Customer column and the right-side columns.
+The current fixed-width table layout (with 140px + flex + 140px + 120px + 120px columns) overflows horizontally when the card is in a 6-column grid. The fixed widths total ~660px minimum, which exceeds the available space.
 
 ### Solution
-Update column widths to the requested values and wrap the table content in a `max-w-[700px]` container so it doesn't stretch across wide screens. Center-align the Overdue/Status column. Reduce row height slightly.
+Replace the table-style layout with a responsive compact list where each row uses a flexible two-part structure (left info + right actions) that never overflows.
 
-### Column width changes
+### New Row Structure
 
-| Column | Before | After |
-|--------|--------|-------|
-| Invoice | `w-[100px]` | `w-[140px]` |
-| Customer | `flex-1` | `flex-1` (unchanged) |
-| Amount | `w-[90px]` | `w-[140px]` right-aligned |
-| Overdue/Status | `w-[80px]` | `w-[120px]` center-aligned |
-| Action | `w-[72px]` | `w-[120px]` right-aligned |
+**Follow-up Queue rows:**
+```
+[Invoice# (bold)]          [Amount (bold)]
+[Customer (muted)]    [Overdue badge] [Remind btn]
+```
 
-### Detailed changes
+**Needs Sending rows:**
+```
+[Invoice# (bold)]          [Amount (bold)]
+[Customer (muted)]    [Status badge]  [Send btn]
+```
 
-**1. Wrap table content in a max-width container**
+### Detailed Changes
 
-Add `max-w-[700px]` to the header row and the row container so content stays compact and doesn't stretch edge-to-edge on wide cards.
+**1. Remove the table header rows entirely**
+Delete the fixed-width header divs (lines 173-178 and 269-274). The compact list layout is self-explanatory and doesn't need column headers.
 
-**2. Update header row widths (both tabs)**
-
+**2. Replace Follow-up Queue rows (lines 180-236)**
+Each row becomes:
 ```tsx
-<div className="flex items-center gap-1.5 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider max-w-[700px]">
-  <span className="w-[140px] shrink-0">Invoice</span>
-  <span className="flex-1 min-w-0">Customer</span>
-  <span className="w-[140px] text-right shrink-0">Amount</span>
-  <span className="w-[120px] text-center shrink-0">Overdue</span>
-  <span className="w-[120px] text-right shrink-0">Action</span>
+<div className="flex items-start justify-between gap-2 py-2 px-3 hover:bg-muted/50 transition-colors">
+  {/* Left side: invoice + customer stacked */}
+  <div className="min-w-0 flex-1">
+    <Link to={`/invoices/${invoice.id}`} className="text-sm font-medium hover:text-primary truncate block">
+      {invoice.invoice_number}
+    </Link>
+    <span className="text-xs text-muted-foreground truncate block">
+      {invoice.customer_name}
+    </span>
+  </div>
+  {/* Right side: amount, badge, button */}
+  <div className="flex items-center gap-2 shrink-0">
+    <div className="text-right">
+      <span className="text-sm font-medium tabular-nums block">{amount}</span>
+      <span className="overdue-badge...">{invoice.days_overdue}d</span>
+    </div>
+    <Button size="sm" className="h-7 px-2 text-xs">
+      <Bell className="h-3 w-3" />
+    </Button>
+  </div>
 </div>
 ```
 
-For the Needs Sending tab, the 4th column reads "Status" instead of "Overdue".
+**3. Replace Needs Sending rows (lines 276-313)**
+Same two-part structure but with Status badge and Send button instead.
 
-**3. Update data row widths and reduce gaps**
+**4. Update container styling**
+- Remove `max-w-[700px]` constraints (no longer needed)
+- Add `overflow-hidden` to prevent any horizontal scroll
+- The card already has `max-h-[360px]` and the tab content has `overflow-auto` for vertical scrolling
+- Keep `divide-y divide-border/60` for subtle row dividers
 
-- Change row `gap-2` to `gap-1.5` to tighten spacing
-- Change `py-1.5` to `py-1` for slightly shorter rows
-- Add `max-w-[700px]` to the row container
-- Update each column cell to match new widths
-- Change Overdue/Status from `justify-end` to `justify-center`
+**5. Compact Remind button**
+Change the Remind button to icon-only (just the Bell icon, no text) to save horizontal space. The Send button similarly becomes icon-only with just the Send icon.
 
-**4. Apply to both tabs**
-
-Both the Follow-up Queue and Needs Sending tabs get the same width and alignment updates.
-
-### Technical details
-
-All changes are in a single file: `src/components/WorkQueueCard.tsx`. The changes touch:
-- Lines 173-178 (Follow-up header row)
-- Lines 180-235 (Follow-up data rows)
-- Lines 269-274 (Needs Sending header row)  
-- Lines 276-313 (Needs Sending data rows)
-
+### What stays the same
+- Card header with tabs and "View all" link
+- Empty state messages
+- "X more need attention" / "X more to send" footer links
+- Max 6 visible rows
+- All click handlers and send logic
+- Overdue badge severity colors
