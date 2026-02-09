@@ -442,9 +442,9 @@ const Index = () => {
 
               {/* Desktop Layout - 12-column grid (8 + 4) */}
               <div className="hidden lg:grid lg:grid-cols-12 gap-6">
-                {/* Main Content - 8 columns */}
-                <div className="col-span-8 space-y-6">
-                  {/* Work Queue Card (Tabbed) */}
+              {/* Main Content - 8 columns, side-by-side cards */}
+                <div className="col-span-8 grid grid-cols-2 gap-6">
+                  {/* Work Queue Card */}
                   <WorkQueueCard
                     overdueInvoices={overdueInvoices}
                     needsSendingInvoices={needsSendingInvoices}
