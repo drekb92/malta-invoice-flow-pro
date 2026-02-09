@@ -89,16 +89,20 @@ export function ReceivablesAgingCard({
 
   const getBucketStyle = (index: number, hasItems: boolean) => {
     if (!hasItems) {
-      return "bg-muted/30 text-muted-foreground border-transparent";
+      return "bg-muted/20 text-muted-foreground border-transparent";
     }
-    // Soft, subtle backgrounds with minimal visual weight
     const styles = [
-      "bg-amber-50/60 text-amber-800 border-amber-100 hover:bg-amber-50",
-      "bg-orange-50/60 text-orange-800 border-orange-100 hover:bg-orange-50",
-      "bg-rose-50/60 text-rose-800 border-rose-100 hover:bg-rose-50",
-      "bg-red-50/60 text-red-800 border-red-100 hover:bg-red-50",
+      "bg-amber-50/40 text-amber-900 border-amber-100/60 hover:bg-amber-50/70",
+      "bg-orange-50/40 text-orange-900 border-orange-100/60 hover:bg-orange-50/70",
+      "bg-rose-50/40 text-rose-900 border-rose-100/60 hover:bg-rose-50/70",
+      "bg-red-50/40 text-red-900 border-red-100/60 hover:bg-red-50/70",
     ];
     return styles[index] || styles[0];
+  };
+
+  const getPercentOfOutstanding = (amount: number) => {
+    if (totalOverdue <= 0) return 0;
+    return Math.round((amount / totalOverdue) * 100);
   };
 
   return (
@@ -125,28 +129,38 @@ export function ReceivablesAgingCard({
           <>
             {/* Aging Tiles - 2x2 desktop, 1x4 mobile */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {agingBuckets.map((bucket, index) => (
-                <button
-                  key={bucket.range}
-                  onClick={() => bucket.count > 0 && handleBucketClick(bucket)}
-                  disabled={bucket.count === 0}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-md border transition-colors ${getBucketStyle(index, bucket.count > 0)} ${
-                    bucket.count > 0 ? "cursor-pointer" : "cursor-default opacity-50"
-                  }`}
-                >
-                  <div className="flex flex-col items-start gap-0.5">
-                    <span className="text-xs font-medium opacity-75">
-                      {bucket.label}
-                    </span>
-                    <span className="text-xs opacity-60">
-                      {bucket.count} invoice{bucket.count !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums">
-                    {bucket.count > 0 ? formatCurrency(bucket.amount) : "—"}
-                  </span>
-                </button>
-              ))}
+              {agingBuckets.map((bucket, index) => {
+                const pct = getPercentOfOutstanding(bucket.amount);
+                return (
+                  <button
+                    key={bucket.range}
+                    onClick={() => bucket.count > 0 && handleBucketClick(bucket)}
+                    disabled={bucket.count === 0}
+                    className={`flex flex-col items-start px-3 py-2 rounded-md border transition-colors min-h-[60px] justify-center ${getBucketStyle(index, bucket.count > 0)} ${
+                      bucket.count > 0 ? "cursor-pointer" : "cursor-default opacity-40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[11px] font-medium opacity-70">
+                        {bucket.label}
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums">
+                        {bucket.count > 0 ? formatCurrency(bucket.amount) : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between w-full mt-0.5">
+                      <span className="text-[10px] opacity-50">
+                        {bucket.count} invoice{bucket.count !== 1 ? "s" : ""}
+                      </span>
+                      {bucket.count > 0 && (
+                        <span className="text-[10px] opacity-50 tabular-nums">
+                          {pct}% of outstanding
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Start Follow-up Button */}
