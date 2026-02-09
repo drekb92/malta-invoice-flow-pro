@@ -8,6 +8,7 @@ interface MetricCardProps {
   change: string;
   changeType: "positive" | "negative" | "neutral";
   icon: LucideIcon;
+  subtitle?: string;
   onClick?: () => void;
   viewAllLabel?: string;
 }
@@ -18,6 +19,7 @@ export function MetricCard({
   change, 
   changeType, 
   icon: Icon, 
+  subtitle,
   onClick,
   viewAllLabel = "View all",
 }: MetricCardProps) {
@@ -44,7 +46,12 @@ export function MetricCard({
               </p>
             </div>
             <p className="text-2xl font-semibold tabular-nums mt-2">{value}</p>
-            <p className={`text-xs ${changeColor} mt-1`}>{change}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className={`text-xs ${changeColor}`}>{change}</p>
+              {subtitle && (
+                <span className="text-[10px] text-muted-foreground/70">· {subtitle}</span>
+              )}
+            </div>
           </div>
           {onClick && (
             <Button 
