@@ -91,10 +91,10 @@ export function WorkQueueCard({
     }
   };
 
-  const getOverdueBadgeVariant = (daysOverdue: number) => {
-    if (daysOverdue >= 14) return "destructive";
-    if (daysOverdue >= 7) return "secondary";
-    return "outline";
+  const getOverdueBadgeClasses = (daysOverdue: number) => {
+    if (daysOverdue >= 61) return "bg-red-100 text-red-800 border-red-300";
+    if (daysOverdue >= 31) return "bg-orange-100 text-orange-800 border-orange-300";
+    return "bg-amber-100 text-amber-800 border-amber-300";
   };
 
 
@@ -209,12 +209,11 @@ export function WorkQueueCard({
                           )}
                         </span>
                         <div className="w-[80px] flex justify-end shrink-0">
-                          <Badge
-                            variant={getOverdueBadgeVariant(invoice.days_overdue)}
-                            className="text-xs h-5 px-1.5"
+                          <span
+                            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-semibold leading-none ${getOverdueBadgeClasses(invoice.days_overdue)}`}
                           >
                             {invoice.days_overdue}d
-                          </Badge>
+                          </span>
                         </div>
                         <div className="w-[72px] flex justify-end shrink-0">
                           <Button
