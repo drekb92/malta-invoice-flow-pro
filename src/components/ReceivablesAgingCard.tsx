@@ -20,6 +20,7 @@ interface OverdueInvoice {
   customer_id: string;
   customer_name?: string;
   total_amount: number;
+  balance_due: number;
   due_date: string;
   days_overdue: number;
   last_sent_at?: string | null;
