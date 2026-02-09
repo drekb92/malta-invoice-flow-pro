@@ -6,7 +6,7 @@ const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableE
     // IMPORTANT:
     // Use horizontal scroll only. Vertical scroll should be the page scroll,
     // otherwise sticky headers won't stick to the viewport.
-    <div className="relative w-full overflow-x-auto">
+    <div className="relative w-full">
       <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   ),
