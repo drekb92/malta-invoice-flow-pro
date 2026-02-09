@@ -1,75 +1,52 @@
 
-# Fix Work Queue Overflow — Responsive Compact List Layout
+# Fix Sticky Table Headers on Invoices Page
 
-## File: `src/components/WorkQueueCard.tsx`
+## Problem
+The `sticky top-0` classes on `TableHead` cells don't work because the `Table` component wraps the `<table>` in a `<div className="overflow-x-auto">`. Any `overflow` property (other than `visible`) on an ancestor creates a new scroll container, which prevents `position: sticky` from sticking relative to the viewport.
 
-### Problem
-The current fixed-width table layout (with 140px + flex + 140px + 120px + 120px columns) overflows horizontally when the card is in a 6-column grid. The fixed widths total ~660px minimum, which exceeds the available space.
+## Solution
+Move the sticky behavior from individual `<th>` cells to the `<thead>` element, and update the `Table` wrapper to not block sticky positioning.
 
-### Solution
-Replace the table-style layout with a responsive compact list where each row uses a flexible two-part structure (left info + right actions) that never overflows.
+### Changes
 
-### New Row Structure
+**1. `src/components/ui/table.tsx` — Remove `overflow-x-auto` from wrapper**
 
-**Follow-up Queue rows:**
-```
-[Invoice# (bold)]          [Amount (bold)]
-[Customer (muted)]    [Overdue badge] [Remind btn]
-```
+Change the Table wrapper from `overflow-x-auto` to `overflow-x-visible` (or remove overflow entirely). Since the invoices table fits within the viewport width, horizontal scroll isn't needed here. To avoid breaking other tables that may need horizontal scroll, we'll keep the wrapper but make its overflow configurable by allowing className overrides to reach the wrapper div.
 
-**Needs Sending rows:**
-```
-[Invoice# (bold)]          [Amount (bold)]
-[Customer (muted)]    [Status badge]  [Send btn]
-```
+Actually, the simplest fix: change `overflow-x-auto` to `overflow-x-auto overflow-y-visible` so that vertical sticky still works. Unfortunately, CSS does not allow `overflow-x: auto` with `overflow-y: visible` — browsers convert `visible` to `auto` when the other axis is not `visible`.
 
-### Detailed Changes
+**Best approach**: Remove `overflow-x-auto` from the Table component's wrapper entirely and instead apply it only where needed via className. This keeps the component flexible.
 
-**1. Remove the table header rows entirely**
-Delete the fixed-width header divs (lines 173-178 and 269-274). The compact list layout is self-explanatory and doesn't need column headers.
-
-**2. Replace Follow-up Queue rows (lines 180-236)**
-Each row becomes:
+Replace the wrapper:
 ```tsx
-<div className="flex items-start justify-between gap-2 py-2 px-3 hover:bg-muted/50 transition-colors">
-  {/* Left side: invoice + customer stacked */}
-  <div className="min-w-0 flex-1">
-    <Link to={`/invoices/${invoice.id}`} className="text-sm font-medium hover:text-primary truncate block">
-      {invoice.invoice_number}
-    </Link>
-    <span className="text-xs text-muted-foreground truncate block">
-      {invoice.customer_name}
-    </span>
-  </div>
-  {/* Right side: amount, badge, button */}
-  <div className="flex items-center gap-2 shrink-0">
-    <div className="text-right">
-      <span className="text-sm font-medium tabular-nums block">{amount}</span>
-      <span className="overdue-badge...">{invoice.days_overdue}d</span>
-    </div>
-    <Button size="sm" className="h-7 px-2 text-xs">
-      <Bell className="h-3 w-3" />
-    </Button>
-  </div>
-</div>
+<div className="relative w-full">
+```
+(Remove `overflow-x-auto` — pages that need horizontal scroll can add it themselves.)
+
+**2. `src/pages/Invoices.tsx` — Apply sticky to `<TableHeader>` instead of individual cells**
+
+Replace the individual `sticky top-0 z-20 bg-card shadow-sm` on each `<TableHead>` with a single sticky class on `<TableHeader>`:
+
+```tsx
+<TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
+  <TableRow>
+    <TableHead>Invoice #</TableHead>
+    <TableHead>Customer</TableHead>
+    <TableHead>Amount</TableHead>
+    <TableHead>Status</TableHead>
+    <TableHead>Issue Date</TableHead>
+    <TableHead>Due Date</TableHead>
+    <TableHead className="text-right">Actions</TableHead>
+  </TableRow>
+</TableHeader>
 ```
 
-**3. Replace Needs Sending rows (lines 276-313)**
-Same two-part structure but with Status badge and Send button instead.
+Note: `<thead>` with `position: sticky` works in modern browsers. The `bg-card` ensures the header has an opaque background so content scrolling beneath it is hidden. The subtle `shadow` replaces the border for a clean separation line.
 
-**4. Update container styling**
-- Remove `max-w-[700px]` constraints (no longer needed)
-- Add `overflow-hidden` to prevent any horizontal scroll
-- The card already has `max-h-[360px]` and the tab content has `overflow-auto` for vertical scrolling
-- Keep `divide-y divide-border/60` for subtle row dividers
+### Why this works
+- Removing `overflow-x-auto` from the Table wrapper means the nearest scroll ancestor for `sticky` is the viewport (the page itself)
+- `sticky top-0` on `<thead>` pins the entire header row to the top of the viewport when scrolling
+- The `bg-card` background and shadow ensure readability over scrolled content
 
-**5. Compact Remind button**
-Change the Remind button to icon-only (just the Bell icon, no text) to save horizontal space. The Send button similarly becomes icon-only with just the Send icon.
-
-### What stays the same
-- Card header with tabs and "View all" link
-- Empty state messages
-- "X more need attention" / "X more to send" footer links
-- Max 6 visible rows
-- All click handlers and send logic
-- Overdue badge severity colors
+### Risk
+- Other pages using `<Table>` that relied on `overflow-x-auto` for horizontal scrolling will lose that. A quick search will confirm if any other table needs it — if so, those pages can add `overflow-x-auto` to their own wrapper.
