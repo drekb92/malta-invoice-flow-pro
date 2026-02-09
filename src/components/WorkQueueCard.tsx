@@ -167,51 +167,60 @@ export function WorkQueueCard({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-1 pr-1">
-                  {topOverdueInvoices.map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                <>
+                  <div className="flex items-center gap-2 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                    <span className="w-[100px] shrink-0">Invoice</span>
+                    <span className="flex-1 min-w-0">Customer</span>
+                    <span className="w-[90px] text-right shrink-0">Amount</span>
+                    <span className="w-[80px] text-right shrink-0">Overdue</span>
+                    <span className="w-[72px] text-right shrink-0">Action</span>
+                  </div>
+                  <div className="divide-y divide-border/60 pr-1">
+                    {topOverdueInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center gap-2 py-1.5 px-3 hover:bg-muted/50 transition-colors"
+                      >
                         <Link
                           to={`/invoices/${invoice.id}`}
-                          className="font-medium text-sm hover:text-primary transition-colors truncate shrink-0"
+                          className="w-[100px] shrink-0 font-medium text-sm hover:text-primary transition-colors truncate"
                         >
                           {invoice.invoice_number}
                         </Link>
-                        <span className="text-xs text-muted-foreground truncate">
+                        <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
                           {invoice.customer_name}
                         </span>
+                        <span className="w-[90px] text-right text-sm font-medium tabular-nums shrink-0">
+                          {formatCurrency(invoice.total_amount)}
+                        </span>
+                        <div className="w-[80px] flex justify-end shrink-0">
+                          <Badge
+                            variant={getOverdueBadgeVariant(invoice.days_overdue)}
+                            className="text-xs h-5 px-1.5"
+                          >
+                            {invoice.days_overdue}d
+                          </Badge>
+                        </div>
+                        <div className="w-[72px] flex justify-end shrink-0">
+                          <Button
+                            size="sm"
+                            className="h-7 px-3 text-xs"
+                            onClick={() => handleSendReminder(invoice)}
+                            disabled={sending && sendingInvoiceId === invoice.id}
+                          >
+                            {sending && sendingInvoiceId === invoice.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <>
+                                <Bell className="h-3 w-3 mr-1" />
+                                Remind
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                      <span className="text-sm font-medium tabular-nums shrink-0">
-                        {formatCurrency(invoice.total_amount)}
-                      </span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge
-                          variant={getOverdueBadgeVariant(invoice.days_overdue)}
-                          className="text-xs h-5 px-1.5"
-                        >
-                          {invoice.days_overdue}d overdue
-                        </Badge>
-                        <Button
-                          size="sm"
-                          className="h-7 px-3 text-xs"
-                          onClick={() => handleSendReminder(invoice)}
-                          disabled={sending && sendingInvoiceId === invoice.id}
-                        >
-                          {sending && sendingInvoiceId === invoice.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <>
-                              <Bell className="h-3 w-3 mr-1" />
-                              Remind
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
 
                   {remainingOverdueCount > 0 && (
                     <div className="text-center pt-2 border-t mt-2">
@@ -225,7 +234,7 @@ export function WorkQueueCard({
                       </Button>
                     </div>
                   )}
-                </div>
+                </>
               )}
             </TabsContent>
 
@@ -242,44 +251,53 @@ export function WorkQueueCard({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-1 pr-1">
-                  {needsSendingInvoices.slice(0, 6).map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-md hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                <>
+                  <div className="flex items-center gap-2 px-3 pb-1.5 mb-1 border-b text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                    <span className="w-[100px] shrink-0">Invoice</span>
+                    <span className="flex-1 min-w-0">Customer</span>
+                    <span className="w-[90px] text-right shrink-0">Amount</span>
+                    <span className="w-[80px] text-right shrink-0">Status</span>
+                    <span className="w-[72px] text-right shrink-0">Action</span>
+                  </div>
+                  <div className="divide-y divide-border/60 pr-1">
+                    {needsSendingInvoices.slice(0, 6).map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center gap-2 py-1.5 px-3 hover:bg-muted/50 transition-colors"
+                      >
                         <button
                           onClick={() => navigate(`/invoices/${invoice.id}`)}
-                          className="font-medium text-sm hover:text-primary transition-colors truncate shrink-0"
+                          className="w-[100px] shrink-0 font-medium text-sm hover:text-primary transition-colors truncate text-left"
                         >
                           {invoice.invoice_number}
                         </button>
-                        <span className="text-xs text-muted-foreground truncate">
+                        <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
                           {invoice.customer_name}
                         </span>
+                        <span className="w-[90px] text-right text-sm font-medium tabular-nums shrink-0">
+                          {formatCurrency(invoice.total_amount)}
+                        </span>
+                        <div className="w-[80px] flex justify-end shrink-0">
+                          <Badge
+                            variant={invoice.status === "draft" ? "secondary" : "outline"}
+                            className="text-xs h-5 px-1.5"
+                          >
+                            {invoice.status === "draft" ? "Draft" : "Not sent"}
+                          </Badge>
+                        </div>
+                        <div className="w-[72px] flex justify-end shrink-0">
+                          <Button
+                            size="sm"
+                            className="h-7 px-3 text-xs"
+                            onClick={() => handleSendClick(invoice)}
+                          >
+                            <Send className="h-3 w-3 mr-1" />
+                            Send
+                          </Button>
+                        </div>
                       </div>
-                      <span className="text-sm font-medium tabular-nums shrink-0">
-                        {formatCurrency(invoice.total_amount)}
-                      </span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge
-                          variant={invoice.status === "draft" ? "secondary" : "outline"}
-                          className="text-xs h-5 px-1.5"
-                        >
-                          {invoice.status === "draft" ? "Draft" : "Not sent"}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          className="h-7 px-3 text-xs"
-                          onClick={() => handleSendClick(invoice)}
-                        >
-                          <Send className="h-3 w-3 mr-1" />
-                          Send
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
 
                   {needsSendingInvoices.length > 6 && (
                     <div className="text-center pt-2 border-t mt-2">
@@ -293,7 +311,7 @@ export function WorkQueueCard({
                       </Button>
                     </div>
                   )}
-                </div>
+                </>
               )}
             </TabsContent>
           </Tabs>
