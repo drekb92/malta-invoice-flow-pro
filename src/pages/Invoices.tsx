@@ -512,17 +512,18 @@ const Invoices = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-20 bg-card shadow-sm">
                   <TableRow>
-                    <TableHead className="sticky top-0 z-10 bg-card">Invoice #</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-card">Customer</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-card">Amount</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-card">Status</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-card">Issue Date</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-card">Due Date</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-card text-right">Actions</TableHead>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Issue Date</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {loading ? (
                     <TableRow>
