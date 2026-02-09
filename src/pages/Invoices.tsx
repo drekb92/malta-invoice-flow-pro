@@ -34,12 +34,7 @@ import {
   Wallet,
   FileMinus2,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -191,8 +186,7 @@ const Invoices = () => {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (invoice) =>
-          invoice.invoice_number?.toLowerCase().includes(term) ||
-          invoice.customers?.name?.toLowerCase().includes(term),
+          invoice.invoice_number?.toLowerCase().includes(term) || invoice.customers?.name?.toLowerCase().includes(term),
       );
     }
 
@@ -520,13 +514,13 @@ const Invoices = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Invoice #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Issue Date</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Invoice #</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Customer</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Amount</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Status</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Issue Date</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card">Due Date</TableHead>
+                    <TableHead className="sticky top-0 z-10 bg-card text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -578,8 +572,8 @@ const Invoices = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-col gap-0.5">
-                              <Badge className={statusBadge.className}>
+                            <div className="flex flex-col items-start gap-0.5">
+                              <Badge className={`${statusBadge.className} w-fit whitespace-nowrap`}>
                                 <span className="flex items-center gap-1.5">
                                   {StatusIcon && <StatusIcon className="h-3 w-3" />}
                                   {statusBadge.label}
@@ -587,7 +581,8 @@ const Invoices = () => {
                               </Badge>
                               {invoice.last_sent_at && (
                                 <span className="text-[10px] text-muted-foreground">
-                                  Sent {format(new Date(invoice.last_sent_at), "dd MMM")} via {invoice.last_sent_channel === 'whatsapp' ? 'WhatsApp' : 'Email'}
+                                  Sent {format(new Date(invoice.last_sent_at), "dd MMM")} via{" "}
+                                  {invoice.last_sent_channel === "whatsapp" ? "WhatsApp" : "Email"}
                                 </span>
                               )}
                             </div>
@@ -598,27 +593,31 @@ const Invoices = () => {
                           <TableCell>{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
-                              {invoice.status !== "paid" && invoice.status !== "credited" && invoice.status !== "draft" && invoice.status !== "cancelled" && (invoice as any).is_issued && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 px-2 text-xs"
-                                        onClick={() => handleOpenMarkPaid(invoice)}
-                                        aria-label="Add payment"
-                                      >
-                                        <Wallet className="h-3.5 w-3.5 md:mr-1" />
-                                        <span className="hidden md:inline">Add payment</span>
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Record a payment for this invoice</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
+                              {invoice.status !== "paid" &&
+                                invoice.status !== "credited" &&
+                                invoice.status !== "draft" &&
+                                invoice.status !== "cancelled" &&
+                                (invoice as any).is_issued && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 px-2 text-xs"
+                                          onClick={() => handleOpenMarkPaid(invoice)}
+                                          aria-label="Add payment"
+                                        >
+                                          <Wallet className="h-3.5 w-3.5 md:mr-1" />
+                                          <span className="hidden md:inline">Add payment</span>
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Record a payment for this invoice</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
 
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -645,17 +644,22 @@ const Invoices = () => {
                                     <Download className="h-4 w-4 mr-2" />
                                     Download PDF
                                   </DropdownMenuItem>
-                                  {invoice.status !== "paid" && invoice.status !== "draft" && invoice.status !== "cancelled" && (invoice as any).is_issued && (
-                                    <DropdownMenuItem onClick={() => handleIssueCreditNote(invoice)}>
-                                      <div className="flex flex-col">
-                                        <div className="flex items-center">
-                                          <FileMinus2 className="h-4 w-4 mr-2" />
-                                          Create credit note
+                                  {invoice.status !== "paid" &&
+                                    invoice.status !== "draft" &&
+                                    invoice.status !== "cancelled" &&
+                                    (invoice as any).is_issued && (
+                                      <DropdownMenuItem onClick={() => handleIssueCreditNote(invoice)}>
+                                        <div className="flex flex-col">
+                                          <div className="flex items-center">
+                                            <FileMinus2 className="h-4 w-4 mr-2" />
+                                            Create credit note
+                                          </div>
+                                          <span className="text-xs text-muted-foreground ml-6">
+                                            Linked to this invoice
+                                          </span>
                                         </div>
-                                        <span className="text-xs text-muted-foreground ml-6">Linked to this invoice</span>
-                                      </div>
-                                    </DropdownMenuItem>
-                                  )}
+                                      </DropdownMenuItem>
+                                    )}
                                   {!(invoice as any).is_issued && (
                                     <DropdownMenuItem
                                       onClick={() => handleDeleteInvoice(invoice.id)}
@@ -753,7 +757,7 @@ const Invoices = () => {
                   totalsStyle: template?.totals_style || "default",
                   bankingVisibility: template?.banking_visibility !== false,
                   bankingStyle: template?.banking_style || "default",
-                  style: template?.style || 'modern',
+                  style: template?.style || "modern",
                   marginTop: template?.margin_top || 20,
                   marginRight: template?.margin_right || 20,
                   marginBottom: template?.margin_bottom || 20,
@@ -863,18 +867,22 @@ const Invoices = () => {
         <InvoiceSettlementSheet
           open={!!settlementInvoice}
           onOpenChange={(open) => !open && setSettlementInvoice(null)}
-          invoice={settlementInvoice ? {
-            id: settlementInvoice.id,
-            invoice_number: settlementInvoice.invoice_number,
-            invoice_date: settlementInvoice.invoice_date || settlementInvoice.created_at,
-            due_date: settlementInvoice.due_date,
-            status: settlementInvoice.status,
-            total_amount: settlementInvoice.total_amount || settlementInvoice.amount || 0,
-            amount: settlementInvoice.amount,
-            vat_amount: settlementInvoice.vat_amount,
-            is_issued: (settlementInvoice as any).is_issued || false,
-            customer_id: settlementInvoice.customer_id,
-          } : null}
+          invoice={
+            settlementInvoice
+              ? {
+                  id: settlementInvoice.id,
+                  invoice_number: settlementInvoice.invoice_number,
+                  invoice_date: settlementInvoice.invoice_date || settlementInvoice.created_at,
+                  due_date: settlementInvoice.due_date,
+                  status: settlementInvoice.status,
+                  total_amount: settlementInvoice.total_amount || settlementInvoice.amount || 0,
+                  amount: settlementInvoice.amount,
+                  vat_amount: settlementInvoice.vat_amount,
+                  is_issued: (settlementInvoice as any).is_issued || false,
+                  customer_id: settlementInvoice.customer_id,
+                }
+              : null
+          }
         />
       </div>
     </div>
