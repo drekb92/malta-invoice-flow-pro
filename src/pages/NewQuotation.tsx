@@ -46,7 +46,7 @@ const NewQuotation = () => {
   const [validUntil, setValidUntil] = useState(
     format(addDays(new Date(), 30), "yyyy-MM-dd")
   );
-  const [status, setStatus] = useState("draft");
+  
   const [items, setItems] = useState<QuotationItem[]>([
     {
       description: "",
@@ -143,7 +143,7 @@ const NewQuotation = () => {
       setSelectedCustomer(data.customer_id);
       setIssueDate(data.issue_date || data.created_at.split("T")[0]);
       setValidUntil(data.valid_until);
-      setStatus(data.status || "draft");
+      
 
       if (data.quotation_items && data.quotation_items.length > 0) {
         setItems(
@@ -235,7 +235,7 @@ const NewQuotation = () => {
         total_amount: total,
         issue_date: issueDate,
         valid_until: validUntil,
-        status,
+        status: "draft",
         user_id: user?.id,
         vat_rate: 0.18,
       };
