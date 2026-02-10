@@ -126,8 +126,28 @@ const Quotations = () => {
 
       if (error) throw error;
 
-      setQuotations(data || []);
-      setFiltered(data || []);
+      // Auto-expire quotations past their valid_until date
+      const today = new Date().toISOString().split("T")[0];
+      const toExpire = (data || []).filter(
+        (q) => q.valid_until < today && !["accepted", "converted", "expired"].includes(q.status)
+      );
+
+      if (toExpire.length > 0) {
+        await supabase
+          .from("quotations")
+          .update({ status: "expired" })
+          .in("id", toExpire.map((q) => q.id));
+
+        const expiredIds = new Set(toExpire.map((q) => q.id));
+        const updated = (data || []).map((q) =>
+          expiredIds.has(q.id) ? { ...q, status: "expired" } : q
+        );
+        setQuotations(updated);
+        setFiltered(updated);
+      } else {
+        setQuotations(data || []);
+        setFiltered(data || []);
+      }
     } catch (e) {
       toast({ title: "Error", description: "Failed to load quotations", variant: "destructive" });
     } finally {
