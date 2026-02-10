@@ -384,6 +384,20 @@ const Quotations = () => {
         return;
       }
 
+      // Update status to "sent" if currently draft
+      if (quotation.status === "draft") {
+        await supabase
+          .from("quotations")
+          .update({ status: "sent" })
+          .eq("id", quotation.id);
+        setQuotations((prev) =>
+          prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q))
+        );
+        setFiltered((prev) =>
+          prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q))
+        );
+      }
+
       toast({
         title: "WhatsApp opened",
         description: "Share link created and WhatsApp opened.",
@@ -873,6 +887,20 @@ const Quotations = () => {
           companyName={companySettings.company_name || "Company"}
           userId={user.id}
           fontFamily={template?.font_family}
+          onSuccess={async () => {
+            if (emailQuotation.status === "draft") {
+              await supabase
+                .from("quotations")
+                .update({ status: "sent" })
+                .eq("id", emailQuotation.id);
+              setQuotations((prev) =>
+                prev.map((q) => (q.id === emailQuotation.id ? { ...q, status: "sent" } : q))
+              );
+              setFiltered((prev) =>
+                prev.map((q) => (q.id === emailQuotation.id ? { ...q, status: "sent" } : q))
+              );
+            }
+          }}
         />
       )}
     </div>
