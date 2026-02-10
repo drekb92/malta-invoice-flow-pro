@@ -399,23 +399,6 @@ const NewQuotation = () => {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select
-                        value={status}
-                        onValueChange={(v) => setStatus(v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="sent">Sent</SelectItem>
-                          <SelectItem value="accepted">Accepted</SelectItem>
-                          <SelectItem value="expired">Expired</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
                   {selectedCustomer && (
