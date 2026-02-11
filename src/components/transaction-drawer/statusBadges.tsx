@@ -30,7 +30,7 @@ const STATUS_LABELS: Record<string, string> = {
   overdue: "Overdue",
   sent: "Sent",
   accepted: "Accepted",
-  converted: "Converted",
+  converted: "Converted to Invoice",
   expired: "Expired",
   applied: "Applied",
 };

@@ -502,7 +502,7 @@ const Quotations = () => {
 
       if (updErr) throw updErr;
 
-      toast({ title: "Converted", description: "Quotation converted to invoice." });
+      toast({ title: "Converted to Invoice", description: "Quotation converted to invoice." });
 
       // ✅ Go back to invoice list instead of broken detail route
       navigate("/invoices");
@@ -598,7 +598,7 @@ const Quotations = () => {
                 <DropdownMenuItem onClick={() => setStatusFilter("draft")}>Draft</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("sent")}>Sent</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("accepted")}>Accepted</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("converted")}>Converted</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("converted")}>Converted to Invoice</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("expired")}>Expired</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -653,7 +653,7 @@ const Quotations = () => {
                         <TableCell>{formatCurrency(q.total_amount || q.amount || 0)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusBadge(q.status)}>
-                            {q.status.charAt(0).toUpperCase() + q.status.slice(1)}
+                            {q.status === "converted" ? "Converted to Invoice" : q.status.charAt(0).toUpperCase() + q.status.slice(1)}
                           </Badge>
                         </TableCell>
                         <TableCell>{format(new Date(q.issue_date || q.created_at), "dd/MM/yyyy")}</TableCell>
