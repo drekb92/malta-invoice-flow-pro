@@ -110,6 +110,11 @@ const getStatusBadge = (status: string) => {
       icon: FileText,
       label: "Draft",
     },
+    void: {
+      className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+      icon: FileText,
+      label: "Void",
+    },
   };
   return variants[status] || variants.draft;
 };
@@ -392,7 +397,22 @@ export const InvoiceSettlementSheet = ({
 
   if (!invoice) return null;
 
-  const statusBadge = getStatusBadge(invoice.status);
+  const computedStatus = (() => {
+    if (invoice.status === "void") return "void";
+    if (remainingBalance <= 0 && payments.length > 0) return "paid";
+    if (totalPayments > 0 && remainingBalance > 0) return "partially_paid";
+    if (invoice.is_issued) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(invoice.due_date);
+      due.setHours(0, 0, 0, 0);
+      if (due < today) return "overdue";
+      return "issued";
+    }
+    return "draft";
+  })();
+
+  const statusBadge = getStatusBadge(computedStatus);
   const StatusIcon = statusBadge.icon;
 
   const getBalanceDisplay = () => {
