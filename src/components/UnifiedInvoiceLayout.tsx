@@ -583,6 +583,31 @@ export const UnifiedInvoiceLayout = ({
       line-height: 1.4;
     }
 
+    /* Terms & Conditions - Quotation only */
+    #${id} .terms-section {
+      margin-top: ${isPdf ? '5mm' : '18px'};
+      padding-top: ${isPdf ? '3mm' : '12px'};
+      border-top: 1px solid #e5e7eb;
+    }
+    #${id} .terms-section .section-label {
+      font-size: ${isPdf ? '7pt' : '9px'};
+      font-weight: 700;
+      color: #9ca3af;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: ${isPdf ? '1.5mm' : '6px'};
+    }
+    #${id} .terms-section ol {
+      margin: 0;
+      padding-left: ${isPdf ? '4mm' : '16px'};
+      font-size: ${isPdf ? '8pt' : '10px'};
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+    #${id} .terms-section ol li {
+      margin-bottom: ${isPdf ? '0.8mm' : '3px'};
+    }
+
     /* ============ STYLE-SPECIFIC OVERRIDES ============ */
     
     ${templateStyle === 'modern' ? `
@@ -1079,6 +1104,17 @@ export const UnifiedInvoiceLayout = ({
                     <strong>SWIFT:</strong> {bankingSettings.swiftCode}
                   </div>
                 )}
+              </div>
+            )}
+
+            {documentType === "QUOTATION" && (
+              <div className="terms-section">
+                <div className="section-label">Terms &amp; Conditions</div>
+                <ol>
+                  <li>This quotation is valid until {formatDate(invoiceData.dueDate)}.</li>
+                  <li>Work will commence upon acceptance.</li>
+                  <li>Any additional services will be quoted separately.</li>
+                </ol>
               </div>
             )}
 
