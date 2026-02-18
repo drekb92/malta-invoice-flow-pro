@@ -24,6 +24,7 @@ import {
   Download,
   MessageCircle,
   Loader2,
+  Send,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -89,10 +90,18 @@ const Quotations = () => {
   const [isConverting, setIsConverting] = useState(false);
   const [drawerQuotation, setDrawerQuotation] = useState<Quotation | null>(null);
   const [pdfQuotationData, setPdfQuotationData] = useState<InvoiceData | null>(null);
+  const [pdfInvoiceData, setPdfInvoiceData] = useState<InvoiceData | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailQuotation, setEmailQuotation] = useState<Quotation | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState<string | null>(null);
+
+  // Convert & Send state
+  const [convertAndSendDialogOpen, setConvertAndSendDialogOpen] = useState(false);
+  const [convertAndSendQuotation, setConvertAndSendQuotation] = useState<Quotation | null>(null);
+  const [convertAndSendDateOption, setConvertAndSendDateOption] = useState<"quotation" | "today" | "custom">("today");
+  const [convertAndSendCustomDate, setConvertAndSendCustomDate] = useState<Date | undefined>(undefined);
+  const [isConvertingAndSending, setIsConvertingAndSending] = useState(false);
 
   const navigate = useNavigate();
   
@@ -528,6 +537,13 @@ const Quotations = () => {
     setConvertDialogOpen(true);
   };
 
+  const openConvertAndSendDialog = (q: Quotation) => {
+    setConvertAndSendQuotation(q);
+    setConvertAndSendDateOption("today");
+    setConvertAndSendCustomDate(undefined);
+    setConvertAndSendDialogOpen(true);
+  };
+
   const confirmConvert = async () => {
     if (!selectedQuotation) return;
 
@@ -549,6 +565,200 @@ const Quotations = () => {
       setSelectedQuotation(null);
     } finally {
       setIsConverting(false);
+    }
+  };
+
+  const handleConvertAndSend = async (quotationId: string, invoiceDateOverride?: Date) => {
+    if (!user) return;
+
+    try {
+      // Load quotation + items + customer
+      const { data: qData, error: qErr } = await supabase
+        .from("quotations")
+        .select(`
+          *,
+          customers ( name, email, address, vat_number, payment_terms ),
+          quotation_items ( description, quantity, unit, unit_price, vat_rate )
+        `)
+        .eq("id", quotationId)
+        .single();
+
+      if (qErr) throw qErr;
+
+      // Validate customer email
+      const customerEmail = qData.customers?.email;
+      if (!customerEmail) {
+        toast({
+          title: "No email address",
+          description: "This customer has no email address. Please add one before sending.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const invoiceNumber = await generateNextInvoiceNumber();
+
+      const baseDateObj = invoiceDateOverride
+        ? new Date(invoiceDateOverride)
+        : new Date();
+
+      const paymentTerms = qData.customers?.payment_terms || "Net 30";
+      const daysMatch = paymentTerms.match(/\d+/);
+      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      const dueDate = addDays(baseDateObj, paymentDays);
+
+      // Create invoice with status "sent" and is_issued = true
+      const invoicePayload: TablesInsert<"invoices"> = {
+        invoice_number: invoiceNumber,
+        customer_id: qData.customer_id,
+        amount: qData.amount,
+        vat_amount: qData.vat_amount,
+        total_amount: qData.total_amount,
+        invoice_date: baseDateObj.toISOString().split("T")[0],
+        due_date: dueDate.toISOString().split("T")[0],
+        status: "sent",
+        is_issued: true,
+        issued_at: new Date().toISOString(),
+        user_id: (qData as any).user_id,
+        discount_type: "amount",
+        discount_value: 0,
+        discount_reason: "",
+        vat_rate: qData.vat_rate || 0.18,
+      };
+
+      const { data: inv, error: invErr } = await supabase.from("invoices").insert(invoicePayload).select("id").single();
+      if (invErr) throw invErr;
+
+      // Generate and store invoice hash
+      const { invoiceService } = await import("@/services/invoiceService");
+      const invoiceHash = await invoiceService.generateInvoiceHash(inv.id, invoiceNumber);
+      await supabase.from("invoices").update({ invoice_hash: invoiceHash }).eq("id", inv.id);
+
+      // Insert invoice items
+      const itemsPayload = (qData.quotation_items || []).map((it: any) => ({
+        invoice_id: inv.id,
+        description: it.description,
+        quantity: it.quantity,
+        unit: it.unit,
+        unit_price: it.unit_price,
+        vat_rate: it.vat_rate,
+      }));
+
+      if (itemsPayload.length > 0) {
+        const { error: itemsErr } = await supabase.from("invoice_items").insert(itemsPayload);
+        if (itemsErr) throw itemsErr;
+      }
+
+      // Build InvoiceData for PDF rendering
+      const newInvoiceData: InvoiceData = {
+        invoiceNumber: invoiceNumber,
+        invoiceDate: baseDateObj.toISOString().split("T")[0],
+        dueDate: dueDate.toISOString().split("T")[0],
+        customer: {
+          name: qData.customers?.name || "Unknown Customer",
+          email: qData.customers?.email,
+          address: qData.customers?.address,
+          vat_number: qData.customers?.vat_number,
+        },
+        items: (qData.quotation_items || []).map((item: any) => ({
+          description: item.description,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate || 0.18,
+          unit: item.unit || "unit",
+        })),
+        totals: {
+          netTotal: qData.amount || 0,
+          vatTotal: qData.vat_amount || 0,
+          grandTotal: qData.total_amount || qData.amount || 0,
+        },
+      };
+
+      // Render hidden invoice PDF layout
+      setPdfInvoiceData(newInvoiceData);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // Capture HTML from the hidden invoice send container
+      const root = document.getElementById("invoice-send-root") as HTMLElement | null;
+      if (!root) throw new Error("PDF render container not found");
+
+      const { buildA4HtmlDocument } = await import("@/lib/edgePdf");
+      const html = buildA4HtmlDocument({
+        filename: `Invoice-${invoiceNumber}`,
+        fontFamily: template?.font_family || "Inter",
+        clonedRoot: root.cloneNode(true) as HTMLElement,
+      });
+
+      // Send via edge function
+      const { error: sendError } = await supabase.functions.invoke("send-document-email", {
+        body: {
+          to: customerEmail,
+          subject: `Invoice ${invoiceNumber}`,
+          messageHtml: `<p>Please find your invoice <strong>${invoiceNumber}</strong> attached.</p>`,
+          filename: `Invoice-${invoiceNumber}`,
+          html,
+          userId: user.id,
+          documentType: "invoice",
+          documentId: inv.id,
+          documentNumber: invoiceNumber,
+          customerId: qData.customer_id,
+        },
+      });
+
+      if (sendError) throw sendError;
+
+      // Mark quotation as converted
+      await supabase
+        .from("quotations")
+        .update({ status: "converted" })
+        .eq("id", quotationId)
+        .eq("user_id", user.id);
+
+      toast({
+        title: "Invoice sent!",
+        description: `Invoice ${invoiceNumber} sent to ${customerEmail}.`,
+      });
+
+      fetchQuotations();
+      navigate(`/invoices/${inv.id}`);
+    } catch (e: any) {
+      console.error("[ConvertAndSend] Error:", e);
+      toast({
+        title: "Error",
+        description: e?.message || "Failed to convert and send",
+        variant: "destructive",
+      });
+    } finally {
+      setPdfInvoiceData(null);
+    }
+  };
+
+  const confirmConvertAndSend = async () => {
+    if (!convertAndSendQuotation) return;
+
+    if (convertAndSendDateOption === "custom" && !convertAndSendCustomDate) {
+      toast({
+        title: "Select a date",
+        description: "Please choose a valid custom date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsConvertingAndSending(true);
+    try {
+      const override =
+        convertAndSendDateOption === "today"
+          ? new Date()
+          : convertAndSendDateOption === "custom"
+          ? convertAndSendCustomDate
+          : undefined;
+
+      await handleConvertAndSend(convertAndSendQuotation.id, override);
+      setConvertAndSendDialogOpen(false);
+      setConvertAndSendQuotation(null);
+    } finally {
+      setIsConvertingAndSending(false);
     }
   };
 
@@ -662,6 +872,12 @@ const Quotations = () => {
                         <TableCell>{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : "-"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end space-x-2">
+                            {q.status === "accepted" && (
+                              <Button size="sm" variant="outline" onClick={() => openConvertAndSendDialog(q)}>
+                                <Send className="h-4 w-4 mr-2" />
+                                Convert &amp; Send
+                              </Button>
+                            )}
                             {q.status !== "converted" && (
                               <Button size="sm" onClick={() => openConvertDialog(q)}>
                                 <ArrowRight className="h-4 w-4 mr-2" />
@@ -699,7 +915,13 @@ const Quotations = () => {
                                     Convert to Invoice
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onClick={() => handleDelete(q.id)} className="text-red-600">
+                                {q.status === "accepted" && (
+                                  <DropdownMenuItem onClick={() => openConvertAndSendDialog(q)}>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Convert &amp; Send
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleDelete(q.id)} className="text-destructive focus:text-destructive">
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Delete
                                 </DropdownMenuItem>
@@ -795,6 +1017,97 @@ const Quotations = () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Convert & Send Confirmation Dialog */}
+          <Dialog
+            open={convertAndSendDialogOpen}
+            onOpenChange={(open) => {
+              setConvertAndSendDialogOpen(open);
+              if (!open) setConvertAndSendQuotation(null);
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Convert &amp; Send Invoice</DialogTitle>
+                <DialogDescription>
+                  {convertAndSendQuotation
+                    ? `Convert ${convertAndSendQuotation.quotation_number} to an issued invoice and automatically email it to ${convertAndSendQuotation.customers?.name}. Choose the invoice date.`
+                    : "Choose the invoice date."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <RadioGroup
+                  value={convertAndSendDateOption}
+                  onValueChange={(val) => setConvertAndSendDateOption(val as "quotation" | "today" | "custom")}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="today" id="cas-date-today" />
+                    <Label htmlFor="cas-date-today" className="cursor-pointer">
+                      Use today's date ({format(new Date(), "PPP")})
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="quotation" id="cas-date-quotation" />
+                    <Label htmlFor="cas-date-quotation" className="cursor-pointer">
+                      Use quotation issue date (
+                      {convertAndSendQuotation
+                        ? format(new Date(convertAndSendQuotation.issue_date || convertAndSendQuotation.created_at), "PPP")
+                        : "-"}
+                      )
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="custom" id="cas-date-custom" />
+                    <Label htmlFor="cas-date-custom" className="cursor-pointer">
+                      Pick a custom date
+                    </Label>
+                    {convertAndSendDateOption === "custom" && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="ml-2">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {convertAndSendCustomDate ? format(convertAndSendCustomDate, "PPP") : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={convertAndSendCustomDate}
+                            onSelect={setConvertAndSendCustomDate}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConvertAndSendDialogOpen(false)} disabled={isConvertingAndSending}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmConvertAndSend} disabled={isConvertingAndSending}>
+                  {isConvertingAndSending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Converting &amp; Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Convert &amp; Send
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </main>
       </div>
 
@@ -864,6 +1177,53 @@ const Quotations = () => {
               marginLeft: template.margin_left,
             } : undefined}
             quotationTerms={invoiceSettings?.quotation_terms_text || undefined}
+          />
+        </div>
+      )}
+
+      {/* Hidden PDF container for Convert & Send (invoice) */}
+      {pdfInvoiceData && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <UnifiedInvoiceLayout
+            id="invoice-send-root"
+            variant="pdf"
+            invoiceData={pdfInvoiceData}
+            documentType="INVOICE"
+            companySettings={companySettings ? {
+              name: companySettings.company_name,
+              email: companySettings.company_email,
+              phone: companySettings.company_phone,
+              address: companySettings.company_address,
+              city: companySettings.company_city,
+              state: companySettings.company_state,
+              zipCode: companySettings.company_zip_code,
+              country: companySettings.company_country,
+              taxId: companySettings.company_vat_number,
+              registrationNumber: companySettings.company_registration_number,
+              logo: companySettings.company_logo,
+            } : undefined}
+            bankingSettings={bankingSettings ? {
+              bankName: bankingSettings.bank_name,
+              accountName: bankingSettings.bank_account_name,
+              swiftCode: bankingSettings.bank_swift_code,
+              iban: bankingSettings.bank_iban,
+            } : undefined}
+            templateSettings={template ? {
+              primaryColor: template.primary_color,
+              accentColor: template.accent_color,
+              fontFamily: template.font_family,
+              fontSize: template.font_size,
+              layout: template.layout as any,
+              headerLayout: template.header_layout as any,
+              tableStyle: template.table_style as any,
+              totalsStyle: template.totals_style as any,
+              bankingVisibility: template.banking_visibility,
+              bankingStyle: template.banking_style as any,
+              marginTop: template.margin_top,
+              marginRight: template.margin_right,
+              marginBottom: template.margin_bottom,
+              marginLeft: template.margin_left,
+            } : undefined}
           />
         </div>
       )}
