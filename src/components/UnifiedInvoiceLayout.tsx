@@ -264,7 +264,7 @@ export const UnifiedInvoiceLayout = ({
 
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
-  const showBanking = (templateSettings?.bankingVisibility ?? true) && !!bankingSettings;
+  const showBanking = (templateSettings?.bankingVisibility ?? true) && !!bankingSettings && documentType !== "QUOTATION";
   const showVatSummary = templateSettings?.vatSummaryVisibility ?? false; // Hidden by default
 
   // Standardized font sizes for all templates
