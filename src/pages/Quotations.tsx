@@ -96,11 +96,6 @@ const Quotations = () => {
   const [emailQuotation, setEmailQuotation] = useState<Quotation | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState<string | null>(null);
 
-  // Convert & Send state
-  const [convertAndSendDialogOpen, setConvertAndSendDialogOpen] = useState(false);
-  const [convertAndSendQuotation, setConvertAndSendQuotation] = useState<Quotation | null>(null);
-  const [convertAndSendDateOption, setConvertAndSendDateOption] = useState<"quotation" | "today" | "custom">("today");
-  const [convertAndSendCustomDate, setConvertAndSendCustomDate] = useState<Date | undefined>(undefined);
   const [isConvertingAndSending, setIsConvertingAndSending] = useState(false);
 
   const navigate = useNavigate();
@@ -537,11 +532,26 @@ const Quotations = () => {
     setConvertDialogOpen(true);
   };
 
-  const openConvertAndSendDialog = (q: Quotation) => {
-    setConvertAndSendQuotation(q);
-    setConvertAndSendDateOption("today");
-    setConvertAndSendCustomDate(undefined);
-    setConvertAndSendDialogOpen(true);
+  const handleConvertAndSendFromDialog = async () => {
+    if (!selectedQuotation) return;
+    if (dateOption === "custom" && !customDate) {
+      toast({ title: "Select a date", description: "Please choose a valid custom date.", variant: "destructive" });
+      return;
+    }
+    setIsConvertingAndSending(true);
+    try {
+      const override =
+        dateOption === "today"
+          ? new Date()
+          : dateOption === "custom"
+          ? customDate
+          : undefined;
+      await handleConvertAndSend(selectedQuotation.id, override);
+      setConvertDialogOpen(false);
+      setSelectedQuotation(null);
+    } finally {
+      setIsConvertingAndSending(false);
+    }
   };
 
   const confirmConvert = async () => {
@@ -733,34 +743,6 @@ const Quotations = () => {
     }
   };
 
-  const confirmConvertAndSend = async () => {
-    if (!convertAndSendQuotation) return;
-
-    if (convertAndSendDateOption === "custom" && !convertAndSendCustomDate) {
-      toast({
-        title: "Select a date",
-        description: "Please choose a valid custom date.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsConvertingAndSending(true);
-    try {
-      const override =
-        convertAndSendDateOption === "today"
-          ? new Date()
-          : convertAndSendDateOption === "custom"
-          ? convertAndSendCustomDate
-          : undefined;
-
-      await handleConvertAndSend(convertAndSendQuotation.id, override);
-      setConvertAndSendDialogOpen(false);
-      setConvertAndSendQuotation(null);
-    } finally {
-      setIsConvertingAndSending(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -872,12 +854,6 @@ const Quotations = () => {
                         <TableCell>{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : "-"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end space-x-2">
-                            {q.status === "accepted" && (
-                              <Button size="sm" variant="outline" onClick={() => openConvertAndSendDialog(q)}>
-                                <Send className="h-4 w-4 mr-2" />
-                                Convert &amp; Send
-                              </Button>
-                            )}
                             {q.status !== "converted" && (
                               <Button size="sm" onClick={() => openConvertDialog(q)}>
                                 <ArrowRight className="h-4 w-4 mr-2" />
@@ -913,12 +889,6 @@ const Quotations = () => {
                                   <DropdownMenuItem onClick={() => openConvertDialog(q)}>
                                     <ArrowRight className="h-4 w-4 mr-2" />
                                     Convert to Invoice
-                                  </DropdownMenuItem>
-                                )}
-                                {q.status === "accepted" && (
-                                  <DropdownMenuItem onClick={() => openConvertAndSendDialog(q)}>
-                                    <Send className="h-4 w-4 mr-2" />
-                                    Convert &amp; Send
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem onClick={() => handleDelete(q.id)} className="text-destructive focus:text-destructive">
@@ -1008,102 +978,18 @@ const Quotations = () => {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setConvertDialogOpen(false)} disabled={isConverting}>
+                <Button variant="outline" onClick={() => setConvertDialogOpen(false)} disabled={isConverting || isConvertingAndSending}>
                   Cancel
                 </Button>
-                <Button onClick={confirmConvert} disabled={isConverting}>
-                  {isConverting ? "Converting..." : "Convert"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Convert & Send Confirmation Dialog */}
-          <Dialog
-            open={convertAndSendDialogOpen}
-            onOpenChange={(open) => {
-              setConvertAndSendDialogOpen(open);
-              if (!open) setConvertAndSendQuotation(null);
-            }}
-          >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Convert &amp; Send Invoice</DialogTitle>
-                <DialogDescription>
-                  {convertAndSendQuotation
-                    ? `Convert ${convertAndSendQuotation.quotation_number} to an issued invoice and automatically email it to ${convertAndSendQuotation.customers?.name}. Choose the invoice date.`
-                    : "Choose the invoice date."}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <RadioGroup
-                  value={convertAndSendDateOption}
-                  onValueChange={(val) => setConvertAndSendDateOption(val as "quotation" | "today" | "custom")}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="today" id="cas-date-today" />
-                    <Label htmlFor="cas-date-today" className="cursor-pointer">
-                      Use today's date ({format(new Date(), "PPP")})
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="quotation" id="cas-date-quotation" />
-                    <Label htmlFor="cas-date-quotation" className="cursor-pointer">
-                      Use quotation issue date (
-                      {convertAndSendQuotation
-                        ? format(new Date(convertAndSendQuotation.issue_date || convertAndSendQuotation.created_at), "PPP")
-                        : "-"}
-                      )
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="custom" id="cas-date-custom" />
-                    <Label htmlFor="cas-date-custom" className="cursor-pointer">
-                      Pick a custom date
-                    </Label>
-                    {convertAndSendDateOption === "custom" && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="ml-2">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {convertAndSendCustomDate ? format(convertAndSendCustomDate, "PPP") : "Select date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={convertAndSendCustomDate}
-                            onSelect={setConvertAndSendCustomDate}
-                            initialFocus
-                            className="p-3 pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setConvertAndSendDialogOpen(false)} disabled={isConvertingAndSending}>
-                  Cancel
-                </Button>
-                <Button onClick={confirmConvertAndSend} disabled={isConvertingAndSending}>
+                <Button variant="outline" onClick={handleConvertAndSendFromDialog} disabled={isConverting || isConvertingAndSending}>
                   {isConvertingAndSending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Converting &amp; Sending...
-                    </>
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Converting &amp; Sending...</>
                   ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" />
-                      Convert &amp; Send
-                    </>
+                    <><Send className="h-4 w-4 mr-2" />Convert &amp; Send</>
                   )}
+                </Button>
+                <Button onClick={confirmConvert} disabled={isConverting || isConvertingAndSending}>
+                  {isConverting ? "Converting..." : "Convert"}
                 </Button>
               </DialogFooter>
             </DialogContent>
