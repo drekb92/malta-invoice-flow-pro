@@ -1,103 +1,103 @@
 
-# Add "Convert & Send" Button to Quotation Detail
+# Consolidate "Convert & Send" into the Existing Convert Dialog
 
-## Overview
+## Problem
+The "Convert & Send" button currently lives as a separate button in the table row (only visible for `accepted` quotations), making it hard to find. The user wants a cleaner approach: keep only the "Convert to Invoice" button in the table row, and add a second "Convert & Send" action button **inside the existing dialog** so both options are presented together when the user clicks "Convert to Invoice".
 
-The Quotation list page (`src/pages/Quotations.tsx`) handles both the list view and the quotation detail drawer. A new "Convert & Send" button needs to be added that:
+## Target UX (based on screenshot reference)
+The existing "Convert quotation to invoice" dialog already has:
+- Date selection radio group (Quotation date / Today's date / Custom)
+- Cancel button
+- Convert button
 
-1. Converts the quotation to an invoice (same logic as "Convert to Invoice")
-2. Issues the invoice immediately (sets `is_issued = true`, `status = "sent"`)
-3. Automatically sends the invoice email to the customer
-4. Redirects to the new invoice page
+**After the change**, the dialog footer will have:
+- Cancel button
+- **Convert & Send** button (outline/secondary style)
+- **Convert** button (primary, existing behaviour)
 
-## Visibility Rules
+This matches the pattern the user described: one dialog, two actions.
 
-Both buttons ("Convert to Invoice" and "Convert & Send") appear only when:
-- `q.status === "accepted"` (not just `q.status !== "converted"` — today the button shows for all non-converted statuses)
-- `q.status !== "converted"` (not already converted)
+## Changes to `src/pages/Quotations.tsx`
 
-The new button requires **accepted** status. The existing "Convert to Invoice" button keeps its current visibility rule (`!== "converted"`).
-
-## Changes Required
-
-### `src/pages/Quotations.tsx`
-
-**1. Add new state variables:**
+### 1. Remove "Convert & Send" from table row buttons (line ~875-880)
+Delete the separate "Convert & Send" button that only shows for `accepted` status:
 ```tsx
-const [isConvertingAndSending, setIsConvertingAndSending] = useState(false);
-const [convertAndSendDialogOpen, setConvertAndSendDialogOpen] = useState(false);
-const [convertAndSendQuotation, setConvertAndSendQuotation] = useState<Quotation | null>(null);
-const [convertAndSendDateOption, setConvertAndSendDateOption] = useState<"quotation" | "today" | "custom">("today");
-const [convertAndSendCustomDate, setConvertAndSendCustomDate] = useState<Date | undefined>(undefined);
-```
-
-**2. Add new import:** `Send` from `lucide-react`
-
-**3. Add `handleConvertAndSend` function:**
-
-This function reuses the existing quotation-to-invoice conversion logic with two key differences:
-- Sets `status: "sent"` and calls `invoiceService.issueInvoice(inv.id)` to also set `is_issued = true`
-- After conversion, renders the invoice PDF in the hidden container (using the new invoice's data) and sends the email automatically via `supabase.functions.invoke("send-document-email", ...)`
-- Shows a success toast and redirects to `/invoices/${inv.id}`
-
-```tsx
-const handleConvertAndSend = async (quotationId: string, invoiceDateOverride?: Date) => {
-  // 1. Convert quotation → invoice (same as existing, but status: "sent")
-  // 2. Issue the invoice (is_issued = true, issued_at, invoice_hash)
-  // 3. Fetch invoice items to build PDF data
-  // 4. Render hidden UnifiedInvoiceLayout for the NEW invoice
-  // 5. Capture HTML and send via send-document-email edge function
-  // 6. Mark quotation as converted
-  // 7. Show success toast
-  // 8. navigate(`/invoices/${inv.id}`)
-};
-```
-
-**4. Add "Convert & Send" button to the table action column (line ~665):**
-
-```tsx
+// REMOVE THIS:
 {q.status === "accepted" && (
-  <Button
-    size="sm"
-    variant="outline"
-    onClick={() => openConvertAndSendDialog(q)}
-  >
+  <Button size="sm" variant="outline" onClick={() => openConvertAndSendDialog(q)}>
     <Send className="h-4 w-4 mr-2" />
-    Convert &amp; Send
+    Convert & Send
   </Button>
 )}
 ```
 
-Place it alongside the existing "Convert to Invoice" button. Only show for `status === "accepted"`.
+### 2. Remove "Convert & Send" from the dropdown menu
+Search for and remove the corresponding dropdown menu item for Convert & Send.
 
-**5. Also add "Convert & Send" to the dropdown menu** for the same condition.
-
-**6. Add a new confirmation dialog** (similar to the existing convert dialog) for "Convert & Send" with its own date picker and a loading state that shows "Converting & Sending..." during the async operation.
-
-**7. Add a new hidden invoice PDF container** for the newly created invoice (separate from the existing quotation PDF container) to avoid conflicts during the send flow.
-
-## Flow Summary
-
-```text
-User clicks "Convert & Send"
-  → Dialog opens (pick invoice date)
-  → User clicks "Convert & Send" button in dialog
-    → Create invoice (status: "sent", is_issued: true)
-    → Fetch invoice items
-    → Build InvoiceData for the new invoice
-    → Set pdfInvoiceData state (renders hidden UnifiedInvoiceLayout with id="invoice-send-root")
-    → Wait 200ms for DOM render
-    → Capture HTML from "invoice-send-root"
-    → Call send-document-email edge function with captured HTML
-    → Mark quotation as converted
-    → Show success toast: "Invoice sent to {email}"
-    → navigate(`/invoices/${inv.id}`)
+### 3. Add "Convert & Send" button into the existing Convert dialog footer
+Update the `DialogFooter` of the existing convert dialog (around line 1010-1017) to include a second button:
+```tsx
+<DialogFooter>
+  <Button variant="outline" onClick={() => setConvertDialogOpen(false)} disabled={isConverting || isConvertingAndSending}>
+    Cancel
+  </Button>
+  <Button 
+    variant="outline" 
+    onClick={handleConvertAndSendFromDialog} 
+    disabled={isConverting || isConvertingAndSending}
+  >
+    {isConvertingAndSending ? (
+      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Converting & Sending...</>
+    ) : (
+      <><Send className="h-4 w-4 mr-2" />Convert & Send</>
+    )}
+  </Button>
+  <Button onClick={confirmConvert} disabled={isConverting || isConvertingAndSending}>
+    {isConverting ? "Converting..." : "Convert"}
+  </Button>
+</DialogFooter>
 ```
 
-## Key Technical Notes
+### 4. Add `handleConvertAndSendFromDialog` function
+This is a thin adapter that reads the **same date state** (`dateOption`, `customDate`) already set in the convert dialog, then calls `handleConvertAndSend` — reusing the existing logic without any duplication:
+```tsx
+const handleConvertAndSendFromDialog = async () => {
+  if (!selectedQuotation) return;
+  if (dateOption === "custom" && !customDate) {
+    toast({ title: "Select a date", description: "Please choose a valid custom date.", variant: "destructive" });
+    return;
+  }
+  setIsConvertingAndSending(true);
+  try {
+    const override =
+      dateOption === "today"
+        ? new Date()
+        : dateOption === "custom"
+        ? customDate
+        : undefined;
+    await handleConvertAndSend(selectedQuotation.id, override);
+    setConvertDialogOpen(false);
+    setSelectedQuotation(null);
+  } finally {
+    setIsConvertingAndSending(false);
+  }
+};
+```
 
-- The invoice is created with `status: "sent"` and `is_issued: true`, `issued_at: now()`, `invoice_hash` generated — matching what `invoiceService.issueInvoice()` does — but done in a single combined step to avoid the two-step race condition.
-- The hidden PDF render uses a **different element ID** (`invoice-send-root`) to avoid colliding with the existing `invoice-preview-root` used by quotation emails/downloads.
-- The `send-document-email` edge function is called directly (not via the dialog component) since this is a fully automated flow with no user confirmation of email fields needed.
-- If the customer has no email address, the function shows an error toast before proceeding.
-- The `invoiceService.generateInvoiceHash()` is imported and called with the new invoice ID and number to produce the integrity hash before issuing.
+### 5. Remove the separate "Convert & Send" Dialog entirely
+Delete the entire second `<Dialog>` block (lines ~1021-1110) for Convert & Send — it is no longer needed.
+
+### 6. Clean up unused state variables
+Remove the four `convertAndSend*` state variables that were only used by the now-removed separate dialog:
+- `convertAndSendDialogOpen`
+- `convertAndSendQuotation`
+- `convertAndSendDateOption`
+- `convertAndSendCustomDate`
+
+Also remove `openConvertAndSendDialog` helper function if present.
+
+## Result
+- One "Convert to Invoice" button per row (always shown when not yet converted)
+- Clicking it opens the existing dialog with date picker
+- Dialog has two action buttons: **Convert & Send** (sends email automatically) and **Convert** (creates draft invoice only)
+- Clean, discoverable UX matching the user's intent
