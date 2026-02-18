@@ -549,6 +549,7 @@ export type Database = {
           late_payment_interest_rate: number | null
           next_invoice_number: number | null
           numbering_prefix: string | null
+          quotation_terms_text: string | null
           reverse_charge_note: string | null
           updated_at: string | null
           user_id: string
@@ -575,6 +576,7 @@ export type Database = {
           late_payment_interest_rate?: number | null
           next_invoice_number?: number | null
           numbering_prefix?: string | null
+          quotation_terms_text?: string | null
           reverse_charge_note?: string | null
           updated_at?: string | null
           user_id: string
@@ -601,6 +603,7 @@ export type Database = {
           late_payment_interest_rate?: number | null
           next_invoice_number?: number | null
           numbering_prefix?: string | null
+          quotation_terms_text?: string | null
           reverse_charge_note?: string | null
           updated_at?: string | null
           user_id?: string

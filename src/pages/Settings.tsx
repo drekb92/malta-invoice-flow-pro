@@ -66,6 +66,7 @@ interface InvoiceSettings {
   defaultTaxRate: number;
   footer: string;
   notes: string;
+  quotationTerms: string;
   latePaymentInterestRate: number;
   earlyPaymentDiscountRate: number;
   earlyPaymentDiscountDays: number;
@@ -162,6 +163,7 @@ const Settings = () => {
     defaultTaxRate: 18,
     footer: "",
     notes: "",
+    quotationTerms: "",
     latePaymentInterestRate: 8,
     earlyPaymentDiscountRate: 0,
     earlyPaymentDiscountDays: 0,
@@ -275,6 +277,7 @@ const Settings = () => {
             defaultTaxRate: invoiceData.vat_rate_standard || 18,
             footer: invoiceData.invoice_footer_text || "",
             notes: invoiceData.default_invoice_notes || "",
+            quotationTerms: (invoiceData as any).quotation_terms_text || "",
             latePaymentInterestRate: invoiceData.late_payment_interest_rate || 8,
             earlyPaymentDiscountRate: invoiceData.early_payment_discount_rate || 0,
             earlyPaymentDiscountDays: invoiceData.early_payment_discount_days || 0,
@@ -617,6 +620,7 @@ const Settings = () => {
           include_vat_breakdown: invoiceSettings.includeVatBreakdown,
           invoice_footer_text: invoiceSettings.footer,
           default_invoice_notes: invoiceSettings.notes,
+          quotation_terms_text: invoiceSettings.quotationTerms,
           include_payment_instructions: invoiceSettings.includePaymentInstructions,
           early_payment_discount_rate: invoiceSettings.earlyPaymentDiscountRate,
           early_payment_discount_days: invoiceSettings.earlyPaymentDiscountDays,
@@ -1478,7 +1482,7 @@ const Settings = () => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="invoice_footer">
-                          Default Footer Text
+                          Default Invoice Footer Text
                         </Label>
                         <Textarea
                           id="invoice_footer"
@@ -1487,6 +1491,23 @@ const Settings = () => {
                           value={invoiceSettings.footer}
                           onChange={(e) => setInvoiceSettings({ ...invoiceSettings, footer: e.target.value })}
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="quotation_terms">
+                          Quotation Terms &amp; Conditions
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Appears at the bottom of every Quotation PDF. Use separate lines for each term.
+                        </p>
+                        <Textarea
+                          id="quotation_terms"
+                          rows={5}
+                          placeholder={`This quotation is valid until the date shown above.\nWork will commence upon acceptance.\nAny additional services will be quoted separately.`}
+                          value={invoiceSettings.quotationTerms}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, quotationTerms: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">Each line will be shown as a numbered item.</p>
                       </div>
 
                       <div className="space-y-2">
