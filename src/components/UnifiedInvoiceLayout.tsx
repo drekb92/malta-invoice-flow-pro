@@ -97,6 +97,7 @@ export interface UnifiedInvoiceLayoutProps {
   documentType?: DocumentType;
   debug?: boolean;
   footerText?: string;
+  quotationTerms?: string;
 }
 
 /* ===================== UTILITIES ===================== */
@@ -166,6 +167,7 @@ export const UnifiedInvoiceLayout = ({
   id = "invoice-preview-root",
   documentType = "INVOICE",
   footerText,
+  quotationTerms,
 }: UnifiedInvoiceLayoutProps) => {
   const templateStyle = templateSettings?.style || 'modern';
   
@@ -1107,16 +1109,32 @@ export const UnifiedInvoiceLayout = ({
               </div>
             )}
 
-            {documentType === "QUOTATION" && (
-              <div className="terms-section">
-                <div className="section-label">Terms &amp; Conditions</div>
-                <ol>
-                  <li>This quotation is valid until {formatDate(invoiceData.dueDate)}.</li>
-                  <li>Work will commence upon acceptance.</li>
-                  <li>Any additional services will be quoted separately.</li>
-                </ol>
-              </div>
-            )}
+            {documentType === "QUOTATION" && (() => {
+              const defaultTerms = [
+                `This quotation is valid until ${formatDate(invoiceData.dueDate)}.`,
+                "Work will commence upon acceptance.",
+                "Any additional services will be quoted separately.",
+              ];
+              // If custom terms provided, split by newline and filter empty lines
+              const termLines = quotationTerms
+                ? quotationTerms.split('\n').filter(line => line.trim())
+                : defaultTerms;
+              // Replace {{valid_until_date}} placeholder in custom terms
+              const validUntil = formatDate(invoiceData.dueDate);
+              const resolvedTerms = termLines.map(line =>
+                line.replace(/\{\{valid_until_date\}\}/g, validUntil)
+              );
+              return (
+                <div className="terms-section">
+                  <div className="section-label">Terms &amp; Conditions</div>
+                  <ol>
+                    {resolvedTerms.map((term, i) => (
+                      <li key={i}>{term}</li>
+                    ))}
+                  </ol>
+                </div>
+              );
+            })()}
 
             <div className="thanks">
               {footerText || "Thank you for your business. All amounts in EUR."}

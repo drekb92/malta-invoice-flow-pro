@@ -6,6 +6,7 @@ export interface InvoiceSettings {
   id: string;
   user_id: string;
   invoice_footer_text?: string;
+  quotation_terms_text?: string;
   default_invoice_notes?: string;
   reverse_charge_note?: string;
   default_payment_days?: number;

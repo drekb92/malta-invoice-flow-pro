@@ -1,0 +1,1 @@
+ALTER TABLE public.invoice_settings ADD COLUMN IF NOT EXISTS quotation_terms_text text DEFAULT NULL;

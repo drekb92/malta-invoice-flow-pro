@@ -52,6 +52,7 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { downloadPdfFromFunction, buildA4HtmlDocument } from "@/lib/edgePdf";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 
 interface Quotation {
   id: string;
@@ -99,6 +100,7 @@ const Quotations = () => {
   const { template } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
 
   const fetchQuotations = async () => {
     if (!user) {
@@ -861,6 +863,7 @@ const Quotations = () => {
               marginBottom: template.margin_bottom,
               marginLeft: template.margin_left,
             } : undefined}
+            quotationTerms={invoiceSettings?.quotation_terms_text || undefined}
           />
         </div>
       )}
