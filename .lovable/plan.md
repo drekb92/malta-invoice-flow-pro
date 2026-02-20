@@ -1,103 +1,57 @@
 
-# Consolidate "Convert & Send" into the Existing Convert Dialog
 
-## Problem
-The "Convert & Send" button currently lives as a separate button in the table row (only visible for `accepted` quotations), making it hard to find. The user wants a cleaner approach: keep only the "Convert to Invoice" button in the table row, and add a second "Convert & Send" action button **inside the existing dialog** so both options are presented together when the user clicks "Convert to Invoice".
+# Fix "Convert & Send" — Items Blocked by Immutability Trigger
 
-## Target UX (based on screenshot reference)
-The existing "Convert quotation to invoice" dialog already has:
-- Date selection radio group (Quotation date / Today's date / Custom)
-- Cancel button
-- Convert button
+## Root Cause
 
-**After the change**, the dialog footer will have:
-- Cancel button
-- **Convert & Send** button (outline/secondary style)
-- **Convert** button (primary, existing behaviour)
+The `handleConvertAndSend` function creates the invoice with `is_issued: true` **before** inserting the line items. The database trigger `prevent_issued_invoice_items_changes` then blocks the item insert because the invoice is already marked as issued.
 
-This matches the pattern the user described: one dialog, two actions.
+The sequence today:
+1. INSERT invoice with `is_issued: true` (line 630) -- succeeds
+2. INSERT invoice_items (line 658) -- **BLOCKED by trigger**
+3. Error thrown, quotation never marked as "converted"
 
-## Changes to `src/pages/Quotations.tsx`
+This leaves the system in a broken state: an invoice exists (with no items), and the quotation remains unconverted.
 
-### 1. Remove "Convert & Send" from table row buttons (line ~875-880)
-Delete the separate "Convert & Send" button that only shows for `accepted` status:
+## Fix
+
+Reorder the operations so items are inserted **before** the invoice is marked as issued:
+
+1. INSERT invoice with `status: "draft"`, `is_issued: false` (no trigger conflict)
+2. INSERT invoice_items (allowed because invoice is not yet issued)
+3. Generate the invoice hash (needs items to exist for accurate hash)
+4. UPDATE invoice to `status: "sent"`, `is_issued: true`, `issued_at: now()`, `invoice_hash: ...` (the immutability trigger allows this because `is_issued` was previously `false`)
+5. Render PDF, send email, mark quotation as converted, redirect
+
+## Code Changes
+
+### `src/pages/Quotations.tsx` — `handleConvertAndSend` function
+
+**Step 1**: Change the initial invoice insert to create a draft:
 ```tsx
-// REMOVE THIS:
-{q.status === "accepted" && (
-  <Button size="sm" variant="outline" onClick={() => openConvertAndSendDialog(q)}>
-    <Send className="h-4 w-4 mr-2" />
-    Convert & Send
-  </Button>
-)}
-```
-
-### 2. Remove "Convert & Send" from the dropdown menu
-Search for and remove the corresponding dropdown menu item for Convert & Send.
-
-### 3. Add "Convert & Send" button into the existing Convert dialog footer
-Update the `DialogFooter` of the existing convert dialog (around line 1010-1017) to include a second button:
-```tsx
-<DialogFooter>
-  <Button variant="outline" onClick={() => setConvertDialogOpen(false)} disabled={isConverting || isConvertingAndSending}>
-    Cancel
-  </Button>
-  <Button 
-    variant="outline" 
-    onClick={handleConvertAndSendFromDialog} 
-    disabled={isConverting || isConvertingAndSending}
-  >
-    {isConvertingAndSending ? (
-      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Converting & Sending...</>
-    ) : (
-      <><Send className="h-4 w-4 mr-2" />Convert & Send</>
-    )}
-  </Button>
-  <Button onClick={confirmConvert} disabled={isConverting || isConvertingAndSending}>
-    {isConverting ? "Converting..." : "Convert"}
-  </Button>
-</DialogFooter>
-```
-
-### 4. Add `handleConvertAndSendFromDialog` function
-This is a thin adapter that reads the **same date state** (`dateOption`, `customDate`) already set in the convert dialog, then calls `handleConvertAndSend` — reusing the existing logic without any duplication:
-```tsx
-const handleConvertAndSendFromDialog = async () => {
-  if (!selectedQuotation) return;
-  if (dateOption === "custom" && !customDate) {
-    toast({ title: "Select a date", description: "Please choose a valid custom date.", variant: "destructive" });
-    return;
-  }
-  setIsConvertingAndSending(true);
-  try {
-    const override =
-      dateOption === "today"
-        ? new Date()
-        : dateOption === "custom"
-        ? customDate
-        : undefined;
-    await handleConvertAndSend(selectedQuotation.id, override);
-    setConvertDialogOpen(false);
-    setSelectedQuotation(null);
-  } finally {
-    setIsConvertingAndSending(false);
-  }
+const invoicePayload = {
+  ...existingFields,
+  status: "draft",       // was "sent"
+  is_issued: false,      // was true
+  issued_at: null,       // was new Date().toISOString()
+  // invoice_hash omitted — set later
 };
 ```
 
-### 5. Remove the separate "Convert & Send" Dialog entirely
-Delete the entire second `<Dialog>` block (lines ~1021-1110) for Convert & Send — it is no longer needed.
+**Step 2**: Move the invoice items insert immediately after the invoice creation (no change needed, already in this position).
 
-### 6. Clean up unused state variables
-Remove the four `convertAndSend*` state variables that were only used by the now-removed separate dialog:
-- `convertAndSendDialogOpen`
-- `convertAndSendQuotation`
-- `convertAndSendDateOption`
-- `convertAndSendCustomDate`
+**Step 3**: Generate the hash after items exist (already in this position, but move it after items insert).
 
-Also remove `openConvertAndSendDialog` helper function if present.
+**Step 4**: Add a single UPDATE to finalize the invoice after items and hash are ready:
+```tsx
+await supabase.from("invoices").update({
+  status: "sent",
+  is_issued: true,
+  issued_at: new Date().toISOString(),
+  invoice_hash: invoiceHash,
+}).eq("id", inv.id);
+```
 
-## Result
-- One "Convert to Invoice" button per row (always shown when not yet converted)
-- Clicking it opens the existing dialog with date picker
-- Dialog has two action buttons: **Convert & Send** (sends email automatically) and **Convert** (creates draft invoice only)
-- Clean, discoverable UX matching the user's intent
+**Step 5**: Continue with PDF rendering, email sending, quotation status update, and redirect (unchanged).
+
+This matches the safe ordering: create draft, add items, then issue — avoiding the trigger entirely.
