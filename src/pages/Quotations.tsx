@@ -617,7 +617,7 @@ const Quotations = () => {
       const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
       const dueDate = addDays(baseDateObj, paymentDays);
 
-      // Create invoice with status "sent" and is_issued = true
+      // Step 1: Create invoice as DRAFT (avoids immutability trigger on items)
       const invoicePayload: TablesInsert<"invoices"> = {
         invoice_number: invoiceNumber,
         customer_id: qData.customer_id,
@@ -626,9 +626,9 @@ const Quotations = () => {
         total_amount: qData.total_amount,
         invoice_date: baseDateObj.toISOString().split("T")[0],
         due_date: dueDate.toISOString().split("T")[0],
-        status: "sent",
-        is_issued: true,
-        issued_at: new Date().toISOString(),
+        status: "draft",
+        is_issued: false,
+        issued_at: null,
         user_id: (qData as any).user_id,
         discount_type: "amount",
         discount_value: 0,
@@ -639,12 +639,7 @@ const Quotations = () => {
       const { data: inv, error: invErr } = await supabase.from("invoices").insert(invoicePayload).select("id").single();
       if (invErr) throw invErr;
 
-      // Generate and store invoice hash
-      const { invoiceService } = await import("@/services/invoiceService");
-      const invoiceHash = await invoiceService.generateInvoiceHash(inv.id, invoiceNumber);
-      await supabase.from("invoices").update({ invoice_hash: invoiceHash }).eq("id", inv.id);
-
-      // Insert invoice items
+      // Step 2: Insert invoice items (allowed because invoice is still draft)
       const itemsPayload = (qData.quotation_items || []).map((it: any) => ({
         invoice_id: inv.id,
         description: it.description,
@@ -658,6 +653,19 @@ const Quotations = () => {
         const { error: itemsErr } = await supabase.from("invoice_items").insert(itemsPayload);
         if (itemsErr) throw itemsErr;
       }
+
+      // Step 3: Generate hash after items exist for accuracy
+      const { invoiceService } = await import("@/services/invoiceService");
+      const invoiceHash = await invoiceService.generateInvoiceHash(inv.id, invoiceNumber);
+
+      // Step 4: Finalize — mark as issued (trigger allows since is_issued was false)
+      const { error: finalizeErr } = await supabase.from("invoices").update({
+        status: "sent",
+        is_issued: true,
+        issued_at: new Date().toISOString(),
+        invoice_hash: invoiceHash,
+      }).eq("id", inv.id);
+      if (finalizeErr) throw finalizeErr;
 
       // Build InvoiceData for PDF rendering
       const newInvoiceData: InvoiceData = {
