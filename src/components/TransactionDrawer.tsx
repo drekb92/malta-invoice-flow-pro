@@ -24,6 +24,7 @@ import {
   CreditNote,
   Payment,
   TimelineEvent,
+  SendLog,
   getCreditNoteGrossAmount,
   computeOutstandingAmount,
 } from "./transaction-drawer";
@@ -71,6 +72,7 @@ export const TransactionDrawer = ({
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
   const [originalInvoice, setOriginalInvoice] = useState<{ invoice_number: string } | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [issuedAt, setIssuedAt] = useState<string | null>(null);
@@ -208,7 +210,7 @@ export const TransactionDrawer = ({
   };
 
   const loadQuotationData = async (quotation: QuotationTransaction) => {
-    const [itemsResult, detailsResult] = await Promise.all([
+    const [itemsResult, detailsResult, sendLogsResult] = await Promise.all([
       supabase
         .from("quotation_items")
         .select("id, description, quantity, unit_price, vat_rate, unit")
@@ -218,6 +220,13 @@ export const TransactionDrawer = ({
         .select("created_at, customer_id, customers(id, name, email, address, address_line1, address_line2, locality, post_code, vat_number)")
         .eq("id", quotation.id)
         .maybeSingle(),
+      supabase
+        .from("document_send_logs")
+        .select("id, channel, sent_at, recipient_email, recipient_phone, success")
+        .eq("document_type", "quotation")
+        .eq("document_id", quotation.id)
+        .eq("success", true)
+        .order("sent_at", { ascending: true }),
     ]);
 
     if (itemsResult.data) {
@@ -232,6 +241,9 @@ export const TransactionDrawer = ({
       setCreatedAt(detailsResult.data.created_at);
       const data = detailsResult.data as { customers: Customer | null };
       if (data.customers) setCustomer(data.customers);
+    }
+    if (sendLogsResult.data) {
+      setSendLogs(sendLogsResult.data);
     }
   };
 
@@ -327,9 +339,63 @@ export const TransactionDrawer = ({
       }
     }
 
+    if (type === "quotation") {
+      const q = transaction as QuotationTransaction;
+
+      // Add all send events from send logs
+      sendLogs.forEach(log => {
+        const channelLabel = log.channel === "email" ? "Email" : log.channel === "whatsapp" ? "WhatsApp" : log.channel;
+        const recipient = log.channel === "email" ? log.recipient_email : log.recipient_phone;
+        events.push({
+          id: `send-${log.id}`,
+          type: "sent",
+          date: log.sent_at,
+          title: `Sent via ${channelLabel}${recipient ? ` to ${recipient}` : ""}`,
+        });
+      });
+
+      // Status-based events
+      if (q.status === "accepted") {
+        // Use a date slightly after the last send, or created_at as fallback
+        const lastSend = sendLogs.length > 0 ? sendLogs[sendLogs.length - 1].sent_at : createdAt;
+        events.push({
+          id: `accepted-${q.id}`,
+          type: "accepted",
+          date: lastSend || createdAt || new Date().toISOString(),
+          title: "Quotation accepted",
+        });
+      }
+
+      if (q.status === "expired") {
+        events.push({
+          id: `expired-${q.id}`,
+          type: "expired",
+          date: q.valid_until || new Date().toISOString(),
+          title: "Quotation expired",
+        });
+      }
+
+      if (q.status === "converted") {
+        const lastSend = sendLogs.length > 0 ? sendLogs[sendLogs.length - 1].sent_at : createdAt;
+        events.push({
+          id: `accepted-${q.id}`,
+          type: "accepted",
+          date: lastSend || createdAt || new Date().toISOString(),
+          title: "Quotation accepted",
+        });
+        events.push({
+          id: `converted-${q.id}`,
+          type: "converted",
+          date: lastSend || createdAt || new Date().toISOString(),
+          title: "Converted to invoice",
+          amount: q.total_amount || q.amount,
+        });
+      }
+    }
+
     events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     return events;
-  }, [transaction, type, createdAt, issuedAt, creditNotes, payments, remainingBalance]);
+  }, [transaction, type, createdAt, issuedAt, creditNotes, payments, remainingBalance, sendLogs]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Actions
