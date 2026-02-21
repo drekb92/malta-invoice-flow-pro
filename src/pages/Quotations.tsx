@@ -711,8 +711,17 @@ const Quotations = () => {
       const { error: sendError } = await supabase.functions.invoke("send-document-email", {
         body: {
           to: customerEmail,
-          subject: `Invoice ${invoiceNumber}`,
-          messageHtml: `<p>Please find your invoice <strong>${invoiceNumber}</strong> attached.</p>`,
+          subject: `Invoice ${invoiceNumber} from ${companySettings?.company_name || ""}`,
+          messageHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <p style="margin: 0 0 10px 0;">Dear ${qData.customers?.name || "Customer"},</p>
+            <p style="margin: 0 0 10px 0;">&nbsp;</p>
+            <p style="margin: 0 0 10px 0;">Please find attached invoice ${invoiceNumber}.</p>
+            <p style="margin: 0 0 10px 0;">&nbsp;</p>
+            <p style="margin: 0 0 10px 0;">If you have any questions, please don't hesitate to contact us.</p>
+            <p style="margin: 0 0 10px 0;">&nbsp;</p>
+            <p style="margin: 0 0 10px 0;">Best regards,</p>
+            <p style="margin: 0 0 10px 0;">${companySettings?.company_name || ""}</p>
+          </div>`,
           filename: `Invoice-${invoiceNumber}`,
           html,
           userId: user.id,
