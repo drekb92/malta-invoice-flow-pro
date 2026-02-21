@@ -79,10 +79,19 @@ export interface Payment {
 
 export interface TimelineEvent {
   id: string;
-  type: "created" | "issued" | "sent" | "accepted" | "converted" | "credit_note" | "payment" | "paid";
+  type: "created" | "issued" | "sent" | "accepted" | "converted" | "expired" | "credit_note" | "payment" | "paid";
   date: string;
   title: string;
   amount?: number;
+}
+
+export interface SendLog {
+  id: string;
+  channel: string;
+  sent_at: string;
+  recipient_email: string | null;
+  recipient_phone: string | null;
+  success: boolean;
 }
 
 export interface StatusBadgeConfig {

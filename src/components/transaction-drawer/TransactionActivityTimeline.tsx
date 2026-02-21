@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { FileText, CheckCircle, Receipt, Banknote, ChevronDown } from "lucide-react";
+import { FileText, CheckCircle, Receipt, Banknote, ChevronDown, Send, XCircle, ArrowRightLeft } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,6 +17,7 @@ interface TransactionActivityTimelineProps {
 const getTimelineIcon = (eventType: TimelineEvent["type"]) => {
   switch (eventType) {
     case "created":
+      return <FileText className="h-3 w-3" />;
     case "issued":
       return <FileText className="h-3 w-3" />;
     case "credit_note":
@@ -25,9 +26,13 @@ const getTimelineIcon = (eventType: TimelineEvent["type"]) => {
     case "paid":
       return <Banknote className="h-3 w-3" />;
     case "sent":
+      return <Send className="h-3 w-3" />;
     case "accepted":
-    case "converted":
       return <CheckCircle className="h-3 w-3" />;
+    case "converted":
+      return <ArrowRightLeft className="h-3 w-3" />;
+    case "expired":
+      return <XCircle className="h-3 w-3" />;
   }
 };
 
@@ -46,6 +51,8 @@ const getTimelineColor = (eventType: TimelineEvent["type"]) => {
       return "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300";
     case "converted":
       return "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300";
+    case "expired":
+      return "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300";
   }
 };
 
