@@ -1,9 +1,48 @@
 // src/lib/dashboard.ts
 import { supabase } from "@/integrations/supabase/client";
 
-// --- Setup status -------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Filter types
+// ---------------------------------------------------------------------------
+
+export type DateRange = "7-days" | "30-days" | "90-days" | "12-months" | "ytd" | "all";
+
+export interface DashboardFilters {
+  dateRange?: DateRange;
+  customerId?: string; // "all" or a UUID
+}
+
+// Converts a dateRange string into a UTC ISO start-of-period string.
+// Returns null for "all" (no lower bound).
+function dateRangeToStartISO(dateRange: DateRange | undefined): string | null {
+  if (!dateRange || dateRange === "all") return null;
+
+  const now = new Date();
+
+  if (dateRange === "ytd") {
+    return new Date(now.getFullYear(), 0, 1).toISOString();
+  }
+
+  const days: Record<string, number> = {
+    "7-days": 7,
+    "30-days": 30,
+    "90-days": 90,
+    "12-months": 365,
+  };
+
+  const d = days[dateRange];
+  if (!d) return null;
+
+  const start = new Date(now);
+  start.setDate(start.getDate() - d);
+  return start.toISOString();
+}
+
+// ---------------------------------------------------------------------------
+// Setup status  (no filters — always reflects full account state)
+// ---------------------------------------------------------------------------
+
 export async function getSetupStatus(userId: string) {
-  // COMPANY INFO: complete if there's any row for this user
   const { data: companyData } = await supabase
     .from("company_settings")
     .select("id, company_name, company_vat_number, company_address")
@@ -12,7 +51,6 @@ export async function getSetupStatus(userId: string) {
 
   const hasCompanyInfo = !!companyData;
 
-  // BANKING INFO: complete if there's any row
   const { data: bankingData } = await supabase
     .from("banking_details")
     .select("id, bank_name, bank_iban")
@@ -21,12 +59,10 @@ export async function getSetupStatus(userId: string) {
 
   const hasBankingInfo = !!bankingData;
 
-  // CUSTOMERS: at least one
   const { data: customers } = await supabase.from("customers").select("id").eq("user_id", userId).limit(1);
 
   const hasCustomers = !!customers && customers.length > 0;
 
-  // INVOICES: at least one
   const { data: invoices } = await supabase.from("invoices").select("id").eq("user_id", userId).limit(1);
 
   const hasInvoices = !!invoices && invoices.length > 0;
@@ -46,10 +82,24 @@ export async function getSetupStatus(userId: string) {
   };
 }
 
-// --- Metrics ------------------------------------------------------------------
-export async function getDashboardMetrics(userId: string) {
-  // Invoices (for outstanding, payments, collection rate)
-  const { data: invoices } = await supabase.from("invoices").select("total_amount, status").eq("user_id", userId);
+// ---------------------------------------------------------------------------
+// Dashboard metrics  (filtered by dateRange + customerId)
+// ---------------------------------------------------------------------------
+
+export async function getDashboardMetrics(userId: string, filters: DashboardFilters = {}) {
+  const startISO = dateRangeToStartISO(filters.dateRange as DateRange);
+  const filterCustomer = filters.customerId && filters.customerId !== "all" ? filters.customerId : null;
+
+  // ── Invoices query ──────────────────────────────────────────────────────────
+  let invoicesQuery = supabase
+    .from("invoices")
+    .select("total_amount, status, customer_id, created_at")
+    .eq("user_id", userId);
+
+  if (startISO) invoicesQuery = invoicesQuery.gte("created_at", startISO);
+  if (filterCustomer) invoicesQuery = invoicesQuery.eq("customer_id", filterCustomer);
+
+  const { data: invoices } = await invoicesQuery;
 
   const outstanding =
     invoices?.filter((inv) => inv.status !== "paid").reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
@@ -61,14 +111,25 @@ export async function getDashboardMetrics(userId: string) {
 
   const collectionRate = totalInvoiced > 0 ? ((totalInvoiced - outstanding) / totalInvoiced) * 100 : 0;
 
-  // Customers count
-  const { data: customers } = await supabase.from("customers").select("id").eq("user_id", userId);
-
-  const customersCount = customers?.length || 0;
-
-  // Invoices issued stats (count and total value)
   const invoicesCount = invoices?.length || 0;
   const invoicesTotal = totalInvoiced;
+
+  // ── Customers count ─────────────────────────────────────────────────────────
+  // When a customer filter is active, count = 1 (the selected customer).
+  // When no filter: count all customers for this user (unaffected by date range
+  // since customers aren't time-scoped the same way).
+  let customersCount = 0;
+  if (filterCustomer) {
+    customersCount = 1;
+  } else {
+    let customersQuery = supabase.from("customers").select("id").eq("user_id", userId);
+
+    // If date-scoped, only count customers created within the window
+    if (startISO) customersQuery = customersQuery.gte("created_at", startISO);
+
+    const { data: customerRows } = await customersQuery;
+    customersCount = customerRows?.length || 0;
+  }
 
   return {
     outstanding,
@@ -80,14 +141,17 @@ export async function getDashboardMetrics(userId: string) {
   };
 }
 
-// --- Recent customers ---------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Recent customers  (unfiltered — used to populate the customer dropdown)
+// ---------------------------------------------------------------------------
+
 export async function getRecentCustomersWithOutstanding(userId: string) {
   const { data: customers } = await supabase
     .from("customers")
     .select("id, name, email")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(50); // broader limit so the dropdown is useful
 
   if (!customers || customers.length === 0) return [];
 
@@ -107,18 +171,19 @@ export async function getRecentCustomersWithOutstanding(userId: string) {
       .filter((inv) => inv.status !== "paid")
       .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
 
-    return {
-      ...customer,
-      outstanding_amount: outstanding,
-    };
+    return { ...customer, outstanding_amount: outstanding };
   });
 }
 
-// --- Overdue invoices ---------------------------------------------------------
-export async function getOverdueInvoices(userId: string) {
-  const todayStr = new Date().toISOString().split("T")[0];
+// ---------------------------------------------------------------------------
+// Overdue invoices  (filtered by customerId only — "overdue" is always today)
+// ---------------------------------------------------------------------------
 
-  const { data: invoices } = await supabase
+export async function getOverdueInvoices(userId: string, filters: DashboardFilters = {}) {
+  const todayStr = new Date().toISOString().split("T")[0];
+  const filterCustomer = filters.customerId && filters.customerId !== "all" ? filters.customerId : null;
+
+  let query = supabase
     .from("invoices")
     .select("id, invoice_number, customer_id, total_amount, due_date, status, last_sent_at, last_sent_channel")
     .eq("user_id", userId)
@@ -127,12 +192,15 @@ export async function getOverdueInvoices(userId: string) {
     .order("due_date", { ascending: true })
     .limit(10);
 
+  if (filterCustomer) query = query.eq("customer_id", filterCustomer);
+
+  const { data: invoices } = await query;
+
   if (!invoices || invoices.length === 0) return [];
 
   const invoiceIds = invoices.map((inv) => inv.id);
   const customerIds = [...new Set(invoices.map((inv) => inv.customer_id))];
 
-  // Fetch customers, reminder logs, and payments in parallel
   const [customersRes, reminderRes, paymentsRes] = await Promise.all([
     supabase.from("customers").select("id, name").in("id", customerIds),
     supabase
@@ -140,10 +208,7 @@ export async function getOverdueInvoices(userId: string) {
       .select("invoice_id, sent_at")
       .in("invoice_id", invoiceIds)
       .order("sent_at", { ascending: false }),
-    supabase
-      .from("payments")
-      .select("invoice_id, amount")
-      .in("invoice_id", invoiceIds),
+    supabase.from("payments").select("invoice_id, amount").in("invoice_id", invoiceIds),
   ]);
 
   const customerMap = new Map((customersRes.data || []).map((c) => [c.id, c.name]));
@@ -155,7 +220,6 @@ export async function getOverdueInvoices(userId: string) {
     }
   });
 
-  // Sum payments per invoice
   const paidMap = new Map<string, number>();
   paymentsRes.data?.forEach((p) => {
     paidMap.set(p.invoice_id, (paidMap.get(p.invoice_id) || 0) + Number(p.amount || 0));
@@ -186,7 +250,10 @@ export async function getOverdueInvoices(userId: string) {
   });
 }
 
-// --- Pending reminders --------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Pending reminders  (no filters)
+// ---------------------------------------------------------------------------
+
 export async function getPendingReminders(userId: string) {
   const today = new Date();
   const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -201,44 +268,42 @@ export async function getPendingReminders(userId: string) {
   return count || 0;
 }
 
-// --- Today's snapshot ---------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Today's snapshot  (no filters — always "what happened today")
+// ---------------------------------------------------------------------------
+
 export async function getTodaySnapshot(userId: string) {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const todayStr = todayStart.toISOString();
 
-  // Invoices created today
   const { data: invoicesToday } = await supabase
     .from("invoices")
     .select("id")
     .eq("user_id", userId)
     .gte("created_at", todayStr);
 
-  // Payments received today
   const { data: paymentsToday } = await supabase
     .from("payments")
     .select("id, amount")
     .eq("user_id", userId)
     .gte("created_at", todayStr);
 
-  const invoicesCreatedToday = invoicesToday?.length || 0;
-  const paymentsReceivedToday = paymentsToday?.length || 0;
-  const amountCollectedToday = paymentsToday?.reduce(
-    (sum, p) => sum + Number(p.amount || 0),
-    0
-  ) || 0;
-
   return {
-    invoicesCreatedToday,
-    paymentsReceivedToday,
-    amountCollectedToday,
+    invoicesCreatedToday: invoicesToday?.length || 0,
+    paymentsReceivedToday: paymentsToday?.length || 0,
+    amountCollectedToday: paymentsToday?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0,
   };
 }
 
-// --- Invoices needing sending -------------------------------------------------
-export async function getInvoicesNeedingSending(userId: string) {
-  // Get invoices that are draft OR issued but never sent
-  const { data: invoices } = await supabase
+// ---------------------------------------------------------------------------
+// Invoices needing sending  (filtered by customerId only)
+// ---------------------------------------------------------------------------
+
+export async function getInvoicesNeedingSending(userId: string, filters: DashboardFilters = {}) {
+  const filterCustomer = filters.customerId && filters.customerId !== "all" ? filters.customerId : null;
+
+  let query = supabase
     .from("invoices")
     .select("id, invoice_number, customer_id, total_amount, status, last_sent_at")
     .eq("user_id", userId)
@@ -246,19 +311,23 @@ export async function getInvoicesNeedingSending(userId: string) {
     .order("created_at", { ascending: false })
     .limit(5);
 
+  if (filterCustomer) query = query.eq("customer_id", filterCustomer);
+
+  const { data: invoices } = await query;
+
   if (!invoices || invoices.length === 0) return [];
 
   const customerIds = [...new Set(invoices.map((inv) => inv.customer_id).filter(Boolean))];
 
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("id, name, email")
-    .in("id", customerIds);
+  const { data: customers } = await supabase.from("customers").select("id, name, email").in("id", customerIds);
 
   const customerMap = new Map((customers || []).map((c) => [c.id, { name: c.name, email: c.email }]));
 
   return invoices.map((invoice) => {
-    const customer = customerMap.get(invoice.customer_id) || { name: "Unknown", email: null };
+    const customer = customerMap.get(invoice.customer_id) || {
+      name: "Unknown",
+      email: null,
+    };
     return {
       id: invoice.id,
       invoice_number: invoice.invoice_number || "Draft",
