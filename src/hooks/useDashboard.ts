@@ -8,7 +8,11 @@ import {
   getPendingReminders,
   getInvoicesNeedingSending,
   getTodaySnapshot,
+  type DashboardFilters,
 } from "@/lib/dashboard";
+
+// Re-export the type so Index.tsx (and others) can import it from here
+export type { DashboardFilters };
 
 export const useSetupStatus = (userId: string | undefined) =>
   useQuery({
@@ -17,13 +21,15 @@ export const useSetupStatus = (userId: string | undefined) =>
     enabled: !!userId,
   });
 
-export const useDashboardMetrics = (userId: string | undefined) =>
+// Metrics re-fetch automatically whenever userId, dateRange, or customerId changes
+export const useDashboardMetrics = (userId: string | undefined, filters: DashboardFilters = {}) =>
   useQuery({
-    queryKey: ["dashboardMetrics", userId],
-    queryFn: () => getDashboardMetrics(userId!),
+    queryKey: ["dashboardMetrics", userId, filters.dateRange, filters.customerId],
+    queryFn: () => getDashboardMetrics(userId!, filters),
     enabled: !!userId,
   });
 
+// Unfiltered — populates the customer dropdown
 export const useRecentCustomers = (userId: string | undefined) =>
   useQuery({
     queryKey: ["recentCustomers", userId],
@@ -31,10 +37,11 @@ export const useRecentCustomers = (userId: string | undefined) =>
     enabled: !!userId,
   });
 
-export const useOverdueInvoices = (userId: string | undefined) =>
+// Overdue filtered by customerId only (date range not applicable)
+export const useOverdueInvoices = (userId: string | undefined, filters: DashboardFilters = {}) =>
   useQuery({
-    queryKey: ["overdueInvoices", userId],
-    queryFn: () => getOverdueInvoices(userId!),
+    queryKey: ["overdueInvoices", userId, filters.customerId],
+    queryFn: () => getOverdueInvoices(userId!, filters),
     enabled: !!userId,
   });
 
@@ -45,13 +52,15 @@ export const usePendingReminders = (userId: string | undefined) =>
     enabled: !!userId,
   });
 
-export const useInvoicesNeedingSending = (userId: string | undefined) =>
+// Needs-sending filtered by customerId only
+export const useInvoicesNeedingSending = (userId: string | undefined, filters: DashboardFilters = {}) =>
   useQuery({
-    queryKey: ["invoicesNeedingSending", userId],
-    queryFn: () => getInvoicesNeedingSending(userId!),
+    queryKey: ["invoicesNeedingSending", userId, filters.customerId],
+    queryFn: () => getInvoicesNeedingSending(userId!, filters),
     enabled: !!userId,
   });
 
+// Today's snapshot is always "today" — no filters
 export const useTodaySnapshot = (userId: string | undefined) =>
   useQuery({
     queryKey: ["todaySnapshot", userId],
