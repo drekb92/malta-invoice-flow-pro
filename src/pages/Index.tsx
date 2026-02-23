@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { MetricCard } from "@/components/MetricCard";
 import { RecentActivity } from "@/components/RecentActivity";
-import { DashboardCommandBar } from "@/components/DashboardCommandBar";
+import { DashboardCommandBar, NewButton } from "@/components/DashboardCommandBar";
 import { ReceivablesAgingCard } from "@/components/ReceivablesAgingCard";
 import { TodaySnapshotCard } from "@/components/TodaySnapshotCard";
 import { WorkQueueCard } from "@/components/WorkQueueCard";
@@ -22,19 +22,7 @@ import {
   useInvoicesNeedingSending,
   useTodaySnapshot,
 } from "@/hooks/useDashboard";
-import {
-  FileText,
-  Users,
-  CreditCard,
-  CheckCircle2,
-  AlertCircle,
-  ArrowRight,
-  Building,
-  Sparkles,
-  Plus,
-  Send,
-  Bell,
-} from "lucide-react";
+import { FileText, Users, CreditCard, CheckCircle2, AlertCircle, ArrowRight, Building, Sparkles } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -371,35 +359,10 @@ const Index = () => {
                 </p>
               </div>
 
-              {/* Quick actions — only shown once setup is complete */}
+              {/* New button — only shown once setup is complete */}
               {setupStatus.isComplete && !isLoading && (
-                <div className="flex items-center gap-2 shrink-0">
-                  {needsSendingCount > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate("/invoices?status=draft")}
-                      className="hidden sm:flex items-center gap-1.5 text-amber-600 border-amber-200 hover:bg-amber-50"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      Send ({needsSendingCount})
-                    </Button>
-                  )}
-                  {overdueCount > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate("/invoices?status=overdue")}
-                      className="hidden sm:flex items-center gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
-                    >
-                      <Bell className="w-3.5 h-3.5" />
-                      Overdue ({overdueCount})
-                    </Button>
-                  )}
-                  <Button size="sm" onClick={() => navigate("/invoices/new")} className="flex items-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5" />
-                    New Invoice
-                  </Button>
+                <div className="shrink-0">
+                  <NewButton />
                 </div>
               )}
             </div>
