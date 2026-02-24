@@ -1,57 +1,81 @@
 
 
-# Fix "Convert & Send" — Items Blocked by Immutability Trigger
+# Fix Dashboard Metrics Filtering & Duplicate Activity Entries
 
-## Root Cause
+## Issues Identified
 
-The `handleConvertAndSend` function creates the invoice with `is_issued: true` **before** inserting the line items. The database trigger `prevent_issued_invoice_items_changes` then blocks the item insert because the invoice is already marked as issued.
+### 1. "Total Collected" shows 0 for "Last 7 days" despite a payment recorded today
+**Root cause**: `getDashboardMetrics` in `src/lib/dashboard.ts` calculates "payments collected" by filtering the **invoices** table by `invoice.created_at` and checking `status === "paid"`. INV-2025-001 was created on **2025-10-13** — months ago — so it falls outside any recent date range. The payment itself was recorded today (2026-02-24), but the code never queries the `payments` table at all.
 
-The sequence today:
-1. INSERT invoice with `is_issued: true` (line 630) -- succeeds
-2. INSERT invoice_items (line 658) -- **BLOCKED by trigger**
-3. Error thrown, quotation never marked as "converted"
+**Fix**: Query the `payments` table directly, filtering by `payments.created_at` (or `payment_date`) within the selected date range. This gives the actual amount collected in the period, independent of when the invoice was originally created.
 
-This leaves the system in a broken state: an invoice exists (with no items), and the quotation remains unconverted.
+### 2. Duplicate "Email sent" entries for INV-2025-001
+**Root cause**: The database has two `document_send_logs` rows for INV-2025-001, sent 48 seconds apart (09:28:01 and 09:28:49). This is likely because:
+- The user clicked "Send" from the invoice page (first entry at 09:28:01)
+- The payment confirmation email was also sent automatically after recording the payment (second entry at 09:28:49 via `send-payment-confirmation`)
 
-## Fix
+Both are legitimate logs, but they look confusing in the Recent Activity widget because they both show as "Email sent" with identical descriptions. The fix is to differentiate payment confirmation emails from regular invoice emails in the activity feed description.
 
-Reorder the operations so items are inserted **before** the invoice is marked as issued:
+### 3. "Today Snapshot" not reflecting the payment
+The `getTodaySnapshot` function correctly queries the `payments` table by `created_at >= todayStart`, so this should work. However, the `todayStart` uses `setHours(0, 0, 0, 0)` which produces a **local** midnight, then `.toISOString()` converts to UTC. This is correct as long as the user's timezone is ahead of UTC (Malta is UTC+1), so midnight local = 23:00 UTC previous day. The payment at 09:28 UTC should be captured. No change needed here.
 
-1. INSERT invoice with `status: "draft"`, `is_issued: false` (no trigger conflict)
-2. INSERT invoice_items (allowed because invoice is not yet issued)
-3. Generate the invoice hash (needs items to exist for accurate hash)
-4. UPDATE invoice to `status: "sent"`, `is_issued: true`, `issued_at: now()`, `invoice_hash: ...` (the immutability trigger allows this because `is_issued` was previously `false`)
-5. Render PDF, send email, mark quotation as converted, redirect
+---
 
-## Code Changes
+## Changes
 
-### `src/pages/Quotations.tsx` — `handleConvertAndSend` function
+### A. `src/lib/dashboard.ts` — Fix payments metric to use `payments` table
 
-**Step 1**: Change the initial invoice insert to create a draft:
+In `getDashboardMetrics`, add a separate query to the `payments` table:
+
 ```tsx
-const invoicePayload = {
-  ...existingFields,
-  status: "draft",       // was "sent"
-  is_issued: false,      // was true
-  issued_at: null,       // was new Date().toISOString()
-  // invoice_hash omitted — set later
-};
+// Current (broken): derives "collected" from invoices with status "paid"
+const payments = invoices?.filter((inv) => inv.status === "paid")
+  .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
+
+// New: query actual payments table with date range filter
+let paymentsQuery = supabase
+  .from("payments")
+  .select("amount, created_at")
+  .eq("user_id", userId);
+
+if (startISO) paymentsQuery = paymentsQuery.gte("created_at", startISO);
+if (filterCustomer) {
+  // Join through invoices to filter by customer
+  paymentsQuery = paymentsQuery.eq("invoices.customer_id", filterCustomer);
+}
+
+const { data: paymentRows } = await paymentsQuery;
+const payments = paymentRows?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
 ```
 
-**Step 2**: Move the invoice items insert immediately after the invoice creation (no change needed, already in this position).
+For customer filtering on payments, since payments link to invoices (not directly to customers), we need to join through invoices. The simplest approach: when a customer filter is active, first get invoice IDs for that customer, then filter payments by those invoice IDs.
 
-**Step 3**: Generate the hash after items exist (already in this position, but move it after items insert).
+### B. `src/components/RecentActivity.tsx` — Deduplicate / differentiate email entries
 
-**Step 4**: Add a single UPDATE to finalize the invoice after items and hash are ready:
+The two send logs are both valid records but need differentiation. The payment confirmation email (sent by the `send-payment-confirmation` edge function) currently logs with `document_type: "invoice"` and `channel: "email"`, making it indistinguishable from a manual email send.
+
+**Approach**: Group consecutive `document_send_logs` entries with the same `document_number` and `channel` within a short window (e.g., 60 seconds) and only show the latest one. This prevents near-duplicate entries from cluttering the feed.
+
 ```tsx
-await supabase.from("invoices").update({
-  status: "sent",
-  is_issued: true,
-  issued_at: new Date().toISOString(),
-  invoice_hash: invoiceHash,
-}).eq("id", inv.id);
+// After building the sendLogs activities, deduplicate:
+// Group by document_number + channel, keep only the latest within 60s windows
+const deduped = sendActivities.filter((activity, index, arr) => {
+  const next = arr[index - 1]; // already sorted desc
+  if (!next) return true;
+  if (next.description === activity.description) {
+    const diff = Math.abs(next.timestamp.getTime() - activity.timestamp.getTime());
+    if (diff < 60000) return false; // skip duplicate within 60s
+  }
+  return true;
+});
 ```
 
-**Step 5**: Continue with PDF rendering, email sending, quotation status update, and redirect (unchanged).
+---
 
-This matches the safe ordering: create draft, add items, then issue — avoiding the trigger entirely.
+## Summary of file changes
+
+| File | Change |
+|------|--------|
+| `src/lib/dashboard.ts` | Query `payments` table for "Total Collected" metric instead of deriving from invoice status; apply date range filter on `payments.created_at` |
+| `src/components/RecentActivity.tsx` | Deduplicate send log entries for the same document within a 60-second window to prevent duplicate "Email sent" rows |
+
