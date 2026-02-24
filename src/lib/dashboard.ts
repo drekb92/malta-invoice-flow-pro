@@ -104,15 +104,39 @@ export async function getDashboardMetrics(userId: string, filters: DashboardFilt
   const outstanding =
     invoices?.filter((inv) => inv.status !== "paid").reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
 
-  const payments =
-    invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
-
   const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
-
-  const collectionRate = totalInvoiced > 0 ? ((totalInvoiced - outstanding) / totalInvoiced) * 100 : 0;
 
   const invoicesCount = invoices?.length || 0;
   const invoicesTotal = totalInvoiced;
+
+  // ── Payments query (from payments table directly) ───────────────────────────
+  let paymentsQuery = supabase
+    .from("payments")
+    .select("amount, created_at, invoice_id")
+    .eq("user_id", userId);
+
+  if (startISO) paymentsQuery = paymentsQuery.gte("created_at", startISO);
+
+  if (filterCustomer) {
+    // Get invoice IDs for this customer, then filter payments
+    const { data: custInvoices } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("customer_id", filterCustomer);
+    const custInvoiceIds = (custInvoices || []).map((i) => i.id);
+    if (custInvoiceIds.length > 0) {
+      paymentsQuery = paymentsQuery.in("invoice_id", custInvoiceIds);
+    } else {
+      // No invoices for this customer, so no payments
+      paymentsQuery = paymentsQuery.eq("invoice_id", "00000000-0000-0000-0000-000000000000");
+    }
+  }
+
+  const { data: paymentRows } = await paymentsQuery;
+  const payments = paymentRows?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
+
+  const collectionRate = totalInvoiced > 0 ? ((totalInvoiced - outstanding) / totalInvoiced) * 100 : 0;
 
   // ── Customers count ─────────────────────────────────────────────────────────
   // When a customer filter is active, count = 1 (the selected customer).

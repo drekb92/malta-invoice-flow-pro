@@ -128,10 +128,11 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
   }
 
   if (sendLogsResult.data) {
+    const sendActivities: Activity[] = [];
     for (const log of sendLogsResult.data) {
       const customer = log.customers as { name: string } | null;
       const channelLabel = log.channel === "email" ? "Email" : log.channel === "whatsapp" ? "WhatsApp" : "Document";
-      activities.push({
+      sendActivities.push({
         id: `send-${log.id}`,
         type: "email",
         title: `${channelLabel} sent`,
@@ -140,6 +141,17 @@ const fetchRecentActivities = async (userId: string): Promise<Activity[]> => {
         status: "sent",
       });
     }
+    // Deduplicate entries for the same document+channel within 60 seconds
+    const deduped = sendActivities.filter((activity, index) => {
+      if (index === 0) return true;
+      const prev = sendActivities[index - 1];
+      if (prev.description === activity.description) {
+        const diff = Math.abs(prev.timestamp.getTime() - activity.timestamp.getTime());
+        if (diff < 60000) return false;
+      }
+      return true;
+    });
+    activities.push(...deduped);
   }
 
   if (creditNotesResult.data) {
