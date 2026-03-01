@@ -526,7 +526,22 @@ const InvoiceTemplates = () => {
                         currentSettings={currentSettings}
                         userId={user.id}
                         onTemplateCreated={loadTemplates}
-                        onTemplateDeleted={loadTemplates}
+                        onTemplateDeleted={(deletedId) => {
+                          setTemplates((prev) => {
+                            const remaining = prev.filter((t) => t.id !== deletedId);
+                            const next = remaining.find((t) => t.is_default) || remaining[0] || null;
+                            if (next) {
+                              setSelectedTemplate(next);
+                              setCurrentSettings(next);
+                              setSavedSettings(next);
+                            } else {
+                              setSelectedTemplate(null);
+                              setCurrentSettings({});
+                              setSavedSettings({});
+                            }
+                            return remaining;
+                          });
+                        }}
                         onTemplateSelected={(t) => {
                           setSelectedTemplate(t);
                           setCurrentSettings(t);
