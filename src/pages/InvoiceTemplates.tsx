@@ -32,6 +32,7 @@ import { TemplateControlSection } from "@/components/templates/TemplateControlSe
 import { TemplateManagementPanel } from "@/components/templates/TemplateManagementPanel";
 import { PreviewModeSelector, PreviewMode } from "@/components/templates/PreviewModeSelector";
 import { MarginControl } from "@/components/templates/MarginControl";
+import { FontPreviewSelect } from "@/components/templates/FontPreviewSelect";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -169,6 +170,11 @@ const InvoiceTemplates = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
 
+  // Track whether current settings differ from last saved state
+  const [savedSettings, setSavedSettings] = useState<Partial<InvoiceTemplate>>({});
+  const hasUnsavedChanges =
+    Object.keys(currentSettings).length > 0 && JSON.stringify(currentSettings) !== JSON.stringify(savedSettings);
+
   const {
     settings: companySettings,
     isLoading: loadingCompany,
@@ -213,6 +219,7 @@ const InvoiceTemplates = () => {
         const def = typedData.find((t) => t.is_default) || typedData[0];
         setSelectedTemplate(def);
         setCurrentSettings(def);
+        setSavedSettings(def);
       } else {
         await createDefaultTemplate();
       }
@@ -319,6 +326,7 @@ const InvoiceTemplates = () => {
         prev.map((t) => (t.id === currentSettings.id ? ({ ...t, ...currentSettings } as InvoiceTemplate) : t)),
       );
       setSelectedTemplate({ ...selectedTemplate, ...currentSettings } as InvoiceTemplate);
+      setSavedSettings({ ...currentSettings });
       await refreshTemplate();
       const warnings: string[] = [];
       if (!companySettings?.company_name) warnings.push("Company name");
@@ -373,14 +381,6 @@ const InvoiceTemplates = () => {
   };
 
   // ── Derived ─────────────────────────────────────────────────────────────────
-  const fontFamilies = [
-    { value: "Inter", label: "Inter" },
-    { value: "Roboto", label: "Roboto" },
-    { value: "Lato", label: "Lato" },
-    { value: "Open Sans", label: "Open Sans" },
-    { value: "Poppins", label: "Poppins" },
-  ];
-
   const templateForPreview = {
     primary_color: currentSettings.primary_color || "#26A65B",
     accent_color: currentSettings.accent_color || "#1F2D3D",
@@ -467,6 +467,9 @@ const InvoiceTemplates = () => {
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving || !selectedTemplate}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   <span className="ml-1.5 hidden sm:inline">{isSaving ? "Saving…" : "Save"}</span>
+                  {hasUnsavedChanges && !isSaving && (
+                    <span className="ml-1.5 w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Unsaved changes" />
+                  )}
                 </Button>
                 <Button size="sm" onClick={handleSaveAndTest} disabled={isSaving || !selectedTemplate}>
                   <FileDown className="h-4 w-4 mr-1.5" />
@@ -527,6 +530,7 @@ const InvoiceTemplates = () => {
                         onTemplateSelected={(t) => {
                           setSelectedTemplate(t);
                           setCurrentSettings(t);
+                          setSavedSettings(t);
                         }}
                       />
                     )}
@@ -540,6 +544,7 @@ const InvoiceTemplates = () => {
                             if (t) {
                               setSelectedTemplate(t);
                               setCurrentSettings(t);
+                              setSavedSettings(t);
                             }
                           }}
                         >
@@ -766,24 +771,10 @@ const InvoiceTemplates = () => {
                     icon={<Type className="h-4 w-4 text-muted-foreground" />}
                     defaultOpen={false}
                   >
-                    <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Font Family</Label>
-                      <Select
-                        value={currentSettings.font_family || "Inter"}
-                        onValueChange={(v) => updateSetting("font_family", v)}
-                      >
-                        <SelectTrigger className="bg-background">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover z-50">
-                          {fontFamilies.map((f) => (
-                            <SelectItem key={f.value} value={f.value}>
-                              <span style={{ fontFamily: f.value }}>{f.label}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <FontPreviewSelect
+                      value={currentSettings.font_family || "Inter"}
+                      onChange={(v) => updateSetting("font_family", v)}
+                    />
                   </TemplateControlSection>
 
                   {/* Layout Options */}
@@ -806,6 +797,22 @@ const InvoiceTemplates = () => {
                             <SelectItem value="default">Default</SelectItem>
                             <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
                             <SelectItem value="compact">Compact</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Header Layout</Label>
+                        <Select
+                          value={currentSettings.header_layout || "default"}
+                          onValueChange={(v) => updateSetting("header_layout", v)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default — logo left, invoice right</SelectItem>
+                            <SelectItem value="centered">Centered — logo & title centered</SelectItem>
+                            <SelectItem value="split">Split — company left, details right</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -849,6 +856,24 @@ const InvoiceTemplates = () => {
                           onCheckedChange={(v) => updateSetting("banking_visibility", v)}
                         />
                       </div>
+                      {currentSettings.banking_visibility !== false && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Banking Style</Label>
+                          <Select
+                            value={currentSettings.banking_style || "default"}
+                            onValueChange={(v) => updateSetting("banking_style", v)}
+                          >
+                            <SelectTrigger className="bg-background">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover z-50">
+                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="boxed">Boxed</SelectItem>
+                              <SelectItem value="minimal">Minimal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between py-2 px-1">
                         <Label className="text-sm">Show VAT Summary</Label>
                         <Switch
