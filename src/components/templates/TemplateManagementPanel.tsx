@@ -22,9 +22,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, Copy, Download, Upload, Trash2, FileJson } from "lucide-react";
+import { Plus, Copy, Download, Upload, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface InvoiceTemplate {
   id: string;
@@ -34,12 +35,12 @@ interface InvoiceTemplate {
   accent_color: string;
   font_family: string;
   font_size: string;
-  layout?: 'default' | 'cleanMinimal' | 'compact';
-  header_layout?: 'default' | 'centered' | 'split';
-  table_style?: 'default' | 'striped' | 'bordered' | 'minimal';
-  totals_style?: 'default' | 'boxed' | 'highlighted';
+  layout?: "default" | "cleanMinimal" | "compact";
+  header_layout?: "default" | "centered" | "split";
+  table_style?: "default" | "striped" | "bordered" | "minimal";
+  totals_style?: "default" | "boxed" | "highlighted";
   banking_visibility?: boolean;
-  banking_style?: 'default' | 'boxed' | 'minimal';
+  banking_style?: "default" | "boxed" | "minimal";
   margin_top?: number;
   margin_right?: number;
   margin_bottom?: number;
@@ -52,7 +53,7 @@ interface TemplateManagementPanelProps {
   currentSettings: Partial<InvoiceTemplate>;
   userId: string;
   onTemplateCreated: () => void;
-  onTemplateDeleted: () => void;
+  onTemplateDeleted: (deletedId: string) => void;
   onTemplateSelected: (template: InvoiceTemplate) => void;
 }
 
@@ -84,27 +85,29 @@ export function TemplateManagementPanel({
     setIsCreating(true);
     try {
       const { data, error } = await supabase
-        .from('invoice_templates')
-        .insert([{
-          name: newTemplateName,
-          is_default: false,
-          primary_color: '#26A65B',
-          accent_color: '#1F2D3D',
-          font_family: 'Inter',
-          font_size: '14px',
-          layout: 'default',
-          header_layout: 'default',
-          table_style: 'default',
-          totals_style: 'default',
-          banking_visibility: true,
-          banking_style: 'default',
-          style: 'modern',
-          margin_top: 20,
-          margin_right: 20,
-          margin_bottom: 20,
-          margin_left: 20,
-          user_id: userId,
-        }])
+        .from("invoice_templates")
+        .insert([
+          {
+            name: newTemplateName,
+            is_default: false,
+            primary_color: "#26A65B",
+            accent_color: "#1F2D3D",
+            font_family: "Inter",
+            font_size: "14px",
+            layout: "default",
+            header_layout: "default",
+            table_style: "default",
+            totals_style: "default",
+            banking_visibility: true,
+            banking_style: "default",
+            style: "modern",
+            margin_top: 20,
+            margin_right: 20,
+            margin_bottom: 20,
+            margin_left: 20,
+            user_id: userId,
+          },
+        ])
         .select()
         .single();
 
@@ -114,11 +117,24 @@ export function TemplateManagementPanel({
         title: "Template created",
         description: `${newTemplateName} has been created successfully.`,
       });
-      
+
       setNewTemplateName("");
       onTemplateCreated();
+
+      // Auto-select the newly created template
+      if (data) {
+        onTemplateSelected({
+          ...data,
+          layout: (data.layout || "default") as "default" | "cleanMinimal" | "compact",
+          header_layout: (data.header_layout || "default") as "default" | "centered" | "split",
+          table_style: (data.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
+          totals_style: (data.totals_style || "default") as "default" | "boxed" | "highlighted",
+          banking_visibility: data.banking_visibility ?? true,
+          banking_style: (data.banking_style || "default") as "default" | "boxed" | "minimal",
+        });
+      }
     } catch (error) {
-      console.error('Error creating template:', error);
+      console.error("Error creating template:", error);
       toast({
         title: "Creation failed",
         description: "Failed to create template. Please try again.",
@@ -135,27 +151,29 @@ export function TemplateManagementPanel({
     setIsDuplicating(true);
     try {
       const { data, error } = await supabase
-        .from('invoice_templates')
-        .insert([{
-          name: `${selectedTemplate.name} (Copy)`,
-          is_default: false,
-          primary_color: currentSettings.primary_color || selectedTemplate.primary_color,
-          accent_color: currentSettings.accent_color || selectedTemplate.accent_color,
-          font_family: currentSettings.font_family || selectedTemplate.font_family,
-          font_size: currentSettings.font_size || selectedTemplate.font_size,
-          layout: currentSettings.layout || selectedTemplate.layout,
-          header_layout: currentSettings.header_layout || selectedTemplate.header_layout,
-          table_style: currentSettings.table_style || selectedTemplate.table_style,
-          totals_style: currentSettings.totals_style || selectedTemplate.totals_style,
-          banking_visibility: currentSettings.banking_visibility ?? selectedTemplate.banking_visibility,
-          banking_style: currentSettings.banking_style || selectedTemplate.banking_style,
-          style: (currentSettings as any).style || (selectedTemplate as any).style || 'modern',
-          margin_top: currentSettings.margin_top || selectedTemplate.margin_top,
-          margin_right: currentSettings.margin_right || selectedTemplate.margin_right,
-          margin_bottom: currentSettings.margin_bottom || selectedTemplate.margin_bottom,
-          margin_left: currentSettings.margin_left || selectedTemplate.margin_left,
-          user_id: userId,
-        }])
+        .from("invoice_templates")
+        .insert([
+          {
+            name: `${selectedTemplate.name} (Copy)`,
+            is_default: false,
+            primary_color: currentSettings.primary_color || selectedTemplate.primary_color,
+            accent_color: currentSettings.accent_color || selectedTemplate.accent_color,
+            font_family: currentSettings.font_family || selectedTemplate.font_family,
+            font_size: currentSettings.font_size || selectedTemplate.font_size,
+            layout: currentSettings.layout || selectedTemplate.layout,
+            header_layout: currentSettings.header_layout || selectedTemplate.header_layout,
+            table_style: currentSettings.table_style || selectedTemplate.table_style,
+            totals_style: currentSettings.totals_style || selectedTemplate.totals_style,
+            banking_visibility: currentSettings.banking_visibility ?? selectedTemplate.banking_visibility,
+            banking_style: currentSettings.banking_style || selectedTemplate.banking_style,
+            style: (currentSettings as any).style || (selectedTemplate as any).style || "modern",
+            margin_top: currentSettings.margin_top || selectedTemplate.margin_top,
+            margin_right: currentSettings.margin_right || selectedTemplate.margin_right,
+            margin_bottom: currentSettings.margin_bottom || selectedTemplate.margin_bottom,
+            margin_left: currentSettings.margin_left || selectedTemplate.margin_left,
+            user_id: userId,
+          },
+        ])
         .select()
         .single();
 
@@ -165,10 +183,23 @@ export function TemplateManagementPanel({
         title: "Template duplicated",
         description: `Copy of ${selectedTemplate.name} has been created.`,
       });
-      
+
       onTemplateCreated();
+
+      // Auto-select the duplicated template
+      if (data) {
+        onTemplateSelected({
+          ...data,
+          layout: (data.layout || "default") as "default" | "cleanMinimal" | "compact",
+          header_layout: (data.header_layout || "default") as "default" | "centered" | "split",
+          table_style: (data.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
+          totals_style: (data.totals_style || "default") as "default" | "boxed" | "highlighted",
+          banking_visibility: data.banking_visibility ?? true,
+          banking_style: (data.banking_style || "default") as "default" | "boxed" | "minimal",
+        });
+      }
     } catch (error) {
-      console.error('Error duplicating template:', error);
+      console.error("Error duplicating template:", error);
       toast({
         title: "Duplication failed",
         description: "Failed to duplicate template. Please try again.",
@@ -191,10 +222,7 @@ export function TemplateManagementPanel({
 
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('invoice_templates')
-        .delete()
-        .eq('id', selectedTemplate.id);
+      const { error } = await supabase.from("invoice_templates").delete().eq("id", selectedTemplate.id);
 
       if (error) throw error;
 
@@ -202,10 +230,10 @@ export function TemplateManagementPanel({
         title: "Template deleted",
         description: `${selectedTemplate.name} has been deleted.`,
       });
-      
-      onTemplateDeleted();
+
+      onTemplateDeleted(selectedTemplate.id);
     } catch (error) {
-      console.error('Error deleting template:', error);
+      console.error("Error deleting template:", error);
       toast({
         title: "Deletion failed",
         description: "Failed to delete template. Please try again.",
@@ -227,11 +255,11 @@ export function TemplateManagementPanel({
     };
 
     const dataStr = JSON.stringify(templateData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `${selectedTemplate.name.replace(/\s+/g, '-').toLowerCase()}-template.json`;
+    link.download = `${selectedTemplate.name.replace(/\s+/g, "-").toLowerCase()}-template.json`;
     link.click();
     URL.revokeObjectURL(url);
 
@@ -250,27 +278,29 @@ export function TemplateManagementPanel({
       const importedData = JSON.parse(text);
 
       const { data, error } = await supabase
-        .from('invoice_templates')
-        .insert([{
-          name: `${importedData.name || 'Imported'} (Imported)`,
-          is_default: false,
-          primary_color: importedData.primary_color || '#26A65B',
-          accent_color: importedData.accent_color || '#1F2D3D',
-          font_family: importedData.font_family || 'Inter',
-          font_size: importedData.font_size || '14px',
-          layout: importedData.layout || 'default',
-          header_layout: importedData.header_layout || 'default',
-          table_style: importedData.table_style || 'default',
-          totals_style: importedData.totals_style || 'default',
-          banking_visibility: importedData.banking_visibility ?? true,
-          banking_style: importedData.banking_style || 'default',
-          style: importedData.style || 'modern',
-          margin_top: importedData.margin_top || 20,
-          margin_right: importedData.margin_right || 20,
-          margin_bottom: importedData.margin_bottom || 20,
-          margin_left: importedData.margin_left || 20,
-          user_id: userId,
-        }])
+        .from("invoice_templates")
+        .insert([
+          {
+            name: `${importedData.name || "Imported"} (Imported)`,
+            is_default: false,
+            primary_color: importedData.primary_color || "#26A65B",
+            accent_color: importedData.accent_color || "#1F2D3D",
+            font_family: importedData.font_family || "Inter",
+            font_size: importedData.font_size || "14px",
+            layout: importedData.layout || "default",
+            header_layout: importedData.header_layout || "default",
+            table_style: importedData.table_style || "default",
+            totals_style: importedData.totals_style || "default",
+            banking_visibility: importedData.banking_visibility ?? true,
+            banking_style: importedData.banking_style || "default",
+            style: importedData.style || "modern",
+            margin_top: importedData.margin_top || 20,
+            margin_right: importedData.margin_right || 20,
+            margin_bottom: importedData.margin_bottom || 20,
+            margin_left: importedData.margin_left || 20,
+            user_id: userId,
+          },
+        ])
         .select()
         .single();
 
@@ -280,63 +310,77 @@ export function TemplateManagementPanel({
         title: "Template imported",
         description: "Template has been imported successfully.",
       });
-      
+
       onTemplateCreated();
     } catch (error) {
-      console.error('Error importing template:', error);
+      console.error("Error importing template:", error);
       toast({
         title: "Import failed",
         description: "Failed to import template. Please check the file format.",
         variant: "destructive",
       });
     }
-    
-    event.target.value = '';
+
+    event.target.value = "";
   };
+
+  const atLimit = templates.length >= 5;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-sm">Template Management</h3>
         <div className="flex items-center gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                New
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Template</DialogTitle>
-                <DialogDescription>
-                  Enter a name for your new invoice template.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="template-name">Template Name</Label>
-                  <Input
-                    id="template-name"
-                    placeholder="e.g., Professional Blue"
-                    value={newTemplateName}
-                    onChange={(e) => setNewTemplateName(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreateTemplate} disabled={isCreating}>
-                  {isCreating ? "Creating..." : "Create Template"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={atLimit}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        New
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create New Template</DialogTitle>
+                        <DialogDescription>Enter a name for your new invoice template.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="template-name">Template Name</Label>
+                          <Input
+                            id="template-name"
+                            placeholder="e.g., Professional Blue"
+                            value={newTemplateName}
+                            onChange={(e) => setNewTemplateName(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={handleCreateTemplate} disabled={isCreating}>
+                          {isCreating ? "Creating..." : "Create Template"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </span>
+              </TooltipTrigger>
+              {atLimit && (
+                <TooltipContent>
+                  <p>Template limit reached (5 max). Delete one to create another.</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
 
           <Button
             variant="outline"
             size="sm"
             onClick={handleDuplicateTemplate}
-            disabled={!selectedTemplate || isDuplicating}
+            disabled={!selectedTemplate || isDuplicating || atLimit}
+            title={atLimit ? "Template limit reached (5 max)" : undefined}
           >
             <Copy className="h-4 w-4 mr-1" />
             Duplicate
@@ -360,18 +404,12 @@ export function TemplateManagementPanel({
           variant="outline"
           size="sm"
           className="flex-1"
-          onClick={() => document.getElementById('import-template')?.click()}
+          onClick={() => document.getElementById("import-template")?.click()}
         >
           <Upload className="h-4 w-4 mr-1" />
           Import
         </Button>
-        <input
-          id="import-template"
-          type="file"
-          accept=".json"
-          className="hidden"
-          onChange={handleImportTemplate}
-        />
+        <input id="import-template" type="file" accept=".json" className="hidden" onChange={handleImportTemplate} />
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -403,7 +441,7 @@ export function TemplateManagementPanel({
       </div>
 
       <div className="text-xs text-muted-foreground">
-        {templates.length} template{templates.length !== 1 ? 's' : ''} available
+        {templates.length} / 5 templates{atLimit && <span className="text-amber-500 ml-1">— limit reached</span>}
       </div>
     </div>
   );
