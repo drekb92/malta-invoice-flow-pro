@@ -151,6 +151,7 @@ const InvoiceDetails = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [resendingReceipt, setResendingReceipt] = useState(false);
   const [newPayment, setNewPayment] = useState({
     amount: "",
     payment_date: format(new Date(), "yyyy-MM-dd"),
@@ -610,6 +611,50 @@ const InvoiceDetails = () => {
     }
   };
 
+  const handleResendReceipt = async () => {
+    if (!invoice || !user || !id || payments.length === 0) return;
+    const customerEmail = invoice.customers?.email;
+    if (!customerEmail) {
+      toast({ title: "No email", description: "Customer has no email address on file.", variant: "destructive" });
+      return;
+    }
+    setResendingReceipt(true);
+    try {
+      const latestPayment = payments[0]; // already sorted desc
+      const invoiceTotal = Number(invoiceTotals?.total_amount ?? computedTotals.total);
+      const adjustedTotal = invoiceTotal - totalCreditNotesAmount;
+      const currentRemaining = Math.max(0, adjustedTotal - totalPaid);
+      const isFullyPaid = currentRemaining <= 0.01;
+
+      const { error } = await supabase.functions.invoke("send-payment-confirmation", {
+        body: {
+          invoiceId: id,
+          invoiceNumber: invoice.invoice_number,
+          paymentAmount: latestPayment.amount,
+          paymentMethod: latestPayment.method,
+          paymentDate: latestPayment.payment_date,
+          customerEmail,
+          customerName: invoice.customers?.name || "Customer",
+          remainingBalance: currentRemaining,
+          isFullyPaid,
+          userId: user.id,
+          customerId: invoice.customer_id,
+          currencyCode: companySettings?.currency_code || "EUR",
+          companyName: companySettings?.company_name || "Our Company",
+        },
+      });
+
+      if (error) throw error;
+      toast({ title: "Receipt sent", description: `Payment receipt emailed to ${customerEmail}.` });
+      refetchSendLogs();
+    } catch (err: any) {
+      console.error("[InvoiceDetails] Resend receipt error:", err);
+      toast({ title: "Failed to send receipt", description: err.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setResendingReceipt(false);
+    }
+  };
+
   const getMethodLabel = (method: string | null) => {
     const methods: Record<string, string> = {
       bank_transfer: "Bank Transfer",
@@ -918,11 +963,25 @@ const InvoiceDetails = () => {
                       <CreditCard className="h-4 w-4" />
                       Payment History
                     </CardTitle>
-                    {payments.length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        Paid: <span className="font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {payments.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          Paid: <span className="font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
+                        </span>
+                      )}
+                      {payments.length > 0 && invoice?.customers?.email && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[11px] px-2 gap-1"
+                          onClick={handleResendReceipt}
+                          disabled={resendingReceipt}
+                        >
+                          {resendingReceipt ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                          Resend Receipt
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 px-4 pb-2">
