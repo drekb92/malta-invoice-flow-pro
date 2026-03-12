@@ -1142,6 +1142,16 @@ const NewInvoice = () => {
                     </CardContent>
                   </Card>
 
+                  {/* Recurring Schedule - only shown for saved invoices */}
+                  {isEditMode && id && selectedCustomer && user && (
+                    <RecurringScheduleCard
+                      invoiceId={id}
+                      userId={user.id}
+                      customerId={selectedCustomer}
+                      isEditMode={true}
+                    />
+                  )}
+
                   {/* Action Buttons - Compact */}
                   <div className="space-y-2">
                     {!isIssued && (
