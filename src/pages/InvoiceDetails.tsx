@@ -1016,7 +1016,7 @@ const InvoiceDetails = () => {
                   invoiceId={id}
                   userId={user.id}
                   customerId={invoice.customer_id}
-                  viewOnly={true}
+                  viewOnly={false}
                 />
               )}
 

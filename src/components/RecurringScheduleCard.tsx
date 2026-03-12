@@ -17,7 +17,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 interface RecurringScheduleCardProps {
-  invoiceId: string;
+  invoiceId?: string;
   userId: string;
   customerId: string;
   isEditMode?: boolean;
