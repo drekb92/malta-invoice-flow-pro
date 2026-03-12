@@ -49,6 +49,7 @@ import type { TablesInsert } from '@/integrations/supabase/types';
 import type { InvoiceWithCompliance } from '@/types/invoice-compliance';
 import { validateDocumentItems } from "@/lib/documentItems";
 import { ItemLibraryDrawer } from "@/components/invoice/ItemLibraryDrawer";
+import { RecurringScheduleCard } from "@/components/RecurringScheduleCard";
 
 // Type-safe RPC wrapper
 type RpcFunction = 'next_invoice_number' | 'next_credit_note_number';
@@ -1141,6 +1142,16 @@ const NewInvoice = () => {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Recurring Schedule - only shown for saved invoices */}
+                  {isEditMode && id && selectedCustomer && user && (
+                    <RecurringScheduleCard
+                      invoiceId={id}
+                      userId={user.id}
+                      customerId={selectedCustomer}
+                      isEditMode={true}
+                    />
+                  )}
 
                   {/* Action Buttons - Compact */}
                   <div className="space-y-2">

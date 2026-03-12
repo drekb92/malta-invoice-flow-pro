@@ -66,6 +66,7 @@ import { ReminderPromptBanner } from "@/components/ReminderPromptBanner";
 import { ReminderHistoryPanel } from "@/components/ReminderHistoryPanel";
 import { ShareLinkPanel } from "@/components/ShareLinkPanel";
 import { SendReminderDialog } from "@/components/SendReminderDialog";
+import { RecurringScheduleCard } from "@/components/RecurringScheduleCard";
 
 interface Invoice {
   id: string;
@@ -1008,6 +1009,16 @@ const InvoiceDetails = () => {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Recurring Schedule */}
+              {id && user && invoice.customer_id && (
+                <RecurringScheduleCard
+                  invoiceId={id}
+                  userId={user.id}
+                  customerId={invoice.customer_id}
+                  viewOnly={true}
+                />
+              )}
 
               {/* Share Link Panel */}
               {isIssued && (

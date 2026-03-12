@@ -1,107 +1,81 @@
 
 
-## Recurring Invoice Schedules — Implementation Plan
+# Fix Dashboard Metrics Filtering & Duplicate Activity Entries
 
-### Overview
-Add the ability for users to set up recurring invoice schedules (weekly, monthly, quarterly, annually) that automatically generate draft invoices on a cron schedule. This is critical for Malta-based consultants and service businesses with retainer/subscription models.
+## Issues Identified
 
-### 1. Database: New `recurring_invoices` table
+### 1. "Total Collected" shows 0 for "Last 7 days" despite a payment recorded today
+**Root cause**: `getDashboardMetrics` in `src/lib/dashboard.ts` calculates "payments collected" by filtering the **invoices** table by `invoice.created_at` and checking `status === "paid"`. INV-2025-001 was created on **2025-10-13** — months ago — so it falls outside any recent date range. The payment itself was recorded today (2026-02-24), but the code never queries the `payments` table at all.
 
-```sql
-CREATE TABLE public.recurring_invoices (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  source_invoice_id uuid NOT NULL,
-  customer_id uuid NOT NULL,
-  frequency text NOT NULL CHECK (frequency IN ('weekly', 'monthly', 'quarterly', 'annually')),
-  next_run_date date NOT NULL,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  last_generated_at timestamptz,
-  total_generated integer NOT NULL DEFAULT 0
-);
+**Fix**: Query the `payments` table directly, filtering by `payments.created_at` (or `payment_date`) within the selected date range. This gives the actual amount collected in the period, independent of when the invoice was originally created.
 
-ALTER TABLE public.recurring_invoices ENABLE ROW LEVEL SECURITY;
+### 2. Duplicate "Email sent" entries for INV-2025-001
+**Root cause**: The database has two `document_send_logs` rows for INV-2025-001, sent 48 seconds apart (09:28:01 and 09:28:49). This is likely because:
+- The user clicked "Send" from the invoice page (first entry at 09:28:01)
+- The payment confirmation email was also sent automatically after recording the payment (second entry at 09:28:49 via `send-payment-confirmation`)
 
--- RLS policies (user-scoped)
-CREATE POLICY "Users can view own recurring invoices" ON public.recurring_invoices
-  FOR SELECT TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own recurring invoices" ON public.recurring_invoices
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own recurring invoices" ON public.recurring_invoices
-  FOR UPDATE TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own recurring invoices" ON public.recurring_invoices
-  FOR DELETE TO authenticated USING (auth.uid() = user_id);
+Both are legitimate logs, but they look confusing in the Recent Activity widget because they both show as "Email sent" with identical descriptions. The fix is to differentiate payment confirmation emails from regular invoice emails in the activity feed description.
 
--- updated_at trigger
-CREATE TRIGGER handle_recurring_invoices_updated_at
-  BEFORE UPDATE ON public.recurring_invoices
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+### 3. "Today Snapshot" not reflecting the payment
+The `getTodaySnapshot` function correctly queries the `payments` table by `created_at >= todayStart`, so this should work. However, the `todayStart` uses `setHours(0, 0, 0, 0)` which produces a **local** midnight, then `.toISOString()` converts to UTC. This is correct as long as the user's timezone is ahead of UTC (Malta is UTC+1), so midnight local = 23:00 UTC previous day. The payment at 09:28 UTC should be captured. No change needed here.
+
+---
+
+## Changes
+
+### A. `src/lib/dashboard.ts` — Fix payments metric to use `payments` table
+
+In `getDashboardMetrics`, add a separate query to the `payments` table:
+
+```tsx
+// Current (broken): derives "collected" from invoices with status "paid"
+const payments = invoices?.filter((inv) => inv.status === "paid")
+  .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
+
+// New: query actual payments table with date range filter
+let paymentsQuery = supabase
+  .from("payments")
+  .select("amount, created_at")
+  .eq("user_id", userId);
+
+if (startISO) paymentsQuery = paymentsQuery.gte("created_at", startISO);
+if (filterCustomer) {
+  // Join through invoices to filter by customer
+  paymentsQuery = paymentsQuery.eq("invoices.customer_id", filterCustomer);
+}
+
+const { data: paymentRows } = await paymentsQuery;
+const payments = paymentRows?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
 ```
 
-### 2. Edge Function: `process-recurring-invoices`
+For customer filtering on payments, since payments link to invoices (not directly to customers), we need to join through invoices. The simplest approach: when a customer filter is active, first get invoice IDs for that customer, then filter payments by those invoice IDs.
 
-A new Deno edge function at `supabase/functions/process-recurring-invoices/index.ts`:
+### B. `src/components/RecentActivity.tsx` — Deduplicate / differentiate email entries
 
-- Uses service role key to bypass RLS
-- Queries `recurring_invoices` where `is_active = true` and `next_run_date <= today`
-- For each due schedule:
-  - Fetches the source invoice + its items
-  - Creates a new draft invoice (copying customer, items, VAT rates, discount settings)
-  - Generates a new invoice number via `next_invoice_number` RPC (or leaves null for draft)
-  - Sets `invoice_date = today`, calculates `due_date` from customer payment terms
-  - Inserts invoice items copied from the source
-  - Advances `next_run_date` based on frequency
-  - Increments `total_generated`, sets `last_generated_at`
-- Registered in `config.toml` with `verify_jwt = false`
-- Designed to be triggered by pg_cron (daily)
+The two send logs are both valid records but need differentiation. The payment confirmation email (sent by the `send-payment-confirmation` edge function) currently logs with `document_type: "invoice"` and `channel: "email"`, making it indistinguishable from a manual email send.
 
-### 3. Frontend: "Make Recurring" on NewInvoice page
+**Approach**: Group consecutive `document_send_logs` entries with the same `document_number` and `channel` within a short window (e.g., 60 seconds) and only show the latest one. This prevents near-duplicate entries from cluttering the feed.
 
-After an invoice is saved (in the submit handler of `src/pages/NewInvoice.tsx`), add a section in the right sidebar:
+```tsx
+// After building the sendLogs activities, deduplicate:
+// Group by document_number + channel, keep only the latest within 60s windows
+const deduped = sendActivities.filter((activity, index, arr) => {
+  const next = arr[index - 1]; // already sorted desc
+  if (!next) return true;
+  if (next.description === activity.description) {
+    const diff = Math.abs(next.timestamp.getTime() - activity.timestamp.getTime());
+    if (diff < 60000) return false; // skip duplicate within 60s
+  }
+  return true;
+});
+```
 
-- A "Make Recurring" `Switch` toggle (only shown when editing an existing invoice or after first save)
-- When toggled on, show a `Select` dropdown: Weekly / Monthly / Quarterly / Annually
-- A "Start Date" date picker for `next_run_date` (defaults to next occurrence based on frequency)
-- On save, upsert into `recurring_invoices` table
+---
 
-### 4. Frontend: Recurring schedule management on InvoiceDetails page
+## Summary of file changes
 
-In `src/pages/InvoiceDetails.tsx`, add a collapsible section:
-
-- If the invoice has an active recurring schedule, show: frequency, next run date, total generated count
-- Buttons to: Pause (set `is_active = false`), Resume, Cancel (delete the schedule)
-- Badge indicator showing "Recurring: Monthly" etc.
-
-### 5. Dashboard: Active Recurring Schedules widget
-
-In `src/pages/Index.tsx`, add a small card/widget showing:
-
-- Count of active recurring schedules
-- Next upcoming generation date
-- Link to a filtered view
-
-New hook `useRecurringInvoices` in `src/hooks/useRecurringInvoices.ts` to fetch active schedules.
-New dashboard query function in `src/lib/dashboard.ts`.
-
-### 6. Invoices list page indicator
-
-In `src/pages/Invoices.tsx`, add a small recurring icon/badge next to invoices that are source invoices for active recurring schedules.
-
-### Files to create
-- `supabase/functions/process-recurring-invoices/index.ts`
-- `src/hooks/useRecurringInvoices.ts`
-
-### Files to modify
-- Database migration (new table)
-- `supabase/config.toml` — register new edge function
-- `src/pages/NewInvoice.tsx` — add recurring toggle in sidebar
-- `src/pages/InvoiceDetails.tsx` — show/manage recurring schedule
-- `src/pages/Index.tsx` — dashboard widget
-- `src/lib/dashboard.ts` — new query for recurring data
-- `src/hooks/useDashboard.ts` — new hook export
-
-### Cron setup
-After implementation, a `pg_cron` job will need to be created (via SQL insert, not migration) to call the edge function daily.
+| File | Change |
+|------|--------|
+| `src/lib/dashboard.ts` | Query `payments` table for "Total Collected" metric instead of deriving from invoice status; apply date range filter on `payments.created_at` |
+| `src/components/RecentActivity.tsx` | Deduplicate send log entries for the same document within a 60-second window to prevent duplicate "Email sent" rows |
 

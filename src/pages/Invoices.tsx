@@ -33,6 +33,7 @@ import {
   Shield,
   Wallet,
   FileMinus2,
+  RefreshCw,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
@@ -52,6 +53,7 @@ import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
 import { InvoiceSettlementSheet } from "@/components/InvoiceSettlementSheet";
+import { useRecurringSourceInvoiceIds } from "@/hooks/useRecurringInvoices";
 
 interface Invoice {
   id: string;
@@ -96,6 +98,7 @@ const Invoices = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { data: recurringSourceIds } = useRecurringSourceInvoiceIds(user?.id);
 
   // Load template using unified hook
   const { template } = useInvoiceTemplate();
@@ -556,6 +559,11 @@ const Invoices = () => {
                               {(invoice as any).is_issued && (
                                 <span title="Malta VAT Compliant - Immutable">
                                   <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                                </span>
+                              )}
+                              {recurringSourceIds?.has(invoice.id) && (
+                                <span title="Recurring invoice">
+                                  <RefreshCw className="h-3 w-3 text-primary" />
                                 </span>
                               )}
                             </button>

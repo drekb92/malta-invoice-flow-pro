@@ -6,6 +6,7 @@ import { DashboardCommandBar, NewButton } from "@/components/DashboardCommandBar
 import { ReceivablesAgingCard } from "@/components/ReceivablesAgingCard";
 import { TodaySnapshotCard } from "@/components/TodaySnapshotCard";
 import { WorkQueueCard } from "@/components/WorkQueueCard";
+import { RecurringSchedulesWidget } from "@/components/RecurringSchedulesWidget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -516,6 +517,7 @@ const Index = () => {
                   formatCurrency={formatCurrency}
                 />
                 <RecentActivity userId={userId} />
+                <RecurringSchedulesWidget userId={userId} />
               </div>
 
               {/* Desktop layout — 12-column grid */}
@@ -538,6 +540,7 @@ const Index = () => {
                     formatCurrency={formatCurrency}
                   />
                   <RecentActivity userId={userId} />
+                  <RecurringSchedulesWidget userId={userId} />
                 </div>
               </div>
             </div>
