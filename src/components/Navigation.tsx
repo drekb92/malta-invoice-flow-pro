@@ -17,10 +17,14 @@ import {
   LogOut,
   Package,
   FileSpreadsheet,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "next-themes";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
@@ -40,6 +44,15 @@ const navigationItems = [
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
+
+  const cycleTheme = () => {
+    const order = ["light", "dark", "system"] as const;
+    const idx = order.indexOf((theme as typeof order[number]) ?? "system");
+    setTheme(order[(idx + 1) % order.length]);
+  };
+
+  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
 
   return (
     <>
@@ -118,6 +131,15 @@ export function Navigation() {
           >
             <LogOut className="h-4 w-4" />
             <span>Sign Out</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cycleTheme}
+            className="w-full flex items-center space-x-2 mt-2"
+          >
+            <ThemeIcon className="h-4 w-4" />
+            <span className="capitalize">{theme ?? "system"}</span>
           </Button>
         </div>
       </nav>

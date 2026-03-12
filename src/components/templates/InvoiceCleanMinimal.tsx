@@ -57,11 +57,13 @@ export function InvoiceCleanMinimal({
   return (
     <div 
       id={id}
-      className={containerClass}
+      className={`${containerClass} light`}
+      data-theme="light"
       style={{
         fontFamily: template.font_family,
         fontSize: template.font_size,
         color: '#111827',
+        colorScheme: 'light',
       }}
     >
       {/* Header Section */}
