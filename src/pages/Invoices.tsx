@@ -52,6 +52,7 @@ import { formatCurrency } from "@/lib/utils";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
 import { InvoiceSettlementSheet } from "@/components/InvoiceSettlementSheet";
+import { useRecurringSourceInvoiceIds } from "@/hooks/useRecurringInvoices";
 
 interface Invoice {
   id: string;
