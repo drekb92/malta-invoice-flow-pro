@@ -1011,6 +1011,48 @@ export type Database = {
           },
         ]
       }
+      recurring_invoices: {
+        Row: {
+          created_at: string
+          customer_id: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_generated_at: string | null
+          next_run_date: string
+          source_invoice_id: string
+          total_generated: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_generated_at?: string | null
+          next_run_date: string
+          source_invoice_id: string
+          total_generated?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_generated_at?: string | null
+          next_run_date?: string
+          source_invoice_id?: string
+          total_generated?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reminder_logs: {
         Row: {
           created_at: string | null
