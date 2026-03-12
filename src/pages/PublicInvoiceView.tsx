@@ -142,96 +142,18 @@ export default function PublicInvoiceView() {
     setError(null);
 
     try {
-      // 1. Validate token — uses the public RLS policy (anon can read active links)
-      const { data: linkData, error: linkErr } = await supabase
-        .from("invoice_share_links")
-        .select("invoice_id, user_id, expires_at")
-        .eq("token", tok)
-        .is("revoked_at", null)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
+      const { data: result, error: fnError } = await supabase.functions.invoke(
+        "get-public-invoice",
+        { body: { token: tok } },
+      );
 
-      if (linkErr || !linkData) {
-        setError("This link is invalid, has expired, or has been revoked.");
+      if (fnError || !result || result.error) {
+        setError(result?.error || "This link is invalid, has expired, or has been revoked.");
         setLoading(false);
         return;
       }
 
-      const { invoice_id, user_id } = linkData;
-
-      // 2. Fetch all invoice data in parallel
-      const [invoiceRes, itemsRes, totalsRes, companyRes, bankingRes, paymentsRes] = await Promise.all([
-        supabase
-          .from("invoices")
-          .select(
-            "id, invoice_number, invoice_date, due_date, status, amount, vat_amount, total_amount, vat_rate, discount_type, discount_value, is_issued, customer_id",
-          )
-          .eq("id", invoice_id)
-          .eq("user_id", user_id)
-          .single(),
-
-        supabase
-          .from("invoice_items")
-          .select("description, quantity, unit, unit_price, vat_rate")
-          .eq("invoice_id", invoice_id)
-          .order("created_at", { ascending: true }),
-
-        supabase
-          .from("invoice_totals")
-          .select("net_amount, vat_amount, total_amount")
-          .eq("invoice_id", invoice_id)
-          .maybeSingle(),
-
-        supabase
-          .from("company_settings")
-          .select(
-            "company_name, company_email, company_phone, company_address, company_locality, company_post_code, company_country, company_vat_number, company_registration_number, company_logo, company_website",
-          )
-          .eq("user_id", user_id)
-          .maybeSingle(),
-
-        supabase
-          .from("banking_details")
-          .select("bank_name, bank_account_name, bank_iban, bank_swift_code, include_on_invoices")
-          .eq("user_id", user_id)
-          .maybeSingle(),
-
-        supabase
-          .from("payments")
-          .select("amount, payment_date, method")
-          .eq("invoice_id", invoice_id)
-          .eq("user_id", user_id)
-          .order("payment_date", { ascending: false }),
-      ]);
-
-      if (invoiceRes.error || !invoiceRes.data) {
-        setError("Invoice data could not be loaded.");
-        setLoading(false);
-        return;
-      }
-
-      // Fetch customer separately (need customer_id from invoice)
-      const customerId = (invoiceRes.data as any).customer_id;
-      let customerData = null;
-      if (customerId) {
-        const { data: cust } = await supabase
-          .from("customers")
-          .select("name, email, address, address_line1, address_line2, locality, post_code, vat_number")
-          .eq("id", customerId)
-          .maybeSingle();
-        customerData = cust;
-      }
-
-      setData({
-        invoice: invoiceRes.data as PublicInvoiceData["invoice"],
-        customer: customerData,
-        items: (itemsRes.data || []) as PublicInvoiceData["items"],
-        totals: totalsRes.data as PublicInvoiceData["totals"] | null,
-        company: companyRes.data as PublicInvoiceData["company"] | null,
-        banking: bankingRes.data?.include_on_invoices ? (bankingRes.data as PublicInvoiceData["banking"]) : null,
-        payments: (paymentsRes.data || []) as PublicInvoiceData["payments"],
-        shareLink: { expires_at: linkData.expires_at },
-      });
+      setData(result as PublicInvoiceData);
     } catch (e: any) {
       setError("An unexpected error occurred.");
     } finally {
