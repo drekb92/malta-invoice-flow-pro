@@ -75,6 +75,27 @@ export function RecurringScheduleCard({
 
   if (isLoading) return null;
 
+  // No invoice saved yet — show placeholder
+  if (!invoiceId) {
+    return (
+      <Card className="shadow-sm">
+        <CardHeader className="py-3 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-muted-foreground" />
+              Recurring
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 px-4 pb-3">
+          <p className="text-xs text-muted-foreground">
+            Save this invoice first to enable a recurring schedule.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // In view-only mode (InvoiceDetails), don't show if no schedule
   if (viewOnly && !schedule) return null;
 
