@@ -518,6 +518,7 @@ const Index = () => {
                 />
                 <RecentActivity userId={userId} />
                 <RecurringSchedulesWidget userId={userId} />
+              </div>
 
               {/* Desktop layout — 12-column grid */}
               <div className="hidden lg:grid lg:grid-cols-12 gap-6">
@@ -540,6 +541,7 @@ const Index = () => {
                   />
                   <RecentActivity userId={userId} />
                   <RecurringSchedulesWidget userId={userId} />
+                </div>
               </div>
             </div>
           )}
