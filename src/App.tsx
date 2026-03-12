@@ -47,6 +47,7 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => {
   return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
