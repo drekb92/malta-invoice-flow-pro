@@ -132,6 +132,15 @@ export function Navigation() {
             <LogOut className="h-4 w-4" />
             <span>Sign Out</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cycleTheme}
+            className="w-full flex items-center space-x-2 mt-2"
+          >
+            <ThemeIcon className="h-4 w-4" />
+            <span className="capitalize">{theme ?? "system"}</span>
+          </Button>
         </div>
       </nav>
     </>

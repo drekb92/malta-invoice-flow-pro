@@ -53,6 +53,7 @@ const App: React.FC = () => {
       <TooltipProvider>
         <BrowserRouter>
           <AuthProvider>
+            <ThemeSyncProvider />
             <Routes>
               {/* Auth & recovery */}
               <Route path="/auth" element={<Auth />} />
