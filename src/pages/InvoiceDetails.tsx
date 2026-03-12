@@ -17,12 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -69,6 +64,7 @@ import { useDocumentSendLogs } from "@/hooks/useDocumentSendLogs";
 import { useReminderStatus } from "@/hooks/useReminderStatus";
 import { ReminderPromptBanner } from "@/components/ReminderPromptBanner";
 import { ReminderHistoryPanel } from "@/components/ReminderHistoryPanel";
+import { ShareLinkPanel } from "@/components/ShareLinkPanel";
 import { SendReminderDialog } from "@/components/SendReminderDialog";
 
 interface Invoice {
@@ -151,7 +147,6 @@ const InvoiceDetails = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [resendingReceipt, setResendingReceipt] = useState(false);
   const [newPayment, setNewPayment] = useState({
     amount: "",
     payment_date: format(new Date(), "yyyy-MM-dd"),
@@ -164,12 +159,9 @@ const InvoiceDetails = () => {
   const { template, isLoading: templateLoading } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
-  
+
   // Fetch send logs for Activity section
-  const { lastEmailSent, lastWhatsAppSent, refetch: refetchSendLogs } = useDocumentSendLogs(
-    'invoice',
-    id || ''
-  );
+  const { lastEmailSent, lastWhatsAppSent, refetch: refetchSendLogs } = useDocumentSendLogs("invoice", id || "");
 
   const fetchPayments = async () => {
     if (!id || !user) return;
@@ -204,7 +196,9 @@ const InvoiceDetails = () => {
       try {
         const { data: invoiceData, error: invoiceError } = await supabase
           .from("invoices")
-          .select(`*, customers (name, email, address, address_line1, address_line2, locality, post_code, vat_number, phone)`)
+          .select(
+            `*, customers (name, email, address, address_line1, address_line2, locality, post_code, vat_number, phone)`,
+          )
           .eq("id", id)
           .eq("user_id", user.id)
           .single();
@@ -306,7 +300,7 @@ const InvoiceDetails = () => {
     return creditNotes.reduce((sum, cn) => {
       const netAmount = Number(cn.amount || 0);
       const vatRate = Number(cn.vat_rate || 0);
-      return sum + netAmount + (netAmount * vatRate);
+      return sum + netAmount + netAmount * vatRate;
     }, 0);
   }, [creditNotes]);
 
@@ -323,9 +317,9 @@ const InvoiceDetails = () => {
     today.setHours(0, 0, 0, 0);
     dueDate.setHours(0, 0, 0, 0);
     const diff = differenceInDays(dueDate, today);
-    
+
     if (remainingBalance <= 0) return null;
-    
+
     if (diff < 0) {
       return { text: `Overdue by ${Math.abs(diff)} days`, isOverdue: true };
     } else if (diff === 0) {
@@ -337,9 +331,9 @@ const InvoiceDetails = () => {
 
   // Reminder status for smart prompts (must be after remainingBalance is defined)
   const reminderStatus = useReminderStatus({
-    invoiceId: id || '',
-    dueDate: invoice?.due_date || '',
-    status: invoice?.status || '',
+    invoiceId: id || "",
+    dueDate: invoice?.due_date || "",
+    status: invoice?.status || "",
     remainingBalance,
   });
 
@@ -399,7 +393,7 @@ const InvoiceDetails = () => {
 
   const handleWhatsAppReminder = async () => {
     if (!invoice || !user) return;
-    
+
     const phoneRaw = invoice.customers?.phone || "";
     const phone = phoneRaw.replace(/\D/g, "");
 
@@ -438,7 +432,7 @@ const InvoiceDetails = () => {
       const whatsappUrl = phone
         ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
         : `https://wa.me/?text=${encodeURIComponent(message)}`;
-      
+
       // Open via redirect page to avoid cross-origin blocking
       const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
       if (!waWindow) {
@@ -611,50 +605,6 @@ const InvoiceDetails = () => {
     }
   };
 
-  const handleResendReceipt = async () => {
-    if (!invoice || !user || !id || payments.length === 0) return;
-    const customerEmail = invoice.customers?.email;
-    if (!customerEmail) {
-      toast({ title: "No email", description: "Customer has no email address on file.", variant: "destructive" });
-      return;
-    }
-    setResendingReceipt(true);
-    try {
-      const latestPayment = payments[0]; // already sorted desc
-      const invoiceTotal = Number(invoiceTotals?.total_amount ?? computedTotals.total);
-      const adjustedTotal = invoiceTotal - totalCreditNotesAmount;
-      const currentRemaining = Math.max(0, adjustedTotal - totalPaid);
-      const isFullyPaid = currentRemaining <= 0.01;
-
-      const { error } = await supabase.functions.invoke("send-payment-confirmation", {
-        body: {
-          invoiceId: id,
-          invoiceNumber: invoice.invoice_number,
-          paymentAmount: latestPayment.amount,
-          paymentMethod: latestPayment.method,
-          paymentDate: latestPayment.payment_date,
-          customerEmail,
-          customerName: invoice.customers?.name || "Customer",
-          remainingBalance: currentRemaining,
-          isFullyPaid,
-          userId: user.id,
-          customerId: invoice.customer_id,
-          currencyCode: companySettings?.currency_code || "EUR",
-          companyName: companySettings?.company_name || "Our Company",
-        },
-      });
-
-      if (error) throw error;
-      toast({ title: "Receipt sent", description: `Payment receipt emailed to ${customerEmail}.` });
-      refetchSendLogs();
-    } catch (err: any) {
-      console.error("[InvoiceDetails] Resend receipt error:", err);
-      toast({ title: "Failed to send receipt", description: err.message || "Please try again.", variant: "destructive" });
-    } finally {
-      setResendingReceipt(false);
-    }
-  };
-
   const getMethodLabel = (method: string | null) => {
     const methods: Record<string, string> = {
       bank_transfer: "Bank Transfer",
@@ -720,7 +670,10 @@ const InvoiceDetails = () => {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               {/* Breadcrumb and Title */}
               <div className="flex items-center gap-3">
-                <Link to="/invoices" className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+                <Link
+                  to="/invoices"
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
                   <ChevronLeft className="h-4 w-4" />
                   <span className="text-sm">Invoices</span>
                 </Link>
@@ -728,12 +681,18 @@ const InvoiceDetails = () => {
                 <div className="flex items-center gap-2">
                   <h1 className="text-lg font-semibold text-foreground">{invoice.invoice_number}</h1>
                   {isIssued ? (
-                    <Badge variant="outline" className="border-green-300 text-green-700 dark:border-green-700 dark:text-green-400 gap-1">
+                    <Badge
+                      variant="outline"
+                      className="border-green-300 text-green-700 dark:border-green-700 dark:text-green-400 gap-1"
+                    >
                       <Lock className="h-3 w-3" />
                       Issued
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="border-yellow-300 text-yellow-700 dark:border-yellow-700 dark:text-yellow-400 gap-1">
+                    <Badge
+                      variant="outline"
+                      className="border-yellow-300 text-yellow-700 dark:border-yellow-700 dark:text-yellow-400 gap-1"
+                    >
                       <AlertTriangle className="h-3 w-3" />
                       Draft
                     </Badge>
@@ -744,7 +703,12 @@ const InvoiceDetails = () => {
               {/* Actions */}
               <div className="flex items-center gap-2">
                 {!isIssued && (
-                  <Button onClick={handleIssueInvoice} disabled={isIssuing} size="sm" className="bg-green-600 hover:bg-green-700">
+                  <Button
+                    onClick={handleIssueInvoice}
+                    disabled={isIssuing}
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                  >
                     <CheckCircle className="h-4 w-4 mr-1" />
                     {isIssuing ? "Issuing..." : "Issue"}
                   </Button>
@@ -808,18 +772,28 @@ const InvoiceDetails = () => {
                     Issued {format(new Date((invoice as any).invoice_date || invoice.created_at), "dd MMM yyyy")}
                   </span>
                   <span className="text-muted-foreground/60 hidden sm:inline">•</span>
-                  <span className="text-muted-foreground">
-                    Due {format(new Date(invoice.due_date), "dd MMM yyyy")}
-                  </span>
+                  <span className="text-muted-foreground">Due {format(new Date(invoice.due_date), "dd MMM yyyy")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-muted-foreground">
-                    Status: <span className="font-medium text-foreground">{invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</span>
+                    Status:{" "}
+                    <span className="font-medium text-foreground">
+                      {invoice.status
+                        .split("_")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ")}
+                    </span>
                   </span>
                   {dueIndicator && !isSettled && (
                     <>
                       <span className="text-muted-foreground/60">•</span>
-                      <span className={dueIndicator.isOverdue ? "text-red-600 dark:text-red-400 font-medium" : "text-muted-foreground"}>
+                      <span
+                        className={
+                          dueIndicator.isOverdue
+                            ? "text-red-600 dark:text-red-400 font-medium"
+                            : "text-muted-foreground"
+                        }
+                      >
                         {dueIndicator.text}
                       </span>
                     </>
@@ -919,9 +893,15 @@ const InvoiceDetails = () => {
                                   <span className="line-clamp-2 text-sm">{item.description}</span>
                                 </TableCell>
                                 <TableCell className="py-2 text-sm text-right tabular-nums">{item.quantity}</TableCell>
-                                <TableCell className="py-2 text-sm text-right tabular-nums">€{formatNumber(item.unit_price, 2)}</TableCell>
-                                <TableCell className="py-2 text-sm text-right tabular-nums text-muted-foreground">{formatNumber(item.vat_rate * 100, 0)}%</TableCell>
-                                <TableCell className="py-2 text-sm text-right font-medium tabular-nums">€{formatNumber(lineTotal, 2)}</TableCell>
+                                <TableCell className="py-2 text-sm text-right tabular-nums">
+                                  €{formatNumber(item.unit_price, 2)}
+                                </TableCell>
+                                <TableCell className="py-2 text-sm text-right tabular-nums text-muted-foreground">
+                                  {formatNumber(item.vat_rate * 100, 0)}%
+                                </TableCell>
+                                <TableCell className="py-2 text-sm text-right font-medium tabular-nums">
+                                  €{formatNumber(lineTotal, 2)}
+                                </TableCell>
                               </TableRow>
                             );
                           })
@@ -934,19 +914,27 @@ const InvoiceDetails = () => {
                         <div className="flex flex-col items-end py-2 pr-4">
                           <div className="grid grid-cols-2 gap-x-8 gap-y-0.5 w-40">
                             <span className="text-muted-foreground text-xs">Net</span>
-                            <span className="tabular-nums text-right text-xs">€{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}</span>
+                            <span className="tabular-nums text-right text-xs">
+                              €{formatNumber(invoiceTotals?.net_amount ?? computedTotals.net, 2)}
+                            </span>
                             {discountInfo.amount > 0 && (
                               <>
                                 <span className="text-muted-foreground text-xs">Discount</span>
-                                <span className="tabular-nums text-right text-muted-foreground text-xs">(€{formatNumber(discountInfo.amount, 2)})</span>
+                                <span className="tabular-nums text-right text-muted-foreground text-xs">
+                                  (€{formatNumber(discountInfo.amount, 2)})
+                                </span>
                               </>
                             )}
                             <span className="text-muted-foreground text-xs">VAT</span>
-                            <span className="tabular-nums text-right text-xs">€{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}</span>
+                            <span className="tabular-nums text-right text-xs">
+                              €{formatNumber(invoiceTotals?.vat_amount ?? computedTotals.vat, 2)}
+                            </span>
                           </div>
                           <div className="grid grid-cols-2 gap-x-8 w-40 mt-1.5 pt-1.5 border-t border-border">
                             <span className="font-semibold text-sm">Total</span>
-                            <span className="tabular-nums text-right font-bold text-sm">€{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}</span>
+                            <span className="tabular-nums text-right font-bold text-sm">
+                              €{formatNumber(invoiceTotals?.total_amount ?? computedTotals.total, 2)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -963,25 +951,11 @@ const InvoiceDetails = () => {
                       <CreditCard className="h-4 w-4" />
                       Payment History
                     </CardTitle>
-                    <div className="flex items-center gap-2">
-                      {payments.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          Paid: <span className="font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
-                        </span>
-                      )}
-                      {payments.length > 0 && invoice?.customers?.email && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-[11px] px-2 gap-1"
-                          onClick={handleResendReceipt}
-                          disabled={resendingReceipt}
-                        >
-                          {resendingReceipt ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
-                          Resend Receipt
-                        </Button>
-                      )}
-                    </div>
+                    {payments.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        Paid: <span className="font-medium text-foreground">€{formatNumber(totalPaid, 2)}</span>
+                      </span>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 px-4 pb-2">
@@ -993,7 +967,12 @@ const InvoiceDetails = () => {
                         <p className="text-xs text-muted-foreground">Record a payment to update the balance.</p>
                       </div>
                       {remainingBalance > 0 && (
-                        <Button onClick={() => setShowPaymentDialog(true)} size="sm" variant="outline" className="h-7 text-xs flex-shrink-0">
+                        <Button
+                          onClick={() => setShowPaymentDialog(true)}
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs flex-shrink-0"
+                        >
                           <Plus className="h-3 w-3 mr-1" />
                           Add Payment
                         </Button>
@@ -1012,9 +991,15 @@ const InvoiceDetails = () => {
                         <TableBody>
                           {payments.map((payment) => (
                             <TableRow key={payment.id} className="border-b border-border/50 last:border-0">
-                              <TableCell className="py-2 text-sm">{format(new Date(payment.payment_date), "dd MMM yyyy")}</TableCell>
-                              <TableCell className="py-2 text-sm text-muted-foreground">{getMethodLabel(payment.method)}</TableCell>
-                              <TableCell className="py-2 text-sm text-right font-medium tabular-nums">€{formatNumber(payment.amount, 2)}</TableCell>
+                              <TableCell className="py-2 text-sm">
+                                {format(new Date(payment.payment_date), "dd MMM yyyy")}
+                              </TableCell>
+                              <TableCell className="py-2 text-sm text-muted-foreground">
+                                {getMethodLabel(payment.method)}
+                              </TableCell>
+                              <TableCell className="py-2 text-sm text-right font-medium tabular-nums">
+                                €{formatNumber(payment.amount, 2)}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -1024,8 +1009,15 @@ const InvoiceDetails = () => {
                 </CardContent>
               </Card>
 
+              {/* Share Link Panel */}
+              {isIssued && (
+                <div className="border border-border/60 rounded-lg bg-card/50 shadow-sm p-4">
+                  <ShareLinkPanel invoiceId={id || ""} invoiceNumber={invoice.invoice_number} />
+                </div>
+              )}
+
               {/* Reminder History */}
-              <ReminderHistoryPanel key={reminderKey} invoiceId={id || ''} />
+              <ReminderHistoryPanel key={reminderKey} invoiceId={id || ""} />
 
               {/* Audit Trail */}
               {isIssued && auditTrail.length > 0 && (
@@ -1039,7 +1031,13 @@ const InvoiceDetails = () => {
                             Audit Trail
                           </div>
                           <span className="audit-helper text-xs text-muted-foreground">
-                            Latest: {auditTrail[0]?.action === "issued" ? "Invoice Issued" : auditTrail[0]?.action === "credit_note_created" ? "Credit Note Created" : auditTrail[0]?.action} · Malta VAT compliant
+                            Latest:{" "}
+                            {auditTrail[0]?.action === "issued"
+                              ? "Invoice Issued"
+                              : auditTrail[0]?.action === "credit_note_created"
+                                ? "Credit Note Created"
+                                : auditTrail[0]?.action}{" "}
+                            · Malta VAT compliant
                           </span>
                         </div>
                       </AccordionTrigger>
@@ -1064,7 +1062,8 @@ const InvoiceDetails = () => {
                                 {entry.new_data && (
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {entry.action === "issued" && `Invoice #${entry.new_data.invoice_number} locked`}
-                                    {entry.action === "credit_note_created" && `${entry.new_data.credit_note_number} for €${formatNumber(entry.new_data.amount, 2)}`}
+                                    {entry.action === "credit_note_created" &&
+                                      `${entry.new_data.credit_note_number} for €${formatNumber(entry.new_data.amount, 2)}`}
                                   </p>
                                 )}
                               </div>
@@ -1213,7 +1212,8 @@ const InvoiceDetails = () => {
           <DialogHeader>
             <DialogTitle>Add Payment</DialogTitle>
             <DialogDescription>
-              Record a payment for invoice {invoice?.invoice_number}. Remaining balance: €{formatNumber(remainingBalance, 2)}
+              Record a payment for invoice {invoice?.invoice_number}. Remaining balance: €
+              {formatNumber(remainingBalance, 2)}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1241,7 +1241,10 @@ const InvoiceDetails = () => {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="payment_method">Payment Method</Label>
-              <Select value={newPayment.method} onValueChange={(value) => setNewPayment({ ...newPayment, method: value })}>
+              <Select
+                value={newPayment.method}
+                onValueChange={(value) => setNewPayment({ ...newPayment, method: value })}
+              >
                 <SelectTrigger id="payment_method">
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
@@ -1279,16 +1282,19 @@ const InvoiceDetails = () => {
       )}
 
       {/* Send Email Dialog */}
-      {invoice && user && companySettings && (() => {
-        const isFirstSend = !lastEmailSent?.sentAt;
-        const formattedDueDate = format(new Date(invoice.due_date), "dd MMM yyyy");
-        const formattedAmount = `€${formatNumber(remainingBalance, 2)}`;
-        const companyNameStr = companySettings.company_name || "Company";
-        const customerName = invoice.customers?.name || "Customer";
+      {invoice &&
+        user &&
+        companySettings &&
+        (() => {
+          const isFirstSend = !lastEmailSent?.sentAt;
+          const formattedDueDate = format(new Date(invoice.due_date), "dd MMM yyyy");
+          const formattedAmount = `€${formatNumber(remainingBalance, 2)}`;
+          const companyNameStr = companySettings.company_name || "Company";
+          const customerName = invoice.customers?.name || "Customer";
 
-        // First-time send copy
-        const firstSendSubject = `Invoice ${invoice.invoice_number} from ${companyNameStr}`;
-        const firstSendMessage = `Dear ${customerName},
+          // First-time send copy
+          const firstSendSubject = `Invoice ${invoice.invoice_number} from ${companyNameStr}`;
+          const firstSendMessage = `Dear ${customerName},
 
 Please find attached invoice ${invoice.invoice_number} for ${formattedAmount}, due on ${formattedDueDate}.
 
@@ -1297,9 +1303,9 @@ If you have any questions, please don't hesitate to contact us.
 Best regards,
 ${companyNameStr}`;
 
-        // Reminder copy
-        const reminderSubject = `Payment Reminder: Invoice ${invoice.invoice_number} from ${companyNameStr}`;
-        const reminderMessage = `Dear ${customerName},
+          // Reminder copy
+          const reminderSubject = `Payment Reminder: Invoice ${invoice.invoice_number} from ${companyNameStr}`;
+          const reminderMessage = `Dear ${customerName},
 
 This is a friendly reminder that invoice ${invoice.invoice_number} for ${formattedAmount} was due on ${formattedDueDate}.
 
@@ -1310,27 +1316,27 @@ If you have any questions, please don't hesitate to contact us.
 Best regards,
 ${companyNameStr}`;
 
-        return (
-          <SendDocumentEmailDialog
-            open={showEmailDialog}
-            onOpenChange={setShowEmailDialog}
-            documentType="invoice"
-            documentId={invoice.id}
-            documentNumber={invoice.invoice_number}
-            customer={{
-              id: invoice.customer_id,
-              name: customerName,
-              email: invoice.customers?.email || null,
-            }}
-            companyName={companyNameStr}
-            userId={user.id}
-            fontFamily={template?.font_family}
-            onSuccess={refetchSendLogs}
-            defaultSubjectOverride={isFirstSend ? firstSendSubject : reminderSubject}
-            defaultMessageOverride={isFirstSend ? firstSendMessage : reminderMessage}
-          />
-        );
-      })()}
+          return (
+            <SendDocumentEmailDialog
+              open={showEmailDialog}
+              onOpenChange={setShowEmailDialog}
+              documentType="invoice"
+              documentId={invoice.id}
+              documentNumber={invoice.invoice_number}
+              customer={{
+                id: invoice.customer_id,
+                name: customerName,
+                email: invoice.customers?.email || null,
+              }}
+              companyName={companyNameStr}
+              userId={user.id}
+              fontFamily={template?.font_family}
+              onSuccess={refetchSendLogs}
+              defaultSubjectOverride={isFirstSend ? firstSendSubject : reminderSubject}
+              defaultMessageOverride={isFirstSend ? firstSendMessage : reminderMessage}
+            />
+          );
+        })()}
 
       {/* Send Reminder Dialog */}
       {invoice && (
@@ -1345,7 +1351,7 @@ ${companyNameStr}`;
           dueDate={invoice.due_date}
           daysOverdue={invoice.due_date ? Math.max(0, differenceInDays(new Date(), new Date(invoice.due_date))) : 0}
           companyName={companySettings?.company_name}
-          currencySymbol={companySettings?.currency_code === 'USD' ? '$' : '€'}
+          currencySymbol={companySettings?.currency_code === "USD" ? "$" : "€"}
           onSuccess={handleReminderSuccess}
         />
       )}
@@ -1397,15 +1403,15 @@ const SidebarCard = ({
 }: SidebarCardProps) => {
   const total = invoiceTotals?.total_amount ?? computedTotals.total;
   const vat = invoiceTotals?.vat_amount ?? computedTotals.vat;
-  
+
   const totalCreditNotesAmount = creditNotes.reduce((sum, cn) => {
     const netAmount = Number(cn.amount || 0);
     const vatRate = Number(cn.vat_rate || 0);
-    return sum + netAmount + (netAmount * vatRate);
+    return sum + netAmount + netAmount * vatRate;
   }, 0);
 
   const isIssued = (invoice as any)?.is_issued;
-  const invoiceUrl = typeof window !== 'undefined' ? `${window.location.origin}/invoices/${invoice.id}` : '';
+  const invoiceUrl = typeof window !== "undefined" ? `${window.location.origin}/invoices/${invoice.id}` : "";
 
   return (
     <Card className="shadow-sm">
@@ -1415,10 +1421,13 @@ const SidebarCard = ({
           <div className="flex items-center justify-between mb-0.5">
             <span className="text-xs text-muted-foreground">Balance Due</span>
             <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
-              {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+              {invoice.status
+                .split("_")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")}
             </Badge>
           </div>
-          
+
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold tabular-nums">
               {isSettled ? "€0.00" : `€${formatNumber(Math.max(0, remainingBalance), 2)}`}
@@ -1430,9 +1439,11 @@ const SidebarCard = ({
               </span>
             )}
           </div>
-          
+
           {dueIndicator && !isSettled && (
-            <div className={`mt-0.5 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+            <div
+              className={`mt-0.5 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}
+            >
               <Clock className="h-3 w-3 inline mr-1" />
               {dueIndicator.text}
             </div>
@@ -1459,7 +1470,7 @@ const SidebarCard = ({
             <span>Total</span>
             <span className="tabular-nums font-bold">€{formatNumber(total, 2)}</span>
           </div>
-          
+
           {creditNotes.length > 0 && (
             <>
               <div className="flex justify-between text-xs">
@@ -1472,7 +1483,7 @@ const SidebarCard = ({
               </div>
             </>
           )}
-          
+
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Paid</span>
             <span className="tabular-nums">€{formatNumber(totalPaid, 2)}</span>
@@ -1505,8 +1516,16 @@ const SidebarCard = ({
                   disabled={whatsappLoading}
                   className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
                 >
-                  {whatsappLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MessageCircle className="h-3 w-3" />}
-                  {whatsappLoading ? "Creating link..." : lastWhatsAppSent?.sentAt ? "Send WhatsApp Reminder" : "Send via WhatsApp"}
+                  {whatsappLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <MessageCircle className="h-3 w-3" />
+                  )}
+                  {whatsappLoading
+                    ? "Creating link..."
+                    : lastWhatsAppSent?.sentAt
+                      ? "Send WhatsApp Reminder"
+                      : "Send via WhatsApp"}
                 </Button>
               )}
               {!isSettled && onCreateCreditNote && (
@@ -1533,11 +1552,13 @@ const SidebarCard = ({
             <div className="space-y-1.5">
               {/* Email Status */}
               <div className="flex items-center gap-2 text-xs">
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-                  lastEmailSent?.sentAt 
-                    ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" 
-                    : "bg-muted text-muted-foreground"
-                }`}>
+                <div
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                    lastEmailSent?.sentAt
+                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
                   <Mail className="h-3 w-3" />
                   {lastEmailSent?.sentAt ? (
                     <span className="flex items-center gap-1">
@@ -1554,14 +1575,16 @@ const SidebarCard = ({
                   </span>
                 )}
               </div>
-              
+
               {/* WhatsApp Status */}
               <div className="flex items-center gap-2 text-xs">
-                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-                  lastWhatsAppSent?.sentAt 
-                    ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" 
-                    : "bg-muted text-muted-foreground"
-                }`}>
+                <div
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                    lastWhatsAppSent?.sentAt
+                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
                   <MessageCircle className="h-3 w-3" />
                   {lastWhatsAppSent?.sentAt ? (
                     <span className="flex items-center gap-1">
@@ -1614,7 +1637,7 @@ const SidebarCard = ({
             <FileText className="h-2.5 w-2.5" />
             Invoice Details
           </div>
-          
+
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1">
               <Hash className="h-3 w-3" />
@@ -1630,7 +1653,7 @@ const SidebarCard = ({
               </button>
             </div>
           </div>
-          
+
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1">
               <CalendarDays className="h-3 w-3" />
@@ -1638,7 +1661,7 @@ const SidebarCard = ({
             </span>
             <span>{format(new Date((invoice as any).invoice_date || invoice.created_at), "dd MMM yyyy")}</span>
           </div>
-          
+
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
