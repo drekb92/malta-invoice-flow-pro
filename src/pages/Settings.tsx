@@ -115,6 +115,7 @@ interface PreferenceSettings {
 
 const Settings = () => {
   const { user } = useAuth();
+  const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
