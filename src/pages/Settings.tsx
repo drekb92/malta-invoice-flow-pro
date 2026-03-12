@@ -318,7 +318,7 @@ const Settings = () => {
           });
 
           setPreferenceSettings({
-            theme: prefsData.theme || "system",
+            theme: prefsData.theme === "system" ? "light" : (prefsData.theme || "light"),
             language: prefsData.language || "en",
             dateFormat: prefsData.date_format || "DD/MM/YYYY",
             timeFormat: prefsData.time_format || "24h",
