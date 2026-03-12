@@ -66,6 +66,7 @@ import { ReminderPromptBanner } from "@/components/ReminderPromptBanner";
 import { ReminderHistoryPanel } from "@/components/ReminderHistoryPanel";
 import { ShareLinkPanel } from "@/components/ShareLinkPanel";
 import { SendReminderDialog } from "@/components/SendReminderDialog";
+import { RecurringScheduleCard } from "@/components/RecurringScheduleCard";
 
 interface Invoice {
   id: string;
