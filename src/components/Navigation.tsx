@@ -17,10 +17,14 @@ import {
   LogOut,
   Package,
   FileSpreadsheet,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "next-themes";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
