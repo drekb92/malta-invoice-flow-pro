@@ -561,6 +561,11 @@ const Invoices = () => {
                                   <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                                 </span>
                               )}
+                              {recurringSourceIds?.has(invoice.id) && (
+                                <span title="Recurring invoice">
+                                  <RefreshCw className="h-3 w-3 text-primary" />
+                                </span>
+                              )}
                             </button>
                           </TableCell>
                           <TableCell>{invoice.customers?.name || "Unknown Customer"}</TableCell>
