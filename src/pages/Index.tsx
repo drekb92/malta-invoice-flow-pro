@@ -517,7 +517,7 @@ const Index = () => {
                   formatCurrency={formatCurrency}
                 />
                 <RecentActivity userId={userId} />
-              </div>
+                <RecurringSchedulesWidget userId={userId} />
 
               {/* Desktop layout — 12-column grid */}
               <div className="hidden lg:grid lg:grid-cols-12 gap-6">
