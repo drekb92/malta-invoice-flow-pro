@@ -722,6 +722,9 @@ const Settings = () => {
 
       if (error) throw error;
 
+      // Apply theme immediately via next-themes
+      setTheme(preferenceSettings.theme);
+
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
       toast({
