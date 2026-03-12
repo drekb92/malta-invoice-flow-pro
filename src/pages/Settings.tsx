@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTheme } from "next-themes";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
