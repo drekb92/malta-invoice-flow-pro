@@ -287,6 +287,7 @@ const App: React.FC = () => {
       <Toaster />
       <Sonner />
     </QueryClientProvider>
+    </ThemeProvider>
   );
 };
 
