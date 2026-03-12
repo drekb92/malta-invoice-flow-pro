@@ -46,13 +46,19 @@ export function Navigation() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const cycleTheme = () => {
-    const order = ["light", "dark", "system"] as const;
-    const idx = order.indexOf((theme as typeof order[number]) ?? "system");
-    setTheme(order[(idx + 1) % order.length]);
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    // Persist to DB
+    if (user) {
+      supabase
+        .from("user_preferences")
+        .upsert({ user_id: user.id, theme: next }, { onConflict: "user_id" })
+        .then();
+    }
   };
 
-  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  const ThemeIcon = theme === "dark" ? Moon : Sun;
 
   return (
     <>
