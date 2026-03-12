@@ -44,6 +44,15 @@ const navigationItems = [
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
+
+  const cycleTheme = () => {
+    const order = ["light", "dark", "system"] as const;
+    const idx = order.indexOf((theme as typeof order[number]) ?? "system");
+    setTheme(order[(idx + 1) % order.length]);
+  };
+
+  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
 
   return (
     <>
