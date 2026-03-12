@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { ThemeSyncProvider } from "@/components/ThemeSyncProvider";
 
 import Index from "./pages/Index";
 import Invoices from "./pages/Invoices";
