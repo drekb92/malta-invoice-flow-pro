@@ -98,6 +98,7 @@ const Invoices = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { data: recurringSourceIds } = useRecurringSourceInvoiceIds(user?.id);
 
   // Load template using unified hook
   const { template } = useInvoiceTemplate();
