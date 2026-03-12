@@ -33,6 +33,7 @@ import {
   Shield,
   Wallet,
   FileMinus2,
+  RefreshCw,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
