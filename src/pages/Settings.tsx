@@ -195,7 +195,7 @@ const Settings = () => {
   });
 
   const [preferenceSettings, setPreferenceSettings] = useState<PreferenceSettings>({
-    theme: "system",
+    theme: "light",
     language: "en",
     dateFormat: "DD/MM/YYYY",
     timeFormat: "24h",
