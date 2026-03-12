@@ -75,3 +75,6 @@ verify_jwt = false
 
 [functions.send-payment-confirmation]
 verify_jwt = false
+
+[functions.get-public-invoice]
+verify_jwt = false
