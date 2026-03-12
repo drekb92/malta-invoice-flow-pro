@@ -49,6 +49,7 @@ import type { TablesInsert } from '@/integrations/supabase/types';
 import type { InvoiceWithCompliance } from '@/types/invoice-compliance';
 import { validateDocumentItems } from "@/lib/documentItems";
 import { ItemLibraryDrawer } from "@/components/invoice/ItemLibraryDrawer";
+import { RecurringScheduleCard } from "@/components/RecurringScheduleCard";
 
 // Type-safe RPC wrapper
 type RpcFunction = 'next_invoice_number' | 'next_credit_note_number';
