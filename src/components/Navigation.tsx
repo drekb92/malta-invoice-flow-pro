@@ -141,11 +141,11 @@ export function Navigation() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={cycleTheme}
+            onClick={toggleTheme}
             className="w-full flex items-center space-x-2 mt-2"
           >
             <ThemeIcon className="h-4 w-4" />
-            <span className="capitalize">{theme ?? "system"}</span>
+            <span className="capitalize">{theme === "dark" ? "Dark" : "Light"}</span>
           </Button>
         </div>
       </nav>
