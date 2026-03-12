@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
@@ -17,14 +16,13 @@ import {
   LogOut,
   Package,
   FileSpreadsheet,
-  Sun,
-  Moon,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "next-themes";
-import { supabase } from "@/integrations/supabase/client";
+import { CommandPalette } from "@/components/CommandPalette";
+import { useCommandPalette } from "@/hooks/useCommandPalette";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
@@ -44,50 +42,29 @@ const navigationItems = [
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const { theme, setTheme } = useTheme();
-
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    // Persist to DB
-    if (user) {
-      supabase
-        .from("user_preferences")
-        .upsert({ user_id: user.id, theme: next }, { onConflict: "user_id" })
-        .then();
-    }
-  };
-
-  const ThemeIcon = theme === "dark" ? Moon : Sun;
+  const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
 
   return (
     <>
+      {/* Global Command Palette */}
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+
       {/* Mobile menu button */}
       <div className="md:hidden fixed top-4 left-4 z-50">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setIsOpen(!isOpen)}
-          className="bg-background"
-        >
+        <Button variant="outline" size="icon" onClick={() => setIsOpen(!isOpen)} className="bg-background">
           {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
       </div>
 
       {/* Mobile overlay */}
-      {isOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      {isOpen && <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setIsOpen(false)} />}
 
       {/* Navigation sidebar */}
       <nav
         className={cn(
           "fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-40 transform transition-transform duration-200 ease-in-out flex flex-col",
           "md:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="p-6 border-b border-border">
@@ -102,6 +79,20 @@ export function Navigation() {
           </div>
         </div>
 
+        {/* ⌘K Search trigger */}
+        <div className="px-4 py-3 border-b border-border">
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="w-full flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors group"
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 text-left text-xs">Search…</span>
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium group-hover:border-foreground/20 transition-colors">
+              <span className="text-[10px]">⌘</span>K
+            </kbd>
+          </button>
+        </div>
+
         <div className="p-4 space-y-2 flex-1">
           {navigationItems.map((item) => (
             <NavLink
@@ -113,7 +104,7 @@ export function Navigation() {
                   "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
                 )
               }
             >
@@ -129,23 +120,9 @@ export function Navigation() {
             <p className="text-xs text-muted-foreground">Signed in as</p>
             <p className="text-sm font-medium truncate">{user?.email}</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={signOut}
-            className="w-full flex items-center space-x-2"
-          >
+          <Button variant="outline" size="sm" onClick={signOut} className="w-full flex items-center space-x-2">
             <LogOut className="h-4 w-4" />
             <span>Sign Out</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleTheme}
-            className="w-full flex items-center space-x-2 mt-2"
-          >
-            <ThemeIcon className="h-4 w-4" />
-            <span className="capitalize">{theme === "dark" ? "Dark" : "Light"}</span>
           </Button>
         </div>
       </nav>
