@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTheme } from "next-themes";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
@@ -114,6 +115,7 @@ interface PreferenceSettings {
 
 const Settings = () => {
   const { user } = useAuth();
+  const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -194,7 +196,7 @@ const Settings = () => {
   });
 
   const [preferenceSettings, setPreferenceSettings] = useState<PreferenceSettings>({
-    theme: "system",
+    theme: "light",
     language: "en",
     dateFormat: "DD/MM/YYYY",
     timeFormat: "24h",
@@ -317,7 +319,7 @@ const Settings = () => {
           });
 
           setPreferenceSettings({
-            theme: prefsData.theme || "system",
+            theme: prefsData.theme === "system" ? "light" : (prefsData.theme || "light"),
             language: prefsData.language || "en",
             dateFormat: prefsData.date_format || "DD/MM/YYYY",
             timeFormat: prefsData.time_format || "24h",
@@ -719,6 +721,9 @@ const Settings = () => {
         });
 
       if (error) throw error;
+
+      // Apply theme immediately via next-themes
+      setTheme(preferenceSettings.theme);
 
       setLastSaved(new Date());
       setHasUnsavedChanges(false);
@@ -2031,7 +2036,6 @@ const Settings = () => {
                           <SelectContent>
                             <SelectItem value="light">Light</SelectItem>
                             <SelectItem value="dark">Dark</SelectItem>
-                            <SelectItem value="system">System</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">

@@ -23,7 +23,9 @@ export function useThemeSync() {
         .maybeSingle();
 
       if (data?.theme) {
-        setTheme(data.theme); // "light" | "dark" | "system"
+        // Map legacy "system" to "light"
+        const resolved = data.theme === "system" ? "light" : data.theme;
+        setTheme(resolved); // "light" | "dark"
       }
     };
 

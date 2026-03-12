@@ -19,12 +19,12 @@ import {
   FileSpreadsheet,
   Sun,
   Moon,
-  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "next-themes";
+import { supabase } from "@/integrations/supabase/client";
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
@@ -46,13 +46,19 @@ export function Navigation() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const cycleTheme = () => {
-    const order = ["light", "dark", "system"] as const;
-    const idx = order.indexOf((theme as typeof order[number]) ?? "system");
-    setTheme(order[(idx + 1) % order.length]);
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    // Persist to DB
+    if (user) {
+      supabase
+        .from("user_preferences")
+        .upsert({ user_id: user.id, theme: next }, { onConflict: "user_id" })
+        .then();
+    }
   };
 
-  const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  const ThemeIcon = theme === "dark" ? Moon : Sun;
 
   return (
     <>
@@ -135,11 +141,11 @@ export function Navigation() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={cycleTheme}
+            onClick={toggleTheme}
             className="w-full flex items-center space-x-2 mt-2"
           >
             <ThemeIcon className="h-4 w-4" />
-            <span className="capitalize">{theme ?? "system"}</span>
+            <span className="capitalize">{theme === "dark" ? "Dark" : "Light"}</span>
           </Button>
         </div>
       </nav>
