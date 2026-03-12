@@ -539,7 +539,7 @@ const Index = () => {
                     formatCurrency={formatCurrency}
                   />
                   <RecentActivity userId={userId} />
-                </div>
+                  <RecurringSchedulesWidget userId={userId} />
               </div>
             </div>
           )}
