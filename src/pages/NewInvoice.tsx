@@ -165,9 +165,10 @@ const NewInvoice = () => {
   // Generate invoice number using RPC - ONLY called when issuing, not on mount
   const generateInvoiceNumber = async (): Promise<string | null> => {
     try {
+      const prefix = invoiceSettings?.numbering_prefix || 'INV-';
       const { data, error } = await callRpc('next_invoice_number', {
         p_business_id: user?.id,
-        p_prefix: 'INV-'
+        p_prefix: prefix
       });
 
       if (error) throw error;
