@@ -16,6 +16,7 @@ export interface InvoicePdfDataResult {
   bankingSettings: BankingSettings;
   templateSettings: TemplateSettings;
   footerText?: string;
+  notesText?: string;
 }
 
 /**
@@ -188,6 +189,7 @@ export function useInvoicePdfData(invoiceId: string | null, enabled: boolean) {
       totalsStyle: template?.totals_style || undefined,
       bankingVisibility: template?.banking_visibility ?? true,
       bankingStyle: template?.banking_style || undefined,
+      notesVisibility: template?.notes_visibility ?? true,
       style: (template?.style as "modern" | "professional" | "minimalist") || "modern",
     };
 
@@ -197,6 +199,7 @@ export function useInvoicePdfData(invoiceId: string | null, enabled: boolean) {
       bankingSettings,
       templateSettings,
       footerText: invoiceSettings?.invoice_footer_text || undefined,
+      notesText: (invoice as any).notes || undefined,
     };
   }
 

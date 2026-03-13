@@ -79,6 +79,7 @@ export interface TemplateSettings {
   bankingVisibility?: boolean;
   bankingStyle?: string;
   vatSummaryVisibility?: boolean;
+  notesVisibility?: boolean;
   style?: TemplateStyle;
   // NOTE: margins exist in DB but are intentionally ignored (locked)
   marginTop?: number;
@@ -97,6 +98,7 @@ export interface UnifiedInvoiceLayoutProps {
   documentType?: DocumentType;
   debug?: boolean;
   footerText?: string;
+  notesText?: string;
   quotationTerms?: string;
 }
 
@@ -167,6 +169,7 @@ export const UnifiedInvoiceLayout = ({
   id = "invoice-preview-root",
   documentType = "INVOICE",
   footerText,
+  notesText,
   quotationTerms,
 }: UnifiedInvoiceLayoutProps) => {
   const templateStyle = templateSettings?.style || 'modern';
@@ -1135,6 +1138,13 @@ export const UnifiedInvoiceLayout = ({
                 </div>
               );
             })()}
+
+            {notesText && (templateSettings?.notesVisibility !== false) && (
+              <div className="notes-section" style={{ marginTop: '12px', marginBottom: '8px' }}>
+                <div className="section-label" style={{ fontSize: '8pt', fontWeight: 600, marginBottom: '4px', color: templateSettings?.primaryColor || '#111827' }}>Notes</div>
+                <div style={{ fontSize: '8pt', color: '#6b7280', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{notesText}</div>
+              </div>
+            )}
 
             <div className="thanks">
               {footerText || "Thank you for your business. All amounts in EUR."}

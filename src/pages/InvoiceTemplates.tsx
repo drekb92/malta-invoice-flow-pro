@@ -57,6 +57,7 @@ interface InvoiceTemplate {
   banking_visibility?: boolean;
   banking_style?: "default" | "boxed" | "minimal";
   vat_summary_visibility?: boolean;
+  notes_visibility?: boolean;
   margin_top?: number;
   margin_right?: number;
   margin_bottom?: number;
@@ -315,6 +316,7 @@ const InvoiceTemplates = () => {
           banking_visibility: currentSettings.banking_visibility,
           banking_style: currentSettings.banking_style,
           style: currentSettings.style,
+          notes_visibility: currentSettings.notes_visibility,
           margin_top: currentSettings.margin_top,
           margin_right: currentSettings.margin_right,
           margin_bottom: currentSettings.margin_bottom,
@@ -406,6 +408,7 @@ const InvoiceTemplates = () => {
     bankingVisibility: currentSettings.banking_visibility !== false,
     bankingStyle: currentSettings.banking_style || "default",
     vatSummaryVisibility: currentSettings.vat_summary_visibility === true,
+    notesVisibility: currentSettings.notes_visibility !== false,
     marginTop: currentSettings.margin_top || 20,
     marginRight: currentSettings.margin_right || 20,
     marginBottom: currentSettings.margin_bottom || 20,
@@ -896,7 +899,13 @@ const InvoiceTemplates = () => {
                           onCheckedChange={(v) => updateSetting("vat_summary_visibility", v)}
                         />
                       </div>
-                      {/* MarginControl — wired up */}
+                      <div className="flex items-center justify-between py-2 px-1">
+                        <Label className="text-sm">Show Invoice Notes</Label>
+                        <Switch
+                          checked={currentSettings.notes_visibility !== false}
+                          onCheckedChange={(v) => updateSetting("notes_visibility", v)}
+                        />
+                      </div>
                       <div className="pt-1">
                         <Label className="text-xs text-muted-foreground mb-2 block">Page Margins</Label>
                         <MarginControl

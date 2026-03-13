@@ -1,53 +1,81 @@
 
 
-## Default Invoice Notes & Payment Terms Auto-Population
+# Fix Dashboard Metrics Filtering & Duplicate Activity Entries
 
-### Current State
-- Settings already has **"Default Invoice Footer Text"** (`invoice_footer_text`) and **"Default Invoice Notes"** (`default_invoice_notes`) fields that save to `invoice_settings`
-- The footer text is already passed to `UnifiedInvoiceLayout` as `footerText` and rendered in the PDF
-- However, **`default_invoice_notes` is saved but never used** — it's not auto-populated on new invoices and not rendered anywhere
-- There is no per-invoice notes field on the NewInvoice form
-- The template has no toggle for notes visibility
+## Issues Identified
 
-### Plan
+### 1. "Total Collected" shows 0 for "Last 7 days" despite a payment recorded today
+**Root cause**: `getDashboardMetrics` in `src/lib/dashboard.ts` calculates "payments collected" by filtering the **invoices** table by `invoice.created_at` and checking `status === "paid"`. INV-2025-001 was created on **2025-10-13** — months ago — so it falls outside any recent date range. The payment itself was recorded today (2026-02-24), but the code never queries the `payments` table at all.
 
-**1. Add per-invoice notes field to NewInvoice form** (`src/pages/NewInvoice.tsx`)
-- Add a `notes` state variable, auto-populated from `invoiceSettings?.default_invoice_notes` on mount (only for new invoices, not edit mode)
-- Add a "Notes" textarea in the sidebar or below the items table, editable per-invoice
-- Pass the notes to `UnifiedInvoiceLayout` as a new `notesText` prop
+**Fix**: Query the `payments` table directly, filtering by `payments.created_at` (or `payment_date`) within the selected date range. This gives the actual amount collected in the period, independent of when the invoice was originally created.
 
-**2. Add `notesText` prop to UnifiedInvoiceLayout** (`src/components/UnifiedInvoiceLayout.tsx`)
-- Add `notesText?: string` to the props interface
-- Render notes above the footer in a "Notes" section with small muted text styling (similar to terms section)
-- Only render if `notesText` is non-empty
+### 2. Duplicate "Email sent" entries for INV-2025-001
+**Root cause**: The database has two `document_send_logs` rows for INV-2025-001, sent 48 seconds apart (09:28:01 and 09:28:49). This is likely because:
+- The user clicked "Send" from the invoice page (first entry at 09:28:01)
+- The payment confirmation email was also sent automatically after recording the payment (second entry at 09:28:49 via `send-payment-confirmation`)
 
-**3. Add notes visibility toggle to template** 
-- Add `notes_visibility` boolean to `InvoiceTemplate` interface (`src/services/templateService.ts`)
-- Add column to `invoice_templates` table (migration, default `true`)
-- Add toggle in Template Designer (`src/pages/InvoiceTemplates.tsx`)
-- Pass through to `UnifiedInvoiceLayout` via `templateSettings` and conditionally render notes
+Both are legitimate logs, but they look confusing in the Recent Activity widget because they both show as "Email sent" with identical descriptions. The fix is to differentiate payment confirmation emails from regular invoice emails in the activity feed description.
 
-**4. Improve Settings labels** (`src/pages/Settings.tsx`)
-- Rename "Default Invoice Notes" to add a description: "Auto-populates on every new invoice. Editable per invoice."
-- Add placeholder text like `"Payment due within 30 days. Late payments subject to interest per EU Directive."`
+### 3. "Today Snapshot" not reflecting the payment
+The `getTodaySnapshot` function correctly queries the `payments` table by `created_at >= todayStart`, so this should work. However, the `todayStart` uses `setHours(0, 0, 0, 0)` which produces a **local** midnight, then `.toISOString()` converts to UTC. This is correct as long as the user's timezone is ahead of UTC (Malta is UTC+1), so midnight local = 23:00 UTC previous day. The payment at 09:28 UTC should be captured. No change needed here.
 
-**5. Persist notes with invoice** 
-- The `invoices` table doesn't have a `notes` column — need a migration to add `notes text` column
-- Save/load notes when creating/editing invoices
-- Show notes in InvoiceDetails page and pass to PDF generation
+---
 
-### Database Changes
-1. `ALTER TABLE invoices ADD COLUMN notes text;` — per-invoice notes
-2. `ALTER TABLE invoice_templates ADD COLUMN notes_visibility boolean DEFAULT true;` — template toggle
+## Changes
 
-### Files to Modify
-- `src/pages/NewInvoice.tsx` — add notes state, auto-populate, textarea, pass to layout
-- `src/components/UnifiedInvoiceLayout.tsx` — add `notesText` prop, render notes section
-- `src/services/templateService.ts` — add `notes_visibility` to interface
-- `src/pages/InvoiceTemplates.tsx` — add notes visibility toggle
-- `src/pages/Settings.tsx` — improve labels/placeholders
-- `src/pages/InvoiceDetails.tsx` — pass notes to layout
-- `src/pages/Invoices.tsx` — pass notes to hidden PDF layout
-- `src/hooks/useInvoicePdfData.ts` — include notes in PDF data
-- `src/hooks/useInvoiceTemplate.ts` — normalize `notes_visibility`
+### A. `src/lib/dashboard.ts` — Fix payments metric to use `payments` table
+
+In `getDashboardMetrics`, add a separate query to the `payments` table:
+
+```tsx
+// Current (broken): derives "collected" from invoices with status "paid"
+const payments = invoices?.filter((inv) => inv.status === "paid")
+  .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
+
+// New: query actual payments table with date range filter
+let paymentsQuery = supabase
+  .from("payments")
+  .select("amount, created_at")
+  .eq("user_id", userId);
+
+if (startISO) paymentsQuery = paymentsQuery.gte("created_at", startISO);
+if (filterCustomer) {
+  // Join through invoices to filter by customer
+  paymentsQuery = paymentsQuery.eq("invoices.customer_id", filterCustomer);
+}
+
+const { data: paymentRows } = await paymentsQuery;
+const payments = paymentRows?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
+```
+
+For customer filtering on payments, since payments link to invoices (not directly to customers), we need to join through invoices. The simplest approach: when a customer filter is active, first get invoice IDs for that customer, then filter payments by those invoice IDs.
+
+### B. `src/components/RecentActivity.tsx` — Deduplicate / differentiate email entries
+
+The two send logs are both valid records but need differentiation. The payment confirmation email (sent by the `send-payment-confirmation` edge function) currently logs with `document_type: "invoice"` and `channel: "email"`, making it indistinguishable from a manual email send.
+
+**Approach**: Group consecutive `document_send_logs` entries with the same `document_number` and `channel` within a short window (e.g., 60 seconds) and only show the latest one. This prevents near-duplicate entries from cluttering the feed.
+
+```tsx
+// After building the sendLogs activities, deduplicate:
+// Group by document_number + channel, keep only the latest within 60s windows
+const deduped = sendActivities.filter((activity, index, arr) => {
+  const next = arr[index - 1]; // already sorted desc
+  if (!next) return true;
+  if (next.description === activity.description) {
+    const diff = Math.abs(next.timestamp.getTime() - activity.timestamp.getTime());
+    if (diff < 60000) return false; // skip duplicate within 60s
+  }
+  return true;
+});
+```
+
+---
+
+## Summary of file changes
+
+| File | Change |
+|------|--------|
+| `src/lib/dashboard.ts` | Query `payments` table for "Total Collected" metric instead of deriving from invoice status; apply date range filter on `payments.created_at` |
+| `src/components/RecentActivity.tsx` | Deduplicate send log entries for the same document within a 60-second window to prevent duplicate "Email sent" rows |
 

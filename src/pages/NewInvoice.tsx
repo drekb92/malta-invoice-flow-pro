@@ -131,6 +131,7 @@ const NewInvoice = () => {
   const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [nextNumberPreview, setNextNumberPreview] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
   // Template style now comes directly from templateForPreview.style
 
   const navigate = useNavigate();
@@ -161,6 +162,13 @@ const NewInvoice = () => {
     };
     fetchPreview();
   }, [isEditMode, invoiceNumber, user?.id, invoiceSettings?.numbering_prefix]);
+
+  // Auto-populate default notes for new invoices
+  useEffect(() => {
+    if (!isEditMode && invoiceSettings?.default_invoice_notes && !notes) {
+      setNotes(invoiceSettings.default_invoice_notes);
+    }
+  }, [isEditMode, invoiceSettings?.default_invoice_notes]);
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -251,6 +259,7 @@ const NewInvoice = () => {
       setInvoiceDate(invoice.invoice_date || invoice.created_at?.split("T")[0] || '');
       setIsIssued(invoice.is_issued || false);
       setIssuedAt(invoice.issued_at || null);
+      setNotes((invoice as any).notes || '');
       
       // Handle discount type migration
       const savedType = invoice.discount_type || 'amount';
@@ -526,6 +535,7 @@ const NewInvoice = () => {
         discount_type: storeDiscountType,
         discount_value: storeDiscountValue,
         discount_reason: discountReason || null,
+        notes: notes || null,
       };
 
       if (isEditMode && id) {
@@ -1170,6 +1180,24 @@ const NewInvoice = () => {
                     </CardContent>
                   </Card>
 
+                  {/* Invoice Notes */}
+                  <Card>
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm font-medium">Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 pt-0">
+                      <Textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Payment due within 30 days. Late payments subject to interest."
+                        disabled={isIssued}
+                        className="text-sm resize-none"
+                        rows={3}
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">Appears on the invoice PDF. Set defaults in Settings → Invoice.</p>
+                    </CardContent>
+                  </Card>
+
                   {/* Recurring Schedule */}
                   {user && (
                     <RecurringScheduleCard
@@ -1326,6 +1354,7 @@ const NewInvoice = () => {
                 marginBottom: templateForPreview?.margin_bottom ?? 1.2,
                 marginLeft: templateForPreview?.margin_left ?? 1.2,
                 style: templateForPreview?.style || 'modern',
+                notesVisibility: templateForPreview?.notes_visibility !== false,
               }}
               companySettings={companySettings ? {
                 name: companySettings.company_name || '',
@@ -1347,6 +1376,7 @@ const NewInvoice = () => {
                 swiftCode: bankingSettings.bank_swift_code || undefined,
               } : undefined}
               footerText={invoiceSettings?.invoice_footer_text}
+              notesText={notes}
             />
           </InvoiceErrorBoundary>
         )}

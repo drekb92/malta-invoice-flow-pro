@@ -314,6 +314,7 @@ ${companyName}`;
             bankingSettings={invoicePdfData.bankingSettings}
             templateSettings={invoicePdfData.templateSettings}
             footerText={invoicePdfData.footerText}
+            notesText={invoicePdfData.notesText}
             documentType="INVOICE"
           />
         </div>

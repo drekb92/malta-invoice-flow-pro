@@ -1530,10 +1530,13 @@ const Settings = () => {
                         <Label htmlFor="invoice_notes">
                           Default Invoice Notes
                         </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Auto-populates on every new invoice. Editable per invoice.
+                        </p>
                         <Textarea
                           id="invoice_notes"
                           rows={3}
-                          placeholder="Payment terms and conditions"
+                          placeholder="Payment due within 30 days. Late payments subject to 2% monthly interest per EU Directive 2011/7/EU."
                           value={invoiceSettings.notes}
                           onChange={(e) => setInvoiceSettings({ ...invoiceSettings, notes: e.target.value })}
                         />

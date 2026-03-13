@@ -1212,6 +1212,7 @@ const InvoiceDetails = () => {
                     }
                   : undefined
               }
+              notesText={(invoice as any)?.notes || undefined}
             />
           </InvoiceErrorBoundary>
         )}
