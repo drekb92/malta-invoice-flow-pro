@@ -684,6 +684,7 @@ export type Database = {
           margin_right: number | null
           margin_top: number | null
           name: string
+          notes_visibility: boolean | null
           primary_color: string | null
           style: string
           table_style: string | null
@@ -715,6 +716,7 @@ export type Database = {
           margin_right?: number | null
           margin_top?: number | null
           name: string
+          notes_visibility?: boolean | null
           primary_color?: string | null
           style?: string
           table_style?: string | null
@@ -746,6 +748,7 @@ export type Database = {
           margin_right?: number | null
           margin_top?: number | null
           name?: string
+          notes_visibility?: boolean | null
           primary_color?: string | null
           style?: string
           table_style?: string | null
@@ -772,6 +775,7 @@ export type Database = {
           last_sent_at: string | null
           last_sent_channel: string | null
           last_sent_to: string | null
+          notes: string | null
           status: string | null
           total_amount: number | null
           user_id: string | null
@@ -795,6 +799,7 @@ export type Database = {
           last_sent_at?: string | null
           last_sent_channel?: string | null
           last_sent_to?: string | null
+          notes?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null
@@ -818,6 +823,7 @@ export type Database = {
           last_sent_at?: string | null
           last_sent_channel?: string | null
           last_sent_to?: string | null
+          notes?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null
