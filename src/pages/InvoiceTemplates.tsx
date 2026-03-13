@@ -408,6 +408,7 @@ const InvoiceTemplates = () => {
     bankingVisibility: currentSettings.banking_visibility !== false,
     bankingStyle: currentSettings.banking_style || "default",
     vatSummaryVisibility: currentSettings.vat_summary_visibility === true,
+    notesVisibility: currentSettings.notes_visibility !== false,
     marginTop: currentSettings.margin_top || 20,
     marginRight: currentSettings.margin_right || 20,
     marginBottom: currentSettings.margin_bottom || 20,
