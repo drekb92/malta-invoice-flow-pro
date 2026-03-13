@@ -259,6 +259,7 @@ const NewInvoice = () => {
       setInvoiceDate(invoice.invoice_date || invoice.created_at?.split("T")[0] || '');
       setIsIssued(invoice.is_issued || false);
       setIssuedAt(invoice.issued_at || null);
+      setNotes((invoice as any).notes || '');
       
       // Handle discount type migration
       const savedType = invoice.discount_type || 'amount';
