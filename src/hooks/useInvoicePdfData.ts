@@ -16,6 +16,7 @@ export interface InvoicePdfDataResult {
   bankingSettings: BankingSettings;
   templateSettings: TemplateSettings;
   footerText?: string;
+  notesText?: string;
 }
 
 /**
