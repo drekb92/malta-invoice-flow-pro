@@ -1375,6 +1375,7 @@ const NewInvoice = () => {
                 swiftCode: bankingSettings.bank_swift_code || undefined,
               } : undefined}
               footerText={invoiceSettings?.invoice_footer_text}
+              notesText={notes}
             />
           </InvoiceErrorBoundary>
         )}
