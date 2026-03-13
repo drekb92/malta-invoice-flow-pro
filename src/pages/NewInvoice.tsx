@@ -144,6 +144,24 @@ const NewInvoice = () => {
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
 
+  // Fetch next invoice number preview (read-only, no increment)
+  useEffect(() => {
+    if (isEditMode || invoiceNumber || !user?.id) return;
+    const fetchPreview = async () => {
+      const prefix = invoiceSettings?.numbering_prefix || 'INV-';
+      const year = new Date().getFullYear();
+      const { data } = await supabase
+        .from('invoice_counters')
+        .select('last_seq')
+        .eq('business_id', user.id)
+        .eq('year', year)
+        .maybeSingle();
+      const nextSeq = (data?.last_seq ?? 0) + 1;
+      setNextNumberPreview(`${prefix}${year}-${String(nextSeq).padStart(3, '0')}`);
+    };
+    fetchPreview();
+  }, [isEditMode, invoiceNumber, user?.id, invoiceSettings?.numbering_prefix]);
+
   // Fetch customers
   const fetchCustomers = async () => {
     try {
