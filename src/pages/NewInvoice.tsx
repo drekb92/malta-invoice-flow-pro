@@ -130,6 +130,7 @@ const NewInvoice = () => {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [nextNumberPreview, setNextNumberPreview] = useState<string>("");
   // Template style now comes directly from templateForPreview.style
 
   const navigate = useNavigate();
@@ -142,6 +143,24 @@ const NewInvoice = () => {
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
+
+  // Fetch next invoice number preview (read-only, no increment)
+  useEffect(() => {
+    if (isEditMode || invoiceNumber || !user?.id) return;
+    const fetchPreview = async () => {
+      const prefix = invoiceSettings?.numbering_prefix || 'INV-';
+      const year = new Date().getFullYear();
+      const { data } = await supabase
+        .from('invoice_counters')
+        .select('last_seq')
+        .eq('business_id', user.id)
+        .eq('year', year)
+        .maybeSingle();
+      const nextSeq = (data?.last_seq ?? 0) + 1;
+      setNextNumberPreview(`${prefix}${year}-${String(nextSeq).padStart(3, '0')}`);
+    };
+    fetchPreview();
+  }, [isEditMode, invoiceNumber, user?.id, invoiceSettings?.numbering_prefix]);
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -758,9 +777,9 @@ const NewInvoice = () => {
                       Issued
                     </Badge>
                   )}
-                  {!isEditMode && !invoiceNumber && (
+                  {!isEditMode && !invoiceNumber && nextNumberPreview && (
                     <Badge variant="secondary" className="text-xs shrink-0 whitespace-nowrap">
-                      Next: {(invoiceSettings?.numbering_prefix || 'INV-')}{new Date().getFullYear()}
+                      Next: {nextNumberPreview}
                     </Badge>
                   )}
                 </div>
