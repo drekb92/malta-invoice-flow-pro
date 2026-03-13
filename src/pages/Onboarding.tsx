@@ -274,10 +274,18 @@ const Onboarding = () => {
     try {
       setLoading(true);
 
-      // Get next invoice number
+      // Get next invoice number — read prefix from settings if available
+      const { data: onbSettingsRow } = await supabase
+        .from("invoice_settings")
+        .select("numbering_prefix")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+
+      const onbPrefix = (onbSettingsRow as any)?.numbering_prefix || 'INV-';
+
       const { data: invoiceNumber } = await supabase.rpc('next_invoice_number', {
         p_business_id: user!.id,
-        p_prefix: 'INV-',
+        p_prefix: onbPrefix,
       });
 
       // Create invoice

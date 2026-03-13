@@ -165,9 +165,10 @@ const NewInvoice = () => {
   // Generate invoice number using RPC - ONLY called when issuing, not on mount
   const generateInvoiceNumber = async (): Promise<string | null> => {
     try {
+      const prefix = invoiceSettings?.numbering_prefix || 'INV-';
       const { data, error } = await callRpc('next_invoice_number', {
         p_business_id: user?.id,
-        p_prefix: 'INV-'
+        p_prefix: prefix
       });
 
       if (error) throw error;
@@ -473,9 +474,10 @@ const NewInvoice = () => {
 
       let finalInvoiceNumber = invoiceNumber || null;
       if (shouldIssue && !finalInvoiceNumber) {
+        const issuePrefix = invoiceSettings?.numbering_prefix || 'INV-';
         const { data: generatedNumber, error: numberError } = await callRpc('next_invoice_number', {
           p_business_id: user?.id,
-          p_prefix: 'INV-'
+          p_prefix: issuePrefix
         });
         
         if (numberError) throw numberError;
@@ -581,9 +583,10 @@ const NewInvoice = () => {
       } else {
         let finalInvoiceNumber = invoiceNumber || null;
         if (shouldIssue && !finalInvoiceNumber) {
+          const newPrefix = invoiceSettings?.numbering_prefix || 'INV-';
           const { data, error } = await callRpc("next_invoice_number", {
             p_business_id: user?.id,
-            p_prefix: "INV-",
+            p_prefix: newPrefix,
           });
 
           if (error) throw error;
@@ -753,6 +756,11 @@ const NewInvoice = () => {
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-800 shrink-0">
                       <Shield className="h-3 w-3 mr-1" />
                       Issued
+                    </Badge>
+                  )}
+                  {!isEditMode && !invoiceNumber && (
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      Next: {(invoiceSettings?.numbering_prefix || 'INV-')}{new Date().getFullYear()}-…
                     </Badge>
                   )}
                 </div>
