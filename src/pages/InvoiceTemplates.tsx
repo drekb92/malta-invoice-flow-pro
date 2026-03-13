@@ -898,7 +898,13 @@ const InvoiceTemplates = () => {
                           onCheckedChange={(v) => updateSetting("vat_summary_visibility", v)}
                         />
                       </div>
-                      {/* MarginControl — wired up */}
+                      <div className="flex items-center justify-between py-2 px-1">
+                        <Label className="text-sm">Show Invoice Notes</Label>
+                        <Switch
+                          checked={currentSettings.notes_visibility !== false}
+                          onCheckedChange={(v) => updateSetting("notes_visibility", v)}
+                        />
+                      </div>
                       <div className="pt-1">
                         <Label className="text-xs text-muted-foreground mb-2 block">Page Margins</Label>
                         <MarginControl
