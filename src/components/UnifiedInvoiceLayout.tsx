@@ -1141,7 +1141,7 @@ export const UnifiedInvoiceLayout = ({
 
             {notesText && (templateSettings?.notesVisibility !== false) && (
               <div className="notes-section" style={{ marginTop: '12px', marginBottom: '8px' }}>
-                <div className="section-label" style={{ fontSize: '8pt', fontWeight: 600, marginBottom: '4px', color: primaryColor }}>Notes</div>
+                <div className="section-label" style={{ fontSize: '8pt', fontWeight: 600, marginBottom: '4px', color: templateSettings?.primaryColor || '#111827' }}>Notes</div>
                 <div style={{ fontSize: '8pt', color: '#6b7280', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{notesText}</div>
               </div>
             )}
