@@ -803,6 +803,7 @@ const Invoices = () => {
                     : undefined
                 }
                 footerText={invoiceSettings?.invoice_footer_text}
+                notesText={(exportInvoice as any)?.notes || undefined}
               />
             </InvoiceErrorBoundary>
           )}
