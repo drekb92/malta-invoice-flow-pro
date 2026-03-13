@@ -316,6 +316,7 @@ const InvoiceTemplates = () => {
           banking_visibility: currentSettings.banking_visibility,
           banking_style: currentSettings.banking_style,
           style: currentSettings.style,
+          notes_visibility: currentSettings.notes_visibility,
           margin_top: currentSettings.margin_top,
           margin_right: currentSettings.margin_right,
           margin_bottom: currentSettings.margin_bottom,
