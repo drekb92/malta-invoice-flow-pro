@@ -79,6 +79,7 @@ export interface TemplateSettings {
   bankingVisibility?: boolean;
   bankingStyle?: string;
   vatSummaryVisibility?: boolean;
+  notesVisibility?: boolean;
   style?: TemplateStyle;
   // NOTE: margins exist in DB but are intentionally ignored (locked)
   marginTop?: number;
