@@ -130,6 +130,7 @@ const NewInvoice = () => {
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [nextNumberPreview, setNextNumberPreview] = useState<string>("");
   // Template style now comes directly from templateForPreview.style
 
   const navigate = useNavigate();
