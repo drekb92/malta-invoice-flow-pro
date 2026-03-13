@@ -188,6 +188,7 @@ export function useInvoicePdfData(invoiceId: string | null, enabled: boolean) {
       totalsStyle: template?.totals_style || undefined,
       bankingVisibility: template?.banking_visibility ?? true,
       bankingStyle: template?.banking_style || undefined,
+      notesVisibility: template?.notes_visibility ?? true,
       style: (template?.style as "modern" | "professional" | "minimalist") || "modern",
     };
 
