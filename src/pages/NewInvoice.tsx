@@ -535,6 +535,7 @@ const NewInvoice = () => {
         discount_type: storeDiscountType,
         discount_value: storeDiscountValue,
         discount_reason: discountReason || null,
+        notes: notes || null,
       };
 
       if (isEditMode && id) {
