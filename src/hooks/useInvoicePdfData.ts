@@ -199,6 +199,7 @@ export function useInvoicePdfData(invoiceId: string | null, enabled: boolean) {
       bankingSettings,
       templateSettings,
       footerText: invoiceSettings?.invoice_footer_text || undefined,
+      notesText: (invoice as any).notes || undefined,
     };
   }
 
