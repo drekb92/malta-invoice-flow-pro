@@ -98,6 +98,7 @@ export interface UnifiedInvoiceLayoutProps {
   documentType?: DocumentType;
   debug?: boolean;
   footerText?: string;
+  notesText?: string;
   quotationTerms?: string;
 }
 
