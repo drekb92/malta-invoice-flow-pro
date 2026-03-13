@@ -1354,6 +1354,7 @@ const NewInvoice = () => {
                 marginBottom: templateForPreview?.margin_bottom ?? 1.2,
                 marginLeft: templateForPreview?.margin_left ?? 1.2,
                 style: templateForPreview?.style || 'modern',
+                notesVisibility: templateForPreview?.notes_visibility !== false,
               }}
               companySettings={companySettings ? {
                 name: companySettings.company_name || '',

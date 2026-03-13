@@ -766,6 +766,7 @@ const Invoices = () => {
                   bankingVisibility: template?.banking_visibility !== false,
                   bankingStyle: template?.banking_style || "default",
                   style: template?.style || "modern",
+                  notesVisibility: (template as any)?.notes_visibility !== false,
                   marginTop: template?.margin_top || 20,
                   marginRight: template?.margin_right || 20,
                   marginBottom: template?.margin_bottom || 20,
