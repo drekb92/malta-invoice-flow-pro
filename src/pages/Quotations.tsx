@@ -422,9 +422,18 @@ const Quotations = () => {
   };
 
   const generateNextInvoiceNumber = async (): Promise<string> => {
+    // Read user's configured prefix
+    const { data: settingsRow } = await supabase
+      .from("invoice_settings")
+      .select("numbering_prefix")
+      .eq("user_id", user!.id)
+      .maybeSingle();
+
+    const prefix = (settingsRow as any)?.numbering_prefix || "INV-";
+
     const { data, error } = await supabase.rpc("next_invoice_number", {
       p_business_id: user!.id,
-      p_prefix: "INV-",
+      p_prefix: prefix,
     });
 
     if (error) throw error;

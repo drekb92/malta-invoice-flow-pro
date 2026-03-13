@@ -54,9 +54,18 @@ export const invoiceService = {
       // If invoice has no number yet (typical for drafts issued from Invoice Details),
       // generate the next number via the same RPC used in NewInvoice.tsx
       if (!finalInvoiceNumber) {
+        // Read the user's configured prefix from invoice_settings
+        const { data: settingsRow } = await supabase
+          .from("invoice_settings")
+          .select("numbering_prefix")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        const prefix = (settingsRow as any)?.numbering_prefix || "INV-";
+
         const { data: nextNumber, error: numberError } = await supabase.rpc("next_invoice_number", {
           p_business_id: userId,
-          p_prefix: "INV-",
+          p_prefix: prefix,
         });
 
         if (numberError) throw numberError;

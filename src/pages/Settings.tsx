@@ -1380,8 +1380,18 @@ const Settings = () => {
                           onChange={(e) => setInvoiceSettings({ ...invoiceSettings, prefix: e.target.value })}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Optional prefix for invoice numbers (e.g., INV-2025-001)
+                          Preview: <span className="font-mono font-medium text-foreground">{invoiceSettings.prefix || 'INV-'}{new Date().getFullYear()}-{String(invoiceSettings.nextNumber).padStart(3, '0')}</span>
                         </p>
+                      </div>
+
+                      <div className="flex items-center justify-between md:col-span-2 rounded-lg border border-border p-3">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">Reset numbering annually</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Sequence resets to 001 each January (e.g. {invoiceSettings.prefix || 'INV-'}2026-001 → {invoiceSettings.prefix || 'INV-'}2027-001)
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0">Active</Badge>
                       </div>
                     </div>
                   </CardContent>

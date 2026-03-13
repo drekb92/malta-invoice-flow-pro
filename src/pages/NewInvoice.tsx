@@ -758,6 +758,11 @@ const NewInvoice = () => {
                       Issued
                     </Badge>
                   )}
+                  {!isEditMode && !invoiceNumber && (
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      Next: {(invoiceSettings?.numbering_prefix || 'INV-')}{new Date().getFullYear()}-…
+                    </Badge>
+                  )}
                 </div>
               </div>
 
