@@ -1,81 +1,48 @@
+## Invoice Prefix & Numbering Settings Fix
 
+### Problem
 
-# Fix Dashboard Metrics Filtering & Duplicate Activity Entries
+The `invoice_settings` table has a `numbering_prefix` column, and the Settings page lets users edit it, but every callsite that generates invoice numbers hardcodes `'INV-'` instead of reading the saved prefix. There's also no live preview of the next number, and no "reset annually" toggle (though the RPC already partitions by year naturally).
 
-## Issues Identified
+### Key Insight
 
-### 1. "Total Collected" shows 0 for "Last 7 days" despite a payment recorded today
-**Root cause**: `getDashboardMetrics` in `src/lib/dashboard.ts` calculates "payments collected" by filtering the **invoices** table by `invoice.created_at` and checking `status === "paid"`. INV-2025-001 was created on **2025-10-13** — months ago — so it falls outside any recent date range. The payment itself was recorded today (2026-02-24), but the code never queries the `payments` table at all.
+The `next_invoice_number` RPC already partitions counters by `(business_id, year)` — so annual reset **already works**. The counter resets each January because a new year creates a new row. The only real issues are:
 
-**Fix**: Query the `payments` table directly, filtering by `payments.created_at` (or `payment_date`) within the selected date range. This gives the actual amount collected in the period, independent of when the invoice was originally created.
+1. Hardcoded `'INV-'` prefix in 5 callsites
+2. No live preview of next invoice number
+3. No explicit "reset annually" toggle in Settings (even though it's the default behavior)
 
-### 2. Duplicate "Email sent" entries for INV-2025-001
-**Root cause**: The database has two `document_send_logs` rows for INV-2025-001, sent 48 seconds apart (09:28:01 and 09:28:49). This is likely because:
-- The user clicked "Send" from the invoice page (first entry at 09:28:01)
-- The payment confirmation email was also sent automatically after recording the payment (second entry at 09:28:49 via `send-payment-confirmation`)
+### Changes
 
-Both are legitimate logs, but they look confusing in the Recent Activity widget because they both show as "Email sent" with identical descriptions. The fix is to differentiate payment confirmation emails from regular invoice emails in the activity feed description.
+**1. Read prefix from settings everywhere (5 files)**
 
-### 3. "Today Snapshot" not reflecting the payment
-The `getTodaySnapshot` function correctly queries the `payments` table by `created_at >= todayStart`, so this should work. However, the `todayStart` uses `setHours(0, 0, 0, 0)` which produces a **local** midnight, then `.toISOString()` converts to UTC. This is correct as long as the user's timezone is ahead of UTC (Malta is UTC+1), so midnight local = 23:00 UTC previous day. The payment at 09:28 UTC should be captured. No change needed here.
+Replace all hardcoded `'INV-'` with the user's saved prefix from `invoice_settings`:
 
----
+- `**src/pages/NewInvoice.tsx**` (3 locations, lines ~170, ~478, ~586) — already has `invoiceSettings` from `useInvoiceSettings()`. Use `invoiceSettings?.numbering_prefix || 'INV-'` instead of `'INV-'`.
+- `**src/services/invoiceService.ts**` (line ~59) — the `issueInvoice` method needs to fetch the prefix from `invoice_settings` before calling the RPC. Add a query to get the user's prefix.
+- `**src/pages/Quotations.tsx**` (line ~427) — this converts a quotation to an invoice. Import `useInvoiceSettings` and use the saved prefix.
+- `**src/pages/Onboarding.tsx**` (line ~280) — uses `'INV-'` during onboarding. This is fine as a default since no settings exist yet, but can read from settings if available.
 
-## Changes
+**2. Add live preview to Settings Invoice tab**
 
-### A. `src/lib/dashboard.ts` — Fix payments metric to use `payments` table
+In `src/pages/Settings.tsx`, below the prefix input field (~line 1385), add a preview showing what the next invoice number will look like: e.g. `"Next: INV-2026-042"`. This reads the current year and `nextNumber` from state.
 
-In `getDashboardMetrics`, add a separate query to the `payments` table:
+**3. Add live preview to NewInvoice page header**
 
-```tsx
-// Current (broken): derives "collected" from invoices with status "paid"
-const payments = invoices?.filter((inv) => inv.status === "paid")
-  .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
+In `src/pages/NewInvoice.tsx`, when creating a new invoice (not edit mode), show a small badge/text in the header area like `"Next number: INV-2026-042"` so users know what number will be assigned on issuance. This is a read-only preview — the actual number is still generated at issuance time.
 
-// New: query actual payments table with date range filter
-let paymentsQuery = supabase
-  .from("payments")
-  .select("amount, created_at")
-  .eq("user_id", userId);
+**4. Add "Reset numbering annually" info in Settings**
 
-if (startISO) paymentsQuery = paymentsQuery.gte("created_at", startISO);
-if (filterCustomer) {
-  // Join through invoices to filter by customer
-  paymentsQuery = paymentsQuery.eq("invoices.customer_id", filterCustomer);
-}
+Since the RPC already resets per year, add an informational toggle/indicator in the Settings Invoice Numbering card. This is already the default behavior — the toggle would be cosmetic/informational showing "Numbering resets each January". No database changes needed since the `invoice_counters` table already partitions by year.
 
-const { data: paymentRows } = await paymentsQuery;
-const payments = paymentRows?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
-```
+### Files to modify
 
-For customer filtering on payments, since payments link to invoices (not directly to customers), we need to join through invoices. The simplest approach: when a customer filter is active, first get invoice IDs for that customer, then filter payments by those invoice IDs.
+- `src/pages/NewInvoice.tsx` — replace 3 hardcoded prefixes, add next-number preview
+- `src/services/invoiceService.ts` — fetch prefix from DB before RPC call
+- `src/pages/Quotations.tsx` — replace hardcoded prefix
+- `src/pages/Onboarding.tsx` — replace hardcoded prefix (minor)
+- `src/pages/Settings.tsx` — add live preview and annual reset info
 
-### B. `src/components/RecentActivity.tsx` — Deduplicate / differentiate email entries
+### No database changes needed
 
-The two send logs are both valid records but need differentiation. The payment confirmation email (sent by the `send-payment-confirmation` edge function) currently logs with `document_type: "invoice"` and `channel: "email"`, making it indistinguishable from a manual email send.
-
-**Approach**: Group consecutive `document_send_logs` entries with the same `document_number` and `channel` within a short window (e.g., 60 seconds) and only show the latest one. This prevents near-duplicate entries from cluttering the feed.
-
-```tsx
-// After building the sendLogs activities, deduplicate:
-// Group by document_number + channel, keep only the latest within 60s windows
-const deduped = sendActivities.filter((activity, index, arr) => {
-  const next = arr[index - 1]; // already sorted desc
-  if (!next) return true;
-  if (next.description === activity.description) {
-    const diff = Math.abs(next.timestamp.getTime() - activity.timestamp.getTime());
-    if (diff < 60000) return false; // skip duplicate within 60s
-  }
-  return true;
-});
-```
-
----
-
-## Summary of file changes
-
-| File | Change |
-|------|--------|
-| `src/lib/dashboard.ts` | Query `payments` table for "Total Collected" metric instead of deriving from invoice status; apply date range filter on `payments.created_at` |
-| `src/components/RecentActivity.tsx` | Deduplicate send log entries for the same document within a 60-second window to prevent duplicate "Email sent" rows |
-
+The `invoice_settings.numbering_prefix` column and `invoice_counters` year-based partitioning already exist.
