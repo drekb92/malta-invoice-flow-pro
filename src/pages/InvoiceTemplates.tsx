@@ -57,6 +57,7 @@ interface InvoiceTemplate {
   banking_visibility?: boolean;
   banking_style?: "default" | "boxed" | "minimal";
   vat_summary_visibility?: boolean;
+  notes_visibility?: boolean;
   margin_top?: number;
   margin_right?: number;
   margin_bottom?: number;
