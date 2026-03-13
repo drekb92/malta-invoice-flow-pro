@@ -163,6 +163,13 @@ const NewInvoice = () => {
     fetchPreview();
   }, [isEditMode, invoiceNumber, user?.id, invoiceSettings?.numbering_prefix]);
 
+  // Auto-populate default notes for new invoices
+  useEffect(() => {
+    if (!isEditMode && invoiceSettings?.default_invoice_notes && !notes) {
+      setNotes(invoiceSettings.default_invoice_notes);
+    }
+  }, [isEditMode, invoiceSettings?.default_invoice_notes]);
+
   // Fetch customers
   const fetchCustomers = async () => {
     try {
