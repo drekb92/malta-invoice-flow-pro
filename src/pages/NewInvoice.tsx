@@ -583,9 +583,10 @@ const NewInvoice = () => {
       } else {
         let finalInvoiceNumber = invoiceNumber || null;
         if (shouldIssue && !finalInvoiceNumber) {
+          const newPrefix = invoiceSettings?.numbering_prefix || 'INV-';
           const { data, error } = await callRpc("next_invoice_number", {
             p_business_id: user?.id,
-            p_prefix: "INV-",
+            p_prefix: newPrefix,
           });
 
           if (error) throw error;
