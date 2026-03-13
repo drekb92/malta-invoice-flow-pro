@@ -169,6 +169,7 @@ export const UnifiedInvoiceLayout = ({
   id = "invoice-preview-root",
   documentType = "INVOICE",
   footerText,
+  notesText,
   quotationTerms,
 }: UnifiedInvoiceLayoutProps) => {
   const templateStyle = templateSettings?.style || 'modern';
