@@ -162,6 +162,13 @@ const NewInvoice = () => {
     }
   }, [isEditMode, invoiceSettings?.default_invoice_notes]);
 
+  // Initialize items with correct default VAT rate once settings load
+  useEffect(() => {
+    if (items.length === 0 && !isEditMode) {
+      setItems([{ description: "", quantity: 1, unit_price: 0, vat_rate: defaultVatRate, unit: "service" }]);
+    }
+  }, [defaultVatRate, isEditMode]);
+
   // Fetch customers
   const fetchCustomers = async () => {
     try {
