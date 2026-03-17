@@ -3,13 +3,7 @@ import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
@@ -19,11 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { addDays, format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  DocumentItem,
-  validateDocumentItems,
-  calculateQuotationTotals,
-} from "@/lib/documentItems";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { DocumentItem, validateDocumentItems, calculateQuotationTotals } from "@/lib/documentItems";
 
 interface Customer {
   id: string;
@@ -40,13 +31,9 @@ const NewQuotation = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [quotationNumber, setQuotationNumber] = useState("");
-  const [issueDate, setIssueDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [validUntil, setValidUntil] = useState(
-    format(addDays(new Date(), 30), "yyyy-MM-dd")
-  );
-  
+  const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
+  const [validUntil, setValidUntil] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+
   const [items, setItems] = useState<QuotationItem[]>([
     {
       description: "",
@@ -64,6 +51,7 @@ const NewQuotation = () => {
   const { id } = useParams();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { settings: companySettings } = useCompanySettings();
 
   const fetchCustomers = async () => {
     try {
@@ -85,6 +73,7 @@ const NewQuotation = () => {
 
   const generateQuotationNumber = async () => {
     try {
+      const prefix = companySettings?.quotation_prefix || "QUO-";
       const { data, error } = await supabase
         .from("quotations")
         .select("quotation_number")
@@ -96,11 +85,12 @@ const NewQuotation = () => {
       let nextNumber = 1;
       if (data && data.length > 0) {
         const last = data[0].quotation_number || "";
-        const match = last.match(/QUO-(\d+)/);
+        // Match any prefix pattern: capture trailing digits
+        const match = last.match(/(\d+)$/);
         if (match) nextNumber = parseInt(match[1]) + 1;
       }
 
-      setQuotationNumber(`QUO-${String(nextNumber).padStart(6, "0")}`);
+      setQuotationNumber(`${prefix}${String(nextNumber).padStart(6, "0")}`);
     } catch (e) {
       console.error("Error generating quotation number", e);
     }
@@ -113,6 +103,14 @@ const NewQuotation = () => {
   }, [clientId, customers]);
 
   // Load existing quotation if edit
+  // Re-generate number when prefix becomes available (new mode only)
+  useEffect(() => {
+    if (!id && companySettings) {
+      generateQuotationNumber();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companySettings?.quotation_prefix]);
+
   useEffect(() => {
     if (id) {
       setIsEditMode(true);
@@ -132,7 +130,7 @@ const NewQuotation = () => {
              unit,
              unit_price,
              vat_rate
-           )`
+           )`,
         )
         .eq("id", quotationId)
         .single();
@@ -143,7 +141,6 @@ const NewQuotation = () => {
       setSelectedCustomer(data.customer_id);
       setIssueDate(data.issue_date || data.created_at.split("T")[0]);
       setValidUntil(data.valid_until);
-      
 
       if (data.quotation_items && data.quotation_items.length > 0) {
         setItems(
@@ -153,7 +150,7 @@ const NewQuotation = () => {
             unit_price: i.unit_price,
             vat_rate: i.vat_rate,
             unit: i.unit,
-          }))
+          })),
         );
       }
     } catch (e) {
@@ -174,9 +171,7 @@ const NewQuotation = () => {
   // Recompute default valid until when issue date changes (only if user didn't manually change?)
   useEffect(() => {
     if (!isEditMode) {
-      setValidUntil(
-        format(addDays(new Date(issueDate), 30), "yyyy-MM-dd")
-      );
+      setValidUntil(format(addDays(new Date(issueDate), 30), "yyyy-MM-dd"));
     }
   }, [issueDate, isEditMode]);
 
@@ -198,11 +193,7 @@ const NewQuotation = () => {
     }
   };
 
-  const updateItem = (
-    index: number,
-    field: keyof QuotationItem,
-    value: string | number
-  ) => {
+  const updateItem = (index: number, field: keyof QuotationItem, value: string | number) => {
     const updated = [...items];
     updated[index] = {
       ...updated[index],
@@ -241,17 +232,11 @@ const NewQuotation = () => {
       };
 
       if (isEditMode && id) {
-        const { error: upErr } = await supabase
-          .from("quotations")
-          .update(payload)
-          .eq("id", id);
+        const { error: upErr } = await supabase.from("quotations").update(payload).eq("id", id);
         if (upErr) throw upErr;
 
         // replace items
-        const { error: delErr } = await supabase
-          .from("quotation_items")
-          .delete()
-          .eq("quotation_id", id);
+        const { error: delErr } = await supabase.from("quotation_items").delete().eq("quotation_id", id);
         if (delErr) throw delErr;
 
         const itemsPayload = items.map((it) => ({
@@ -263,9 +248,7 @@ const NewQuotation = () => {
           vat_rate: it.vat_rate,
         }));
 
-        const { error: insErr } = await supabase
-          .from("quotation_items")
-          .insert(itemsPayload);
+        const { error: insErr } = await supabase.from("quotation_items").insert(itemsPayload);
         if (insErr) throw insErr;
 
         toast({
@@ -273,11 +256,7 @@ const NewQuotation = () => {
           description: "Quotation has been updated.",
         });
       } else {
-        const { data: q, error: qErr } = await supabase
-          .from("quotations")
-          .insert([payload])
-          .select("id")
-          .single();
+        const { data: q, error: qErr } = await supabase.from("quotations").insert([payload]).select("id").single();
         if (qErr) throw qErr;
 
         const itemsPayload = items.map((it) => ({
@@ -289,9 +268,7 @@ const NewQuotation = () => {
           vat_rate: it.vat_rate,
         }));
 
-        const { error: insErr } = await supabase
-          .from("quotation_items")
-          .insert(itemsPayload);
+        const { error: insErr } = await supabase.from("quotation_items").insert(itemsPayload);
         if (insErr) throw insErr;
 
         toast({
@@ -328,13 +305,9 @@ const NewQuotation = () => {
                 </Link>
               </Button>
               <div>
-                <h1 className="text-2xl font-bold">
-                  {isEditMode ? "Edit Quotation" : "New Quotation"}
-                </h1>
+                <h1 className="text-2xl font-bold">{isEditMode ? "Edit Quotation" : "New Quotation"}</h1>
                 <p className="text-muted-foreground">
-                  {isEditMode
-                    ? "Update existing quotation"
-                    : "Create a new quotation"}
+                  {isEditMode ? "Update existing quotation" : "Create a new quotation"}
                 </p>
               </div>
             </div>
@@ -350,10 +323,7 @@ const NewQuotation = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Customer *</Label>
-                    <Select
-                      value={selectedCustomer}
-                      onValueChange={(v) => setSelectedCustomer(v)}
-                    >
+                    <Select value={selectedCustomer} onValueChange={(v) => setSelectedCustomer(v)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
@@ -381,35 +351,19 @@ const NewQuotation = () => {
 
                     <div className="space-y-2">
                       <Label>Issue Date *</Label>
-                      <Input
-                        type="date"
-                        value={issueDate}
-                        onChange={(e) => setIssueDate(e.target.value)}
-                        required
-                      />
+                      <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} required />
                     </div>
 
                     <div className="space-y-2">
                       <Label>Valid Until *</Label>
-                      <Input
-                        type="date"
-                        value={validUntil}
-                        onChange={(e) => setValidUntil(e.target.value)}
-                        required
-                      />
+                      <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} required />
                     </div>
-
                   </div>
 
                   {selectedCustomer && (
                     <p className="text-sm text-muted-foreground">
-                      Validity: Until{" "}
-                      {format(new Date(validUntil), "PPP")} • Customer payment
-                      terms:{" "}
-                      {
-                        customers.find((c) => c.id === selectedCustomer)
-                          ?.payment_terms || "Not set"
-                      }
+                      Validity: Until {format(new Date(validUntil), "PPP")} • Customer payment terms:{" "}
+                      {customers.find((c) => c.id === selectedCustomer)?.payment_terms || "Not set"}
                     </p>
                   )}
                 </CardContent>
@@ -432,21 +386,12 @@ const NewQuotation = () => {
                   </Button>
 
                   {items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="grid gap-4 md:grid-cols-[2fr,1fr,1fr,1fr,auto]"
-                    >
+                    <div key={index} className="grid gap-4 md:grid-cols-[2fr,1fr,1fr,1fr,auto]">
                       <div className="space-y-2">
                         <Label>Description *</Label>
                         <Input
                           value={item.description}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "description",
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => updateItem(index, "description", e.target.value)}
                           placeholder="Service description"
                           required
                         />
@@ -459,13 +404,7 @@ const NewQuotation = () => {
                           min={0}
                           step="0.01"
                           value={item.quantity}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "quantity",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
+                          onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
                           required
                         />
                       </div>
@@ -477,13 +416,7 @@ const NewQuotation = () => {
                           min={0}
                           step="0.01"
                           value={item.unit_price}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "unit_price",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
+                          onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
                           required
                         />
                       </div>
@@ -492,13 +425,7 @@ const NewQuotation = () => {
                         <Label>VAT Rate</Label>
                         <Select
                           value={String(item.vat_rate)}
-                          onValueChange={(v) =>
-                            updateItem(
-                              index,
-                              "vat_rate",
-                              parseFloat(v)
-                            )
-                          }
+                          onValueChange={(v) => updateItem(index, "vat_rate", parseFloat(v))}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -506,19 +433,11 @@ const NewQuotation = () => {
                           <SelectContent>
                             <SelectItem value="0">0% (Exempt)</SelectItem>
                             <SelectItem value="0.05">5%</SelectItem>
-                            <SelectItem value="0.18">
-                              18% (Standard)
-                            </SelectItem>
+                            <SelectItem value="0.18">18% (Standard)</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                          VAT: €
-                          {formatNumber(
-                            item.quantity *
-                              item.unit_price *
-                              item.vat_rate,
-                            2
-                          )}
+                          VAT: €{formatNumber(item.quantity * item.unit_price * item.vat_rate, 2)}
                         </p>
                       </div>
 
@@ -562,20 +481,11 @@ const NewQuotation = () => {
               </Card>
 
               <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => navigate("/quotations")}
-                >
+                <Button type="button" variant="outline" className="flex-1" onClick={() => navigate("/quotations")}>
                   Cancel
                 </Button>
                 <Button type="submit" className="flex-1" disabled={loading}>
-                  {loading
-                    ? "Saving..."
-                    : isEditMode
-                    ? "Update Quotation"
-                    : "Create Quotation"}
+                  {loading ? "Saving..." : isEditMode ? "Update Quotation" : "Create Quotation"}
                 </Button>
               </div>
             </div>
