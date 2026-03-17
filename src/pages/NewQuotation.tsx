@@ -188,7 +188,7 @@ const NewQuotation = () => {
         description: "",
         quantity: 1,
         unit_price: 0,
-        vat_rate: 0.18,
+        vat_rate: defaultVatRate,
         unit: "service",
       },
     ]);

@@ -486,10 +486,14 @@ const NewInvoice = () => {
       }
 
       const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-      const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+      const customerTerms = selectedCustomerData?.payment_terms;
+      const defaultDays = invoiceSettings?.default_payment_days || companySettings?.default_payment_terms || 30;
       
-      const daysMatch = paymentTerms.match(/\d+/);
-      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      let paymentDays = defaultDays;
+      if (customerTerms) {
+        const daysMatch = customerTerms.match(/\d+/);
+        if (daysMatch) paymentDays = parseInt(daysMatch[0]);
+      }
       
       const invoiceDateObj = new Date(invoiceDate);
       const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
