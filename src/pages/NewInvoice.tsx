@@ -108,15 +108,7 @@ const NewInvoice = () => {
   const [invoiceDate, setInvoiceDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
-  const [items, setItems] = useState<InvoiceItem[]>([
-    {
-      description: "",
-      quantity: 1,
-      unit_price: 0,
-      vat_rate: 0.18,
-      unit: "service",
-    },
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isIssued, setIsIssued] = useState(false);
@@ -145,6 +137,10 @@ const NewInvoice = () => {
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
 
+  const defaultVatRate = invoiceSettings?.vat_rate_standard
+    ? invoiceSettings.vat_rate_standard / 100
+    : 0.18;
+
   // Fetch next invoice number preview (read-only, no increment)
   useEffect(() => {
     if (isEditMode || invoiceNumber || !user?.id) return;
@@ -169,6 +165,13 @@ const NewInvoice = () => {
       setNotes(invoiceSettings.default_invoice_notes);
     }
   }, [isEditMode, invoiceSettings?.default_invoice_notes]);
+
+  // Initialize items with correct default VAT rate once settings load
+  useEffect(() => {
+    if (items.length === 0 && !isEditMode) {
+      setItems([{ description: "", quantity: 1, unit_price: 0, vat_rate: defaultVatRate, unit: "service" }]);
+    }
+  }, [defaultVatRate, isEditMode]);
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -372,7 +375,7 @@ const NewInvoice = () => {
   }, [searchParams]);
 
   const addItem = () => {
-    setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: 0.18, unit: "service" }]);
+    setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: defaultVatRate, unit: "service" }]);
   };
 
   const removeItem = (index: number) => {
@@ -490,10 +493,14 @@ const NewInvoice = () => {
       }
 
       const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
-      const paymentTerms = selectedCustomerData?.payment_terms || "Net 30";
+      const customerTerms = selectedCustomerData?.payment_terms;
+      const defaultDays = invoiceSettings?.default_payment_days || companySettings?.default_payment_terms || 30;
       
-      const daysMatch = paymentTerms.match(/\d+/);
-      const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
+      let paymentDays = defaultDays;
+      if (customerTerms) {
+        const daysMatch = customerTerms.match(/\d+/);
+        if (daysMatch) paymentDays = parseInt(daysMatch[0]);
+      }
       
       const invoiceDateObj = new Date(invoiceDate);
       const calculatedDueDate = addDays(invoiceDateObj, paymentDays);
@@ -1355,6 +1362,8 @@ const NewInvoice = () => {
                 marginLeft: templateForPreview?.margin_left ?? 1.2,
                 style: templateForPreview?.style || 'modern',
                 notesVisibility: templateForPreview?.notes_visibility !== false,
+                includeVatBreakdown: invoiceSettings?.include_vat_breakdown ?? true,
+                includePaymentInstructions: invoiceSettings?.include_payment_instructions ?? true,
               }}
               companySettings={companySettings ? {
                 name: companySettings.company_name || '',

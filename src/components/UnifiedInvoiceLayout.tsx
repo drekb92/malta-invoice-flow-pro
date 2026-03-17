@@ -80,6 +80,8 @@ export interface TemplateSettings {
   bankingStyle?: string;
   vatSummaryVisibility?: boolean;
   notesVisibility?: boolean;
+  includeVatBreakdown?: boolean;
+  includePaymentInstructions?: boolean;
   style?: TemplateStyle;
   // NOTE: margins exist in DB but are intentionally ignored (locked)
   marginTop?: number;
@@ -269,8 +271,11 @@ export const UnifiedInvoiceLayout = ({
 
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
-  const showBanking = (templateSettings?.bankingVisibility ?? true) && !!bankingSettings && documentType !== "QUOTATION";
-  const showVatSummary = templateSettings?.vatSummaryVisibility ?? false; // Hidden by default
+  const showBanking = (templateSettings?.bankingVisibility ?? true) 
+    && (templateSettings?.includePaymentInstructions ?? true)
+    && !!bankingSettings 
+    && documentType !== "QUOTATION";
+  const showVatSummary = (templateSettings?.vatSummaryVisibility ?? false) && (templateSettings?.includeVatBreakdown ?? true);
 
   // Standardized font sizes for all templates
   

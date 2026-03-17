@@ -14,6 +14,7 @@ import { addDays, format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { DocumentItem, validateDocumentItems, calculateQuotationTotals } from "@/lib/documentItems";
 
 interface Customer {
@@ -32,17 +33,9 @@ const NewQuotation = () => {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [quotationNumber, setQuotationNumber] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
-  const [validUntil, setValidUntil] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+  const [validUntil, setValidUntil] = useState("");
 
-  const [items, setItems] = useState<QuotationItem[]>([
-    {
-      description: "",
-      quantity: 1,
-      unit_price: 0,
-      vat_rate: 0.18,
-      unit: "service",
-    },
-  ]);
+  const [items, setItems] = useState<QuotationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -52,6 +45,12 @@ const NewQuotation = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { settings: companySettings } = useCompanySettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
+
+  const defaultVatRate = invoiceSettings?.vat_rate_standard
+    ? invoiceSettings.vat_rate_standard / 100
+    : 0.18;
+  const defaultPaymentDays = invoiceSettings?.default_payment_days || companySettings?.default_payment_terms || 30;
 
   const fetchCustomers = async () => {
     try {
@@ -168,12 +167,19 @@ const NewQuotation = () => {
     if (!isEditMode) generateQuotationNumber();
   }, [isEditMode]);
 
-  // Recompute default valid until when issue date changes (only if user didn't manually change?)
+  // Recompute default valid until when issue date or payment days changes
   useEffect(() => {
     if (!isEditMode) {
-      setValidUntil(format(addDays(new Date(issueDate), 30), "yyyy-MM-dd"));
+      setValidUntil(format(addDays(new Date(issueDate), defaultPaymentDays), "yyyy-MM-dd"));
     }
-  }, [issueDate, isEditMode]);
+  }, [issueDate, isEditMode, defaultPaymentDays]);
+
+  // Initialize items with correct default VAT rate once settings load
+  useEffect(() => {
+    if (items.length === 0 && !isEditMode) {
+      setItems([{ description: "", quantity: 1, unit_price: 0, vat_rate: defaultVatRate, unit: "service" }]);
+    }
+  }, [defaultVatRate, isEditMode]);
 
   const addItem = () =>
     setItems((prev) => [
@@ -182,7 +188,7 @@ const NewQuotation = () => {
         description: "",
         quantity: 1,
         unit_price: 0,
-        vat_rate: 0.18,
+        vat_rate: defaultVatRate,
         unit: "service",
       },
     ]);

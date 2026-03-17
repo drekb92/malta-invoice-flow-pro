@@ -1,76 +1,81 @@
 
 
-## Settings Audit & UX Cleanup
+# Fix Dashboard Metrics Filtering & Duplicate Activity Entries
 
-### Problems Found
+## Issues Identified
 
-**1. Disconnected settings — values saved but never used:**
-- **Default payment terms**: `NewInvoice.tsx` line 493 hardcodes `"Net 30"` as fallback instead of reading `invoiceSettings.default_payment_days` or `companySettings.default_payment_terms`
-- **Default VAT rate**: New line items hardcode `vat_rate: 0.18` in both `NewInvoice.tsx` (line 375) and `NewQuotation.tsx` (line 42) instead of reading `vat_rate_standard / 100` from invoice settings
-- **Quotation valid-until**: `NewQuotation.tsx` line 35 hardcodes `addDays(new Date(), 30)` instead of using `default_payment_terms`
-- **Include Payment Instructions** toggle: saved but never checked when rendering banking on invoices
-- **Include VAT Breakdown** toggle: saved but never checked in `UnifiedInvoiceLayout`
-- **Late Payment Interest Rate / Early Payment Discount**: saved but never shown on invoices
-- **Invoice Language**: saved but not used (all text is English)
-- **EU Cross-Border settings** (EORI, MOSS, Intrastat, distance selling thresholds): saved but have zero effect — these are informational/reference-only fields with no logic attached
+### 1. "Total Collected" shows 0 for "Last 7 days" despite a payment recorded today
+**Root cause**: `getDashboardMetrics` in `src/lib/dashboard.ts` calculates "payments collected" by filtering the **invoices** table by `invoice.created_at` and checking `status === "paid"`. INV-2025-001 was created on **2025-10-13** — months ago — so it falls outside any recent date range. The payment itself was recorded today (2026-02-24), but the code never queries the `payments` table at all.
 
-**2. Duplicate settings:**
-- "Default Payment Terms" appears in **both** Company tab and Invoice tab — confusing; they save to different tables (`company_settings.default_payment_terms` vs `invoice_settings.default_payment_days`)
-- "Invoice Prefix" appears in Company tab's Business Settings — but the Invoice tab also has it. Two sources of truth.
+**Fix**: Query the `payments` table directly, filtering by `payments.created_at` (or `payment_date`) within the selected date range. This gives the actual amount collected in the period, independent of when the invoice was originally created.
 
-**3. UX clutter:**
-- Invoice tab has 5 large cards stacked: Numbering, Payment Terms, Document Content, Malta VAT Compliance, EU Cross-Border. That's overwhelming.
-- EU Cross-Border card has niche fields (Intrastat threshold, MOSS eligibility) that 95% of users don't need
-- Many helper texts are verbose
+### 2. Duplicate "Email sent" entries for INV-2025-001
+**Root cause**: The database has two `document_send_logs` rows for INV-2025-001, sent 48 seconds apart (09:28:01 and 09:28:49). This is likely because:
+- The user clicked "Send" from the invoice page (first entry at 09:28:01)
+- The payment confirmation email was also sent automatically after recording the payment (second entry at 09:28:49 via `send-payment-confirmation`)
 
-### Plan
+Both are legitimate logs, but they look confusing in the Recent Activity widget because they both show as "Email sent" with identical descriptions. The fix is to differentiate payment confirmation emails from regular invoice emails in the activity feed description.
 
-**A. Wire up disconnected settings (functional fixes)**
+### 3. "Today Snapshot" not reflecting the payment
+The `getTodaySnapshot` function correctly queries the `payments` table by `created_at >= todayStart`, so this should work. However, the `todayStart` uses `setHours(0, 0, 0, 0)` which produces a **local** midnight, then `.toISOString()` converts to UTC. This is correct as long as the user's timezone is ahead of UTC (Malta is UTC+1), so midnight local = 23:00 UTC previous day. The payment at 09:28 UTC should be captured. No change needed here.
 
-1. **`src/pages/NewInvoice.tsx`**:
-   - Use `invoiceSettings?.default_payment_days || companySettings?.default_payment_terms || 30` as fallback for due date when customer has no specific payment terms
-   - Use `(invoiceSettings?.vat_rate_standard || 18) / 100` for new item default VAT rate instead of hardcoded `0.18`
+---
 
-2. **`src/pages/NewQuotation.tsx`**:
-   - Import `useInvoiceSettings` hook
-   - Use configured default payment days for "valid until" date fallback
-   - Use configured VAT rate for new item default
+## Changes
 
-3. **`src/components/UnifiedInvoiceLayout.tsx`**:
-   - Add `includeVatBreakdown?: boolean` to `TemplateSettings`
-   - When `includeVatBreakdown` is false, hide the per-rate VAT breakdown rows in the totals section (just show a single VAT total line)
+### A. `src/lib/dashboard.ts` — Fix payments metric to use `payments` table
 
-4. **Pass `includePaymentInstructions` through** — when false, hide banking section on the invoice (in addition to the template's `bankingVisibility`)
+In `getDashboardMetrics`, add a separate query to the `payments` table:
 
-**B. Remove duplicates from Company tab**
+```tsx
+// Current (broken): derives "collected" from invoices with status "paid"
+const payments = invoices?.filter((inv) => inv.status === "paid")
+  .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0) || 0;
 
-- Remove "Invoice Prefix" and "Quotation Prefix" from Company tab's Business Settings card (keep them in Invoice tab only where they belong)
-- Remove "Default Payment Terms" from Company tab (keep in Invoice tab's Payment Terms card)
-- Company tab Business Settings card becomes just "Default Currency"
+// New: query actual payments table with date range filter
+let paymentsQuery = supabase
+  .from("payments")
+  .select("amount, created_at")
+  .eq("user_id", userId);
 
-**C. UX cleanup — Settings page restructure**
+if (startISO) paymentsQuery = paymentsQuery.gte("created_at", startISO);
+if (filterCustomer) {
+  // Join through invoices to filter by customer
+  paymentsQuery = paymentsQuery.eq("invoices.customer_id", filterCustomer);
+}
 
-1. **Company tab**: Collapse into 2 cards only: "Company Information" (logo + details + address) and "Default Currency" (single field, small card)
+const { data: paymentRows } = await paymentsQuery;
+const payments = paymentRows?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
+```
 
-2. **Invoice tab**: Reorganize into cleaner sections:
-   - Collapse "Invoice Numbering" and "Payment Terms" into one card: **"Numbering & Terms"**
-   - Keep "Document Content" card (footer, notes, quotation terms, payment instructions toggle)
-   - Collapse "Malta VAT Compliance" and "EU Cross-Border" into one card: **"VAT & Compliance"** — use a collapsible/accordion for the advanced EU Cross-Border fields so they don't overwhelm
+For customer filtering on payments, since payments link to invoices (not directly to customers), we need to join through invoices. The simplest approach: when a customer filter is active, first get invoice IDs for that customer, then filter payments by those invoice IDs.
 
-3. **General cleanup**:
-   - Remove redundant helper text where the label is self-explanatory
-   - Remove the disabled "Numbering System: Sequential" dropdown (it's always sequential, no need to show a disabled select)
-   - Remove disabled "Zero VAT Rate" input (always 0, not useful)
+### B. `src/components/RecentActivity.tsx` — Deduplicate / differentiate email entries
 
-### Files to modify
+The two send logs are both valid records but need differentiation. The payment confirmation email (sent by the `send-payment-confirmation` edge function) currently logs with `document_type: "invoice"` and `channel: "email"`, making it indistinguishable from a manual email send.
 
-- `src/pages/NewInvoice.tsx` — use settings for default VAT rate and payment terms fallback
-- `src/pages/NewQuotation.tsx` — import useInvoiceSettings, use default VAT rate and payment terms
-- `src/components/UnifiedInvoiceLayout.tsx` — respect `includeVatBreakdown` setting
-- `src/pages/Settings.tsx` — restructure tabs, remove duplicates, add collapsibles for advanced settings
-- `src/hooks/useInvoiceTemplate.ts` — add `includeVatBreakdown` to normalized template (minor)
+**Approach**: Group consecutive `document_send_logs` entries with the same `document_number` and `channel` within a short window (e.g., 60 seconds) and only show the latest one. This prevents near-duplicate entries from cluttering the feed.
 
-### No database changes needed
+```tsx
+// After building the sendLogs activities, deduplicate:
+// Group by document_number + channel, keep only the latest within 60s windows
+const deduped = sendActivities.filter((activity, index, arr) => {
+  const next = arr[index - 1]; // already sorted desc
+  if (!next) return true;
+  if (next.description === activity.description) {
+    const diff = Math.abs(next.timestamp.getTime() - activity.timestamp.getTime());
+    if (diff < 60000) return false; // skip duplicate within 60s
+  }
+  return true;
+});
+```
 
-All settings columns already exist in the database.
+---
+
+## Summary of file changes
+
+| File | Change |
+|------|--------|
+| `src/lib/dashboard.ts` | Query `payments` table for "Total Collected" metric instead of deriving from invoice status; apply date range filter on `payments.created_at` |
+| `src/components/RecentActivity.tsx` | Deduplicate send log entries for the same document within a 60-second window to prevent duplicate "Email sent" rows |
 

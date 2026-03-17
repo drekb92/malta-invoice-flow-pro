@@ -55,6 +55,7 @@ import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { downloadPdfFromFunction, buildA4HtmlDocument } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
@@ -160,6 +161,7 @@ const InvoiceDetails = () => {
   const { template, isLoading: templateLoading } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
 
   // Fetch send logs for Activity section
   const { lastEmailSent, lastWhatsAppSent, refetch: refetchSendLogs } = useDocumentSendLogs("invoice", id || "");
@@ -1180,6 +1182,8 @@ const InvoiceDetails = () => {
                 fontFamily: template.font_family,
                 fontSize: template.font_size,
                 layout: template?.layout || "default",
+                includeVatBreakdown: invoiceSettings?.include_vat_breakdown ?? true,
+                includePaymentInstructions: invoiceSettings?.include_payment_instructions ?? true,
               }}
               companySettings={
                 companySettings
