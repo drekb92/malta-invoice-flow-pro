@@ -167,12 +167,19 @@ const NewQuotation = () => {
     if (!isEditMode) generateQuotationNumber();
   }, [isEditMode]);
 
-  // Recompute default valid until when issue date changes (only if user didn't manually change?)
+  // Recompute default valid until when issue date or payment days changes
   useEffect(() => {
     if (!isEditMode) {
-      setValidUntil(format(addDays(new Date(issueDate), 30), "yyyy-MM-dd"));
+      setValidUntil(format(addDays(new Date(issueDate), defaultPaymentDays), "yyyy-MM-dd"));
     }
-  }, [issueDate, isEditMode]);
+  }, [issueDate, isEditMode, defaultPaymentDays]);
+
+  // Initialize items with correct default VAT rate once settings load
+  useEffect(() => {
+    if (items.length === 0 && !isEditMode) {
+      setItems([{ description: "", quantity: 1, unit_price: 0, vat_rate: defaultVatRate, unit: "service" }]);
+    }
+  }, [defaultVatRate, isEditMode]);
 
   const addItem = () =>
     setItems((prev) => [
