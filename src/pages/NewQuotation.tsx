@@ -33,7 +33,7 @@ const NewQuotation = () => {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [quotationNumber, setQuotationNumber] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
-  const [validUntil, setValidUntil] = useState(format(addDays(new Date(), 30), "yyyy-MM-dd"));
+  const [validUntil, setValidUntil] = useState("");
 
   const [items, setItems] = useState<QuotationItem[]>([
     {
