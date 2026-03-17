@@ -1362,6 +1362,8 @@ const NewInvoice = () => {
                 marginLeft: templateForPreview?.margin_left ?? 1.2,
                 style: templateForPreview?.style || 'modern',
                 notesVisibility: templateForPreview?.notes_visibility !== false,
+                includeVatBreakdown: invoiceSettings?.include_vat_breakdown ?? true,
+                includePaymentInstructions: invoiceSettings?.include_payment_instructions ?? true,
               }}
               companySettings={companySettings ? {
                 name: companySettings.company_name || '',
