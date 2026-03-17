@@ -35,15 +35,7 @@ const NewQuotation = () => {
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
   const [validUntil, setValidUntil] = useState("");
 
-  const [items, setItems] = useState<QuotationItem[]>([
-    {
-      description: "",
-      quantity: 1,
-      unit_price: 0,
-      vat_rate: 0.18,
-      unit: "service",
-    },
-  ]);
+  const [items, setItems] = useState<QuotationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
