@@ -53,6 +53,12 @@ const NewQuotation = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { settings: companySettings } = useCompanySettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
+
+  const defaultVatRate = invoiceSettings?.vat_rate_standard
+    ? invoiceSettings.vat_rate_standard / 100
+    : 0.18;
+  const defaultPaymentDays = invoiceSettings?.default_payment_days || companySettings?.default_payment_terms || 30;
 
   const fetchCustomers = async () => {
     try {
