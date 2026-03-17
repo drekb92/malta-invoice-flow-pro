@@ -137,6 +137,10 @@ const NewInvoice = () => {
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
 
+  const defaultVatRate = invoiceSettings?.vat_rate_standard
+    ? invoiceSettings.vat_rate_standard / 100
+    : 0.18;
+
   // Fetch next invoice number preview (read-only, no increment)
   useEffect(() => {
     if (isEditMode || invoiceNumber || !user?.id) return;
