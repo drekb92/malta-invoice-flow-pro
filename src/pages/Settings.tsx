@@ -1075,79 +1075,31 @@ const Settings = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Business Settings Card */}
+                  {/* Currency Card - simplified, no duplicates */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <SettingsIcon className="h-5 w-5" />
-                        Business Settings
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <CreditCard className="h-4 w-4" />
+                        Default Currency
                       </CardTitle>
-                      <CardDescription>Configure default settings for invoices and quotations</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="currency_code">Default Currency</Label>
-                          <Select
-                            value={companySettings.defaultCurrency}
-                            onValueChange={(value) =>
-                              setCompanySettings({ ...companySettings, defaultCurrency: value })
-                            }
-                          >
-                            <SelectTrigger id="currency_code">
-                              <SelectValue placeholder="Select currency" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="EUR">EUR (€)</SelectItem>
-                              <SelectItem value="USD">USD ($)</SelectItem>
-                              <SelectItem value="GBP">GBP (£)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="default_payment_terms">Default Payment Terms</Label>
-                          <Select
-                            value={companySettings.defaultPaymentTerms.toString()}
-                            onValueChange={(value) =>
-                              setCompanySettings({ ...companySettings, defaultPaymentTerms: parseInt(value) })
-                            }
-                          >
-                            <SelectTrigger id="default_payment_terms">
-                              <SelectValue placeholder="Select payment terms" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0">Due on receipt</SelectItem>
-                              <SelectItem value="7">Net 7 days</SelectItem>
-                              <SelectItem value="14">Net 14 days</SelectItem>
-                              <SelectItem value="30">Net 30 days</SelectItem>
-                              <SelectItem value="60">Net 60 days</SelectItem>
-                              <SelectItem value="90">Net 90 days</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="invoice_prefix">Invoice Prefix</Label>
-                          <Input
-                            id="invoice_prefix"
-                            placeholder="INV-"
-                            value={companySettings.invoicePrefix}
-                            onChange={(e) => setCompanySettings({ ...companySettings, invoicePrefix: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="quotation_prefix">Quotation Prefix</Label>
-                          <Input
-                            id="quotation_prefix"
-                            placeholder="QUO-"
-                            value={companySettings.quotationPrefix}
-                            onChange={(e) =>
-                              setCompanySettings({ ...companySettings, quotationPrefix: e.target.value })
-                            }
-                          />
-                        </div>
+                    <CardContent className="space-y-4">
+                      <div className="max-w-xs">
+                        <Select
+                          value={companySettings.defaultCurrency}
+                          onValueChange={(value) =>
+                            setCompanySettings({ ...companySettings, defaultCurrency: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="EUR">EUR (€)</SelectItem>
+                            <SelectItem value="USD">USD ($)</SelectItem>
+                            <SelectItem value="GBP">GBP (£)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <Separator />
