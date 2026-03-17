@@ -767,6 +767,8 @@ const Invoices = () => {
                   bankingStyle: template?.banking_style || "default",
                   style: template?.style || "modern",
                   notesVisibility: (template as any)?.notes_visibility !== false,
+                  includeVatBreakdown: invoiceSettings?.include_vat_breakdown ?? true,
+                  includePaymentInstructions: invoiceSettings?.include_payment_instructions ?? true,
                   marginTop: template?.margin_top || 20,
                   marginRight: template?.margin_right || 20,
                   marginBottom: template?.margin_bottom || 20,

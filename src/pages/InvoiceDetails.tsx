@@ -1180,6 +1180,8 @@ const InvoiceDetails = () => {
                 fontFamily: template.font_family,
                 fontSize: template.font_size,
                 layout: template?.layout || "default",
+                includeVatBreakdown: invoiceSettings?.include_vat_breakdown ?? true,
+                includePaymentInstructions: invoiceSettings?.include_payment_instructions ?? true,
               }}
               companySettings={
                 companySettings
