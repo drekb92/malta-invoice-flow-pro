@@ -108,15 +108,7 @@ const NewInvoice = () => {
   const [invoiceDate, setInvoiceDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
-  const [items, setItems] = useState<InvoiceItem[]>([
-    {
-      description: "",
-      quantity: 1,
-      unit_price: 0,
-      vat_rate: 0.18,
-      unit: "service",
-    },
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isIssued, setIsIssued] = useState(false);
