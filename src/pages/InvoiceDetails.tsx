@@ -161,6 +161,7 @@ const InvoiceDetails = () => {
   const { template, isLoading: templateLoading } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
+  const { settings: invoiceSettings } = useInvoiceSettings();
 
   // Fetch send logs for Activity section
   const { lastEmailSent, lastWhatsAppSent, refetch: refetchSendLogs } = useDocumentSendLogs("invoice", id || "");
