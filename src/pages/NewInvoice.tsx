@@ -371,8 +371,12 @@ const NewInvoice = () => {
     }
   }, [searchParams]);
 
+  const defaultVatRate = invoiceSettings?.vat_rate_standard
+    ? invoiceSettings.vat_rate_standard / 100
+    : 0.18;
+
   const addItem = () => {
-    setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: 0.18, unit: "service" }]);
+    setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: defaultVatRate, unit: "service" }]);
   };
 
   const removeItem = (index: number) => {
