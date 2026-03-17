@@ -55,6 +55,7 @@ import { UnifiedInvoiceLayout } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { downloadPdfFromFunction, buildA4HtmlDocument } from "@/lib/edgePdf";
 import { InvoiceErrorBoundary } from "@/components/InvoiceErrorBoundary";
 import { invoiceService } from "@/services/invoiceService";
