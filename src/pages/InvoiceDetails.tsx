@@ -1182,9 +1182,21 @@ const InvoiceDetails = () => {
                 fontFamily: template.font_family,
                 fontSize: template.font_size,
                 layout: template?.layout || "default",
+                headerLayout: template?.header_layout || "default",
+                tableStyle: template?.table_style || "default",
+                totalsStyle: template?.totals_style || "default",
+                bankingVisibility: template?.banking_visibility ?? true,
+                bankingStyle: template?.banking_style || "default",
+                notesVisibility: template?.notes_visibility ?? true,
+                style: (template?.style as "modern" | "professional" | "minimalist") || "modern",
+                marginTop: template?.margin_top,
+                marginRight: template?.margin_right,
+                marginBottom: template?.margin_bottom,
+                marginLeft: template?.margin_left,
                 includeVatBreakdown: invoiceSettings?.include_vat_breakdown ?? true,
                 includePaymentInstructions: invoiceSettings?.include_payment_instructions ?? true,
               }}
+              footerText={invoiceSettings?.invoice_footer_text || undefined}
               companySettings={
                 companySettings
                   ? {
