@@ -14,6 +14,7 @@ import { addDays, format } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { DocumentItem, validateDocumentItems, calculateQuotationTotals } from "@/lib/documentItems";
 
 interface Customer {
