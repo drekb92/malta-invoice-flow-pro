@@ -16,7 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon, CheckCircle2, AlertCircle, Upload, Image as ImageIcon, X } from "lucide-react";
+import { InfoIcon, CheckCircle2, AlertCircle, Upload, Image as ImageIcon, X, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Settings as SettingsIcon,
   Save,
