@@ -46,7 +46,7 @@ const handler = async (req: Request): Promise<Response> => {
       .lte("next_run_date", today);
 
     if (schedErr) {
-      console.error("[process-recurring] Error fetching schedules:", schedErr);
+      console.error("[process-recurring] Error fetching schedules:", JSON.stringify(schedErr));
       return new Response(JSON.stringify({ error: schedErr.message }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
