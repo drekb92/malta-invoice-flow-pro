@@ -859,8 +859,8 @@ const InvoiceTemplates = () => {
           </aside>
 
           {/* RIGHT CANVAS */}
-          <main className="flex-1 overflow-auto bg-muted/50">
-           <div className="sticky top-0">
+          <main className="flex-1 overflow-hidden bg-muted/50 relative">
+            <ScaledPreviewCanvas>
             {isPreviewLoading ? (
               <div className="flex items-center justify-center min-h-full py-12 px-8">
                 <div
@@ -962,7 +962,7 @@ const InvoiceTemplates = () => {
                 </div>
               </div>
             )}
-           </div>
+            </ScaledPreviewCanvas>
           </main>
         </div>
       </div>
