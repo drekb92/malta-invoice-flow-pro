@@ -860,6 +860,7 @@ const InvoiceTemplates = () => {
 
           {/* RIGHT CANVAS */}
           <main className="flex-1 overflow-auto bg-muted/50">
+           <div className="sticky top-0">
             {isPreviewLoading ? (
               <div className="flex items-center justify-center min-h-full py-12 px-8">
                 <div
