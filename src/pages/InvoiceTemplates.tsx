@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateControlSection } from "@/components/templates/TemplateControlSection";
 import { TemplateManagementPanel } from "@/components/templates/TemplateManagementPanel";
 import { PreviewModeSelector, PreviewMode } from "@/components/templates/PreviewModeSelector";
-
+import { MarginControl } from "@/components/templates/MarginControl";
 import { FontPreviewSelect } from "@/components/templates/FontPreviewSelect";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -156,62 +156,6 @@ const designPresets = [
     },
   },
 ];
-
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// Scaled preview wrapper – fits the full A4 preview into the available viewport
-// ---------------------------------------------------------------------------
-function ScaledPreviewCanvas({ children }: { children: React.ReactNode }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const recalc = () => {
-      const content = contentRef.current;
-      if (!content) return;
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      const contentW = content.scrollWidth;
-      const contentH = content.scrollHeight;
-      if (contentW === 0 || contentH === 0) return;
-      const s = Math.min(cw / contentW, ch / contentH, 1);
-      setScale(s);
-    };
-
-    const ro = new ResizeObserver(recalc);
-    ro.observe(container);
-
-    // Also observe content size changes (template switches, etc.)
-    const mo = new MutationObserver(recalc);
-    const content = contentRef.current;
-    if (content) {
-      mo.observe(content, { childList: true, subtree: true, attributes: true });
-    }
-
-    // Initial calc after a tick so content is rendered
-    requestAnimationFrame(recalc);
-
-    return () => { ro.disconnect(); mo.disconnect(); };
-  }, []);
-
-  return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden flex items-start justify-center">
-      <div
-        ref={contentRef}
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "top center",
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -501,7 +445,7 @@ const InvoiceTemplates = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="md:ml-64 flex flex-col min-h-screen">
+      <div className="md:ml-64 flex flex-col" style={{ height: "100vh", overflow: "hidden" }}>
         {/* Sticky Header */}
         <header className="bg-card border-b border-border sticky top-0 z-20">
           <div className="px-6 py-3">
@@ -539,9 +483,9 @@ const InvoiceTemplates = () => {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0">
           {/* LEFT SIDEBAR */}
-          <aside className="w-[320px] flex-shrink-0 border-r border-border bg-card overflow-y-auto">
+          <aside className="w-[320px] flex-shrink-0 border-r border-border bg-card overflow-y-auto h-full">
             <div className="p-4 space-y-2">
               {/* Validation warning */}
               {(!companyValid || !bankingValid) && (
@@ -851,13 +795,78 @@ const InvoiceTemplates = () => {
                     />
                   </TemplateControlSection>
 
-                  {/* Display Options */}
+                  {/* Layout Options */}
                   <TemplateControlSection
-                    title="Display Options"
+                    title="Layout Options"
                     icon={<Settings2 className="h-4 w-4 text-muted-foreground" />}
                     defaultOpen={false}
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Layout Style</Label>
+                        <Select
+                          value={currentSettings.layout || "default"}
+                          onValueChange={(v) => updateSetting("layout", v)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
+                            <SelectItem value="compact">Compact</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Header Layout</Label>
+                        <Select
+                          value={currentSettings.header_layout || "default"}
+                          onValueChange={(v) => updateSetting("header_layout", v)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default — logo left, invoice right</SelectItem>
+                            <SelectItem value="centered">Centered — logo & title centered</SelectItem>
+                            <SelectItem value="split">Split — company left, details right</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Table Style</Label>
+                        <Select
+                          value={currentSettings.table_style || "default"}
+                          onValueChange={(v) => updateSetting("table_style", v)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="striped">Striped Rows</SelectItem>
+                            <SelectItem value="bordered">Bordered</SelectItem>
+                            <SelectItem value="minimal">Minimal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Totals Style</Label>
+                        <Select
+                          value={currentSettings.totals_style || "default"}
+                          onValueChange={(v) => updateSetting("totals_style", v)}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="boxed">Boxed</SelectItem>
+                            <SelectItem value="highlighted">Highlighted</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div className="flex items-center justify-between py-2 px-1">
                         <Label className="text-sm">Show Banking Details</Label>
                         <Switch
@@ -865,6 +874,24 @@ const InvoiceTemplates = () => {
                           onCheckedChange={(v) => updateSetting("banking_visibility", v)}
                         />
                       </div>
+                      {currentSettings.banking_visibility !== false && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Banking Style</Label>
+                          <Select
+                            value={currentSettings.banking_style || "default"}
+                            onValueChange={(v) => updateSetting("banking_style", v)}
+                          >
+                            <SelectTrigger className="bg-background">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover z-50">
+                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="boxed">Boxed</SelectItem>
+                              <SelectItem value="minimal">Minimal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between py-2 px-1">
                         <Label className="text-sm">Show VAT Summary</Label>
                         <Switch
@@ -877,6 +904,24 @@ const InvoiceTemplates = () => {
                         <Switch
                           checked={currentSettings.notes_visibility !== false}
                           onCheckedChange={(v) => updateSetting("notes_visibility", v)}
+                        />
+                      </div>
+                      <div className="pt-1">
+                        <Label className="text-xs text-muted-foreground mb-2 block">Page Margins</Label>
+                        <MarginControl
+                          top={currentSettings.margin_top ?? 20}
+                          right={currentSettings.margin_right ?? 20}
+                          bottom={currentSettings.margin_bottom ?? 20}
+                          left={currentSettings.margin_left ?? 20}
+                          onChange={({ top, right, bottom, left }) =>
+                            setCurrentSettings((prev) => ({
+                              ...prev,
+                              margin_top: top,
+                              margin_right: right,
+                              margin_bottom: bottom,
+                              margin_left: left,
+                            }))
+                          }
                         />
                       </div>
                     </div>
@@ -915,10 +960,9 @@ const InvoiceTemplates = () => {
           </aside>
 
           {/* RIGHT CANVAS */}
-          <main className="flex-1 overflow-hidden bg-muted/50 relative">
-            <ScaledPreviewCanvas>
+          <main className="flex-1 overflow-y-scroll bg-muted/50 h-full">
             {isPreviewLoading ? (
-              <div className="flex items-center justify-center min-h-full py-12 px-8">
+              <div className="flex items-center justify-center py-12 px-8">
                 <div
                   className="bg-white shadow-2xl rounded-sm p-8 border border-border/30"
                   style={{ width: previewWidth, minHeight: "600px" }}
@@ -956,7 +1000,7 @@ const InvoiceTemplates = () => {
               </div>
             ) : previewMode === "comparison" ? (
               /* Side-by-side: saved vs current */
-              <div className="flex gap-6 items-start justify-center min-h-full py-12 px-6">
+              <div className="flex gap-6 items-start justify-center py-12 px-6">
                 {/* Saved */}
                 <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -1003,7 +1047,7 @@ const InvoiceTemplates = () => {
               </div>
             ) : (
               /* Single preview */
-              <div className="flex items-center justify-center min-h-full py-12 px-8">
+              <div className="flex items-center justify-center py-12 px-8">
                 <div
                   className="bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-300 border border-border/20"
                   style={{
@@ -1018,7 +1062,6 @@ const InvoiceTemplates = () => {
                 </div>
               </div>
             )}
-            </ScaledPreviewCanvas>
           </main>
         </div>
       </div>
