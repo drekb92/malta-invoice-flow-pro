@@ -158,6 +158,62 @@ const designPresets = [
 ];
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Scaled preview wrapper – fits the full A4 preview into the available viewport
+// ---------------------------------------------------------------------------
+function ScaledPreviewCanvas({ children }: { children: React.ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const recalc = () => {
+      const content = contentRef.current;
+      if (!content) return;
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const contentW = content.scrollWidth;
+      const contentH = content.scrollHeight;
+      if (contentW === 0 || contentH === 0) return;
+      const s = Math.min(cw / contentW, ch / contentH, 1);
+      setScale(s);
+    };
+
+    const ro = new ResizeObserver(recalc);
+    ro.observe(container);
+
+    // Also observe content size changes (template switches, etc.)
+    const mo = new MutationObserver(recalc);
+    const content = contentRef.current;
+    if (content) {
+      mo.observe(content, { childList: true, subtree: true, attributes: true });
+    }
+
+    // Initial calc after a tick so content is rendered
+    requestAnimationFrame(recalc);
+
+    return () => { ro.disconnect(); mo.disconnect(); };
+  }, []);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden flex items-start justify-center">
+      <div
+        ref={contentRef}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "top center",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 const InvoiceTemplates = () => {
