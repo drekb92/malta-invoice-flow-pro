@@ -20,6 +20,8 @@ import {
   Loader2,
   Wand2,
   Save,
+  ChevronDown,
+  FlaskConical,
 } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
@@ -170,6 +172,7 @@ const InvoiceTemplates = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Track whether current settings differ from last saved state
   const [savedSettings, setSavedSettings] = useState<Partial<InvoiceTemplate>>({});
@@ -461,10 +464,10 @@ const InvoiceTemplates = () => {
                     <TooltipTrigger asChild>
                       <Button variant="outline" size="sm" onClick={resetToDefault} disabled={!selectedTemplate}>
                         <RotateCcw className="h-4 w-4" />
-                        <span className="ml-1.5 hidden sm:inline">Reset</span>
+                        <span className="ml-1.5 hidden sm:inline">Discard</span>
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Reset to last saved state</TooltipContent>
+                    <TooltipContent>Discard unsaved changes</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving || !selectedTemplate}>
@@ -474,10 +477,17 @@ const InvoiceTemplates = () => {
                     <span className="ml-1.5 w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Unsaved changes" />
                   )}
                 </Button>
-                <Button size="sm" onClick={handleSaveAndTest} disabled={isSaving || !selectedTemplate}>
-                  <FileDown className="h-4 w-4 mr-1.5" />
-                  Save & Test PDF
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" onClick={handleSaveAndTest} disabled={isSaving || !selectedTemplate}>
+                        <FileDown className="h-4 w-4 mr-1.5" />
+                        Download PDF
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Saves then downloads a sample PDF</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           </div>
@@ -516,88 +526,6 @@ const InvoiceTemplates = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {/* Template Selection */}
-                  <TemplateControlSection
-                    title="Template Selection"
-                    icon={<Layout className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={true}
-                  >
-                    {user && (
-                      <TemplateManagementPanel
-                        templates={templates}
-                        selectedTemplate={selectedTemplate}
-                        currentSettings={currentSettings}
-                        userId={user.id}
-                        onTemplateCreated={loadTemplates}
-                        onTemplateDeleted={(deletedId) => {
-                          setTemplates((prev) => {
-                            const remaining = prev.filter((t) => t.id !== deletedId);
-                            const next = remaining.find((t) => t.is_default) || remaining[0] || null;
-                            if (next) {
-                              setSelectedTemplate(next);
-                              setCurrentSettings(next);
-                              setSavedSettings(next);
-                            } else {
-                              setSelectedTemplate(null);
-                              setCurrentSettings({});
-                              setSavedSettings({});
-                            }
-                            return remaining;
-                          });
-                        }}
-                        onTemplateSelected={(t) => {
-                          setSelectedTemplate(t);
-                          setCurrentSettings(t);
-                          setSavedSettings(t);
-                        }}
-                      />
-                    )}
-                    {templates.length > 0 && selectedTemplate && (
-                      <div className="space-y-2 pt-1">
-                        <Label className="text-xs text-muted-foreground">Active Template</Label>
-                        <Select
-                          value={selectedTemplate.id}
-                          onValueChange={(value) => {
-                            const t = templates.find((t) => t.id === value);
-                            if (t) {
-                              setSelectedTemplate(t);
-                              setCurrentSettings(t);
-                              setSavedSettings(t);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            {templates.map((t) => (
-                              <SelectItem key={t.id} value={t.id}>
-                                <div className="flex items-center gap-2">
-                                  {t.name}
-                                  {t.is_default && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Default
-                                    </Badge>
-                                  )}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-1"
-                      onClick={handleSetDefault}
-                      disabled={!selectedTemplate || selectedTemplate?.is_default}
-                    >
-                      <Star className="h-4 w-4 mr-2" />
-                      {selectedTemplate?.is_default ? "Default Template" : "Set as Default"}
-                    </Button>
-                  </TemplateControlSection>
-
                   {/* Design Presets */}
                   <TemplateControlSection
                     title="Design Presets"
@@ -640,7 +568,7 @@ const InvoiceTemplates = () => {
                   <TemplateControlSection
                     title="Template Style"
                     icon={<Layout className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={true}
+                    defaultOpen={false}
                   >
                     <div className="space-y-2">
                       {(["modern", "professional", "minimalist"] as TemplateStyle[]).map((styleValue) => {
@@ -764,6 +692,9 @@ const InvoiceTemplates = () => {
                     </div>
                     <div className="pt-1">
                       <Label className="text-xs text-muted-foreground mb-2 block">Accent Color</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Used for the invoice title and grand total figure.
+                      </p>
                       <div className="flex items-center gap-3 p-2 rounded-lg border border-border/50">
                         <div
                           className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden"
@@ -812,9 +743,9 @@ const InvoiceTemplates = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
-                            <SelectItem value="compact">Compact</SelectItem>
+                            <SelectItem value="default">Default — standard spacing</SelectItem>
+                            <SelectItem value="cleanMinimal">Clean Minimal — no dividers</SelectItem>
+                            <SelectItem value="compact">Compact — tighter rows</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -844,10 +775,10 @@ const InvoiceTemplates = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="striped">Striped Rows</SelectItem>
-                            <SelectItem value="bordered">Bordered</SelectItem>
-                            <SelectItem value="minimal">Minimal</SelectItem>
+                            <SelectItem value="default">Default — plain rows</SelectItem>
+                            <SelectItem value="striped">Striped — alternating fills</SelectItem>
+                            <SelectItem value="bordered">Bordered — full cell borders</SelectItem>
+                            <SelectItem value="minimal">Minimal — lines only</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -861,9 +792,9 @@ const InvoiceTemplates = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="boxed">Boxed</SelectItem>
-                            <SelectItem value="highlighted">Highlighted</SelectItem>
+                            <SelectItem value="default">Default — right-aligned</SelectItem>
+                            <SelectItem value="boxed">Boxed — framed total area</SelectItem>
+                            <SelectItem value="highlighted">Highlighted — coloured row</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -885,9 +816,9 @@ const InvoiceTemplates = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="bg-popover z-50">
-                              <SelectItem value="default">Default</SelectItem>
-                              <SelectItem value="boxed">Boxed</SelectItem>
-                              <SelectItem value="minimal">Minimal</SelectItem>
+                              <SelectItem value="default">Default — inline text</SelectItem>
+                              <SelectItem value="boxed">Boxed — framed block</SelectItem>
+                              <SelectItem value="minimal">Minimal — compact list</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -927,32 +858,102 @@ const InvoiceTemplates = () => {
                     </div>
                   </TemplateControlSection>
 
-                  {/* Preview PDF — Save is in the header */}
-                  <div className="pt-2">
+                  {/* Template Management */}
+                  <TemplateControlSection
+                    title="Template Selection"
+                    icon={<Layout className="h-4 w-4 text-muted-foreground" />}
+                    defaultOpen={false}
+                  >
+                    {user && (
+                      <TemplateManagementPanel
+                        templates={templates}
+                        selectedTemplate={selectedTemplate}
+                        currentSettings={currentSettings}
+                        userId={user.id}
+                        onTemplateCreated={loadTemplates}
+                        onTemplateDeleted={(deletedId) => {
+                          setTemplates((prev) => {
+                            const remaining = prev.filter((t) => t.id !== deletedId);
+                            const next = remaining.find((t) => t.is_default) || remaining[0] || null;
+                            if (next) {
+                              setSelectedTemplate(next);
+                              setCurrentSettings(next);
+                              setSavedSettings(next);
+                            } else {
+                              setSelectedTemplate(null);
+                              setCurrentSettings({});
+                              setSavedSettings({});
+                            }
+                            return remaining;
+                          });
+                        }}
+                        onTemplateSelected={(t) => {
+                          setSelectedTemplate(t);
+                          setCurrentSettings(t);
+                          setSavedSettings(t);
+                        }}
+                      />
+                    )}
                     <Button
                       variant="outline"
-                      className="w-full"
-                      disabled={!selectedTemplate}
-                      onClick={async () => {
-                        if (!selectedTemplate) return;
-                        try {
-                          await downloadPdfFromFunction(
-                            `Template-Preview-${selectedTemplate.name.replace(/\s+/g, "-")}`,
-                            templateForPreview.font_family,
-                          );
-                          toast({ title: "PDF preview opened" });
-                        } catch {
-                          toast({
-                            title: "PDF error",
-                            description: "Failed to generate preview.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
+                      size="sm"
+                      className="w-full mt-1"
+                      onClick={handleSetDefault}
+                      disabled={!selectedTemplate || selectedTemplate?.is_default}
                     >
-                      <FileDown className="h-4 w-4 mr-2" />
-                      Preview PDF
+                      <Star className="h-4 w-4 mr-2" />
+                      {selectedTemplate?.is_default ? "Default Template" : "Set as Default"}
                     </Button>
+                  </TemplateControlSection>
+
+                  {/* Advanced: export/import/delete — collapsed by default */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setShowAdvanced((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border border-dashed border-border/60"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <FlaskConical className="h-3.5 w-3.5" />
+                        Advanced
+                      </span>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform duration-200 ${showAdvanced ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {showAdvanced && (
+                      <div className="mt-2 space-y-2 p-3 rounded-lg border border-border/60 bg-muted/20">
+                        <p className="text-xs text-muted-foreground">
+                          Export or import a template as a JSON file to share between accounts.
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-xs"
+                            disabled={!selectedTemplate}
+                            onClick={async () => {
+                              if (!selectedTemplate) return;
+                              try {
+                                await downloadPdfFromFunction(
+                                  `Template-Preview-${selectedTemplate.name.replace(/\s+/g, "-")}`,
+                                  templateForPreview.font_family,
+                                );
+                                toast({ title: "PDF preview downloaded" });
+                              } catch {
+                                toast({
+                                  title: "PDF error",
+                                  description: "Failed to generate preview.",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                          >
+                            <FileDown className="h-3.5 w-3.5 mr-1" />
+                            Preview PDF
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1048,17 +1049,30 @@ const InvoiceTemplates = () => {
             ) : (
               /* Single preview */
               <div className="flex items-center justify-center py-12 px-8">
-                <div
-                  className="bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-300 border border-border/20"
-                  style={{
-                    width: previewWidth,
-                    minHeight: previewMode === "print" ? "297mm" : "auto",
-                    fontFamily: currentSettings.font_family || "Inter",
-                    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)",
-                  }}
-                >
-                  <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
-                  <UnifiedInvoiceLayout {...sharedLayoutBase} templateSettings={buildTemplateSettings()} />
+                <div className="relative">
+                  <div className="absolute -top-7 left-0 right-0 flex items-center justify-between px-1 z-10">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {selectedTemplate?.name}
+                      {selectedTemplate?.is_default && (
+                        <span className="ml-1.5 text-muted-foreground/60">· Default</span>
+                      )}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground/60 bg-muted/80 px-2 py-0.5 rounded-full border border-border/40">
+                      Sample data
+                    </span>
+                  </div>
+                  <div
+                    className="bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-300 border border-border/20"
+                    style={{
+                      width: previewWidth,
+                      minHeight: previewMode === "print" ? "297mm" : "auto",
+                      fontFamily: currentSettings.font_family || "Inter",
+                      boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)",
+                    }}
+                  >
+                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
+                    <UnifiedInvoiceLayout {...sharedLayoutBase} templateSettings={buildTemplateSettings()} />
+                  </div>
                 </div>
               </div>
             )}
