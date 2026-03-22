@@ -31,7 +31,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateControlSection } from "@/components/templates/TemplateControlSection";
 import { TemplateManagementPanel } from "@/components/templates/TemplateManagementPanel";
 import { PreviewModeSelector, PreviewMode } from "@/components/templates/PreviewModeSelector";
-import { MarginControl } from "@/components/templates/MarginControl";
+
 import { FontPreviewSelect } from "@/components/templates/FontPreviewSelect";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -795,78 +795,13 @@ const InvoiceTemplates = () => {
                     />
                   </TemplateControlSection>
 
-                  {/* Layout Options */}
+                  {/* Display Options */}
                   <TemplateControlSection
-                    title="Layout Options"
+                    title="Display Options"
                     icon={<Settings2 className="h-4 w-4 text-muted-foreground" />}
                     defaultOpen={false}
                   >
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Layout Style</Label>
-                        <Select
-                          value={currentSettings.layout || "default"}
-                          onValueChange={(v) => updateSetting("layout", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="cleanMinimal">Clean Minimal</SelectItem>
-                            <SelectItem value="compact">Compact</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Header Layout</Label>
-                        <Select
-                          value={currentSettings.header_layout || "default"}
-                          onValueChange={(v) => updateSetting("header_layout", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default — logo left, invoice right</SelectItem>
-                            <SelectItem value="centered">Centered — logo & title centered</SelectItem>
-                            <SelectItem value="split">Split — company left, details right</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Table Style</Label>
-                        <Select
-                          value={currentSettings.table_style || "default"}
-                          onValueChange={(v) => updateSetting("table_style", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="striped">Striped Rows</SelectItem>
-                            <SelectItem value="bordered">Bordered</SelectItem>
-                            <SelectItem value="minimal">Minimal</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Totals Style</Label>
-                        <Select
-                          value={currentSettings.totals_style || "default"}
-                          onValueChange={(v) => updateSetting("totals_style", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="boxed">Boxed</SelectItem>
-                            <SelectItem value="highlighted">Highlighted</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between py-2 px-1">
                         <Label className="text-sm">Show Banking Details</Label>
                         <Switch
@@ -874,24 +809,6 @@ const InvoiceTemplates = () => {
                           onCheckedChange={(v) => updateSetting("banking_visibility", v)}
                         />
                       </div>
-                      {currentSettings.banking_visibility !== false && (
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Banking Style</Label>
-                          <Select
-                            value={currentSettings.banking_style || "default"}
-                            onValueChange={(v) => updateSetting("banking_style", v)}
-                          >
-                            <SelectTrigger className="bg-background">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-popover z-50">
-                              <SelectItem value="default">Default</SelectItem>
-                              <SelectItem value="boxed">Boxed</SelectItem>
-                              <SelectItem value="minimal">Minimal</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                       <div className="flex items-center justify-between py-2 px-1">
                         <Label className="text-sm">Show VAT Summary</Label>
                         <Switch
@@ -904,24 +821,6 @@ const InvoiceTemplates = () => {
                         <Switch
                           checked={currentSettings.notes_visibility !== false}
                           onCheckedChange={(v) => updateSetting("notes_visibility", v)}
-                        />
-                      </div>
-                      <div className="pt-1">
-                        <Label className="text-xs text-muted-foreground mb-2 block">Page Margins</Label>
-                        <MarginControl
-                          top={currentSettings.margin_top ?? 20}
-                          right={currentSettings.margin_right ?? 20}
-                          bottom={currentSettings.margin_bottom ?? 20}
-                          left={currentSettings.margin_left ?? 20}
-                          onChange={({ top, right, bottom, left }) =>
-                            setCurrentSettings((prev) => ({
-                              ...prev,
-                              margin_top: top,
-                              margin_right: right,
-                              margin_bottom: bottom,
-                              margin_left: left,
-                            }))
-                          }
                         />
                       </div>
                     </div>
@@ -961,6 +860,7 @@ const InvoiceTemplates = () => {
 
           {/* RIGHT CANVAS */}
           <main className="flex-1 overflow-auto bg-muted/50">
+           <div className="sticky top-0">
             {isPreviewLoading ? (
               <div className="flex items-center justify-center min-h-full py-12 px-8">
                 <div
@@ -1062,6 +962,7 @@ const InvoiceTemplates = () => {
                 </div>
               </div>
             )}
+           </div>
           </main>
         </div>
       </div>
