@@ -1,33 +1,46 @@
 
 
-## Dashboard Card Fixes
+## Invoice Template Designer — UX Fixes
 
-### 1. Simplify Today Snapshot Card
-**File: `src/components/TodaySnapshotCard.tsx`**
-- Remove the "Updated HH:MM" timestamp in the header
-- Remove the bottom "Activity recorded today" / "No activity yet today" status bar
-- The card already clearly shows today's data — these elements are redundant clutter
+### Issues Found
 
-### 2. Exclude Drafts from Outstanding & Invoices Issued Metrics
-**File: `src/lib/dashboard.ts` → `getDashboardMetrics()`**
+1. **Chevron doesn't rotate**: `data-[state=open]:rotate-180` is on the `ChevronDown` element, but `data-state` is set by Radix on the parent `CollapsibleTrigger`. The chevron never receives the attribute.
 
-Currently the invoices query fetches ALL invoices (including drafts). This inflates both the "Outstanding" and "Invoices Issued" KPI cards.
+2. **Preview doesn't stick on scroll**: The right-side preview scrolls away when editing sidebar controls. Users must scroll back up to see changes.
 
-Fix: Add `.neq("status", "draft")` to the invoices query so only issued/paid/void invoices are counted. This means:
-- **Outstanding** = sum of non-paid, non-draft invoices (correct: drafts aren't owed yet)
-- **Invoices Issued** = count of non-draft invoices (correct: drafts haven't been issued)
-- **Invoices Total** = sum of non-draft invoices
+3. **Layout Options has disconnected/unused controls**: `headerLayout`, `tableStyle`, `totalsStyle`, `bankingStyle`, and `layout` (default/cleanMinimal/compact) are all defined in the sidebar UI but **never used in `UnifiedInvoiceLayout` rendering logic**. They have zero visual effect. Only `bankingVisibility`, `vatSummaryVisibility`, `notesVisibility`, and `style` (modern/professional/minimalist) actually work.
 
-### 3. "View All" Link Destinations — No Change Needed
-After review, the current routing is correct:
-- **Outstanding** → `/invoices?status=unpaid` (correct — shows unpaid invoices)
-- **Customers** → `/customers` (already goes to customers page)
-- **Collected** → `/invoices?status=paid` (correct — no separate payments page exists)
-- **Invoices Issued** → `/invoices` (correct — shows the invoices list)
+4. **Page Margins control**: Exposed to users but comment in code says "margins exist in DB but are intentionally ignored (locked)". Dead control.
 
-There is no separate "Payments" or "Reports" page that would be a better destination. The current links are appropriate.
+5. **"Show Invoice Notes" toggle**: Actually IS wired — `notesVisibility` is checked at line 1147 of `UnifiedInvoiceLayout`. It works correctly.
+
+### Plan
+
+**1. Fix chevron rotation** (`src/components/templates/TemplateControlSection.tsx`)
+- Add `group` class to `CollapsibleTrigger`
+- Change chevron to `group-data-[state=open]:rotate-180`
+
+**2. Make preview sticky on scroll** (`src/pages/InvoiceTemplates.tsx`)
+- Change the right `<main>` canvas to use `sticky top-0` positioning so the preview stays visible as the user scrolls the sidebar
+
+**3. Clean up Layout Options section** (`src/pages/InvoiceTemplates.tsx`)
+- Remove these disconnected controls that have no effect:
+  - "Layout Style" (default/cleanMinimal/compact) — not rendered
+  - "Header Layout" (default/centered/split) — not rendered
+  - "Table Style" (default/striped/bordered/minimal) — not rendered
+  - "Totals Style" (default/boxed/highlighted) — not rendered
+  - "Banking Style" (default/boxed/minimal) — not rendered
+  - "Page Margins" control — ignored in rendering
+- Keep only the working toggles:
+  - "Show Banking Details" (controls visibility)
+  - "Show VAT Summary"
+  - "Show Invoice Notes"
+- Rename section from "Layout Options" to "Display Options" since it's just toggles now
+
+**4. Template Selection dropdown overflow** (`src/pages/InvoiceTemplates.tsx`)
+- Ensure the template management panel and dropdown fit within the 320px sidebar width
 
 ### Files to modify
-- `src/components/TodaySnapshotCard.tsx` — remove timestamp and activity status bar
-- `src/lib/dashboard.ts` — add `.neq("status", "draft")` filter to metrics query
+- `src/components/templates/TemplateControlSection.tsx` — fix chevron rotation
+- `src/pages/InvoiceTemplates.tsx` — sticky preview, remove dead controls, clean up Layout Options
 
