@@ -1,33 +1,33 @@
 
 
-## Diagnosis: Recurring Invoice Not Firing
+## Dashboard Card Fixes
 
-### Root Cause
-The `pg_cron` job runs daily at 6:00 AM and calls the `process-recurring-invoices` edge function — but the function **does not exist on your Supabase project**. The HTTP response from today at 06:00 UTC shows:
+### 1. Simplify Today Snapshot Card
+**File: `src/components/TodaySnapshotCard.tsx`**
+- Remove the "Updated HH:MM" timestamp in the header
+- Remove the bottom "Activity recorded today" / "No activity yet today" status bar
+- The card already clearly shows today's data — these elements are redundant clutter
 
-```text
-Status: 404
-Body: {"code":"NOT_FOUND","message":"Requested function was not found"}
-```
+### 2. Exclude Drafts from Outstanding & Invoices Issued Metrics
+**File: `src/lib/dashboard.ts` → `getDashboardMetrics()`**
 
-The function code is in the repo but was never deployed. Lovable auto-deploys edge functions when they are modified, so a trivial edit will trigger deployment.
+Currently the invoices query fetches ALL invoices (including drafts). This inflates both the "Outstanding" and "Invoices Issued" KPI cards.
 
-### Evidence
-- `recurring_invoices` table has your schedule: INV-2026-014, weekly, `next_run_date = 2026-03-19`, `total_generated = 0`, `last_generated_at = null`
-- `cron.job` table shows the cron is active and running at `0 6 * * *`
-- `net._http_response` confirms the function returned 404 today at 06:00 UTC
+Fix: Add `.neq("status", "draft")` to the invoices query so only issued/paid/void invoices are counted. This means:
+- **Outstanding** = sum of non-paid, non-draft invoices (correct: drafts aren't owed yet)
+- **Invoices Issued** = count of non-draft invoices (correct: drafts haven't been issued)
+- **Invoices Total** = sum of non-draft invoices
 
-### Fix
+### 3. "View All" Link Destinations — No Change Needed
+After review, the current routing is correct:
+- **Outstanding** → `/invoices?status=unpaid` (correct — shows unpaid invoices)
+- **Customers** → `/customers` (already goes to customers page)
+- **Collected** → `/invoices?status=paid` (correct — no separate payments page exists)
+- **Invoices Issued** → `/invoices` (correct — shows the invoices list)
 
-**1. Trigger deployment of `process-recurring-invoices`**
-- Make a trivial change to `supabase/functions/process-recurring-invoices/index.ts` (e.g., update a log message) so Lovable deploys it
-
-**2. Manually invoke the function once** to process the overdue schedule (next_run_date = 2026-03-19, which is yesterday)
-- Use `supabase--curl_edge_functions` to call it, which will:
-  - Clone INV-2026-014 into a new draft invoice
-  - Advance `next_run_date` to 2026-03-26
-  - Set `last_generated_at` and increment `total_generated`
+There is no separate "Payments" or "Reports" page that would be a better destination. The current links are appropriate.
 
 ### Files to modify
-- `supabase/functions/process-recurring-invoices/index.ts` — trivial change to trigger deploy
+- `src/components/TodaySnapshotCard.tsx` — remove timestamp and activity status bar
+- `src/lib/dashboard.ts` — add `.neq("status", "draft")` filter to metrics query
 
