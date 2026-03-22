@@ -64,14 +64,6 @@ export function TodaySnapshotCard({
           </div>
         </div>
 
-        {/* Activity status */}
-        <div className="mt-4 pt-3 border-t border-border">
-          {hasActivity ? (
-            <p className="text-xs text-emerald-600 text-center font-medium">Activity recorded today</p>
-          ) : (
-            <p className="text-xs text-muted-foreground text-center">No activity yet today — check back later</p>
-          )}
-        </div>
       </CardContent>
     </Card>
   );

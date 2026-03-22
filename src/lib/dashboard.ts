@@ -94,7 +94,8 @@ export async function getDashboardMetrics(userId: string, filters: DashboardFilt
   let invoicesQuery = supabase
     .from("invoices")
     .select("total_amount, status, customer_id, created_at")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .neq("status", "draft");
 
   if (startISO) invoicesQuery = invoicesQuery.gte("created_at", startISO);
   if (filterCustomer) invoicesQuery = invoicesQuery.eq("customer_id", filterCustomer);
