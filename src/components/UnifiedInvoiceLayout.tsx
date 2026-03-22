@@ -65,7 +65,7 @@ export interface InvoiceData {
 export type DocumentType = "INVOICE" | "CREDIT NOTE" | "QUOTATION";
 
 // Simplified to 3 core styles
-export type TemplateStyle = 'modern' | 'professional' | 'minimalist';
+export type TemplateStyle = "modern" | "professional" | "minimalist";
 
 export interface TemplateSettings {
   primaryColor?: string;
@@ -80,8 +80,6 @@ export interface TemplateSettings {
   bankingStyle?: string;
   vatSummaryVisibility?: boolean;
   notesVisibility?: boolean;
-  includeVatBreakdown?: boolean;
-  includePaymentInstructions?: boolean;
   style?: TemplateStyle;
   // NOTE: margins exist in DB but are intentionally ignored (locked)
   marginTop?: number;
@@ -130,29 +128,29 @@ const mul = (a: number, b: number) => Number(a || 0) * Number(b || 0);
  */
 const getContrastTextColor = (hexColor: string): string => {
   // Remove # if present
-  const hex = hexColor.replace('#', '');
-  
+  const hex = hexColor.replace("#", "");
+
   // Parse RGB values
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
-  
+
   // Calculate relative luminance (WCAG formula)
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  
+
   // Return white for dark backgrounds, dark color for light backgrounds
-  return luminance > 0.5 ? '#1f2937' : '#ffffff';
+  return luminance > 0.5 ? "#1f2937" : "#ffffff";
 };
 
 /**
  * Darken a hex color by a percentage (for readable text on light backgrounds)
  */
 const darkenColor = (hexColor: string, percent: number): string => {
-  const hex = hexColor.replace('#', '');
+  const hex = hexColor.replace("#", "");
   const r = Math.max(0, Math.floor(parseInt(hex.substring(0, 2), 16) * (1 - percent / 100)));
   const g = Math.max(0, Math.floor(parseInt(hex.substring(2, 4), 16) * (1 - percent / 100)));
   const b = Math.max(0, Math.floor(parseInt(hex.substring(4, 6), 16) * (1 - percent / 100)));
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 };
 
 /* ===================== CONSTANTS ===================== */
@@ -174,68 +172,68 @@ export const UnifiedInvoiceLayout = ({
   notesText,
   quotationTerms,
 }: UnifiedInvoiceLayoutProps) => {
-  const templateStyle = templateSettings?.style || 'modern';
-  
+  const templateStyle = templateSettings?.style || "modern";
+
   // Standard sans-serif font stack for consistency
-  const STANDARD_FONT_STACK = 'Inter, Helvetica Neue, Helvetica, Arial, sans-serif';
-  
+  const STANDARD_FONT_STACK = "Inter, Helvetica Neue, Helvetica, Arial, sans-serif";
+
   // Determine if rendering for PDF (must be defined before getStyleConfig)
   const isPdf = variant === "pdf";
-  
+
   // Get style-specific settings
   const getStyleConfig = () => {
-    const brandColor = templateSettings?.primaryColor || '#1e3a5f';
+    const brandColor = templateSettings?.primaryColor || "#1e3a5f";
     // Calculate contrast-aware text color for the brand color
     const brandTextColor = getContrastTextColor(brandColor);
     // Darker version of brand color for text on light backgrounds
     const brandDarkColor = darkenColor(brandColor, 20);
-    
+
     switch (templateStyle) {
-      case 'modern':
+      case "modern":
         // MODERN: Solid brand color header with white/contrast text
         return {
           fontFamily: STANDARD_FONT_STACK,
           headerBg: brandColor,
           headerTextColor: brandTextColor,
-          headerBorderStyle: 'none',
-          tableBorder: '1px solid #e5e7eb',
+          headerBorderStyle: "none",
+          tableBorder: "1px solid #e5e7eb",
           tableHeaderBg: brandColor,
           tableHeaderColor: brandTextColor,
-          rowAltBg: '#f8fafc',
+          rowAltBg: "#f8fafc",
           totalBg: brandColor,
           totalTextColor: brandTextColor,
           brandColor,
           brandDarkColor,
         };
-      case 'professional':
+      case "professional":
         // PROFESSIONAL: White header with 4px TOP border in brand color
         return {
           fontFamily: STANDARD_FONT_STACK,
-          headerBg: '#ffffff',
-          headerTextColor: '#111827',
-          headerBorderStyle: `${isPdf ? '1.2mm' : '4px'} solid ${brandColor}`,
-          tableBorder: '1px solid #e5e7eb',
-          tableHeaderBg: '#f9fafb',
-          tableHeaderColor: '#374151',
+          headerBg: "#ffffff",
+          headerTextColor: "#111827",
+          headerBorderStyle: `${isPdf ? "1.2mm" : "4px"} solid ${brandColor}`,
+          tableBorder: "1px solid #e5e7eb",
+          tableHeaderBg: "#f9fafb",
+          tableHeaderColor: "#374151",
           tableHeaderBorder: `2px solid ${brandColor}`,
-          rowAltBg: '#f9fafb',
-          totalBg: 'transparent',
+          rowAltBg: "#f9fafb",
+          totalBg: "transparent",
           totalTextColor: brandColor,
           brandColor,
           brandDarkColor,
         };
-      case 'minimalist':
+      case "minimalist":
         // MINIMALIST: No colored header/borders, brand color ONLY for Total Amount
         return {
           fontFamily: STANDARD_FONT_STACK,
-          headerBg: 'transparent',
-          headerTextColor: '#374151',
-          headerBorderStyle: 'none',
-          tableBorder: 'none',
-          tableHeaderBg: 'transparent',
-          tableHeaderColor: '#9ca3af',
-          rowAltBg: 'transparent',
-          totalBg: 'transparent',
+          headerBg: "transparent",
+          headerTextColor: "#374151",
+          headerBorderStyle: "none",
+          tableBorder: "none",
+          tableHeaderBg: "transparent",
+          tableHeaderColor: "#9ca3af",
+          rowAltBg: "transparent",
+          totalBg: "transparent",
           totalTextColor: brandColor, // Only place brand color is used
           brandColor,
           brandDarkColor,
@@ -243,15 +241,15 @@ export const UnifiedInvoiceLayout = ({
       default:
         return {
           fontFamily: STANDARD_FONT_STACK,
-          headerBg: 'transparent',
-          headerTextColor: '#111827',
-          headerBorderStyle: 'none',
-          tableBorder: '1px solid #e5e7eb',
-          tableHeaderBg: '#f9fafb',
-          tableHeaderColor: '#374151',
-          rowAltBg: '#f9fafb',
-          totalBg: 'transparent',
-          totalTextColor: '#111827',
+          headerBg: "transparent",
+          headerTextColor: "#111827",
+          headerBorderStyle: "none",
+          tableBorder: "1px solid #e5e7eb",
+          tableHeaderBg: "#f9fafb",
+          tableHeaderColor: "#374151",
+          rowAltBg: "#f9fafb",
+          totalBg: "transparent",
+          totalTextColor: "#111827",
           brandColor,
           brandDarkColor,
         };
@@ -271,21 +269,26 @@ export const UnifiedInvoiceLayout = ({
 
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
-  const showBanking = (templateSettings?.bankingVisibility ?? true) 
-    && (templateSettings?.includePaymentInstructions ?? true)
-    && !!bankingSettings 
-    && documentType !== "QUOTATION";
-  const showVatSummary = (templateSettings?.vatSummaryVisibility ?? false) && (templateSettings?.includeVatBreakdown ?? true);
+  const showBanking =
+    (templateSettings?.bankingVisibility ?? true) && !!bankingSettings && documentType !== "QUOTATION";
+  const showVatSummary = templateSettings?.vatSummaryVisibility ?? false; // Hidden by default
+
+  // Layout Options derived values
+  const layoutStyle = templateSettings?.layout || "default";
+  const headerLayout = templateSettings?.headerLayout || "default";
+  const tableStyle = templateSettings?.tableStyle || "default";
+  const totalsStyle = templateSettings?.totalsStyle || "default";
+  const bankingStyle = templateSettings?.bankingStyle || "default";
 
   // Standardized font sizes for all templates
-  
+
   const fontSize = {
-    body: isPdf ? '10pt' : '12px',
-    small: isPdf ? '9pt' : '11px',
-    tiny: isPdf ? '8pt' : '10px',
-    heading: isPdf ? '18pt' : '26px',
-    subheading: isPdf ? '11pt' : '14px',
-    totalLabel: isPdf ? '11pt' : '13px',
+    body: isPdf ? "10pt" : "12px",
+    small: isPdf ? "9pt" : "11px",
+    tiny: isPdf ? "8pt" : "10px",
+    heading: isPdf ? "18pt" : "26px",
+    subheading: isPdf ? "11pt" : "14px",
+    totalLabel: isPdf ? "11pt" : "13px",
   };
 
   const embeddedStyles = `
@@ -351,8 +354,8 @@ export const UnifiedInvoiceLayout = ({
       justify-content: space-between;
       gap: 20px;
       align-items: flex-start;
-      min-height: ${isPdf ? '40mm' : '150px'};
-      height: ${isPdf ? '40mm' : '150px'};
+      min-height: ${isPdf ? "40mm" : "150px"};
+      height: ${isPdf ? "40mm" : "150px"};
       box-sizing: border-box;
     }
     #${id} .header-left { flex: 0 0 56%; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
@@ -365,7 +368,7 @@ export const UnifiedInvoiceLayout = ({
       object-fit: contain;
       object-position: left top;
       display: block;
-      margin-bottom: ${isPdf ? '2mm' : '8px'};
+      margin-bottom: ${isPdf ? "2mm" : "8px"};
     }
     #${id} .company {
       font-size: ${fontSize.small};
@@ -378,7 +381,7 @@ export const UnifiedInvoiceLayout = ({
       font-weight: 800;
       letter-spacing: 0.08em;
       color: ${accent};
-      margin: 0 0 ${isPdf ? '2mm' : '8px'} 0;
+      margin: 0 0 ${isPdf ? "2mm" : "8px"} 0;
       text-transform: uppercase;
     }
     #${id} .meta {
@@ -386,22 +389,22 @@ export const UnifiedInvoiceLayout = ({
       color: #4b5563;
       line-height: 1.4;
     }
-    #${id} .meta .row { display: flex; justify-content: flex-end; gap: ${isPdf ? '2mm' : '8px'}; }
+    #${id} .meta .row { display: flex; justify-content: flex-end; gap: ${isPdf ? "2mm" : "8px"}; }
     #${id} .meta .label { color: #6b7280; }
     #${id} .meta .value { color: #111827; font-weight: 600; }
 
     #${id} .divider {
       border: 0;
       border-top: 1px solid #e5e7eb;
-      margin: ${isPdf ? '4mm 0 5mm 0' : '14px 0 16px 0'};
+      margin: ${isPdf ? "4mm 0 5mm 0" : "14px 0 16px 0"};
     }
 
     /* Address Grid - Bill To / Ship To aligned horizontally */
     #${id} .address-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: ${isPdf ? '8mm' : '32px'};
-      margin-bottom: ${isPdf ? '5mm' : '20px'};
+      gap: ${isPdf ? "8mm" : "32px"};
+      margin-bottom: ${isPdf ? "5mm" : "20px"};
     }
     #${id} .address-block {
       min-width: 0;
@@ -414,32 +417,32 @@ export const UnifiedInvoiceLayout = ({
       color: #6b7280;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-bottom: ${isPdf ? '1.5mm' : '6px'};
+      margin-bottom: ${isPdf ? "1.5mm" : "6px"};
     }
-    #${id} .billto { margin-bottom: ${isPdf ? '4mm' : '16px'}; }
+    #${id} .billto { margin-bottom: ${isPdf ? "4mm" : "16px"}; }
     #${id} .customer-name {
       font-size: ${fontSize.subheading};
       font-weight: 700;
       color: #111827;
-      margin-bottom: ${isPdf ? '1mm' : '4px'};
+      margin-bottom: ${isPdf ? "1mm" : "4px"};
     }
     #${id} .customer-info {
       font-size: ${fontSize.small};
       color: #4b5563;
       line-height: 1.4;
     }
-    #${id} .customer-info div { margin: ${isPdf ? '0.5mm 0' : '2px 0'}; }
+    #${id} .customer-info div { margin: ${isPdf ? "0.5mm 0" : "2px 0"}; }
 
     /* Table */
     #${id} table.items {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      margin-top: ${isPdf ? '3mm' : '10px'};
+      margin-top: ${isPdf ? "3mm" : "10px"};
       font-size: ${fontSize.small};
     }
     #${id} table.items thead th {
-      padding: ${isPdf ? '2.5mm 2mm' : '9px 8px'};
+      padding: ${isPdf ? "2.5mm 2mm" : "9px 8px"};
       border-bottom: 1px solid #e5e7eb;
       font-weight: 700;
       text-transform: uppercase;
@@ -449,7 +452,7 @@ export const UnifiedInvoiceLayout = ({
       background: var(--th-bg, #f9fafb);
     }
     #${id} table.items tbody td {
-      padding: ${isPdf ? '2.5mm 2mm' : '9px 8px'};
+      padding: ${isPdf ? "2.5mm 2mm" : "9px 8px"};
       border-bottom: 1px solid #f1f5f9;
       vertical-align: top;
     }
@@ -470,18 +473,18 @@ export const UnifiedInvoiceLayout = ({
 
     /* Customer VAT Number - Prominent Display */
     #${id} .customer-vat {
-      margin-top: ${isPdf ? '2mm' : '8px'};
-      padding: ${isPdf ? '2mm 3mm' : '6px 10px'};
+      margin-top: ${isPdf ? "2mm" : "8px"};
+      padding: ${isPdf ? "2mm 3mm" : "6px 10px"};
       background: #f8fafc;
       border: 1px solid #e2e8f0;
-      border-radius: ${isPdf ? '1mm' : '4px'};
+      border-radius: ${isPdf ? "1mm" : "4px"};
       display: inline-block;
     }
     #${id} .customer-vat .vat-label {
       font-size: ${fontSize.tiny};
       color: #6b7280;
       font-weight: 600;
-      margin-right: ${isPdf ? '2mm' : '6px'};
+      margin-right: ${isPdf ? "2mm" : "6px"};
     }
     #${id} .customer-vat .vat-value {
       font-size: ${fontSize.small};
@@ -492,20 +495,20 @@ export const UnifiedInvoiceLayout = ({
 
     /* VAT Summary Table - Compact, appears BELOW Grand Total */
     #${id} .vat-summary-section {
-      margin-top: ${isPdf ? '4mm' : '16px'};
+      margin-top: ${isPdf ? "4mm" : "16px"};
       break-inside: avoid;
       page-break-inside: avoid;
       background: #f8fafc !important;
       border: 1px solid #e2e8f0 !important;
-      border-radius: ${isPdf ? '1.5mm' : '6px'};
-      padding: ${isPdf ? '3mm' : '12px'};
+      border-radius: ${isPdf ? "1.5mm" : "6px"};
+      padding: ${isPdf ? "3mm" : "12px"};
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
     #${id} .vat-summary-section .section-label {
-      margin-bottom: ${isPdf ? '1.5mm' : '6px'};
+      margin-bottom: ${isPdf ? "1.5mm" : "6px"};
       color: #64748b !important;
-      font-size: ${isPdf ? '7pt' : '9px'};
+      font-size: ${isPdf ? "7pt" : "9px"};
       font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -514,24 +517,24 @@ export const UnifiedInvoiceLayout = ({
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: ${isPdf ? '9pt' : '11px'};
+      font-size: ${isPdf ? "9pt" : "11px"};
       background: transparent !important;
     }
     #${id} table.vat-summary colgroup col:first-child { width: 34%; }
     #${id} table.vat-summary colgroup col:nth-child(2) { width: 33%; }
     #${id} table.vat-summary colgroup col:nth-child(3) { width: 33%; }
     #${id} table.vat-summary thead th {
-      padding: ${isPdf ? '1.5mm 1.5mm' : '5px 6px'};
+      padding: ${isPdf ? "1.5mm 1.5mm" : "5px 6px"};
       border-bottom: 1px solid #cbd5e1;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      font-size: ${isPdf ? '7pt' : '9px'};
+      font-size: ${isPdf ? "7pt" : "9px"};
       color: #64748b !important;
       background: transparent !important;
     }
     #${id} table.vat-summary tbody td {
-      padding: ${isPdf ? '1.5mm 1.5mm' : '5px 6px'};
+      padding: ${isPdf ? "1.5mm 1.5mm" : "5px 6px"};
       border-bottom: 1px solid #e2e8f0;
       color: #334155 !important;
       font-weight: 500;
@@ -551,22 +554,22 @@ export const UnifiedInvoiceLayout = ({
     #${id} .totals {
       width: 45%;
       margin-left: auto;
-      margin-top: ${isPdf ? '3mm' : '10px'};
+      margin-top: ${isPdf ? "3mm" : "10px"};
       font-size: ${fontSize.small};
     }
     #${id} .totals .row {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: ${isPdf ? '3mm' : '10px'};
-      padding: ${isPdf ? '1mm 0' : '4px 0'};
+      gap: ${isPdf ? "3mm" : "10px"};
+      padding: ${isPdf ? "1mm 0" : "4px 0"};
       align-items: center;
     }
     #${id} .totals .label { color: #6b7280; text-align: right; }
     #${id} .totals .value { text-align: right; font-weight: 700; color: #111827; }
     #${id} .totals .total {
       border-top: 1px solid #e5e7eb;
-      margin-top: ${isPdf ? '1.5mm' : '6px'};
-      padding-top: ${isPdf ? '2mm' : '8px'};
+      margin-top: ${isPdf ? "1.5mm" : "6px"};
+      padding-top: ${isPdf ? "2mm" : "8px"};
     }
     #${id} .totals .total .label { font-size: ${fontSize.totalLabel}; font-weight: 800; color: #111827; }
     #${id} .totals .total .value { font-size: ${fontSize.totalLabel}; font-weight: 900; color: ${accent}; }
@@ -575,17 +578,17 @@ export const UnifiedInvoiceLayout = ({
     #${id} .body { flex: 1; }
     #${id} .footer {
       margin-top: auto;
-      padding-top: ${isPdf ? '4mm' : '14px'};
+      padding-top: ${isPdf ? "4mm" : "14px"};
     }
     #${id} .banking {
       font-size: ${fontSize.small};
       line-height: 1.4;
       color: #4b5563;
     }
-    #${id} .banking .line { margin: ${isPdf ? '0.5mm 0' : '2px 0'}; }
+    #${id} .banking .line { margin: ${isPdf ? "0.5mm 0" : "2px 0"}; }
     #${id} .thanks {
-      margin-top: ${isPdf ? '3mm' : '12px'};
-      padding-top: ${isPdf ? '2.5mm' : '10px'};
+      margin-top: ${isPdf ? "3mm" : "12px"};
+      padding-top: ${isPdf ? "2.5mm" : "10px"};
       border-top: 1px solid #e5e7eb;
       text-align: center;
       font-size: ${fontSize.small};
@@ -595,40 +598,42 @@ export const UnifiedInvoiceLayout = ({
 
     /* Terms & Conditions - Quotation only */
     #${id} .terms-section {
-      margin-top: ${isPdf ? '5mm' : '18px'};
-      padding-top: ${isPdf ? '3mm' : '12px'};
+      margin-top: ${isPdf ? "5mm" : "18px"};
+      padding-top: ${isPdf ? "3mm" : "12px"};
       border-top: 1px solid #e5e7eb;
     }
     #${id} .terms-section .section-label {
-      font-size: ${isPdf ? '7pt' : '9px'};
+      font-size: ${isPdf ? "7pt" : "9px"};
       font-weight: 700;
       color: #9ca3af;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-bottom: ${isPdf ? '1.5mm' : '6px'};
+      margin-bottom: ${isPdf ? "1.5mm" : "6px"};
     }
     #${id} .terms-section ol {
       margin: 0;
-      padding-left: ${isPdf ? '4mm' : '16px'};
-      font-size: ${isPdf ? '8pt' : '10px'};
+      padding-left: ${isPdf ? "4mm" : "16px"};
+      font-size: ${isPdf ? "8pt" : "10px"};
       color: #9ca3af;
       line-height: 1.6;
     }
     #${id} .terms-section ol li {
-      margin-bottom: ${isPdf ? '0.8mm' : '3px'};
+      margin-bottom: ${isPdf ? "0.8mm" : "3px"};
     }
 
     /* ============ STYLE-SPECIFIC OVERRIDES ============ */
     
-    ${templateStyle === 'modern' ? `
+    ${
+      templateStyle === "modern"
+        ? `
       /* MODERN: Solid brand color header with white/contrast text */
       #${id} .header {
         background: ${styleConfig.headerBg};
         color: ${styleConfig.headerTextColor};
-        padding: ${isPdf ? '5mm' : '20px'};
-        margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
+        padding: ${isPdf ? "5mm" : "20px"};
+        margin: ${isPdf ? "-15mm -15mm 4mm -15mm" : "-24px -24px 16px -24px"};
         border-radius: 0;
-        min-height: ${isPdf ? '40mm' : '150px'};
+        min-height: ${isPdf ? "40mm" : "150px"};
         height: auto;
         box-sizing: content-box;
         -webkit-print-color-adjust: exact !important;
@@ -658,8 +663,8 @@ export const UnifiedInvoiceLayout = ({
       #${id} .totals .total {
         background: ${styleConfig.totalBg};
         color: ${styleConfig.totalTextColor};
-        padding: ${isPdf ? '2mm 3mm' : '8px 12px'};
-        border-radius: ${isPdf ? '1mm' : '4px'};
+        padding: ${isPdf ? "2mm 3mm" : "8px 12px"};
+        border-radius: ${isPdf ? "1mm" : "4px"};
         border-top: none;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -668,19 +673,23 @@ export const UnifiedInvoiceLayout = ({
       #${id} .totals .total .value {
         color: ${styleConfig.totalTextColor};
       }
-    ` : ''}
+    `
+        : ""
+    }
 
-    ${templateStyle === 'professional' ? `
+    ${
+      templateStyle === "professional"
+        ? `
       /* PROFESSIONAL: White header with 4px TOP border in brand color */
       #${id} .header {
         background: ${styleConfig.headerBg};
         color: ${styleConfig.headerTextColor};
-        padding: ${isPdf ? '5mm' : '20px'};
-        margin: ${isPdf ? '-15mm -15mm 4mm -15mm' : '-24px -24px 16px -24px'};
-        padding-left: ${isPdf ? '15mm' : '24px'};
-        padding-right: ${isPdf ? '15mm' : '24px'};
+        padding: ${isPdf ? "5mm" : "20px"};
+        margin: ${isPdf ? "-15mm -15mm 4mm -15mm" : "-24px -24px 16px -24px"};
+        padding-left: ${isPdf ? "15mm" : "24px"};
+        padding-right: ${isPdf ? "15mm" : "24px"};
         border-top: ${styleConfig.headerBorderStyle};
-        min-height: ${isPdf ? '40mm' : '150px'};
+        min-height: ${isPdf ? "40mm" : "150px"};
         height: auto;
         box-sizing: content-box;
         -webkit-print-color-adjust: exact !important;
@@ -712,8 +721,8 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} .totals .total {
         border-top: 2px solid ${styleConfig.brandColor};
-        padding: ${isPdf ? '2mm 0' : '8px 0'};
-        margin-top: ${isPdf ? '2mm' : '8px'};
+        padding: ${isPdf ? "2mm 0" : "8px 0"};
+        margin-top: ${isPdf ? "2mm" : "8px"};
       }
       #${id} .totals .total .label {
         color: #111827;
@@ -723,9 +732,13 @@ export const UnifiedInvoiceLayout = ({
         color: ${styleConfig.totalTextColor};
         font-weight: 800;
       }
-    ` : ''}
+    `
+        : ""
+    }
 
-    ${templateStyle === 'minimalist' ? `
+    ${
+      templateStyle === "minimalist"
+        ? `
       /* MINIMALIST: No colored header/borders. Brand color ONLY for Total Amount */
       #${id}.invoice-page {
         background: #ffffff !important;
@@ -735,11 +748,11 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} .header {
         background: transparent !important;
-        padding-bottom: ${isPdf ? '5mm' : '20px'};
-        margin-bottom: ${isPdf ? '4mm' : '16px'};
+        padding-bottom: ${isPdf ? "5mm" : "20px"};
+        margin-bottom: ${isPdf ? "4mm" : "16px"};
         border: none !important;
         height: auto;
-        min-height: ${isPdf ? '40mm' : '150px'};
+        min-height: ${isPdf ? "40mm" : "150px"};
       }
       #${id} .header .company,
       #${id} .header .company strong {
@@ -755,7 +768,7 @@ export const UnifiedInvoiceLayout = ({
         font-weight: 400;
         letter-spacing: 0.15em;
         color: #6b7280;
-        font-size: ${isPdf ? '14pt' : '20px'};
+        font-size: ${isPdf ? "14pt" : "20px"};
       }
       #${id} .divider {
         display: none;
@@ -766,7 +779,7 @@ export const UnifiedInvoiceLayout = ({
         letter-spacing: 0.12em;
       }
       #${id} table.items {
-        margin-top: ${isPdf ? '6mm' : '24px'};
+        margin-top: ${isPdf ? "6mm" : "24px"};
         background: #ffffff;
       }
       #${id} table.items thead th {
@@ -780,8 +793,8 @@ export const UnifiedInvoiceLayout = ({
         background: #ffffff;
       }
       #${id} .totals {
-        margin-top: ${isPdf ? '6mm' : '24px'};
-        padding-top: ${isPdf ? '3mm' : '12px'};
+        margin-top: ${isPdf ? "6mm" : "24px"};
+        padding-top: ${isPdf ? "3mm" : "12px"};
         border-top: 1px solid #e5e7eb;
         background: transparent;
       }
@@ -793,8 +806,8 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} .totals .total {
         border-top: none;
-        margin-top: ${isPdf ? '3mm' : '12px'};
-        padding-top: ${isPdf ? '2mm' : '8px'};
+        margin-top: ${isPdf ? "3mm" : "12px"};
+        padding-top: ${isPdf ? "2mm" : "8px"};
       }
       #${id} .totals .total .label {
         font-weight: 600;
@@ -805,7 +818,7 @@ export const UnifiedInvoiceLayout = ({
         color: ${styleConfig.totalTextColor} !important;
       }
       #${id} .banking {
-        margin-top: ${isPdf ? '6mm' : '24px'};
+        margin-top: ${isPdf ? "6mm" : "24px"};
         background: transparent;
       }
       #${id} .thanks {
@@ -816,9 +829,242 @@ export const UnifiedInvoiceLayout = ({
         background: #fafafa !important;
         border: 1px solid #f3f4f6 !important;
       }
-    ` : ''}
+    `
+        : ""
+    }
 
-    /* Print-specific overrides */
+
+    /* ── Layout: compact ── */
+    ${
+      layoutStyle === "compact"
+        ? `
+      #${id} table.items thead th {
+        padding: ${isPdf ? "1.5mm 2mm" : "5px 8px"};
+      }
+      #${id} table.items tbody td {
+        padding: ${isPdf ? "1.5mm 2mm" : "5px 8px"};
+      }
+      #${id} .totals .row {
+        padding: ${isPdf ? "0.5mm 0" : "2px 0"};
+      }
+      #${id} .billto {
+        margin-bottom: ${isPdf ? "2mm" : "8px"};
+      }
+      #${id} .header {
+        min-height: ${isPdf ? "28mm" : "110px"};
+        height: ${isPdf ? "28mm" : "110px"};
+      }
+    `
+        : ""
+    }
+
+    /* ── Layout: cleanMinimal ── */
+    ${
+      layoutStyle === "cleanMinimal"
+        ? `
+      #${id} .divider { display: none; }
+      #${id} .section-label { display: none; }
+      #${id} .billto { margin-bottom: ${isPdf ? "5mm" : "20px"}; border-bottom: 1px solid #f3f4f6; padding-bottom: ${isPdf ? "3mm" : "12px"}; }
+      #${id} .thanks { border-top: 1px solid #f3f4f6; }
+    `
+        : ""
+    }
+
+    /* ── Header Layout: centered ── */
+    ${
+      headerLayout === "centered"
+        ? `
+      #${id} .header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        height: auto;
+        min-height: ${isPdf ? "32mm" : "120px"};
+      }
+      #${id} .header-left {
+        align-items: center;
+        flex: none;
+        width: 100%;
+      }
+      #${id} .header-right {
+        text-align: center;
+        flex: none;
+        width: 100%;
+      }
+      #${id} .logo {
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+      }
+      #${id} .company {
+        text-align: center;
+      }
+      #${id} .meta .row {
+        justify-content: center;
+      }
+      #${id} .doc-title {
+        text-align: center;
+      }
+    `
+        : ""
+    }
+
+    /* ── Header Layout: split ── */
+    ${
+      headerLayout === "split"
+        ? `
+      #${id} .header {
+        gap: ${isPdf ? "10mm" : "40px"};
+        align-items: flex-start;
+      }
+      #${id} .header-left { flex: 1; }
+      #${id} .header-right {
+        flex: 1;
+        text-align: left;
+        border-left: 2px solid ${primary};
+        padding-left: ${isPdf ? "5mm" : "20px"};
+      }
+      #${id} .meta .row {
+        justify-content: flex-start;
+      }
+      #${id} .doc-title { text-align: left; }
+    `
+        : ""
+    }
+
+    /* ── Table Style: striped ── */
+    ${
+      tableStyle === "striped"
+        ? `
+      #${id} table.items tbody tr:nth-child(odd) td {
+        background: #f8fafc;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} table.items tbody tr:nth-child(even) td {
+        background: #ffffff;
+      }
+      #${id} table.items tbody td {
+        border-bottom: none;
+      }
+    `
+        : ""
+    }
+
+    /* ── Table Style: bordered ── */
+    ${
+      tableStyle === "bordered"
+        ? `
+      #${id} table.items {
+        border: 1px solid #d1d5db;
+      }
+      #${id} table.items thead th {
+        border-right: 1px solid #d1d5db;
+        border-bottom: 1px solid #d1d5db;
+      }
+      #${id} table.items tbody td {
+        border-right: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      #${id} table.items thead th:last-child,
+      #${id} table.items tbody td:last-child {
+        border-right: none;
+      }
+    `
+        : ""
+    }
+
+    /* ── Table Style: minimal ── */
+    ${
+      tableStyle === "minimal"
+        ? `
+      #${id} table.items thead th {
+        background: transparent !important;
+        border-bottom: 1px solid #e5e7eb;
+        border-top: none;
+        color: #9ca3af;
+        font-weight: 500;
+      }
+      #${id} table.items tbody td {
+        border-bottom: 1px solid #f3f4f6;
+      }
+      #${id} table.items tbody tr:last-child td {
+        border-bottom: none;
+      }
+    `
+        : ""
+    }
+
+    /* ── Totals Style: boxed ── */
+    ${
+      totalsStyle === "boxed"
+        ? `
+      #${id} .totals {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: ${isPdf ? "1.5mm" : "6px"};
+        padding: ${isPdf ? "3mm 4mm" : "12px 16px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .totals .total {
+        border-top: 1px solid #cbd5e1;
+        margin-top: ${isPdf ? "2mm" : "8px"};
+        padding-top: ${isPdf ? "2mm" : "8px"};
+      }
+    `
+        : ""
+    }
+
+    /* ── Totals Style: highlighted ── */
+    ${
+      totalsStyle === "highlighted"
+        ? `
+      #${id} .totals .total {
+        background: ${primary};
+        padding: ${isPdf ? "2mm 3mm" : "8px 12px"};
+        border-radius: ${isPdf ? "1mm" : "4px"};
+        border-top: none;
+        margin-top: ${isPdf ? "2mm" : "8px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .totals .total .label,
+      #${id} .totals .total .value {
+        color: #ffffff !important;
+      }
+    `
+        : ""
+    }
+
+    /* ── Banking Style: boxed ── */
+    ${
+      bankingStyle === "boxed"
+        ? `
+      #${id} .banking {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: ${isPdf ? "1.5mm" : "6px"};
+        padding: ${isPdf ? "3mm 4mm" : "12px 16px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    `
+        : ""
+    }
+
+    /* ── Banking Style: minimal ── */
+    ${
+      bankingStyle === "minimal"
+        ? `
+      #${id} .banking .section-label { display: none; }
+      #${id} .banking .line strong { font-weight: 400; color: #9ca3af; }
+      #${id} .banking { font-size: ${isPdf ? "8.5pt" : "11px"}; color: #6b7280; }
+    `
+        : ""
+    }
+
+        /* Print-specific overrides */
     @media print {
       html, body {
         margin: 0;
@@ -871,7 +1117,7 @@ export const UnifiedInvoiceLayout = ({
   if (companySettings?.addressLine2) companyAddressLines.push(companySettings.addressLine2);
   if (companySettings?.locality) companyAddressLines.push(companySettings.locality);
   if (companySettings?.postCode) companyAddressLines.push(companySettings.postCode);
-  
+
   // Fallback to legacy address if new fields are empty
   if (companyAddressLines.length === 0) {
     if (companySettings?.address) companyAddressLines.push(companySettings.address);
@@ -884,158 +1130,160 @@ export const UnifiedInvoiceLayout = ({
     <div id={id} className="invoice-page" style={lockedVars}>
       <style dangerouslySetInnerHTML={{ __html: embeddedStyles }} />
       <div id="invoice-inner" className="invoice-inner">
-          <div className="body">
-            {/* HEADER */}
-            <div className="header">
-              <div className="header-left">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="Logo" className="logo" />
-                ) : (
-                  <div style={{ height: variant === "preview" ? 76 : 90 }} />
-                )}
+        <div className="body">
+          {/* HEADER */}
+          <div className="header">
+            <div className="header-left">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="logo" />
+              ) : (
+                <div style={{ height: variant === "preview" ? 76 : 90 }} />
+              )}
 
-                <div className="company">
-                  {companySettings?.name && <strong>{companySettings.name}</strong>}
-                  {companyAddressLines.map((l, idx) => (
-                    <div key={idx}>{l}</div>
-                  ))}
-                  {companySettings?.email && <div>{companySettings.email}</div>}
-                  {companySettings?.phone && <div>{companySettings.phone}</div>}
-                  {companySettings?.taxId && <div>VAT: {companySettings.taxId}</div>}
-                  {companySettings?.registrationNumber && <div>Reg: {companySettings.registrationNumber}</div>}
-                </div>
-              </div>
-
-              <div className="header-right">
-                <div className="doc-title">{documentType}</div>
-                <div className="meta">
-                  <div className="row">
-                    <span className="label">No:</span>
-                    <span className="value">{invoiceData.invoiceNumber}</span>
-                  </div>
-                  <div className="row">
-                    <span className="label">Date:</span>
-                    <span className="value">{formatDate(invoiceData.invoiceDate)}</span>
-                  </div>
-                  <div className="row">
-                    <span className="label">Due:</span>
-                    <span className="value">{formatDate(invoiceData.dueDate)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <hr className="divider" />
-
-            {/* BILL TO (Ship To removed) */}
-            <div className="address-block billto">
-              <div className="section-label">Bill To</div>
-              <div className="customer-name">{invoiceData.customer.name}</div>
-              <div className="customer-info">
-                {/* Structured address fields */}
-                {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
-                {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
-                {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
-                {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
-                {/* Legacy address field fallback */}
-                {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
-                  <div className="desc">{invoiceData.customer.address}</div>
-                )}
-                {/* VAT Number - inline with customer details */}
-                {invoiceData.customer.vat_number && (
-                  <div>VAT No: {invoiceData.customer.vat_number}</div>
-                )}
-              </div>
-            </div>
-
-            {/* ITEMS */}
-            <table className="items">
-              <colgroup>
-                <col style={{ width: "46%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "16%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "16%" }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Description</th>
-                  <th className="num">Qty</th>
-                  <th className="num">Unit Price</th>
-                  <th className="num">VAT</th>
-                  <th className="num">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoiceData.items.map((item, i) => (
-                  <tr key={i}>
-                    <td className="desc">{item.description}</td>
-                    <td className="num muted">{item.quantity}</td>
-                    <td className="num muted">{money(item.unit_price)}</td>
-                    <td className="num muted">{percent(item.vat_rate)}</td>
-                    <td className="num">{money(mul(item.quantity, item.unit_price))}</td>
-                  </tr>
+              <div className="company">
+                {companySettings?.name && <strong>{companySettings.name}</strong>}
+                {companyAddressLines.map((l, idx) => (
+                  <div key={idx}>{l}</div>
                 ))}
-              </tbody>
-            </table>
-
-            {/* TOTALS - Discount applied BEFORE VAT */}
-            <div className="totals totals-section">
-              {/* Subtotal (Net Amount) */}
-              <div className="row">
-                <div className="label">Subtotal</div>
-                <div className="value">{money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}</div>
-              </div>
-              
-              {/* Discount (if any) */}
-              {invoiceData.discount?.amount ? (
-                <>
-                  <div className="row">
-                    <div className="label">
-                      Discount{invoiceData.discount.type === "percent" ? ` (${invoiceData.discount.value}%)` : ""}
-                    </div>
-                    <div className="value">−{money(invoiceData.discount.amount)}</div>
-                  </div>
-                  <div className="row">
-                    <div className="label">Taxable Amount</div>
-                    <div className="value">{money(invoiceData.totals.netTotal)}</div>
-                  </div>
-                </>
-              ) : null}
-
-              {/* VAT (on taxable amount, after discount) */}
-              <div className="row">
-                <div className="label">VAT</div>
-                <div className="value">{money(invoiceData.totals.vatTotal)}</div>
-              </div>
-              
-              {/* Total */}
-              <div className="row total">
-                <div className="label">Total</div>
-                <div className="value">{money(invoiceData.totals.grandTotal)}</div>
+                {companySettings?.email && <div>{companySettings.email}</div>}
+                {companySettings?.phone && <div>{companySettings.phone}</div>}
+                {companySettings?.taxId && <div>VAT: {companySettings.taxId}</div>}
+                {companySettings?.registrationNumber && <div>Reg: {companySettings.registrationNumber}</div>}
               </div>
             </div>
 
-            {/* VAT SUMMARY TABLE - Compact layout BELOW totals (hidden by default) */}
-            {showVatSummary && (() => {
+            <div className="header-right">
+              <div className="doc-title">{documentType}</div>
+              <div className="meta">
+                <div className="row">
+                  <span className="label">No:</span>
+                  <span className="value">{invoiceData.invoiceNumber}</span>
+                </div>
+                <div className="row">
+                  <span className="label">Date:</span>
+                  <span className="value">{formatDate(invoiceData.invoiceDate)}</span>
+                </div>
+                <div className="row">
+                  <span className="label">Due:</span>
+                  <span className="value">{formatDate(invoiceData.dueDate)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr className="divider" />
+
+          {/* BILL TO (Ship To removed) */}
+          <div className="address-block billto">
+            <div className="section-label">Bill To</div>
+            <div className="customer-name">{invoiceData.customer.name}</div>
+            <div className="customer-info">
+              {/* Structured address fields */}
+              {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
+              {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
+              {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
+              {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
+              {/* Legacy address field fallback */}
+              {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
+                <div className="desc">{invoiceData.customer.address}</div>
+              )}
+              {/* VAT Number - inline with customer details */}
+              {invoiceData.customer.vat_number && <div>VAT No: {invoiceData.customer.vat_number}</div>}
+            </div>
+          </div>
+
+          {/* ITEMS */}
+          <table className="items">
+            <colgroup>
+              <col style={{ width: "46%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "16%" }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Description</th>
+                <th className="num">Qty</th>
+                <th className="num">Unit Price</th>
+                <th className="num">VAT</th>
+                <th className="num">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoiceData.items.map((item, i) => (
+                <tr key={i}>
+                  <td className="desc">{item.description}</td>
+                  <td className="num muted">{item.quantity}</td>
+                  <td className="num muted">{money(item.unit_price)}</td>
+                  <td className="num muted">{percent(item.vat_rate)}</td>
+                  <td className="num">{money(mul(item.quantity, item.unit_price))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* TOTALS - Discount applied BEFORE VAT */}
+          <div className="totals totals-section">
+            {/* Subtotal (Net Amount) */}
+            <div className="row">
+              <div className="label">Subtotal</div>
+              <div className="value">{money(invoiceData.totals.netTotal + (invoiceData.discount?.amount || 0))}</div>
+            </div>
+
+            {/* Discount (if any) */}
+            {invoiceData.discount?.amount ? (
+              <>
+                <div className="row">
+                  <div className="label">
+                    Discount{invoiceData.discount.type === "percent" ? ` (${invoiceData.discount.value}%)` : ""}
+                  </div>
+                  <div className="value">−{money(invoiceData.discount.amount)}</div>
+                </div>
+                <div className="row">
+                  <div className="label">Taxable Amount</div>
+                  <div className="value">{money(invoiceData.totals.netTotal)}</div>
+                </div>
+              </>
+            ) : null}
+
+            {/* VAT (on taxable amount, after discount) */}
+            <div className="row">
+              <div className="label">VAT</div>
+              <div className="value">{money(invoiceData.totals.vatTotal)}</div>
+            </div>
+
+            {/* Total */}
+            <div className="row total">
+              <div className="label">Total</div>
+              <div className="value">{money(invoiceData.totals.grandTotal)}</div>
+            </div>
+          </div>
+
+          {/* VAT SUMMARY TABLE - Compact layout BELOW totals (hidden by default) */}
+          {showVatSummary &&
+            (() => {
               // Group items by VAT rate and calculate totals
-              const vatGroups = invoiceData.items.reduce((acc, item) => {
-                const rate = Number(item.vat_rate) || 0;
-                const netAmount = mul(item.quantity, item.unit_price);
-                if (!acc[rate]) {
-                  acc[rate] = { netAmount: 0, vatAmount: 0 };
-                }
-                acc[rate].netAmount += netAmount;
-                // Apply proportional discount if exists
-                const discountRatio = invoiceData.discount?.amount 
-                  ? invoiceData.discount.amount / (invoiceData.totals.netTotal + invoiceData.discount.amount)
-                  : 0;
-                const discountedNet = netAmount * (1 - discountRatio);
-                const normalizedRate = rate > 1 ? rate / 100 : rate;
-                const vatAmount = discountedNet * normalizedRate;
-                acc[rate].vatAmount += vatAmount;
-                return acc;
-              }, {} as Record<number, { netAmount: number; vatAmount: number }>);
+              const vatGroups = invoiceData.items.reduce(
+                (acc, item) => {
+                  const rate = Number(item.vat_rate) || 0;
+                  const netAmount = mul(item.quantity, item.unit_price);
+                  if (!acc[rate]) {
+                    acc[rate] = { netAmount: 0, vatAmount: 0 };
+                  }
+                  acc[rate].netAmount += netAmount;
+                  // Apply proportional discount if exists
+                  const discountRatio = invoiceData.discount?.amount
+                    ? invoiceData.discount.amount / (invoiceData.totals.netTotal + invoiceData.discount.amount)
+                    : 0;
+                  const discountedNet = netAmount * (1 - discountRatio);
+                  const normalizedRate = rate > 1 ? rate / 100 : rate;
+                  const vatAmount = discountedNet * normalizedRate;
+                  acc[rate].vatAmount += vatAmount;
+                  return acc;
+                },
+                {} as Record<number, { netAmount: number; vatAmount: number }>,
+              );
 
               const sortedRates = Object.keys(vatGroups)
                 .map(Number)
@@ -1079,45 +1327,50 @@ export const UnifiedInvoiceLayout = ({
                       {/* Total row */}
                       <tr className="vat-summary-total">
                         <td style={{ fontWeight: 600 }}>Total</td>
-                        <td className="num" style={{ fontWeight: 600 }}>{money(totalNet)}</td>
-                        <td className="num" style={{ fontWeight: 600 }}>{money(totalVat)}</td>
+                        <td className="num" style={{ fontWeight: 600 }}>
+                          {money(totalNet)}
+                        </td>
+                        <td className="num" style={{ fontWeight: 600 }}>
+                          {money(totalVat)}
+                        </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               );
             })()}
-          </div>
+        </div>
 
-          {/* FOOTER */}
-          <div className="footer">
-            {showBanking && (
-              <div className="banking banking-section">
-                <div className="section-label">Banking Details</div>
-                {bankingSettings?.bankName && (
-                  <div className="line">
-                    <strong>Bank:</strong> {bankingSettings.bankName}
-                  </div>
-                )}
-                {bankingSettings?.accountName && (
-                  <div className="line">
-                    <strong>Account:</strong> {bankingSettings.accountName}
-                  </div>
-                )}
-                {bankingSettings?.iban && (
-                  <div className="line">
-                    <strong>IBAN:</strong> {bankingSettings.iban}
-                  </div>
-                )}
-                {bankingSettings?.swiftCode && (
-                  <div className="line">
-                    <strong>SWIFT:</strong> {bankingSettings.swiftCode}
-                  </div>
-                )}
-              </div>
-            )}
+        {/* FOOTER */}
+        <div className="footer">
+          {showBanking && (
+            <div className="banking banking-section">
+              <div className="section-label">Banking Details</div>
+              {bankingSettings?.bankName && (
+                <div className="line">
+                  <strong>Bank:</strong> {bankingSettings.bankName}
+                </div>
+              )}
+              {bankingSettings?.accountName && (
+                <div className="line">
+                  <strong>Account:</strong> {bankingSettings.accountName}
+                </div>
+              )}
+              {bankingSettings?.iban && (
+                <div className="line">
+                  <strong>IBAN:</strong> {bankingSettings.iban}
+                </div>
+              )}
+              {bankingSettings?.swiftCode && (
+                <div className="line">
+                  <strong>SWIFT:</strong> {bankingSettings.swiftCode}
+                </div>
+              )}
+            </div>
+          )}
 
-            {documentType === "QUOTATION" && (() => {
+          {documentType === "QUOTATION" &&
+            (() => {
               const defaultTerms = [
                 `This quotation is valid until ${formatDate(invoiceData.dueDate)}.`,
                 "Work will commence upon acceptance.",
@@ -1125,13 +1378,11 @@ export const UnifiedInvoiceLayout = ({
               ];
               // If custom terms provided, split by newline and filter empty lines
               const termLines = quotationTerms
-                ? quotationTerms.split('\n').filter(line => line.trim())
+                ? quotationTerms.split("\n").filter((line) => line.trim())
                 : defaultTerms;
               // Replace {{valid_until_date}} placeholder in custom terms
               const validUntil = formatDate(invoiceData.dueDate);
-              const resolvedTerms = termLines.map(line =>
-                line.replace(/\{\{valid_until_date\}\}/g, validUntil)
-              );
+              const resolvedTerms = termLines.map((line) => line.replace(/\{\{valid_until_date\}\}/g, validUntil));
               return (
                 <div className="terms-section">
                   <div className="section-label">Terms &amp; Conditions</div>
@@ -1144,19 +1395,29 @@ export const UnifiedInvoiceLayout = ({
               );
             })()}
 
-            {notesText && (templateSettings?.notesVisibility !== false) && (
-              <div className="notes-section" style={{ marginTop: '12px', marginBottom: '8px' }}>
-                <div className="section-label" style={{ fontSize: '8pt', fontWeight: 600, marginBottom: '4px', color: templateSettings?.primaryColor || '#111827' }}>Notes</div>
-                <div style={{ fontSize: '8pt', color: '#6b7280', whiteSpace: 'pre-line', lineHeight: '1.4' }}>{notesText}</div>
+          {notesText && templateSettings?.notesVisibility !== false && (
+            <div className="notes-section" style={{ marginTop: "12px", marginBottom: "8px" }}>
+              <div
+                className="section-label"
+                style={{
+                  fontSize: "8pt",
+                  fontWeight: 600,
+                  marginBottom: "4px",
+                  color: templateSettings?.primaryColor || "#111827",
+                }}
+              >
+                Notes
               </div>
-            )}
-
-            <div className="thanks">
-              {footerText || "Thank you for your business. All amounts in EUR."}
+              <div style={{ fontSize: "8pt", color: "#6b7280", whiteSpace: "pre-line", lineHeight: "1.4" }}>
+                {notesText}
+              </div>
             </div>
-          </div>
+          )}
+
+          <div className="thanks">{footerText || "Thank you for your business. All amounts in EUR."}</div>
         </div>
       </div>
+    </div>
   );
 };
 
