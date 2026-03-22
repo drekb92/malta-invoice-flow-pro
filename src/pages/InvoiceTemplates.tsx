@@ -33,7 +33,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateControlSection } from "@/components/templates/TemplateControlSection";
 import { TemplateManagementPanel } from "@/components/templates/TemplateManagementPanel";
 import { PreviewModeSelector, PreviewMode } from "@/components/templates/PreviewModeSelector";
-import { MarginControl } from "@/components/templates/MarginControl";
 import { FontPreviewSelect } from "@/components/templates/FontPreviewSelect";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -320,10 +319,6 @@ const InvoiceTemplates = () => {
           banking_style: currentSettings.banking_style,
           style: currentSettings.style,
           notes_visibility: currentSettings.notes_visibility,
-          margin_top: currentSettings.margin_top,
-          margin_right: currentSettings.margin_right,
-          margin_bottom: currentSettings.margin_bottom,
-          margin_left: currentSettings.margin_left,
         })
         .eq("id", currentSettings.id);
       if (error) throw error;
@@ -412,10 +407,7 @@ const InvoiceTemplates = () => {
     bankingStyle: currentSettings.banking_style || "default",
     vatSummaryVisibility: currentSettings.vat_summary_visibility === true,
     notesVisibility: currentSettings.notes_visibility !== false,
-    marginTop: currentSettings.margin_top || 20,
-    marginRight: currentSettings.margin_right || 20,
-    marginBottom: currentSettings.margin_bottom || 20,
-    marginLeft: currentSettings.margin_left || 20,
+
     style: (overrides.style || currentSettings.style || "modern") as "modern" | "professional" | "minimalist",
   });
 
@@ -835,24 +827,6 @@ const InvoiceTemplates = () => {
                         <Switch
                           checked={currentSettings.notes_visibility !== false}
                           onCheckedChange={(v) => updateSetting("notes_visibility", v)}
-                        />
-                      </div>
-                      <div className="pt-1">
-                        <Label className="text-xs text-muted-foreground mb-2 block">Page Margins</Label>
-                        <MarginControl
-                          top={currentSettings.margin_top ?? 20}
-                          right={currentSettings.margin_right ?? 20}
-                          bottom={currentSettings.margin_bottom ?? 20}
-                          left={currentSettings.margin_left ?? 20}
-                          onChange={({ top, right, bottom, left }) =>
-                            setCurrentSettings((prev) => ({
-                              ...prev,
-                              margin_top: top,
-                              margin_right: right,
-                              margin_bottom: bottom,
-                              margin_left: left,
-                            }))
-                          }
                         />
                       </div>
                     </div>
