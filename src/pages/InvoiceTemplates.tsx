@@ -31,7 +31,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TemplateControlSection } from "@/components/templates/TemplateControlSection";
 import { TemplateManagementPanel } from "@/components/templates/TemplateManagementPanel";
 import { PreviewModeSelector, PreviewMode } from "@/components/templates/PreviewModeSelector";
-import { MarginControl } from "@/components/templates/MarginControl";
+
 import { FontPreviewSelect } from "@/components/templates/FontPreviewSelect";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
