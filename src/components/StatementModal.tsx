@@ -3,18 +3,8 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { CalendarIcon, Download, Eye, Mail, MessageCircle, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -28,13 +18,13 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { downloadPdfFromFunction, prepareHtmlForPdf } from "@/lib/edgePdf";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
-import { 
-  UnifiedStatementLayout, 
+import {
+  UnifiedStatementLayout,
   convertLegacyStatementData,
   StatementData,
   StatementInvoice,
   StatementCreditNote,
-  StatementPayment 
+  StatementPayment,
 } from "@/components/UnifiedStatementLayout";
 
 interface StatementModalProps {
@@ -55,7 +45,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   const { settings: companySettings } = useCompanySettings();
   const { template } = useInvoiceTemplate();
   const statementContainerRef = useRef<HTMLDivElement>(null);
-  
+
   const [dateFrom, setDateFrom] = useState<Date>(startOfMonth(subMonths(new Date(), 3)));
   const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
   const [statementType, setStatementType] = useState<"outstanding" | "activity">("outstanding");
@@ -220,12 +210,12 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     // Set data and wait for render
     setStatementData(data);
     setIsGeneratingPdf(true);
-    
+
     // Wait for the layout to render
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     try {
-      await downloadPdfFromFunction(filename, template?.font_family || 'Inter');
+      await downloadPdfFromFunction(filename, template?.font_family || "Inter");
     } finally {
       setIsGeneratingPdf(false);
       setStatementData(null);
@@ -332,7 +322,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       setIsGeneratingPdf(true);
 
       // Wait for render
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       setShowEmailDialog(true);
     } catch (error) {
@@ -368,26 +358,23 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       setIsGeneratingPdf(true);
 
       // Wait for render
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Prepare HTML for the Edge Function
-      const html = await prepareHtmlForPdf(stmtNumber, template?.font_family || 'Inter');
+      const html = await prepareHtmlForPdf(stmtNumber, template?.font_family || "Inter");
 
       // Call Edge Function to create share link
-      const { data: shareData, error: shareError } = await supabase.functions.invoke(
-        "create-document-share-link",
-        {
-          body: {
-            html,
-            filename: stmtNumber,
-            userId: user?.id,
-            documentType: "statement",
-            documentId: customer.id,
-            documentNumber: stmtNumber,
-            customerId: customer.id,
-          },
-        }
-      );
+      const { data: shareData, error: shareError } = await supabase.functions.invoke("create-document-share-link", {
+        body: {
+          html,
+          filename: stmtNumber,
+          userId: user?.id,
+          documentType: "statement",
+          documentId: customer.id,
+          documentNumber: stmtNumber,
+          customerId: customer.id,
+        },
+      });
 
       if (shareError) throw shareError;
       if (shareData?.error) throw new Error(shareData.error);
@@ -417,11 +404,11 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
 
       const message = encodeURIComponent(
         `Hi ${customer.name},\n\n` +
-        `Here is your account statement for the period ${format(dateFrom, "dd/MM/yyyy")} to ${format(dateTo, "dd/MM/yyyy")}.\n\n` +
-        `${balanceLine}\n\n` +
-        `View/Download PDF: ${shareUrl}\n\n` +
-        `Please contact us if you have any questions.\n\n` +
-        `Best regards,\n${companySettings?.company_name || "Your Company"}`
+          `Here is your account statement for the period ${format(dateFrom, "dd/MM/yyyy")} to ${format(dateTo, "dd/MM/yyyy")}.\n\n` +
+          `${balanceLine}\n\n` +
+          `View/Download PDF: ${shareUrl}\n\n` +
+          `Please contact us if you have any questions.\n\n` +
+          `Best regards,\n${companySettings?.company_name || "Your Company"}`,
       );
 
       const whatsappUrl = `https://wa.me/?text=${message}`;
@@ -464,9 +451,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
               <FileText className="h-5 w-5" />
               Issue Statement
             </DialogTitle>
-            <DialogDescription>
-              Generate a statement for {customer.name}
-            </DialogDescription>
+            <DialogDescription>Generate a statement for {customer.name}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
@@ -482,7 +467,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                         variant="outline"
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !dateFrom && "text-muted-foreground"
+                          !dateFrom && "text-muted-foreground",
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -506,10 +491,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !dateTo && "text-muted-foreground"
-                        )}
+                        className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {dateTo ? format(dateTo, "dd/MM/yyyy") : "Select date"}
@@ -545,9 +527,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                     <Label htmlFor="outstanding" className="cursor-pointer font-medium">
                       Outstanding Only
                     </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Shows only unpaid invoices and balances
-                    </p>
+                    <p className="text-xs text-muted-foreground">Shows only unpaid invoices and balances</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50">
@@ -556,9 +536,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                     <Label htmlFor="activity" className="cursor-pointer font-medium">
                       Activity Statement
                     </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Full ledger including all invoices and payments
-                    </p>
+                    <p className="text-xs text-muted-foreground">Full ledger including all invoices and payments</p>
                   </div>
                 </div>
               </RadioGroup>
@@ -572,25 +550,21 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="credit-notes" className="text-sm">Include Credit Notes</Label>
+                    <Label htmlFor="credit-notes" className="text-sm">
+                      Include Credit Notes
+                    </Label>
                     <p className="text-xs text-muted-foreground">Show credit notes in the statement</p>
                   </div>
-                  <Switch
-                    id="credit-notes"
-                    checked={includeCreditNotes}
-                    onCheckedChange={setIncludeCreditNotes}
-                  />
+                  <Switch id="credit-notes" checked={includeCreditNotes} onCheckedChange={setIncludeCreditNotes} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="vat-breakdown" className="text-sm">Include VAT Breakdown</Label>
+                    <Label htmlFor="vat-breakdown" className="text-sm">
+                      Include VAT Breakdown
+                    </Label>
                     <p className="text-xs text-muted-foreground">Show VAT details for each item</p>
                   </div>
-                  <Switch
-                    id="vat-breakdown"
-                    checked={includeVatBreakdown}
-                    onCheckedChange={setIncludeVatBreakdown}
-                  />
+                  <Switch id="vat-breakdown" checked={includeVatBreakdown} onCheckedChange={setIncludeVatBreakdown} />
                 </div>
               </div>
             </div>
@@ -605,17 +579,34 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                   Preview PDF
                 </Button>
                 <Button variant="outline" onClick={handleDownload} disabled={isLoading} className="w-full">
-                  {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
                   Download
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Button onClick={handleSendEmail} disabled={isLoading || emailLoading || !customer.email} className="w-full">
+                <Button
+                  onClick={handleSendEmail}
+                  disabled={isLoading || emailLoading || !customer.email}
+                  className="w-full"
+                >
                   {emailLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
                   Send via Email
                 </Button>
-                <Button variant="secondary" onClick={handleSendWhatsApp} disabled={isLoading || whatsappLoading} className="w-full">
-                  {whatsappLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-2" />}
+                <Button
+                  variant="secondary"
+                  onClick={handleSendWhatsApp}
+                  disabled={isLoading || whatsappLoading}
+                  className="w-full"
+                >
+                  {whatsappLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                  )}
                   Send via WhatsApp
                 </Button>
               </div>
@@ -625,41 +616,44 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       </Dialog>
 
       {/* Hidden container for PDF generation - uses same id pattern as invoices */}
-      {isGeneratingPdf && statementData && (() => {
-        const converted = convertLegacyStatementData(statementData);
-        return (
-          <div 
-            ref={statementContainerRef}
-            style={{ 
-              position: 'fixed',
-              left: '-9999px',
-              top: 0,
-              width: '21cm',
-              background: 'white',
-              zIndex: -1,
-            }}
-          >
-            <div id="invoice-preview-root">
-              <UnifiedStatementLayout
-                customer={converted.customer}
-                companySettings={converted.companySettings}
-                templateSettings={{
-                  primaryColor: template?.primary_color || '#26A65B',
-                  accentColor: template?.accent_color || '#1F2D3D',
-                  fontFamily: template?.font_family || 'Inter',
-                  style: (template?.style as 'modern' | 'professional' | 'minimalist') || 'modern',
-                }}
-                statementLines={converted.statementLines}
-                dateRange={converted.dateRange}
-                openingBalance={converted.openingBalance}
-                closingBalance={converted.closingBalance}
-                statementType={converted.statementType}
-                variant="pdf"
-              />
+      {isGeneratingPdf &&
+        statementData &&
+        (() => {
+          const converted = convertLegacyStatementData(statementData);
+          return (
+            <div
+              ref={statementContainerRef}
+              style={{
+                position: "fixed",
+                left: "-9999px",
+                top: 0,
+                width: "21cm",
+                background: "white",
+                zIndex: -1,
+              }}
+            >
+              <div id="invoice-preview-root">
+                <UnifiedStatementLayout
+                  customer={converted.customer}
+                  companySettings={converted.companySettings}
+                  templateSettings={{
+                    primaryColor: template?.primary_color || "#26A65B",
+                    accentColor: template?.accent_color || "#1F2D3D",
+                    fontFamily: template?.font_family || "Inter",
+                    style: (template?.style as "modern" | "professional" | "minimalist") || "modern",
+                    headerLayout: template?.header_layout || "default",
+                  }}
+                  statementLines={converted.statementLines}
+                  dateRange={converted.dateRange}
+                  openingBalance={converted.openingBalance}
+                  closingBalance={converted.closingBalance}
+                  statementType={converted.statementType}
+                  variant="pdf"
+                />
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* Email Dialog */}
       <SendDocumentEmailDialog
