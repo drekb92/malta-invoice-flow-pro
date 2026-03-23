@@ -52,7 +52,7 @@ interface InvoiceTemplate {
   font_family: string;
   font_size: string;
   layout?: "default" | "cleanMinimal" | "compact";
-  header_layout?: "default" | "logo-right";
+  header_layout?: "default" | "centered" | "split";
   table_style?: "default" | "striped" | "bordered" | "minimal";
   totals_style?: "default" | "boxed" | "highlighted";
   banking_visibility?: boolean;
