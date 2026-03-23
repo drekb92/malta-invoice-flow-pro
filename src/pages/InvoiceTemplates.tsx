@@ -52,7 +52,7 @@ interface InvoiceTemplate {
   font_family: string;
   font_size: string;
   layout?: "default" | "cleanMinimal" | "compact";
-  header_layout?: "default" | "centered" | "split";
+  header_layout?: "default" | "logo-right";
   table_style?: "default" | "striped" | "bordered" | "minimal";
   totals_style?: "default" | "boxed" | "highlighted";
   banking_visibility?: boolean;
@@ -98,7 +98,7 @@ const designPresets = [
       font_family: "Inter",
       font_size: "14px",
       layout: "cleanMinimal" as const,
-      header_layout: "split" as const,
+      header_layout: "logo-right" as const,
       table_style: "minimal" as const,
       totals_style: "highlighted" as const,
       banking_visibility: true,
@@ -115,7 +115,7 @@ const designPresets = [
       font_family: "Inter",
       font_size: "14px",
       layout: "default" as const,
-      header_layout: "centered" as const,
+      header_layout: "default" as const,
       table_style: "striped" as const,
       totals_style: "boxed" as const,
       banking_visibility: true,
@@ -149,7 +149,7 @@ const designPresets = [
       font_family: "Lato",
       font_size: "14px",
       layout: "default" as const,
-      header_layout: "split" as const,
+      header_layout: "logo-right" as const,
       table_style: "bordered" as const,
       totals_style: "boxed" as const,
       banking_visibility: true,
@@ -206,7 +206,11 @@ const InvoiceTemplates = () => {
             | "default"
             | "cleanMinimal"
             | "compact",
-          header_layout: (t.header_layout || "default") as "default" | "centered" | "split",
+          header_layout: ((t.header_layout === "split"
+            ? "logo-right"
+            : t.header_layout === "centered"
+              ? "default"
+              : t.header_layout) || "default") as "default" | "logo-right",
           table_style: (t.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
           totals_style: (t.totals_style || "default") as "default" | "boxed" | "highlighted",
           banking_visibility: t.banking_visibility !== undefined ? t.banking_visibility : true,
@@ -726,22 +730,6 @@ const InvoiceTemplates = () => {
                   >
                     <div className="space-y-3">
                       <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Layout Style</Label>
-                        <Select
-                          value={currentSettings.layout || "default"}
-                          onValueChange={(v) => updateSetting("layout", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default — standard spacing</SelectItem>
-                            <SelectItem value="cleanMinimal">Clean Minimal — no dividers</SelectItem>
-                            <SelectItem value="compact">Compact — tighter rows</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">Header Layout</Label>
                         <Select
                           value={currentSettings.header_layout || "default"}
@@ -751,9 +739,8 @@ const InvoiceTemplates = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default — logo left, invoice right</SelectItem>
-                            <SelectItem value="centered">Centered — logo & title centered</SelectItem>
-                            <SelectItem value="split">Split — company left, details right</SelectItem>
+                            <SelectItem value="default">Default — logo left, details right</SelectItem>
+                            <SelectItem value="logo-right">Logo right — details left, logo right</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -938,10 +925,7 @@ const InvoiceTemplates = () => {
           <main className="flex-1 overflow-y-scroll bg-muted/50 h-full">
             {isPreviewLoading ? (
               <div className="flex items-center justify-center py-12 px-8">
-                <div
-                  className="bg-white shadow-2xl rounded-sm p-8 border border-border/30"
-                  style={{ width: previewWidth, minHeight: "600px" }}
-                >
+                <div className="bg-white shadow-2xl rounded-sm p-8" style={{ width: previewWidth, minHeight: "600px" }}>
                   <div className="flex flex-col items-center justify-center h-40 gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">Loading preview…</p>
@@ -983,7 +967,7 @@ const InvoiceTemplates = () => {
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Saved</span>
                   </div>
                   <div
-                    className="bg-white shadow-xl rounded-sm border border-border/20 overflow-hidden w-full"
+                    className="bg-white shadow-xl rounded-sm overflow-hidden w-full"
                     style={{ maxWidth: "500px", fontFamily: selectedTemplate?.font_family || "Inter" }}
                   >
                     <link rel="stylesheet" href={getGoogleFontHref(selectedTemplate?.font_family || "Inter")} />
@@ -1036,7 +1020,7 @@ const InvoiceTemplates = () => {
                     </span>
                   </div>
                   <div
-                    className="bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-300 border border-border/20"
+                    className="bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-300"
                     style={{
                       width: previewWidth,
                       minHeight: previewMode === "print" ? "297mm" : "auto",
