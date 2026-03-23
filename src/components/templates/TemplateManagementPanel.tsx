@@ -36,7 +36,7 @@ interface InvoiceTemplate {
   font_family: string;
   font_size: string;
   layout?: "default" | "cleanMinimal" | "compact";
-  header_layout?: "default" | "centered" | "split";
+  header_layout?: "default" | "logo-right";
   table_style?: "default" | "striped" | "bordered" | "minimal";
   totals_style?: "default" | "boxed" | "highlighted";
   banking_visibility?: boolean;
@@ -126,7 +126,7 @@ export function TemplateManagementPanel({
         onTemplateSelected({
           ...data,
           layout: (data.layout || "default") as "default" | "cleanMinimal" | "compact",
-          header_layout: (data.header_layout || "default") as "default" | "centered" | "split",
+          header_layout: (data.header_layout || "default") as "default" | "logo-right",
           table_style: (data.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
           totals_style: (data.totals_style || "default") as "default" | "boxed" | "highlighted",
           banking_visibility: data.banking_visibility ?? true,
@@ -191,7 +191,7 @@ export function TemplateManagementPanel({
         onTemplateSelected({
           ...data,
           layout: (data.layout || "default") as "default" | "cleanMinimal" | "compact",
-          header_layout: (data.header_layout || "default") as "default" | "centered" | "split",
+          header_layout: (data.header_layout || "default") as "default" | "logo-right",
           table_style: (data.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
           totals_style: (data.totals_style || "default") as "default" | "boxed" | "highlighted",
           banking_visibility: data.banking_visibility ?? true,
