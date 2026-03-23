@@ -206,11 +206,8 @@ const InvoiceTemplates = () => {
             | "default"
             | "cleanMinimal"
             | "compact",
-          header_layout: ((t.header_layout === "split"
-            ? "logo-right"
-            : t.header_layout === "centered"
-              ? "default"
-              : t.header_layout) || "default") as "default" | "logo-right",
+          header_layout: ((t.header_layout === "centered" || t.header_layout === "split" || t.header_layout === "default")
+            ? t.header_layout : "default") as "default" | "centered" | "split",
           table_style: (t.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
           totals_style: (t.totals_style || "default") as "default" | "boxed" | "highlighted",
           banking_visibility: t.banking_visibility !== undefined ? t.banking_visibility : true,
