@@ -98,7 +98,7 @@ const designPresets = [
       font_family: "Inter",
       font_size: "14px",
       layout: "cleanMinimal" as const,
-      header_layout: "logo-right" as const,
+      header_layout: "default" as const,
       table_style: "minimal" as const,
       totals_style: "highlighted" as const,
       banking_visibility: true,
