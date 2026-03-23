@@ -276,6 +276,8 @@ export const UnifiedInvoiceLayout = ({
   // Layout Options derived values
   const layoutStyle = templateSettings?.layout || "default";
   const headerLayout = templateSettings?.headerLayout || "default";
+  // 'logo-right' replaces deprecated 'split' — both treated the same way
+  const effectiveHeaderLayout = headerLayout === "split" ? "logo-right" : headerLayout;
   const tableStyle = templateSettings?.tableStyle || "default";
   const totalsStyle = templateSettings?.totalsStyle || "default";
   const bankingStyle = templateSettings?.bankingStyle || "default";
@@ -335,10 +337,10 @@ export const UnifiedInvoiceLayout = ({
       #${id}.invoice-page {
         width: min(900px, calc(100vw - 32px));
         min-height: unset;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.06);
-        border-radius: 12px;
-        overflow: hidden;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
       }
       #${id} .invoice-inner {
         min-height: unset;
@@ -872,7 +874,7 @@ export const UnifiedInvoiceLayout = ({
 
     /* ── Header Layout: centered ── */
     ${
-      headerLayout === "centered"
+      effectiveHeaderLayout === "centered"
         ? `
       #${id} .header {
         flex-direction: column;
@@ -909,20 +911,30 @@ export const UnifiedInvoiceLayout = ({
         : ""
     }
 
-    /* ── Header Layout: split ── */
+    /* ── Header Layout: logo-right ── */
     ${
-      headerLayout === "split"
+      effectiveHeaderLayout === "logo-right"
         ? `
       #${id} .header {
-        gap: ${isPdf ? "10mm" : "40px"};
+        flex-direction: row-reverse;
+        gap: ${isPdf ? "8mm" : "32px"};
         align-items: flex-start;
       }
-      #${id} .header-left { flex: 1; }
+      #${id} .header-left {
+        flex: 0 0 40%;
+        align-items: flex-end;
+        text-align: right;
+      }
       #${id} .header-right {
         flex: 1;
         text-align: left;
-        border-left: 2px solid ${primary};
-        padding-left: ${isPdf ? "5mm" : "20px"};
+      }
+      #${id} .logo {
+        margin-left: auto;
+        display: block;
+      }
+      #${id} .company {
+        text-align: right;
       }
       #${id} .meta .row {
         justify-content: flex-start;
