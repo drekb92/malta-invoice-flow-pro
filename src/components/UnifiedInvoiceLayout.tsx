@@ -81,6 +81,8 @@ export interface TemplateSettings {
   vatSummaryVisibility?: boolean;
   notesVisibility?: boolean;
   style?: TemplateStyle;
+  includeVatBreakdown?: boolean;
+  includePaymentInstructions?: boolean;
   // NOTE: margins exist in DB but are intentionally ignored (locked)
   marginTop?: number;
   marginRight?: number;
