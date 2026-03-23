@@ -52,7 +52,7 @@ interface InvoiceTemplate {
   font_family: string;
   font_size: string;
   layout?: "default" | "cleanMinimal" | "compact";
-  header_layout?: "default" | "centered" | "split";
+  header_layout?: "default" | "logo-right";
   table_style?: "default" | "striped" | "bordered" | "minimal";
   totals_style?: "default" | "boxed" | "highlighted";
   banking_visibility?: boolean;
@@ -98,7 +98,7 @@ const designPresets = [
       font_family: "Inter",
       font_size: "14px",
       layout: "cleanMinimal" as const,
-      header_layout: "default" as const,
+      header_layout: "logo-right" as const,
       table_style: "minimal" as const,
       totals_style: "highlighted" as const,
       banking_visibility: true,
@@ -149,7 +149,7 @@ const designPresets = [
       font_family: "Lato",
       font_size: "14px",
       layout: "default" as const,
-      header_layout: "default" as const,
+      header_layout: "logo-right" as const,
       table_style: "bordered" as const,
       totals_style: "boxed" as const,
       banking_visibility: true,
@@ -206,8 +206,11 @@ const InvoiceTemplates = () => {
             | "default"
             | "cleanMinimal"
             | "compact",
-          header_layout: ((t.header_layout === "centered" || t.header_layout === "split" || t.header_layout === "default")
-            ? t.header_layout : "default") as "default" | "centered" | "split",
+          header_layout: ((t.header_layout === "split"
+            ? "logo-right"
+            : t.header_layout === "centered"
+              ? "default"
+              : t.header_layout) || "default") as "default" | "logo-right",
           table_style: (t.table_style || "default") as "default" | "striped" | "bordered" | "minimal",
           totals_style: (t.totals_style || "default") as "default" | "boxed" | "highlighted",
           banking_visibility: t.banking_visibility !== undefined ? t.banking_visibility : true,
@@ -737,8 +740,7 @@ const InvoiceTemplates = () => {
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
                             <SelectItem value="default">Default — logo left, details right</SelectItem>
-                            <SelectItem value="centered">Centered</SelectItem>
-                            <SelectItem value="split">Split — logo left, details right</SelectItem>
+                            <SelectItem value="logo-right">Logo right — details left, logo right</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
