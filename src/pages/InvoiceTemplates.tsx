@@ -737,7 +737,8 @@ const InvoiceTemplates = () => {
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
                             <SelectItem value="default">Default — logo left, details right</SelectItem>
-                            <SelectItem value="logo-right">Logo right — details left, logo right</SelectItem>
+                            <SelectItem value="centered">Centered</SelectItem>
+                            <SelectItem value="split">Split — logo left, details right</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
