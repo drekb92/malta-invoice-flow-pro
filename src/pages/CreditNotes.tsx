@@ -318,7 +318,8 @@ const CreditNotes = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Status: {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+                  Status:{" "}
+                  {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-background border border-border z-50">
@@ -336,7 +337,9 @@ const CreditNotes = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-background border border-border z-50">
                 <DropdownMenuItem onClick={() => setTypeFilter("all")}>All Types</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTypeFilter("invoice_adjustment")}>Invoice Adjustment</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTypeFilter("invoice_adjustment")}>
+                  Invoice Adjustment
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setTypeFilter("customer_credit")}>Customer Credit</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -417,14 +420,13 @@ const CreditNotes = () => {
                           <TableCell>
                             <Badge className={statusBadge.className}>{statusBadge.label}</Badge>
                           </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(total)}
-                          </TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
                           <TableCell>
-                            {creditNote.issued_at 
-                              ? format(new Date(creditNote.issued_at), "dd/MM/yyyy")
-                              : <span className="text-muted-foreground">—</span>
-                            }
+                            {creditNote.issued_at ? (
+                              format(new Date(creditNote.issued_at), "dd/MM/yyyy")
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -490,64 +492,84 @@ const CreditNotes = () => {
       <TransactionDrawer
         open={!!selectedCreditNote}
         onOpenChange={(open) => !open && setSelectedCreditNote(null)}
-        transaction={selectedCreditNote ? {
-          id: selectedCreditNote.id,
-          credit_note_number: selectedCreditNote.credit_note_number,
-          credit_note_date: selectedCreditNote.credit_note_date,
-          amount: selectedCreditNote.amount,
-          vat_rate: selectedCreditNote.vat_rate,
-          reason: selectedCreditNote.reason,
-          status: selectedCreditNote.status,
-          invoice_id: selectedCreditNote.invoice_id,
-          customer_id: selectedCreditNote.customer_id,
-        } : null}
+        transaction={
+          selectedCreditNote
+            ? {
+                id: selectedCreditNote.id,
+                credit_note_number: selectedCreditNote.credit_note_number,
+                credit_note_date: selectedCreditNote.credit_note_date,
+                amount: selectedCreditNote.amount,
+                vat_rate: selectedCreditNote.vat_rate,
+                reason: selectedCreditNote.reason,
+                status: selectedCreditNote.status,
+                invoice_id: selectedCreditNote.invoice_id,
+                customer_id: selectedCreditNote.customer_id,
+              }
+            : null
+        }
         type="credit_note"
       />
 
       {/* Hidden PDF preview for credit note download (Edge HTML engine) */}
       {pdfCreditNoteData && (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <UnifiedInvoiceLayout
             id="invoice-preview-root"
             variant="pdf"
             invoiceData={pdfCreditNoteData}
             documentType="CREDIT NOTE"
-            companySettings={companySettings ? {
-              name: companySettings.company_name,
-              email: companySettings.company_email,
-              phone: companySettings.company_phone,
-              address: companySettings.company_address,
-              city: companySettings.company_city,
-              state: companySettings.company_state,
-              zipCode: companySettings.company_zip_code,
-              country: companySettings.company_country,
-              taxId: companySettings.company_vat_number,
-              registrationNumber: companySettings.company_registration_number,
-              logo: companySettings.company_logo,
-            } : undefined}
-            bankingSettings={bankingSettings ? {
-              bankName: bankingSettings.bank_name,
-              accountName: bankingSettings.bank_account_name,
-              swiftCode: bankingSettings.bank_swift_code,
-              iban: bankingSettings.bank_iban,
-            } : undefined}
-            templateSettings={template ? {
-              primaryColor: template.primary_color,
-              accentColor: template.accent_color,
-              fontFamily: template.font_family,
-              fontSize: template.font_size,
-              layout: template.layout as any,
-              headerLayout: template.header_layout as any,
-              tableStyle: template.table_style as any,
-              totalsStyle: template.totals_style as any,
-              bankingVisibility: template.banking_visibility,
-              bankingStyle: template.banking_style as any,
-              marginTop: template.margin_top,
-              marginRight: template.margin_right,
-              marginBottom: template.margin_bottom,
-              marginLeft: template.margin_left,
-              style: template.style as any || 'modern',
-            } : undefined}
+            companySettings={
+              companySettings
+                ? {
+                    name: companySettings.company_name,
+                    email: companySettings.company_email,
+                    phone: companySettings.company_phone,
+                    address: companySettings.company_address,
+                    addressLine1: companySettings.company_address_line1 || undefined,
+                    addressLine2: companySettings.company_address_line2 || undefined,
+                    locality: companySettings.company_locality || undefined,
+                    postCode: companySettings.company_post_code || undefined,
+                    city: companySettings.company_city,
+                    state: companySettings.company_state,
+                    zipCode: companySettings.company_zip_code,
+                    country: companySettings.company_country,
+                    taxId: companySettings.company_vat_number,
+                    registrationNumber: companySettings.company_registration_number,
+                    logo: companySettings.company_logo,
+                  }
+                : undefined
+            }
+            bankingSettings={
+              bankingSettings
+                ? {
+                    bankName: bankingSettings.bank_name,
+                    accountName: bankingSettings.bank_account_name,
+                    swiftCode: bankingSettings.bank_swift_code,
+                    iban: bankingSettings.bank_iban,
+                  }
+                : undefined
+            }
+            templateSettings={
+              template
+                ? {
+                    primaryColor: template.primary_color,
+                    accentColor: template.accent_color,
+                    fontFamily: template.font_family,
+                    fontSize: template.font_size,
+                    layout: template.layout as any,
+                    headerLayout: template.header_layout as any,
+                    tableStyle: template.table_style as any,
+                    totalsStyle: template.totals_style as any,
+                    bankingVisibility: template.banking_visibility,
+                    bankingStyle: template.banking_style as any,
+                    marginTop: template.margin_top,
+                    marginRight: template.margin_right,
+                    marginBottom: template.margin_bottom,
+                    marginLeft: template.margin_left,
+                    style: (template.style as any) || "modern",
+                  }
+                : undefined
+            }
             footerText={invoiceSettings?.invoice_footer_text}
           />
         </div>
