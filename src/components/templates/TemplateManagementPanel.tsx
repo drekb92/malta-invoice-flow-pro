@@ -327,117 +327,147 @@ export function TemplateManagementPanel({
   const atLimit = templates.length >= 5;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm">Template Management</h3>
-        <div className="flex items-center gap-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" disabled={atLimit}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        New
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Create New Template</DialogTitle>
-                        <DialogDescription>Enter a name for your new invoice template.</DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="template-name">Template Name</Label>
-                          <Input
-                            id="template-name"
-                            placeholder="e.g., Professional Blue"
-                            value={newTemplateName}
-                            onChange={(e) => setNewTemplateName(e.target.value)}
-                          />
-                        </div>
+    <div className="space-y-2">
+      {/* Single row: all actions as icon buttons with tooltips */}
+      <div className="flex items-center gap-1.5">
+        {/* New */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex-1">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={atLimit} className="w-full gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />
+                      New
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Template</DialogTitle>
+                      <DialogDescription>Enter a name for your new invoice template.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="template-name">Template Name</Label>
+                        <Input
+                          id="template-name"
+                          placeholder="e.g., Professional Blue"
+                          value={newTemplateName}
+                          onChange={(e) => setNewTemplateName(e.target.value)}
+                        />
                       </div>
-                      <DialogFooter>
-                        <Button onClick={handleCreateTemplate} disabled={isCreating}>
-                          {isCreating ? "Creating..." : "Create Template"}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </span>
-              </TooltipTrigger>
-              {atLimit && (
-                <TooltipContent>
-                  <p>Template limit reached (5 max). Delete one to create another.</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleCreateTemplate} disabled={isCreating}>
+                        {isCreating ? "Creating..." : "Create Template"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </span>
+            </TooltipTrigger>
+            {atLimit && (
+              <TooltipContent>
+                <p>Limit reached (5 max). Delete one first.</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDuplicateTemplate}
-            disabled={!selectedTemplate || isDuplicating || atLimit}
-            title={atLimit ? "Template limit reached (5 max)" : undefined}
-          >
-            <Copy className="h-4 w-4 mr-1" />
-            Duplicate
-          </Button>
-        </div>
-      </div>
+        {/* Duplicate */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDuplicateTemplate}
+                disabled={!selectedTemplate || isDuplicating || atLimit}
+                className="flex-1 gap-1.5"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Duplicate
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{atLimit ? "Limit reached (5 max)" : "Duplicate current template"}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportTemplate}
-          disabled={!selectedTemplate}
-          className="flex-1"
-        >
-          <Download className="h-4 w-4 mr-1" />
-          Export
-        </Button>
+        {/* Export */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportTemplate}
+                disabled={!selectedTemplate}
+                className="px-2.5"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Export as JSON</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1"
-          onClick={() => document.getElementById("import-template")?.click()}
-        >
-          <Upload className="h-4 w-4 mr-1" />
-          Import
-        </Button>
+        {/* Import */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-2.5"
+                onClick={() => document.getElementById("import-template")?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Import from JSON</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <input id="import-template" type="file" accept=".json" className="hidden" onChange={handleImportTemplate} />
 
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!selectedTemplate || selectedTemplate.is_default}
-              className="flex-1"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Template</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete "{selectedTemplate?.name}"? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteTemplate} disabled={isDeleting}>
-                {isDeleting ? "Deleting..." : "Delete"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Delete */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!selectedTemplate || selectedTemplate.is_default}
+                      className="px-2.5 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 disabled:opacity-40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete "{selectedTemplate?.name}"? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteTemplate} disabled={isDeleting}>
+                        {isDeleting ? "Deleting..." : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {selectedTemplate?.is_default ? "Cannot delete the default template" : "Delete this template"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <div className="text-xs text-muted-foreground">
