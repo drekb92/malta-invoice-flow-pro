@@ -149,7 +149,7 @@ const designPresets = [
       font_family: "Lato",
       font_size: "14px",
       layout: "default" as const,
-      header_layout: "logo-right" as const,
+      header_layout: "default" as const,
       table_style: "bordered" as const,
       totals_style: "boxed" as const,
       banking_visibility: true,
