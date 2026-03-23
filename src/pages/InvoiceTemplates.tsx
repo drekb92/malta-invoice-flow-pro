@@ -421,6 +421,10 @@ const InvoiceTemplates = () => {
       ? {
           name: companySettings.company_name || "",
           address: companySettings.company_address || "",
+          addressLine1: companySettings.company_address_line1 || undefined,
+          addressLine2: companySettings.company_address_line2 || undefined,
+          locality: companySettings.company_locality || undefined,
+          postCode: companySettings.company_post_code || undefined,
           city: companySettings.company_city || "",
           zipCode: companySettings.company_zip_code || "",
           country: companySettings.company_country || "",
