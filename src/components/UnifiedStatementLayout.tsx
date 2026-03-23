@@ -7,6 +7,10 @@ export interface CompanySettings {
   email?: string;
   phone?: string;
   address?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  locality?: string;
+  postCode?: string;
   city?: string;
   state?: string;
   zipCode?: string;
@@ -303,7 +307,15 @@ export const UnifiedStatementLayout = ({
                     {companySettings.name}
                   </div>
                 )}
-                {companySettings.address && <div style={{ whiteSpace: "pre-line" }}>{companySettings.address}</div>}
+                {/* Structured address fields - each on its own line */}
+                {companySettings.addressLine1 && <div>{companySettings.addressLine1}</div>}
+                {companySettings.addressLine2 && <div>{companySettings.addressLine2}</div>}
+                {companySettings.locality && <div>{companySettings.locality}</div>}
+                {companySettings.postCode && <div>{companySettings.postCode}</div>}
+                {/* Legacy fallback if structured fields are empty */}
+                {!companySettings.addressLine1 && companySettings.address && (
+                  <div style={{ whiteSpace: "pre-line" }}>{companySettings.address}</div>
+                )}
                 {companySettings.city && (
                   <div>
                     {companySettings.city}
