@@ -99,7 +99,7 @@ const Quotations = () => {
   const [isConvertingAndSending, setIsConvertingAndSending] = useState(false);
 
   const navigate = useNavigate();
-  
+
   // Hooks for PDF generation
   const { template } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
@@ -135,19 +135,20 @@ const Quotations = () => {
       // Auto-expire quotations past their valid_until date
       const today = new Date().toISOString().split("T")[0];
       const toExpire = (data || []).filter(
-        (q) => q.valid_until < today && !["accepted", "converted", "expired"].includes(q.status)
+        (q) => q.valid_until < today && !["accepted", "converted", "expired"].includes(q.status),
       );
 
       if (toExpire.length > 0) {
         await supabase
           .from("quotations")
           .update({ status: "expired" })
-          .in("id", toExpire.map((q) => q.id));
+          .in(
+            "id",
+            toExpire.map((q) => q.id),
+          );
 
         const expiredIds = new Set(toExpire.map((q) => q.id));
-        const updated = (data || []).map((q) =>
-          expiredIds.has(q.id) ? { ...q, status: "expired" } : q
-        );
+        const updated = (data || []).map((q) => (expiredIds.has(q.id) ? { ...q, status: "expired" } : q));
         setQuotations(updated);
         setFiltered(updated);
       } else {
@@ -273,10 +274,7 @@ const Quotations = () => {
     setEmailQuotation(quotation);
     // We need to prepare the PDF data first for the email dialog to use
     (async () => {
-      const { data: items } = await supabase
-        .from("quotation_items")
-        .select("*")
-        .eq("quotation_id", quotation.id);
+      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", quotation.id);
 
       const quotationData: InvoiceData = {
         invoiceNumber: quotation.quotation_number,
@@ -311,15 +309,12 @@ const Quotations = () => {
 
   const handleSendWhatsApp = async (quotation: Quotation) => {
     if (!user || whatsappLoading) return;
-    
+
     setWhatsappLoading(quotation.id);
 
     try {
       // Fetch quotation items
-      const { data: items } = await supabase
-        .from("quotation_items")
-        .select("*")
-        .eq("quotation_id", quotation.id);
+      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", quotation.id);
 
       const quotationData: InvoiceData = {
         invoiceNumber: quotation.quotation_number,
@@ -378,7 +373,7 @@ const Quotations = () => {
       const message = `Quotation ${quotation.quotation_number} for ${formatCurrency(quotation.total_amount || quotation.amount || 0)}.\n\nValid until: ${quotation.valid_until ? format(new Date(quotation.valid_until), "dd/MM/yyyy") : "N/A"}\n\nView/Download PDF: ${shareUrl}`;
 
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-      
+
       // Open via redirect page to avoid cross-origin blocking
       const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
       if (!waWindow) {
@@ -392,16 +387,9 @@ const Quotations = () => {
 
       // Update status to "sent" if currently draft
       if (quotation.status === "draft") {
-        await supabase
-          .from("quotations")
-          .update({ status: "sent" })
-          .eq("id", quotation.id);
-        setQuotations((prev) =>
-          prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q))
-        );
-        setFiltered((prev) =>
-          prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q))
-        );
+        await supabase.from("quotations").update({ status: "sent" }).eq("id", quotation.id);
+        setQuotations((prev) => prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q)));
+        setFiltered((prev) => prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q)));
       }
 
       toast({
@@ -549,12 +537,7 @@ const Quotations = () => {
     }
     setIsConvertingAndSending(true);
     try {
-      const override =
-        dateOption === "today"
-          ? new Date()
-          : dateOption === "custom"
-          ? customDate
-          : undefined;
+      const override = dateOption === "today" ? new Date() : dateOption === "custom" ? customDate : undefined;
       await handleConvertAndSend(selectedQuotation.id, override);
       setConvertDialogOpen(false);
       setSelectedQuotation(null);
@@ -594,11 +577,13 @@ const Quotations = () => {
       // Load quotation + items + customer
       const { data: qData, error: qErr } = await supabase
         .from("quotations")
-        .select(`
+        .select(
+          `
           *,
           customers ( name, email, address, vat_number, payment_terms ),
           quotation_items ( description, quantity, unit, unit_price, vat_rate )
-        `)
+        `,
+        )
         .eq("id", quotationId)
         .single();
 
@@ -617,9 +602,7 @@ const Quotations = () => {
 
       const invoiceNumber = await generateNextInvoiceNumber();
 
-      const baseDateObj = invoiceDateOverride
-        ? new Date(invoiceDateOverride)
-        : new Date();
+      const baseDateObj = invoiceDateOverride ? new Date(invoiceDateOverride) : new Date();
 
       const paymentTerms = qData.customers?.payment_terms || "Net 30";
       const daysMatch = paymentTerms.match(/\d+/);
@@ -668,12 +651,15 @@ const Quotations = () => {
       const invoiceHash = await invoiceService.generateInvoiceHash(inv.id, invoiceNumber);
 
       // Step 4: Finalize — mark as issued (trigger allows since is_issued was false)
-      const { error: finalizeErr } = await supabase.from("invoices").update({
-        status: "sent",
-        is_issued: true,
-        issued_at: new Date().toISOString(),
-        invoice_hash: invoiceHash,
-      }).eq("id", inv.id);
+      const { error: finalizeErr } = await supabase
+        .from("invoices")
+        .update({
+          status: "sent",
+          is_issued: true,
+          issued_at: new Date().toISOString(),
+          invoice_hash: invoiceHash,
+        })
+        .eq("id", inv.id);
       if (finalizeErr) throw finalizeErr;
 
       // Build InvoiceData for PDF rendering
@@ -744,11 +730,7 @@ const Quotations = () => {
       if (sendError) throw sendError;
 
       // Mark quotation as converted
-      await supabase
-        .from("quotations")
-        .update({ status: "converted" })
-        .eq("id", quotationId)
-        .eq("user_id", user.id);
+      await supabase.from("quotations").update({ status: "converted" }).eq("id", quotationId).eq("user_id", user.id);
 
       toast({
         title: "Invoice sent!",
@@ -768,7 +750,6 @@ const Quotations = () => {
       setPdfInvoiceData(null);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-background">
@@ -873,7 +854,9 @@ const Quotations = () => {
                         <TableCell>{formatCurrency(q.total_amount || q.amount || 0)}</TableCell>
                         <TableCell>
                           <Badge className={getStatusBadge(q.status)}>
-                            {q.status === "converted" ? "Converted to Invoice" : q.status.charAt(0).toUpperCase() + q.status.slice(1)}
+                            {q.status === "converted"
+                              ? "Converted to Invoice"
+                              : q.status.charAt(0).toUpperCase() + q.status.slice(1)}
                           </Badge>
                         </TableCell>
                         <TableCell>{format(new Date(q.issue_date || q.created_at), "dd/MM/yyyy")}</TableCell>
@@ -907,8 +890,15 @@ const Quotations = () => {
                                   <Mail className="h-4 w-4 mr-2" />
                                   Send Email
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleSendWhatsApp(q)} disabled={whatsappLoading === q.id}>
-                                  {whatsappLoading === q.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-2" />}
+                                <DropdownMenuItem
+                                  onClick={() => handleSendWhatsApp(q)}
+                                  disabled={whatsappLoading === q.id}
+                                >
+                                  {whatsappLoading === q.id ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <MessageCircle className="h-4 w-4 mr-2" />
+                                  )}
                                   {whatsappLoading === q.id ? "Creating link..." : "Send WhatsApp"}
                                 </DropdownMenuItem>
                                 {q.status !== "converted" && (
@@ -917,7 +907,10 @@ const Quotations = () => {
                                     Convert to Invoice
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onClick={() => handleDelete(q.id)} className="text-destructive focus:text-destructive">
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(q.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Delete
                                 </DropdownMenuItem>
@@ -1004,14 +997,28 @@ const Quotations = () => {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setConvertDialogOpen(false)} disabled={isConverting || isConvertingAndSending}>
+                <Button
+                  variant="outline"
+                  onClick={() => setConvertDialogOpen(false)}
+                  disabled={isConverting || isConvertingAndSending}
+                >
                   Cancel
                 </Button>
-                <Button variant="outline" onClick={handleConvertAndSendFromDialog} disabled={isConverting || isConvertingAndSending}>
+                <Button
+                  variant="outline"
+                  onClick={handleConvertAndSendFromDialog}
+                  disabled={isConverting || isConvertingAndSending}
+                >
                   {isConvertingAndSending ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Converting &amp; Sending...</>
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Converting &amp; Sending...
+                    </>
                   ) : (
-                    <><Send className="h-4 w-4 mr-2" />Convert &amp; Send</>
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Convert &amp; Send
+                    </>
                   )}
                 </Button>
                 <Button onClick={confirmConvert} disabled={isConverting || isConvertingAndSending}>
@@ -1027,67 +1034,87 @@ const Quotations = () => {
       <TransactionDrawer
         open={!!drawerQuotation}
         onOpenChange={(open) => !open && setDrawerQuotation(null)}
-        transaction={drawerQuotation ? {
-          id: drawerQuotation.id,
-          quotation_number: drawerQuotation.quotation_number,
-          issue_date: drawerQuotation.issue_date,
-          valid_until: drawerQuotation.valid_until,
-          amount: drawerQuotation.amount,
-          vat_amount: drawerQuotation.vat_amount,
-          total_amount: drawerQuotation.total_amount,
-          status: drawerQuotation.status,
-          customer_id: drawerQuotation.customer_id,
-        } : null}
+        transaction={
+          drawerQuotation
+            ? {
+                id: drawerQuotation.id,
+                quotation_number: drawerQuotation.quotation_number,
+                issue_date: drawerQuotation.issue_date,
+                valid_until: drawerQuotation.valid_until,
+                amount: drawerQuotation.amount,
+                vat_amount: drawerQuotation.vat_amount,
+                total_amount: drawerQuotation.total_amount,
+                status: drawerQuotation.status,
+                customer_id: drawerQuotation.customer_id,
+              }
+            : null
+        }
         type="quotation"
         onConvertQuotation={(id) => {
-          const q = quotations.find(qt => qt.id === id);
+          const q = quotations.find((qt) => qt.id === id);
           if (q) openConvertDialog(q);
         }}
       />
 
       {/* Hidden PDF preview for quotation download */}
       {pdfQuotationData && (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <UnifiedInvoiceLayout
             id="invoice-preview-root"
             variant="pdf"
             invoiceData={pdfQuotationData}
             documentType="QUOTATION"
-            companySettings={companySettings ? {
-              name: companySettings.company_name,
-              email: companySettings.company_email,
-              phone: companySettings.company_phone,
-              address: companySettings.company_address,
-              city: companySettings.company_city,
-              state: companySettings.company_state,
-              zipCode: companySettings.company_zip_code,
-              country: companySettings.company_country,
-              taxId: companySettings.company_vat_number,
-              registrationNumber: companySettings.company_registration_number,
-              logo: companySettings.company_logo,
-            } : undefined}
-            bankingSettings={bankingSettings ? {
-              bankName: bankingSettings.bank_name,
-              accountName: bankingSettings.bank_account_name,
-              swiftCode: bankingSettings.bank_swift_code,
-              iban: bankingSettings.bank_iban,
-            } : undefined}
-            templateSettings={template ? {
-              primaryColor: template.primary_color,
-              accentColor: template.accent_color,
-              fontFamily: template.font_family,
-              fontSize: template.font_size,
-              layout: template.layout as any,
-              headerLayout: template.header_layout as any,
-              tableStyle: template.table_style as any,
-              totalsStyle: template.totals_style as any,
-              bankingVisibility: template.banking_visibility,
-              bankingStyle: template.banking_style as any,
-              marginTop: template.margin_top,
-              marginRight: template.margin_right,
-              marginBottom: template.margin_bottom,
-              marginLeft: template.margin_left,
-            } : undefined}
+            companySettings={
+              companySettings
+                ? {
+                    name: companySettings.company_name,
+                    email: companySettings.company_email,
+                    phone: companySettings.company_phone,
+                    address: companySettings.company_address,
+                    addressLine1: companySettings.company_address_line1 || undefined,
+                    addressLine2: companySettings.company_address_line2 || undefined,
+                    locality: companySettings.company_locality || undefined,
+                    postCode: companySettings.company_post_code || undefined,
+                    city: companySettings.company_city,
+                    state: companySettings.company_state,
+                    zipCode: companySettings.company_zip_code,
+                    country: companySettings.company_country,
+                    taxId: companySettings.company_vat_number,
+                    registrationNumber: companySettings.company_registration_number,
+                    logo: companySettings.company_logo,
+                  }
+                : undefined
+            }
+            bankingSettings={
+              bankingSettings
+                ? {
+                    bankName: bankingSettings.bank_name,
+                    accountName: bankingSettings.bank_account_name,
+                    swiftCode: bankingSettings.bank_swift_code,
+                    iban: bankingSettings.bank_iban,
+                  }
+                : undefined
+            }
+            templateSettings={
+              template
+                ? {
+                    primaryColor: template.primary_color,
+                    accentColor: template.accent_color,
+                    fontFamily: template.font_family,
+                    fontSize: template.font_size,
+                    layout: template.layout as any,
+                    headerLayout: template.header_layout as any,
+                    tableStyle: template.table_style as any,
+                    totalsStyle: template.totals_style as any,
+                    bankingVisibility: template.banking_visibility,
+                    bankingStyle: template.banking_style as any,
+                    marginTop: template.margin_top,
+                    marginRight: template.margin_right,
+                    marginBottom: template.margin_bottom,
+                    marginLeft: template.margin_left,
+                  }
+                : undefined
+            }
             quotationTerms={invoiceSettings?.quotation_terms_text || undefined}
           />
         </div>
@@ -1095,47 +1122,63 @@ const Quotations = () => {
 
       {/* Hidden PDF container for Convert & Send (invoice) */}
       {pdfInvoiceData && (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <UnifiedInvoiceLayout
             id="invoice-send-root"
             variant="pdf"
             invoiceData={pdfInvoiceData}
             documentType="INVOICE"
-            companySettings={companySettings ? {
-              name: companySettings.company_name,
-              email: companySettings.company_email,
-              phone: companySettings.company_phone,
-              address: companySettings.company_address,
-              city: companySettings.company_city,
-              state: companySettings.company_state,
-              zipCode: companySettings.company_zip_code,
-              country: companySettings.company_country,
-              taxId: companySettings.company_vat_number,
-              registrationNumber: companySettings.company_registration_number,
-              logo: companySettings.company_logo,
-            } : undefined}
-            bankingSettings={bankingSettings ? {
-              bankName: bankingSettings.bank_name,
-              accountName: bankingSettings.bank_account_name,
-              swiftCode: bankingSettings.bank_swift_code,
-              iban: bankingSettings.bank_iban,
-            } : undefined}
-            templateSettings={template ? {
-              primaryColor: template.primary_color,
-              accentColor: template.accent_color,
-              fontFamily: template.font_family,
-              fontSize: template.font_size,
-              layout: template.layout as any,
-              headerLayout: template.header_layout as any,
-              tableStyle: template.table_style as any,
-              totalsStyle: template.totals_style as any,
-              bankingVisibility: template.banking_visibility,
-              bankingStyle: template.banking_style as any,
-              marginTop: template.margin_top,
-              marginRight: template.margin_right,
-              marginBottom: template.margin_bottom,
-              marginLeft: template.margin_left,
-            } : undefined}
+            companySettings={
+              companySettings
+                ? {
+                    name: companySettings.company_name,
+                    email: companySettings.company_email,
+                    phone: companySettings.company_phone,
+                    address: companySettings.company_address,
+                    addressLine1: companySettings.company_address_line1 || undefined,
+                    addressLine2: companySettings.company_address_line2 || undefined,
+                    locality: companySettings.company_locality || undefined,
+                    postCode: companySettings.company_post_code || undefined,
+                    city: companySettings.company_city,
+                    state: companySettings.company_state,
+                    zipCode: companySettings.company_zip_code,
+                    country: companySettings.company_country,
+                    taxId: companySettings.company_vat_number,
+                    registrationNumber: companySettings.company_registration_number,
+                    logo: companySettings.company_logo,
+                  }
+                : undefined
+            }
+            bankingSettings={
+              bankingSettings
+                ? {
+                    bankName: bankingSettings.bank_name,
+                    accountName: bankingSettings.bank_account_name,
+                    swiftCode: bankingSettings.bank_swift_code,
+                    iban: bankingSettings.bank_iban,
+                  }
+                : undefined
+            }
+            templateSettings={
+              template
+                ? {
+                    primaryColor: template.primary_color,
+                    accentColor: template.accent_color,
+                    fontFamily: template.font_family,
+                    fontSize: template.font_size,
+                    layout: template.layout as any,
+                    headerLayout: template.header_layout as any,
+                    tableStyle: template.table_style as any,
+                    totalsStyle: template.totals_style as any,
+                    bankingVisibility: template.banking_visibility,
+                    bankingStyle: template.banking_style as any,
+                    marginTop: template.margin_top,
+                    marginRight: template.margin_right,
+                    marginBottom: template.margin_bottom,
+                    marginLeft: template.margin_left,
+                  }
+                : undefined
+            }
           />
         </div>
       )}
@@ -1164,16 +1207,9 @@ const Quotations = () => {
           fontFamily={template?.font_family}
           onSuccess={async () => {
             if (emailQuotation.status === "draft") {
-              await supabase
-                .from("quotations")
-                .update({ status: "sent" })
-                .eq("id", emailQuotation.id);
-              setQuotations((prev) =>
-                prev.map((q) => (q.id === emailQuotation.id ? { ...q, status: "sent" } : q))
-              );
-              setFiltered((prev) =>
-                prev.map((q) => (q.id === emailQuotation.id ? { ...q, status: "sent" } : q))
-              );
+              await supabase.from("quotations").update({ status: "sent" }).eq("id", emailQuotation.id);
+              setQuotations((prev) => prev.map((q) => (q.id === emailQuotation.id ? { ...q, status: "sent" } : q)));
+              setFiltered((prev) => prev.map((q) => (q.id === emailQuotation.id ? { ...q, status: "sent" } : q)));
             }
           }}
         />
