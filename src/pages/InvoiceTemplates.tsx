@@ -347,7 +347,8 @@ const InvoiceTemplates = () => {
       } else {
         toast({ title: "Template saved", description: "All settings complete and ready." });
       }
-    } catch {
+    } catch (err) {
+      console.error("Template save error:", err);
       toast({ title: "Save failed", description: "Please try again.", variant: "destructive" });
     } finally {
       setIsSaving(false);

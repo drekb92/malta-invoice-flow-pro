@@ -1,0 +1,1 @@
+ALTER TABLE invoice_templates ADD COLUMN vat_summary_visibility boolean DEFAULT false;
