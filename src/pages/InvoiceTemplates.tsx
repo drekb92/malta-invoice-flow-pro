@@ -323,6 +323,7 @@ const InvoiceTemplates = () => {
           banking_style: currentSettings.banking_style,
           style: currentSettings.style,
           notes_visibility: currentSettings.notes_visibility,
+          vat_summary_visibility: currentSettings.vat_summary_visibility,
         })
         .eq("id", currentSettings.id);
       if (error) throw error;
