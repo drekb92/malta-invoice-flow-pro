@@ -803,6 +803,10 @@ export interface LegacyStatementData {
     email?: string;
     phone?: string;
     address?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    locality?: string;
+    postCode?: string;
     city?: string;
     country?: string;
     vat_number?: string;
@@ -890,6 +894,10 @@ export function convertLegacyStatementData(data: LegacyStatementData): {
       email: company.email,
       phone: company.phone,
       address: company.address,
+      addressLine1: company.addressLine1,
+      addressLine2: company.addressLine2,
+      locality: company.locality,
+      postCode: company.postCode,
       city: company.city,
       country: company.country,
       taxId: company.vat_number,
