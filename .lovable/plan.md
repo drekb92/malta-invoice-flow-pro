@@ -1,30 +1,38 @@
 
 
-## Fix: Scale Preview to Fit Viewport
+## Diagnose Template Save Failure
 
-### Problem
-The invoice preview renders at full A4 size (~1123px tall at 794px wide) inside a sticky container. Since the content exceeds the viewport height, the bottom of the invoice is clipped and unreachable — the `sticky` positioning prevents scrolling the preview itself.
+### Analysis
 
-### Solution
-Scale the entire preview down using CSS `transform: scale()` so the full invoice fits within the visible canvas area. This is a common pattern for document previews — show the whole page at a reduced zoom level.
+I reviewed the `handleSave` function in `InvoiceTemplates.tsx` (lines 307-354). The update writes 12 fields to the `invoice_templates` table — all columns exist in the DB schema and the Supabase types. The code looks correct on paper.
 
-**Approach:**
-- Remove `sticky top-0` from the inner div (it causes the clipping problem)
-- Instead, use `transform: scale()` with a calculated factor based on available height vs content height
-- Use a `ref` on the preview container and calculate scale factor: `min(availableWidth / 794, availableHeight / contentHeight, 1)`
-- Apply `transform-origin: top center` so it scales from the top
-- Wrap in a container that sets its explicit height to the scaled height (so no overflow issues)
+The problem is the catch block at line 349 swallows the error silently:
+```ts
+catch {
+  toast({ title: "Save failed", ... });
+}
+```
+No `console.error`, so the actual Supabase error message is invisible.
 
-### Implementation
+I also found a related bug: the **"Show VAT Summary" toggle** (`vat_summary_visibility`) is in the UI and updates local state, but:
+- The column does **not exist** in the `invoice_templates` DB table
+- The `handleSave` function does **not** include it in the update
+- So this toggle resets on page reload — it never persists
 
-**File: `src/pages/InvoiceTemplates.tsx`**
+### Plan
 
-1. Add a `ref` + `useState` for the canvas area dimensions using `ResizeObserver`
-2. Calculate scale factor: `Math.min(containerWidth / previewWidth, containerHeight / estimatedA4Height, 1)` where `estimatedA4Height ≈ 1123px`
-3. Apply `transform: scale(scaleFactor)` and `transform-origin: top center` to the preview wrapper
-4. Set the outer container height to `scaledHeight` so layout works correctly
-5. Remove the `sticky top-0` div wrapper — scaling solves the visibility problem
+**1. Add error logging to catch block** (`src/pages/InvoiceTemplates.tsx` line 349)
+- Change `catch {` to `catch (err) { console.error("Template save error:", err);`
+- This will surface the actual Supabase error in the console for diagnosis
+
+**2. Add `vat_summary_visibility` column to DB** (migration)
+- `ALTER TABLE invoice_templates ADD COLUMN vat_summary_visibility boolean DEFAULT false;`
+- This allows the VAT Summary toggle to actually persist
+
+**3. Add `vat_summary_visibility` to the save function** (line 325)
+- Include `vat_summary_visibility: currentSettings.vat_summary_visibility` in the update object
 
 ### Files to modify
-- `src/pages/InvoiceTemplates.tsx` — add scale-to-fit logic for the right canvas preview
+- `src/pages/InvoiceTemplates.tsx` — add error logging, add `vat_summary_visibility` to save
+- Migration for `vat_summary_visibility` column
 
