@@ -690,6 +690,7 @@ export type Database = {
           table_style: string | null
           totals_style: string | null
           user_id: string | null
+          vat_summary_visibility: boolean | null
         }
         Insert: {
           accent_color?: string | null
@@ -722,6 +723,7 @@ export type Database = {
           table_style?: string | null
           totals_style?: string | null
           user_id?: string | null
+          vat_summary_visibility?: boolean | null
         }
         Update: {
           accent_color?: string | null
@@ -754,6 +756,7 @@ export type Database = {
           table_style?: string | null
           totals_style?: string | null
           user_id?: string | null
+          vat_summary_visibility?: boolean | null
         }
         Relationships: []
       }

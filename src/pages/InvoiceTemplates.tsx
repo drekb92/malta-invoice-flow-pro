@@ -323,6 +323,7 @@ const InvoiceTemplates = () => {
           banking_style: currentSettings.banking_style,
           style: currentSettings.style,
           notes_visibility: currentSettings.notes_visibility,
+          vat_summary_visibility: currentSettings.vat_summary_visibility,
         })
         .eq("id", currentSettings.id);
       if (error) throw error;
@@ -346,7 +347,8 @@ const InvoiceTemplates = () => {
       } else {
         toast({ title: "Template saved", description: "All settings complete and ready." });
       }
-    } catch {
+    } catch (err) {
+      console.error("Template save error:", err);
       toast({ title: "Save failed", description: "Please try again.", variant: "destructive" });
     } finally {
       setIsSaving(false);
