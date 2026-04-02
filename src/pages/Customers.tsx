@@ -131,9 +131,12 @@ const Customers = () => {
           last_activity_date: null,
         };
 
-        // Count open invoices (not fully paid)
-        if (invoice.status !== 'paid') {
-          existing.outstanding_amount += Number(invoice.total_amount || 0);
+        // Count open invoices (not fully paid, excluding drafts)
+        if (invoice.status !== 'paid' && invoice.status !== 'draft') {
+          const totalAmount = Number(invoice.total_amount || 0);
+          const totalPaid = (paymentsMap.get(invoice.id) || [])
+            .reduce((s, p) => s + p.amount, 0);
+          existing.outstanding_amount += Math.max(totalAmount - totalPaid, 0);
           existing.open_invoice_count += 1;
         }
 

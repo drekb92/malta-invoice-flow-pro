@@ -135,10 +135,27 @@ const CustomerDetail = () => {
 
       setInvoices(invoicesData || []);
 
-      // Calculate outstanding amount (all non-paid, non-draft invoices)
+      // Fetch payments for this customer's invoices to calculate true outstanding
+      const invoiceIds = (invoicesData || []).map((inv) => inv.id);
+      let paymentsMap = new Map<string, number>();
+      if (invoiceIds.length > 0) {
+        const { data: paymentsData } = await supabase
+          .from("payments")
+          .select("invoice_id, amount")
+          .in("invoice_id", invoiceIds);
+        paymentsData?.forEach((p) => {
+          paymentsMap.set(p.invoice_id, (paymentsMap.get(p.invoice_id) || 0) + Number(p.amount || 0));
+        });
+      }
+
+      // Calculate outstanding amount (non-paid, non-draft, minus payments)
       const outstanding = (invoicesData || [])
         .filter((inv) => inv.status !== "paid" && inv.status !== "draft")
-        .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+        .reduce((sum, inv) => {
+          const total = Number(inv.total_amount || 0);
+          const paid = paymentsMap.get(inv.id) || 0;
+          return sum + Math.max(total - paid, 0);
+        }, 0);
 
       setOutstandingAmount(outstanding);
     } catch (error) {
