@@ -641,12 +641,29 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                 <UnifiedStatementLayout
                   customer={converted.customer}
                   companySettings={converted.companySettings}
+                  bankingSettings={
+                    bankingSettings
+                      ? {
+                          bankName: bankingSettings.bank_name,
+                          accountName: bankingSettings.bank_account_name,
+                          accountNumber: bankingSettings.bank_account_number,
+                          swiftCode: bankingSettings.bank_swift_code,
+                          iban: bankingSettings.bank_iban,
+                          branch: bankingSettings.bank_branch,
+                        }
+                      : undefined
+                  }
                   templateSettings={{
-                    primaryColor: template?.primary_color || "#26A65B",
-                    accentColor: template?.accent_color || "#1F2D3D",
+                    primaryColor: template?.primary_color || "#1e3a5f",
+                    accentColor: template?.accent_color || "#26A65B",
                     fontFamily: template?.font_family || "Inter",
                     style: (template?.style as "modern" | "professional" | "minimalist") || "modern",
                     headerLayout: template?.header_layout || "default",
+                    tableStyle: template?.table_style || "default",
+                    totalsStyle: template?.totals_style || "default",
+                    bankingStyle: template?.banking_style || "default",
+                    bankingVisibility: template?.banking_visibility ?? true,
+                    vatSummaryVisibility: template?.vat_summary_visibility ?? false,
                   }}
                   statementLines={converted.statementLines}
                   dateRange={converted.dateRange}
