@@ -1,48 +1,22 @@
 import { format } from "date-fns";
+import {
+  DocumentCompanySettings,
+  DocumentBankingSettings,
+  DocumentTemplateSettings,
+  DocumentTemplateStyle,
+  STANDARD_MARGIN_MM,
+  STANDARD_FONT_STACK,
+  formatMoney,
+  getDocumentStyleConfig,
+} from "@/types/document";
 import { PDF_PRINT_STYLES } from "@/lib/pdfPrintStyles";
 
-// Re-use types from UnifiedInvoiceLayout for consistency
-export interface CompanySettings {
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  addressLine1?: string;
-  addressLine2?: string;
-  locality?: string;
-  postCode?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  country?: string;
-  taxId?: string;
-  registrationNumber?: string;
-  logo?: string;
-}
+/* ===================== RE-EXPORTS (backward compat) ===================== */
+export type CompanySettings = DocumentCompanySettings;
+export type BankingSettings = DocumentBankingSettings;
+export type TemplateSettings = DocumentTemplateSettings;
 
-export interface BankingSettings {
-  bankName?: string;
-  accountName?: string;
-  accountNumber?: string;
-  routingNumber?: string;
-  swiftCode?: string;
-  iban?: string;
-  branch?: string;
-}
-
-export interface TemplateSettings {
-  primaryColor?: string;
-  accentColor?: string;
-  fontFamily?: string;
-  fontSize?: string;
-  marginTop?: number;
-  marginRight?: number;
-  marginBottom?: number;
-  marginLeft?: number;
-  bankingVisibility?: boolean;
-  style?: "modern" | "professional" | "minimalist";
-  headerLayout?: string;
-}
+/* ===================== STATEMENT-SPECIFIC TYPES ===================== */
 
 export interface StatementCustomer {
   id: string;
@@ -79,38 +53,23 @@ export interface UnifiedStatementLayoutProps {
   statementType?: "outstanding" | "activity";
   variant?: "preview" | "pdf" | "print";
   id?: string;
-  templateId?: string;
 }
 
-// Format currency with thousands separators: €X,XXX.XX
-const formatCurrency = (amount: number): string => {
-  return `€${Math.abs(amount).toLocaleString("en-IE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
+/* ===================== FORMATTERS ===================== */
 
-// Format debit amount (positive, no sign)
-const formatDebit = (amount: number): string => {
-  if (amount <= 0) return "";
-  return formatCurrency(amount);
-};
+const money = formatMoney;
 
-// Format credit amount in parentheses
-const formatCredit = (amount: number): string => {
-  if (amount <= 0) return "";
-  return `(${formatCurrency(amount)})`;
-};
+const formatDebit = (amount: number): string => (amount <= 0 ? "" : money(amount));
 
-// Format balance: positive normal, negative in parentheses
+const formatCredit = (amount: number): string => (amount <= 0 ? "" : `(${money(amount)})`);
+
 const formatBalance = (amount: number): string => {
   if (amount === 0) return "€0.00";
-  if (amount > 0) return formatCurrency(amount);
-  return `(${formatCurrency(Math.abs(amount))})`;
+  if (amount > 0) return money(amount);
+  return `(${money(Math.abs(amount))})`;
 };
 
-// Locked margins (matching UnifiedInvoiceLayout)
-const STANDARD_MARGIN_MM = 20;
+/* ===================== COMPONENT ===================== */
 
 export const UnifiedStatementLayout = ({
   customer,
@@ -124,276 +83,376 @@ export const UnifiedStatementLayout = ({
   statementType = "activity",
   variant = "pdf",
   id = "invoice-preview-root",
-  templateId,
 }: UnifiedStatementLayoutProps) => {
-  // Default template settings - matching invoice defaults
-  const primaryColor = templateSettings?.primaryColor || "#26A65B";
-  const accentColor = templateSettings?.accentColor || "#1F2D3D";
-  const fontFamily = templateSettings?.fontFamily || "Inter";
-  const fontSize = templateSettings?.fontSize || "14px";
-  const bankingVisibility = templateSettings?.bankingVisibility !== false;
-  const style = templateSettings?.style || "modern";
+  const templateStyle: DocumentTemplateStyle = templateSettings?.style || "modern";
+  const isPdf = variant === "pdf" || variant === "print";
+
+  const primary = templateSettings?.primaryColor || "#1e3a5f";
+  const accent = templateSettings?.accentColor || "#26A65B";
+  const fontFamily = templateSettings?.fontFamily || STANDARD_FONT_STACK;
+  const showBanking = templateSettings?.bankingVisibility !== false;
   const headerLayout = templateSettings?.headerLayout || "default";
   const isLogoRight = headerLayout === "logo-right" || headerLayout === "split";
+  const isCentered = headerLayout === "centered";
 
-  // Style-based header configuration (matching UnifiedInvoiceLayout)
-  const getHeaderStyles = () => {
-    switch (style) {
-      case "professional":
-        return {
-          headerBg: "white",
-          headerBorder: `4px solid ${primaryColor}`,
-          titleColor: primaryColor,
-          textColor: accentColor,
-        };
-      case "minimalist":
-        return {
-          headerBg: "white",
-          headerBorder: "none",
-          titleColor: accentColor,
-          textColor: accentColor,
-        };
-      case "modern":
-      default:
-        return {
-          headerBg: primaryColor,
-          headerBorder: "none",
-          titleColor: "white",
-          textColor: "white",
-        };
-    }
-  };
+  const styleConfig = getDocumentStyleConfig(templateStyle, primary, isPdf);
 
-  const headerStyles = getHeaderStyles();
-
-  // Locked margins (ignore template values)
-  const marginTop = STANDARD_MARGIN_MM;
-  const marginRight = STANDARD_MARGIN_MM;
-  const marginBottom = STANDARD_MARGIN_MM;
-  const marginLeft = STANDARD_MARGIN_MM;
-
-  // Get absolute logo URL
   const getAbsoluteLogoUrl = (url?: string): string | undefined => {
     if (!url) return undefined;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    if (url.startsWith("/")) {
-      return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos${url}`;
-    }
+    if (url.startsWith("/")) return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos${url}`;
     return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${url}`;
   };
 
   const logoUrl = getAbsoluteLogoUrl(companySettings?.logo);
 
-  // Calculate totals
+  // Build company address lines — same logic as UnifiedInvoiceLayout
+  const companyAddressLines: string[] = [];
+  if (companySettings?.addressLine1) companyAddressLines.push(companySettings.addressLine1);
+  if (companySettings?.addressLine2) companyAddressLines.push(companySettings.addressLine2);
+  if (companySettings?.locality) companyAddressLines.push(companySettings.locality);
+  if (companySettings?.postCode) companyAddressLines.push(companySettings.postCode);
+  if (companyAddressLines.length === 0) {
+    if (companySettings?.address) companyAddressLines.push(companySettings.address);
+    const cityLine = [companySettings?.zipCode, companySettings?.city].filter(Boolean).join(" ");
+    if (cityLine) companyAddressLines.push(cityLine);
+    if (companySettings?.country) companyAddressLines.push(companySettings.country);
+  }
+
   const totalDebits = statementLines.reduce((sum, line) => sum + line.debit, 0);
   const totalCredits = statementLines.reduce((sum, line) => sum + line.credit, 0);
 
-  // CSS variables for consistent styling (matching invoice layout)
-  const cssVariables = {
-    "--invoice-font-family": `'${fontFamily}', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`,
-    "--invoice-font-size": fontSize,
-    "--invoice-primary-color": primaryColor,
-    "--invoice-accent-color": accentColor,
-    "--invoice-margin-top": `${marginTop}mm`,
-    "--invoice-margin-right": `${marginRight}mm`,
-    "--invoice-margin-bottom": `${marginBottom}mm`,
-    "--invoice-margin-left": `${marginLeft}mm`,
-  } as React.CSSProperties;
+  // ── Embedded stylesheet (same approach as UnifiedInvoiceLayout) ──────────
+  const embeddedStyles = `
+    @page { size: A4; margin: ${STANDARD_MARGIN_MM}mm; }
+    *, *::before, *::after {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    #${id}, #${id} * { box-sizing: border-box; }
+    #${id} { background: #fff; }
+    #${id}.statement-page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      color: ${primary};
+      font-family: ${fontFamily};
+      font-size: ${isPdf ? "10pt" : "12px"};
+      line-height: 1.4;
+    }
+    #${id} .stmt-inner {
+      padding: ${STANDARD_MARGIN_MM}mm;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+    }
 
-  // Container styling based on variant using CSS variables - with flexbox for footer pinning
-  const containerStyle: React.CSSProperties =
-    variant === "pdf"
-      ? {
-          ...cssVariables,
-          width: "210mm",
-          minHeight: "297mm",
-          backgroundColor: "white",
-          paddingTop: "var(--invoice-margin-top)",
-          paddingRight: "var(--invoice-margin-right)",
-          paddingBottom: "var(--invoice-margin-bottom)",
-          paddingLeft: "var(--invoice-margin-left)",
-          boxSizing: "border-box",
-          fontFamily: "var(--invoice-font-family)",
-          fontSize: "var(--invoice-font-size)",
-          color: "var(--invoice-accent-color)",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-        }
-      : variant === "print"
-        ? {
-            ...cssVariables,
-            width: "210mm",
-            minHeight: "297mm",
-            backgroundColor: "white",
-            padding: `${STANDARD_MARGIN_MM}mm`,
-            boxSizing: "border-box",
-            fontFamily: "var(--invoice-font-family)",
-            fontSize: "var(--invoice-font-size)",
-            color: "var(--invoice-accent-color)",
-            display: "flex",
-            flexDirection: "column",
-          }
-        : {
-            ...cssVariables,
-            fontFamily: "var(--invoice-font-family)",
-            fontSize: "var(--invoice-font-size)",
-            color: "var(--invoice-accent-color)",
-            backgroundColor: "white",
-            padding: "2rem",
-            display: "flex",
-            flexDirection: "column",
-          };
+    ${
+      variant === "preview"
+        ? `
+      #${id}.statement-page {
+        width: min(900px, calc(100vw - 32px));
+        min-height: unset;
+        border: none; box-shadow: none; border-radius: 0; overflow: visible;
+      }
+      #${id} .stmt-inner { min-height: unset; padding: 24px; }
+    `
+        : ""
+    }
 
-  const containerClassName =
-    variant === "pdf"
-      ? "bg-white"
-      : variant === "print"
-        ? "bg-white print:shadow-none"
-        : "bg-white max-w-4xl mx-auto shadow-lg";
+    /* ── Header — locked 40mm height in PDF, same as invoice ── */
+    #${id} .header {
+      display: flex;
+      flex-direction: ${isCentered ? "column" : isLogoRight ? "row-reverse" : "row"};
+      justify-content: ${isCentered ? "center" : "space-between"};
+      align-items: ${isCentered ? "center" : "flex-start"};
+      text-align: ${isCentered ? "center" : "inherit"};
+      gap: ${isPdf ? "8mm" : "32px"};
+      min-height: ${isPdf ? "40mm" : "150px"};
+      box-sizing: border-box;
+    }
+    #${id} .header-left {
+      flex: ${isLogoRight ? "0 0 40%" : "0 0 56%"};
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      ${isCentered ? "align-items: center; width: 100%;" : ""}
+    }
+    #${id} .header-right {
+      flex: 1;
+      text-align: ${isLogoRight ? "left" : isCentered ? "center" : "right"};
+      ${isCentered ? "width: 100%;" : ""}
+    }
+    #${id} .logo {
+      width: auto; height: auto;
+      max-height: ${isPdf ? "18mm" : "60px"};
+      max-width: ${isPdf ? "45mm" : "160px"};
+      object-fit: contain;
+      object-position: ${isLogoRight ? "right top" : isCentered ? "center top" : "left top"};
+      display: block;
+      margin-bottom: ${isPdf ? "2mm" : "8px"};
+      ${isCentered ? "margin-left: auto; margin-right: auto;" : ""}
+      ${isLogoRight ? "margin-left: auto;" : ""}
+    }
+    #${id} .company {
+      font-size: ${isPdf ? "9pt" : "11px"};
+      color: #4b5563;
+      line-height: 1.4;
+    }
+    #${id} .company strong { color: #111827; font-weight: 700; }
+    #${id} .doc-title {
+      font-size: ${isPdf ? "18pt" : "26px"};
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: ${accent};
+      margin: 0 0 ${isPdf ? "2mm" : "8px"} 0;
+      text-transform: uppercase;
+    }
+    #${id} .meta {
+      font-size: ${isPdf ? "9pt" : "11px"};
+      color: #4b5563;
+      line-height: 1.6;
+    }
+    #${id} .divider { border: 0; border-top: 1px solid #e5e7eb; margin: ${isPdf ? "4mm 0 5mm 0" : "14px 0 16px 0"}; }
 
-  // Row style helper for alternating colors
-  const getRowStyle = (index: number): React.CSSProperties => ({
-    backgroundColor: index % 2 === 0 ? "#f8fafc" : "white",
-    pageBreakInside: "avoid",
-  });
+    /* ── Customer block ── */
+    #${id} .section-label {
+      font-size: ${isPdf ? "8pt" : "10px"};
+      font-weight: 700;
+      color: #6b7280;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: ${isPdf ? "1.5mm" : "6px"};
+    }
+    #${id} .stmt-for { margin-bottom: ${isPdf ? "5mm" : "20px"}; }
+    #${id} .customer-name { font-size: ${isPdf ? "11pt" : "14px"}; font-weight: 700; color: #111827; margin-bottom: ${isPdf ? "1mm" : "4px"}; }
+    #${id} .customer-info { font-size: ${isPdf ? "9pt" : "11px"}; color: #4b5563; line-height: 1.4; }
+
+    /* ── Statement table ── */
+    #${id} table.stmt-items {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: ${isPdf ? "9pt" : "12px"};
+      margin-bottom: ${isPdf ? "5mm" : "20px"};
+    }
+    #${id} table.stmt-items thead th {
+      padding: ${isPdf ? "2.5mm 2mm" : "10px 8px"};
+      font-weight: 600;
+      font-size: ${isPdf ? "8pt" : "11px"};
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: ${styleConfig.tableHeaderBg};
+      color: ${styleConfig.tableHeaderColor};
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    #${id} table.stmt-items tbody td {
+      padding: ${isPdf ? "2mm 2mm" : "8px 8px"};
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: middle;
+    }
+    #${id} table.stmt-items tbody tr.opening-row td { background: #f1f5f9; font-weight: 500; }
+    #${id} table.stmt-items tbody tr.alt-row td { background: #f8fafc; }
+    #${id} .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #${id} .type-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: ${isPdf ? "7pt" : "10px"};
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    #${id} .type-inv  { background: #dbeafe; color: #1e40af; }
+    #${id} .type-cn   { background: #fef3c7; color: #92400e; }
+    #${id} .type-pmt  { background: #d1fae5; color: #065f46; }
+    #${id} .bal-owed  { color: #dc2626; font-weight: 600; }
+    #${id} .bal-credit { color: #16a34a; font-weight: 600; }
+    #${id} .bal-zero  { color: #6b7280; font-weight: 600; }
+
+    /* ── Totals ── */
+    #${id} .stmt-totals {
+      border-top: 2px solid #e5e7eb;
+      padding-top: ${isPdf ? "4mm" : "16px"};
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: ${isPdf ? "5mm" : "20px"};
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    #${id} .totals-inner { width: ${isPdf ? "70mm" : "280px"}; }
+    #${id} .totals-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: ${isPdf ? "9pt" : "13px"};
+      margin-bottom: ${isPdf ? "1.5mm" : "6px"};
+    }
+    #${id} .totals-row .lbl { color: #6b7280; }
+    #${id} .totals-row .val { font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #${id} .closing-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: ${isPdf ? "2.5mm" : "10px"};
+      padding-top: ${isPdf ? "2.5mm" : "10px"};
+      font-size: ${isPdf ? "11pt" : "16px"};
+      font-weight: 700;
+      break-inside: avoid;
+    }
+
+    /* ── Banking ── */
+    #${id} .banking {
+      margin-top: ${isPdf ? "5mm" : "20px"};
+      padding-top: ${isPdf ? "4mm" : "16px"};
+      border-top: 1px solid #e5e7eb;
+      font-size: ${isPdf ? "9pt" : "13px"};
+      color: #374151;
+      line-height: 1.6;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    #${id} .banking .line { margin: ${isPdf ? "0.5mm 0" : "2px 0"}; }
+    #${id} .banking .line .lbl { color: #6b7280; }
+
+    /* ── Footer ── */
+    #${id} .body { flex: 1; }
+    #${id} .footer {
+      margin-top: auto;
+      padding-top: ${isPdf ? "4mm" : "14px"};
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      font-size: ${isPdf ? "8.5pt" : "10px"};
+      color: #6b7280;
+      line-height: 1.4;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    /* ── Style: modern — header background ── */
+    ${
+      templateStyle === "modern"
+        ? `
+      #${id} .header {
+        background: ${styleConfig.headerBg};
+        color: ${styleConfig.headerTextColor};
+        padding: ${isPdf ? "5mm" : "20px"};
+        margin: ${isPdf ? `-${STANDARD_MARGIN_MM}mm -${STANDARD_MARGIN_MM}mm 4mm -${STANDARD_MARGIN_MM}mm` : "-24px -24px 16px -24px"};
+        height: auto;
+        box-sizing: content-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .header .company,
+      #${id} .header .company strong,
+      #${id} .header .meta { color: ${styleConfig.headerTextColor}; }
+      #${id} .doc-title { color: ${styleConfig.headerTextColor}; }
+    `
+        : ""
+    }
+
+    /* ── Style: professional — top border ── */
+    ${
+      templateStyle === "professional"
+        ? `
+      #${id} .header {
+        background: #ffffff;
+        padding: ${isPdf ? "5mm" : "20px"};
+        margin: ${isPdf ? `-${STANDARD_MARGIN_MM}mm -${STANDARD_MARGIN_MM}mm 4mm -${STANDARD_MARGIN_MM}mm` : "-24px -24px 16px -24px"};
+        padding-left: ${isPdf ? `${STANDARD_MARGIN_MM}mm` : "24px"};
+        padding-right: ${isPdf ? `${STANDARD_MARGIN_MM}mm` : "24px"};
+        border-top: ${styleConfig.headerBorderStyle};
+        height: auto;
+        box-sizing: content-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .doc-title { color: ${styleConfig.brandColor}; }
+    `
+        : ""
+    }
+
+    /* ── Style: minimalist ── */
+    ${
+      templateStyle === "minimalist"
+        ? `
+      #${id} .header { background: transparent !important; border: none !important; height: auto; }
+      #${id} .doc-title { font-weight: 400; letter-spacing: 0.15em; color: #6b7280; font-size: ${isPdf ? "14pt" : "20px"}; }
+      #${id} .divider { display: none; }
+      #${id} .section-label { color: #9ca3af; font-weight: 400; }
+      #${id} table.stmt-items thead th { background: transparent !important; border-bottom: 1px solid #e5e7eb; color: #9ca3af; font-weight: 500; }
+      #${id} table.stmt-items tbody td { border-bottom: 1px solid #f3f4f6; }
+    `
+        : ""
+    }
+
+    @media print {
+      html, body { margin: 0; padding: 0; width: 210mm; height: 297mm; }
+      #${id}.statement-page { width: 210mm; min-height: 297mm; page-break-after: always; }
+      #${id} .stmt-inner { padding: 0; }
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      tr, td, th { break-inside: avoid; page-break-inside: avoid; }
+      .stmt-totals, .banking { break-inside: avoid; page-break-inside: avoid; }
+    }
+  `;
+
+  const balanceClass = (amount: number) => (amount > 0 ? "bal-owed" : amount < 0 ? "bal-credit" : "bal-zero");
 
   return (
-    <div id={id} className={containerClassName} style={containerStyle}>
-      {/* PDF Print Styles */}
+    <div id={id} className="statement-page">
+      <style dangerouslySetInnerHTML={{ __html: embeddedStyles }} />
       {variant === "pdf" && <style dangerouslySetInnerHTML={{ __html: PDF_PRINT_STYLES }} />}
 
-      {/* Main content area - flex-grow to push footer down */}
-      <div style={{ flex: 1 }}>
-        {/* Header Section - Style-aware (matching UnifiedInvoiceLayout) */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: isLogoRight ? "row-reverse" : "row",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: "24px",
-            padding: style === "modern" ? "16px" : "0",
-            backgroundColor: headerStyles.headerBg,
-            borderTop: headerStyles.headerBorder,
-            borderRadius: style === "modern" ? "4px" : "0",
-          }}
-        >
-          {/* Left: Logo + Company Block */}
-          <div>
-            {logoUrl && (
-              <img
-                src={logoUrl}
-                alt="Company Logo"
-                crossOrigin="anonymous"
-                style={{
-                  maxHeight: "90px",
-                  width: "auto",
-                  objectFit: "contain",
-                  marginBottom: companySettings ? "8px" : "0",
-                }}
-              />
-            )}
-            {companySettings && (
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: style === "modern" ? "rgba(255,255,255,0.85)" : "#6b7280",
-                  lineHeight: 1.5,
-                }}
-              >
-                {companySettings.name && (
-                  <div style={{ fontWeight: 500, color: style === "modern" ? "white" : accentColor }}>
-                    {companySettings.name}
-                  </div>
-                )}
-                {/* Structured address fields - each on its own line */}
-                {companySettings.addressLine1 && <div>{companySettings.addressLine1}</div>}
-                {companySettings.addressLine2 && <div>{companySettings.addressLine2}</div>}
-                {companySettings.locality && <div>{companySettings.locality}</div>}
-                {companySettings.postCode && <div>{companySettings.postCode}</div>}
-                {/* Legacy fallback if structured fields are empty */}
-                {!companySettings.addressLine1 && companySettings.address && (
-                  <div style={{ whiteSpace: "pre-line" }}>{companySettings.address}</div>
-                )}
-                {companySettings.city && (
-                  <div>
-                    {companySettings.city}
-                    {companySettings.state && `, ${companySettings.state}`} {companySettings.zipCode}
-                  </div>
-                )}
-                {companySettings.phone && <div>Tel: {companySettings.phone}</div>}
-                {companySettings.email && <div>{companySettings.email}</div>}
-                {companySettings.taxId && <div>VAT: {companySettings.taxId}</div>}
+      <div className="stmt-inner">
+        <div className="body">
+          {/* HEADER — identical structure to UnifiedInvoiceLayout */}
+          <div className="header">
+            <div className="header-left">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="logo" crossOrigin="anonymous" />
+              ) : (
+                <div style={{ height: isPdf ? "18mm" : 60 }} />
+              )}
+              <div className="company">
+                {companySettings?.name && <strong>{companySettings.name}</strong>}
+                {companyAddressLines.map((l, idx) => (
+                  <div key={idx}>{l}</div>
+                ))}
+                {companySettings?.email && <div>{companySettings.email}</div>}
+                {companySettings?.phone && <div>{companySettings.phone}</div>}
+                {companySettings?.taxId && <div>VAT: {companySettings.taxId}</div>}
               </div>
-            )}
-          </div>
-
-          {/* Right: Document Title + Meta */}
-          <div style={{ textAlign: "right" }}>
-            <h1
-              style={{
-                fontSize: "26px",
-                fontWeight: 800,
-                letterSpacing: "0.08em",
-                marginBottom: "8px",
-                color: headerStyles.titleColor,
-              }}
-            >
-              {statementType === "outstanding" ? "OUTSTANDING STATEMENT" : "ACTIVITY STATEMENT"}
-            </h1>
-            <div
-              style={{
-                fontSize: "11px",
-                color: style === "modern" ? "rgba(255,255,255,0.85)" : "#4b5563",
-                lineHeight: 1.6,
-              }}
-            >
-              <div>
-                <span style={{ fontWeight: 500 }}>Statement Date:</span> {format(new Date(), "dd/MM/yyyy")}
+            </div>
+            <div className="header-right">
+              <div className="doc-title">
+                {statementType === "outstanding" ? "OUTSTANDING STATEMENT" : "ACTIVITY STATEMENT"}
               </div>
-              <div>
-                <span style={{ fontWeight: 500 }}>Period:</span> {format(dateRange.from, "dd/MM/yyyy")} →{" "}
-                {format(dateRange.to, "dd/MM/yyyy")}
+              <div className="meta">
+                <div>
+                  <strong>Statement Date:</strong> {format(new Date(), "dd/MM/yyyy")}
+                </div>
+                <div>
+                  <strong>Period:</strong> {format(dateRange.from, "dd/MM/yyyy")} → {format(dateRange.to, "dd/MM/yyyy")}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Divider - only for non-modern styles */}
-        {style !== "modern" && <div style={{ borderTop: "1px solid #e5e7eb", marginBottom: "1.5rem" }} />}
+          {templateStyle !== "modern" && <hr className="divider" />}
 
-        {/* Customer Info */}
-        <div style={{ marginBottom: "1.5rem" }}>
-          <div
-            style={{
-              fontSize: "11px",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              color: "#6b7280",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Statement For
+          {/* CUSTOMER */}
+          <div className="stmt-for">
+            <div className="section-label">Statement For</div>
+            <div className="customer-name">{customer.name}</div>
+            <div className="customer-info">
+              {customer.email && <div>{customer.email}</div>}
+              {customer.address && <div style={{ whiteSpace: "pre-line" }}>{customer.address}</div>}
+              {customer.vat_number && <div>VAT: {customer.vat_number}</div>}
+            </div>
           </div>
-          <div style={{ fontWeight: 500, marginBottom: "0.25rem" }}>{customer.name}</div>
-          <div style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.5 }}>
-            {customer.email && <div>{customer.email}</div>}
-            {customer.address && <div style={{ whiteSpace: "pre-line" }}>{customer.address}</div>}
-            {customer.vat_number && <div>VAT: {customer.vat_number}</div>}
-          </div>
-        </div>
 
-        {/* Statement Table */}
-        <div style={{ marginBottom: "1.5rem" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "12px",
-              tableLayout: "fixed", // Fixed table layout for consistent columns
-            }}
-          >
+          {/* STATEMENT TABLE */}
+          <table className="stmt-items">
             <colgroup>
               <col style={{ width: "12%" }} />
               <col style={{ width: "38%" }} />
@@ -403,226 +462,55 @@ export const UnifiedStatementLayout = ({
               <col style={{ width: "14%" }} />
             </colgroup>
             <thead>
-              <tr style={{ backgroundColor: "var(--invoice-primary-color)" }}>
-                <th
-                  style={{
-                    color: "white",
-                    padding: "10px 8px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Date
-                </th>
-                <th
-                  style={{
-                    color: "white",
-                    padding: "10px 8px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Description
-                </th>
-                <th
-                  style={{
-                    color: "white",
-                    padding: "10px 8px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Type
-                </th>
-                <th
-                  style={{
-                    color: "white",
-                    padding: "10px 8px",
-                    textAlign: "right",
-                    fontWeight: 600,
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Debit
-                </th>
-                <th
-                  style={{
-                    color: "white",
-                    padding: "10px 8px",
-                    textAlign: "right",
-                    fontWeight: 600,
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Credit
-                </th>
-                <th
-                  style={{
-                    color: "white",
-                    padding: "10px 8px",
-                    textAlign: "right",
-                    fontWeight: 600,
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Balance
-                </th>
+              <tr>
+                <th style={{ textAlign: "left" }}>Date</th>
+                <th style={{ textAlign: "left" }}>Description</th>
+                <th style={{ textAlign: "center" }}>Type</th>
+                <th className="num">Debit</th>
+                <th className="num">Credit</th>
+                <th className="num">Balance</th>
               </tr>
             </thead>
             <tbody>
-              {/* Opening Balance Row */}
+              {/* Opening balance row */}
               {statementType === "activity" && (
-                <tr
-                  style={{
-                    backgroundColor: "#f1f5f9",
-                    fontWeight: 500,
-                    breakInside: "avoid",
-                    pageBreakInside: "avoid",
-                  }}
-                >
-                  <td style={{ padding: "8px", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
-                    {format(dateRange.from, "dd/MM/yyyy")}
-                  </td>
-                  <td style={{ padding: "8px", borderBottom: "1px solid #e5e7eb" }} colSpan={4}>
-                    Opening Balance
-                  </td>
-                  <td
-                    style={{
-                      padding: "8px",
-                      borderBottom: "1px solid #e5e7eb",
-                      textAlign: "right",
-                      color: openingBalance > 0 ? "#dc2626" : openingBalance < 0 ? "#16a34a" : "#6b7280",
-                      fontWeight: 600,
-                      whiteSpace: "nowrap",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {formatBalance(openingBalance)}
-                  </td>
+                <tr className="opening-row">
+                  <td>{format(dateRange.from, "dd/MM/yyyy")}</td>
+                  <td colSpan={4}>Opening Balance</td>
+                  <td className={`num ${balanceClass(openingBalance)}`}>{formatBalance(openingBalance)}</td>
                 </tr>
               )}
 
-              {/* Transaction Rows */}
+              {/* Transaction rows */}
               {statementLines.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: "1.5rem", textAlign: "center", color: "#6b7280" }}>
+                  <td colSpan={6} style={{ padding: "24px", textAlign: "center", color: "#6b7280" }}>
                     No transactions for this period.
                   </td>
                 </tr>
               ) : (
                 (() => {
-                  let runningBalance = openingBalance;
+                  let running = openingBalance;
                   return statementLines.map((line, index) => {
-                    runningBalance += line.debit - line.credit;
-                    const balanceColor = runningBalance > 0 ? "#dc2626" : runningBalance < 0 ? "#16a34a" : "#6b7280";
+                    running += line.debit - line.credit;
                     const typeLabel = line.type === "invoice" ? "INV" : line.type === "credit_note" ? "CN" : "PMT";
-
+                    const typeClass =
+                      line.type === "invoice" ? "type-inv" : line.type === "credit_note" ? "type-cn" : "type-pmt";
                     return (
-                      <tr
-                        key={line.id}
-                        style={{
-                          ...getRowStyle(index),
-                          breakInside: "avoid",
-                          pageBreakInside: "avoid",
-                        }}
-                      >
-                        <td style={{ padding: "8px", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
-                          {format(new Date(line.date), "dd/MM/yyyy")}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px",
-                            borderBottom: "1px solid #e5e7eb",
-                            whiteSpace: "normal",
-                            overflowWrap: "anywhere",
-                            wordBreak: "break-word",
-                          }}
-                        >
+                      <tr key={line.id} className={index % 2 !== 0 ? "alt-row" : ""}>
+                        <td>{format(new Date(line.date), "dd/MM/yyyy")}</td>
+                        <td style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
                           {line.description}
                           {line.reference && (
                             <span style={{ color: "#9ca3af", marginLeft: "0.5rem" }}>({line.reference})</span>
                           )}
                         </td>
-                        <td style={{ padding: "8px", borderBottom: "1px solid #e5e7eb", textAlign: "center" }}>
-                          <span
-                            style={{
-                              padding: "2px 6px",
-                              borderRadius: "4px",
-                              fontSize: "10px",
-                              fontWeight: 500,
-                              backgroundColor:
-                                line.type === "invoice"
-                                  ? "#dbeafe"
-                                  : line.type === "credit_note"
-                                    ? "#fef3c7"
-                                    : "#d1fae5",
-                              color:
-                                line.type === "invoice"
-                                  ? "#1e40af"
-                                  : line.type === "credit_note"
-                                    ? "#92400e"
-                                    : "#065f46",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {typeLabel}
-                          </span>
+                        <td style={{ textAlign: "center" }}>
+                          <span className={`type-badge ${typeClass}`}>{typeLabel}</span>
                         </td>
-                        <td
-                          style={{
-                            padding: "8px",
-                            borderBottom: "1px solid #e5e7eb",
-                            textAlign: "right",
-                            whiteSpace: "nowrap",
-                            fontVariantNumeric: "tabular-nums",
-                          }}
-                        >
-                          {formatDebit(line.debit)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px",
-                            borderBottom: "1px solid #e5e7eb",
-                            textAlign: "right",
-                            whiteSpace: "nowrap",
-                            fontVariantNumeric: "tabular-nums",
-                          }}
-                        >
-                          {formatCredit(line.credit)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px",
-                            borderBottom: "1px solid #e5e7eb",
-                            textAlign: "right",
-                            color: balanceColor,
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                            fontVariantNumeric: "tabular-nums",
-                          }}
-                        >
-                          {formatBalance(runningBalance)}
-                        </td>
+                        <td className="num">{formatDebit(line.debit)}</td>
+                        <td className="num">{formatCredit(line.credit)}</td>
+                        <td className={`num ${balanceClass(running)}`}>{formatBalance(running)}</td>
                       </tr>
                     );
                   });
@@ -630,145 +518,87 @@ export const UnifiedStatementLayout = ({
               )}
             </tbody>
           </table>
-        </div>
 
-        {/* Totals Section - avoid page break */}
-        <div
-          style={{
-            breakInside: "avoid",
-            pageBreakInside: "avoid",
-          }}
-        >
-          <div
-            style={{
-              borderTop: "2px solid #e5e7eb",
-              paddingTop: "1rem",
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            <div style={{ width: "280px" }}>
-              {/* Summary rows */}
-              <div
-                style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: "13px" }}
-              >
-                <span style={{ color: "#6b7280" }}>Total Debits:</span>
-                <span style={{ fontWeight: 500, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                  {formatCurrency(totalDebits)}
-                </span>
+          {/* TOTALS */}
+          <div className="stmt-totals">
+            <div className="totals-inner">
+              <div className="totals-row">
+                <span className="lbl">Total Debits:</span>
+                <span className="val">{money(totalDebits)}</span>
+              </div>
+              <div className="totals-row">
+                <span className="lbl">Total Credits:</span>
+                <span className="val">{formatCredit(totalCredits)}</span>
               </div>
               <div
-                style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: "13px" }}
-              >
-                <span style={{ color: "#6b7280" }}>Total Credits:</span>
-                <span style={{ fontWeight: 500, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                  {formatCredit(totalCredits)}
-                </span>
-              </div>
-
-              {/* Closing Balance - prominent */}
-              <div
+                className={`closing-row ${balanceClass(closingBalance)}`}
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginTop: "0.75rem",
-                  paddingTop: "0.75rem",
                   borderTop: `2px solid ${closingBalance > 0 ? "#dc2626" : closingBalance < 0 ? "#16a34a" : "#6b7280"}`,
-                  fontSize: "16px",
-                  fontWeight: 700,
-                  color: closingBalance > 0 ? "#dc2626" : closingBalance < 0 ? "#16a34a" : "#6b7280",
                 }}
               >
                 <span>{closingBalance > 0 ? "Balance Due:" : closingBalance < 0 ? "Credit Balance:" : "Balance:"}</span>
-                <span style={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                  {formatBalance(closingBalance)}
-                </span>
+                <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatBalance(closingBalance)}</span>
               </div>
-
-              {/* Credit balance note */}
               {closingBalance < 0 && (
-                <div style={{ fontSize: "10px", color: "#16a34a", marginTop: "0.25rem", textAlign: "right" }}>
+                <div
+                  style={{ fontSize: isPdf ? "8pt" : "10px", color: "#16a34a", marginTop: "4px", textAlign: "right" }}
+                >
                   This is a credit balance in your favour.
                 </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Banking Details - if visible, keep together with totals */}
-        {bankingVisibility && bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && (
-          <div
-            style={{
-              marginTop: "2rem",
-              paddingTop: "1rem",
-              borderTop: "1px solid #e5e7eb",
-              breakInside: "avoid",
-              pageBreakInside: "avoid",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "11px",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "#6b7280",
-                marginBottom: "0.5rem",
-              }}
-            >
-              Payment Details
-            </div>
-            <div style={{ fontSize: "13px", color: "#374151", lineHeight: 1.6 }}>
+          {/* BANKING DETAILS */}
+          {showBanking && bankingSettings && (bankingSettings.bankName || bankingSettings.iban) && (
+            <div className="banking">
+              <div className="section-label">Banking Details</div>
               {bankingSettings.bankName && (
-                <div>
-                  <span style={{ color: "#6b7280" }}>Bank:</span> {bankingSettings.bankName}
+                <div className="line">
+                  <span className="lbl">Bank: </span>
+                  {bankingSettings.bankName}
                 </div>
               )}
               {bankingSettings.accountName && (
-                <div>
-                  <span style={{ color: "#6b7280" }}>Account Name:</span> {bankingSettings.accountName}
+                <div className="line">
+                  <span className="lbl">Account Name: </span>
+                  {bankingSettings.accountName}
                 </div>
               )}
               {bankingSettings.iban && (
-                <div>
-                  <span style={{ color: "#6b7280" }}>IBAN:</span> {bankingSettings.iban}
+                <div className="line">
+                  <span className="lbl">IBAN: </span>
+                  {bankingSettings.iban}
                 </div>
               )}
               {bankingSettings.swiftCode && (
-                <div>
-                  <span style={{ color: "#6b7280" }}>SWIFT/BIC:</span> {bankingSettings.swiftCode}
+                <div className="line">
+                  <span className="lbl">SWIFT/BIC: </span>
+                  {bankingSettings.swiftCode}
                 </div>
               )}
-              {bankingSettings.accountNumber && (
-                <div>
-                  <span style={{ color: "#6b7280" }}>Account Number:</span> {bankingSettings.accountNumber}
+              {bankingSettings.accountNumber && !bankingSettings.iban && (
+                <div className="line">
+                  <span className="lbl">Account Number: </span>
+                  {bankingSettings.accountNumber}
                 </div>
               )}
             </div>
-          </div>
-        )}
-      </div>
-      {/* End of main content wrapper */}
+          )}
+        </div>
 
-      {/* Footer - pinned to bottom for short statements */}
-      <div
-        style={{
-          marginTop: "auto",
-          paddingTop: "2rem",
-          borderTop: "1px solid #e5e7eb",
-          fontSize: "10px",
-          color: "#6b7280",
-          textAlign: "center",
-          breakInside: "avoid",
-          pageBreakInside: "avoid",
-        }}
-      >
-        Statement generated on {format(new Date(), "dd MMMM yyyy")} • {companySettings?.name || "Your Company"}
+        {/* FOOTER — matches invoice footer style */}
+        <div className="footer">
+          Statement generated on {format(new Date(), "dd MMMM yyyy")} • {companySettings?.name || "Your Company"} • All
+          amounts in EUR.
+        </div>
       </div>
     </div>
   );
 };
 
-// Legacy interface for backward compatibility with StatementModal
+/* ===================== LEGACY COMPAT (keep StatementModal working) ===================== */
+
 export interface LegacyStatementData {
   customer: StatementCustomer;
   invoices: Array<{
@@ -822,7 +652,6 @@ export interface LegacyStatementData {
   generatedAt: Date;
 }
 
-// Helper function to convert legacy data to new format
 export function convertLegacyStatementData(data: LegacyStatementData): {
   customer: StatementCustomer;
   companySettings: CompanySettings;
@@ -833,11 +662,8 @@ export function convertLegacyStatementData(data: LegacyStatementData): {
   statementType: "outstanding" | "activity";
 } {
   const { customer, company, invoices, creditNotes, payments, options } = data;
-
-  // Build statement lines from transactions
   const lines: StatementLine[] = [];
 
-  // Add invoices (debits)
   invoices.forEach((inv) => {
     lines.push({
       id: inv.id,
@@ -850,7 +676,6 @@ export function convertLegacyStatementData(data: LegacyStatementData): {
     });
   });
 
-  // Add credit notes (credits)
   if (options.includeCreditNotes) {
     creditNotes.forEach((cn) => {
       const totalAmount = cn.amount + cn.amount * cn.vat_rate;
@@ -866,7 +691,6 @@ export function convertLegacyStatementData(data: LegacyStatementData): {
     });
   }
 
-  // Add payments (credits)
   payments.forEach((pmt) => {
     lines.push({
       id: pmt.id,
@@ -879,13 +703,10 @@ export function convertLegacyStatementData(data: LegacyStatementData): {
     });
   });
 
-  // Sort by date
   lines.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Calculate balances
-  const totalDebits = lines.reduce((sum, line) => sum + line.debit, 0);
-  const totalCredits = lines.reduce((sum, line) => sum + line.credit, 0);
-  const closingBalance = totalDebits - totalCredits;
+  const totalDebits = lines.reduce((sum, l) => sum + l.debit, 0);
+  const totalCredits = lines.reduce((sum, l) => sum + l.credit, 0);
 
   return {
     customer,
@@ -904,17 +725,13 @@ export function convertLegacyStatementData(data: LegacyStatementData): {
       logo: company.logo,
     },
     statementLines: lines,
-    dateRange: {
-      from: options.dateFrom,
-      to: options.dateTo,
-    },
-    openingBalance: 0, // Could be calculated from historical data if needed
-    closingBalance,
+    dateRange: { from: options.dateFrom, to: options.dateTo },
+    openingBalance: 0,
+    closingBalance: totalDebits - totalCredits,
     statementType: options.statementType,
   };
 }
 
-// Re-export types for backward compatibility
 export type { LegacyStatementData as StatementData };
 export type StatementInvoice = LegacyStatementData["invoices"][0];
 export type StatementCreditNote = LegacyStatementData["creditNotes"][0];
