@@ -43,6 +43,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   const { toast } = useToast();
   const { user } = useAuth();
   const { settings: companySettings } = useCompanySettings();
+  const { settings: bankingSettings } = useBankingSettings();
   const { template } = useInvoiceTemplate();
   const statementContainerRef = useRef<HTMLDivElement>(null);
 
