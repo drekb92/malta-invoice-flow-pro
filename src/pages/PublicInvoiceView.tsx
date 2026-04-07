@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, isPast, differenceInDays } from "date-fns";
 import { formatNumber } from "@/lib/utils";
@@ -15,9 +15,10 @@ import {
   ShieldCheck,
   Copy,
   Check,
+  Download,
+  Phone,
+  Mail,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,15 @@ interface PublicInvoiceData {
   shareLink: { expires_at: string };
 }
 
-// ── Status helpers ─────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+// FIX: resolve relative logo paths to absolute Supabase storage URLs
+function getAbsoluteLogoUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/")) return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos${url}`;
+  return `https://cmysusctooyobrlnwtgt.supabase.co/storage/v1/object/public/logos/${url}`;
+}
 
 function deriveStatus(invoice: PublicInvoiceData["invoice"], totalPaid: number) {
   const total = invoice.total_amount ?? 0;
@@ -140,21 +149,17 @@ export default function PublicInvoiceView() {
   async function fetchInvoice(tok: string) {
     setLoading(true);
     setError(null);
-
     try {
-      const { data: result, error: fnError } = await supabase.functions.invoke(
-        "get-public-invoice",
-        { body: { token: tok } },
-      );
-
+      const { data: result, error: fnError } = await supabase.functions.invoke("get-public-invoice", {
+        body: { token: tok },
+      });
       if (fnError || !result || result.error) {
         setError(result?.error || "This link is invalid, has expired, or has been revoked.");
         setLoading(false);
         return;
       }
-
       setData(result as PublicInvoiceData);
-    } catch (e: any) {
+    } catch {
       setError("An unexpected error occurred.");
     } finally {
       setLoading(false);
@@ -202,8 +207,23 @@ export default function PublicInvoiceView() {
   const grand = totals?.total_amount ?? invoice.total_amount ?? 0;
   const remaining = Math.max(0, grand - totalPaid);
 
+  // FIX: compute discount from invoice fields
+  const subtotalBeforeDiscount = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+  const discountValue = Number(invoice.discount_value || 0);
+  const discountType = invoice.discount_type as "amount" | "percent" | null;
+  const discountAmount =
+    discountValue > 0
+      ? discountType === "percent"
+        ? Math.round(subtotalBeforeDiscount * (discountValue / 100) * 100) / 100
+        : Math.min(discountValue, subtotalBeforeDiscount)
+      : 0;
+  const hasDiscount = discountAmount > 0;
+
   const dueDate = invoice.due_date ? new Date(invoice.due_date) : null;
   const daysUntilDue = dueDate ? differenceInDays(dueDate, new Date()) : null;
+
+  // FIX: absolute logo URL
+  const logoUrl = getAbsoluteLogoUrl(company?.company_logo);
 
   const formatAddr = (c: PublicInvoiceData["customer"]) => {
     if (!c) return null;
@@ -217,23 +237,35 @@ export default function PublicInvoiceView() {
         .join(", ")
     : null;
 
+  const handlePrint = () => window.print();
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      {/* ── Status Banner ─────────────────────────────────────────────── */}
-      <div className={`w-full border-b ${statusCfg.barClass}`} style={{ height: 4 }} />
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; }
+          .print-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+        }
+      `}</style>
+
+      {/* Status colour bar */}
+      <div className={`w-full ${statusCfg.barClass} no-print`} style={{ height: 4 }} />
 
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          {/* Top row: company logo/name + status */}
+        {/* ── Header card ─────────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print-card">
+          {/* Company + status row */}
           <div className="px-6 pt-6 pb-4 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              {company?.company_logo ? (
+              {logoUrl ? (
                 <img
-                  src={company.company_logo}
-                  alt={company.company_name || "Logo"}
-                  className="h-10 w-auto max-w-[120px] object-contain"
+                  src={logoUrl}
+                  alt={company?.company_name || "Logo"}
+                  className="h-10 w-auto max-w-[140px] object-contain"
+                  crossOrigin="anonymous"
                 />
               ) : (
                 <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center">
@@ -245,11 +277,22 @@ export default function PublicInvoiceView() {
                 {company?.company_email && <p className="text-xs text-slate-400">{company.company_email}</p>}
               </div>
             </div>
-            <div
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${statusCfg.className}`}
-            >
-              <StatusIcon className={`h-3.5 w-3.5 ${statusCfg.iconClass}`} />
-              {statusCfg.label}
+            <div className="flex items-center gap-2">
+              {/* FIX: PDF download button */}
+              <button
+                onClick={handlePrint}
+                className="no-print inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                title="Save as PDF"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download PDF
+              </button>
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${statusCfg.className}`}
+              >
+                <StatusIcon className={`h-3.5 w-3.5 ${statusCfg.iconClass}`} />
+                {statusCfg.label}
+              </div>
             </div>
           </div>
 
@@ -307,8 +350,8 @@ export default function PublicInvoiceView() {
 
         {/* ── From / To ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* From */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          {/* From — FIX: added phone and email as clickable links */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 print-card">
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="h-4 w-4 text-slate-400" />
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">From</p>
@@ -321,21 +364,41 @@ export default function PublicInvoiceView() {
             {company?.company_registration_number && (
               <p className="text-xs text-slate-400">Reg: {company.company_registration_number}</p>
             )}
-            {company?.company_website && (
-              <a
-                href={company.company_website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1"
-              >
-                {company.company_website.replace(/^https?:\/\//, "")}
-                <ExternalLink className="h-2.5 w-2.5" />
-              </a>
-            )}
+            <div className="mt-2 space-y-1">
+              {company?.company_phone && (
+                <a
+                  href={`tel:${company.company_phone}`}
+                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  <Phone className="h-3 w-3 text-slate-400" />
+                  {company.company_phone}
+                </a>
+              )}
+              {company?.company_email && (
+                <a
+                  href={`mailto:${company.company_email}`}
+                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  <Mail className="h-3 w-3 text-slate-400" />
+                  {company.company_email}
+                </a>
+              )}
+              {company?.company_website && (
+                <a
+                  href={company.company_website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-blue-500 hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {company.company_website.replace(/^https?:\/\//, "")}
+                </a>
+              )}
+            </div>
           </div>
 
           {/* To */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 print-card">
             <div className="flex items-center gap-2 mb-3">
               <User className="h-4 w-4 text-slate-400" />
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bill To</p>
@@ -354,7 +417,7 @@ export default function PublicInvoiceView() {
         </div>
 
         {/* ── Line Items ─────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print-card">
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Invoice Items</p>
           </div>
@@ -371,6 +434,8 @@ export default function PublicInvoiceView() {
           {/* Items */}
           {items.map((item, i) => {
             const lineNet = item.quantity * item.unit_price;
+            // FIX: normalise VAT rate — handles both 0.18 and 18 storage formats
+            const displayVat = item.vat_rate > 1 ? item.vat_rate : item.vat_rate * 100;
             return (
               <div
                 key={i}
@@ -384,26 +449,47 @@ export default function PublicInvoiceView() {
                 </div>
                 <div className="col-span-2 text-right text-slate-600">{item.quantity}</div>
                 <div className="col-span-2 text-right text-slate-600">€{formatNumber(item.unit_price, 2)}</div>
-                <div className="col-span-1 text-right text-slate-400 text-xs">{item.vat_rate}%</div>
+                <div className="col-span-1 text-right text-slate-400 text-xs">{formatNumber(displayVat, 0)}%</div>
                 <div className="col-span-2 text-right font-medium text-slate-800">€{formatNumber(lineNet, 2)}</div>
               </div>
             );
           })}
 
-          {/* Totals */}
+          {/* Totals — FIX: discount row added, VAT label without rate */}
           <div className="border-t border-slate-200 bg-slate-50/60 px-5 py-4 space-y-1.5">
             <div className="flex justify-between text-sm text-slate-600">
               <span>Subtotal</span>
-              <span>€{formatNumber(net, 2)}</span>
+              <span>€{formatNumber(hasDiscount ? subtotalBeforeDiscount : net, 2)}</span>
             </div>
+
+            {/* FIX: discount row */}
+            {hasDiscount && (
+              <>
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>
+                    Discount
+                    {discountType === "percent" && discountValue > 0 ? ` (${formatNumber(discountValue, 0)}%)` : ""}
+                  </span>
+                  <span className="text-slate-500">−€{formatNumber(discountAmount, 2)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Taxable Amount</span>
+                  <span>€{formatNumber(net, 2)}</span>
+                </div>
+              </>
+            )}
+
+            {/* FIX: VAT label without hardcoded rate */}
             <div className="flex justify-between text-sm text-slate-600">
-              <span>VAT ({invoice.vat_rate ?? 18}%)</span>
+              <span>VAT</span>
               <span>€{formatNumber(vat, 2)}</span>
             </div>
+
             <div className="flex justify-between text-base font-bold text-slate-900 pt-1.5 border-t border-slate-200 mt-1.5">
               <span>Total</span>
               <span>€{formatNumber(grand, 2)}</span>
             </div>
+
             {totalPaid > 0 && (
               <>
                 <div className="flex justify-between text-sm text-emerald-600">
@@ -419,96 +505,99 @@ export default function PublicInvoiceView() {
           </div>
         </div>
 
-        {/* ── Pay Now + Banking ─────────────────────────────────────── */}
-        {status !== "paid" && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* ── Payment Details ───────────────────────────────────────── */}
+        {/* FIX: removed disabled "Pay Now" placeholder — shows banking only */}
+        {status !== "paid" && banking && (banking.bank_iban || banking.bank_name) && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print-card">
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-slate-400" />
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment Details</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">How to Pay</p>
             </div>
 
-            <div className="px-5 py-5 space-y-5">
-              {/* Pay Now button — placeholder */}
-              <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-center space-y-2">
-                <p className="text-sm font-medium text-slate-700">Pay €{formatNumber(remaining, 2)} online</p>
-                <p className="text-xs text-slate-400">Online payments coming soon — please use bank transfer below</p>
-                <button
-                  disabled
-                  className="mt-1 inline-flex items-center gap-2 rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white opacity-40 cursor-not-allowed"
-                >
-                  <CreditCard className="h-4 w-4" />
-                  Pay Now
-                </button>
+            <div className="px-5 py-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {banking.bank_name && (
+                  <div>
+                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">Bank</p>
+                    <p className="text-sm font-medium text-slate-800">{banking.bank_name}</p>
+                  </div>
+                )}
+                {banking.bank_account_name && (
+                  <div>
+                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">Account Name</p>
+                    <p className="text-sm font-medium text-slate-800">{banking.bank_account_name}</p>
+                  </div>
+                )}
+                {banking.bank_iban && (
+                  <div className="sm:col-span-2">
+                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">IBAN</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-sm font-mono font-semibold text-slate-800 tracking-wider">
+                        {banking.bank_iban}
+                      </p>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(banking.bank_iban!);
+                          setCopiedIban(true);
+                          setTimeout(() => setCopiedIban(false), 2000);
+                        }}
+                        className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                        title="Copy IBAN"
+                      >
+                        {copiedIban ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {banking.bank_swift_code && (
+                  <div>
+                    <p className="text-[11px] text-slate-400 uppercase tracking-wide">SWIFT / BIC</p>
+                    <p className="text-sm font-mono font-semibold text-slate-800">{banking.bank_swift_code}</p>
+                  </div>
+                )}
               </div>
 
-              {/* Banking details */}
-              {banking && (banking.bank_iban || banking.bank_name) ? (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bank Transfer</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {banking.bank_name && (
-                      <div>
-                        <p className="text-[11px] text-slate-400 uppercase tracking-wide">Bank</p>
-                        <p className="text-sm font-medium text-slate-800">{banking.bank_name}</p>
-                      </div>
-                    )}
-                    {banking.bank_account_name && (
-                      <div>
-                        <p className="text-[11px] text-slate-400 uppercase tracking-wide">Account Name</p>
-                        <p className="text-sm font-medium text-slate-800">{banking.bank_account_name}</p>
-                      </div>
-                    )}
-                    {banking.bank_iban && (
-                      <div className="sm:col-span-2">
-                        <p className="text-[11px] text-slate-400 uppercase tracking-wide">IBAN</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-sm font-mono font-semibold text-slate-800 tracking-wider">
-                            {banking.bank_iban}
-                          </p>
-                          <button
-                            onClick={async () => {
-                              await navigator.clipboard.writeText(banking.bank_iban!);
-                              setCopiedIban(true);
-                              setTimeout(() => setCopiedIban(false), 2000);
-                            }}
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                            title="Copy IBAN"
-                          >
-                            {copiedIban ? (
-                              <Check className="h-3.5 w-3.5 text-emerald-500" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {banking.bank_swift_code && (
-                      <div>
-                        <p className="text-[11px] text-slate-400 uppercase tracking-wide">SWIFT / BIC</p>
-                        <p className="text-sm font-mono font-semibold text-slate-800">{banking.bank_swift_code}</p>
-                      </div>
-                    )}
-                  </div>
-                  {/* Reference reminder */}
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-amber-700">
-                      Please use <span className="font-semibold">{invoice.invoice_number}</span> as the payment
-                      reference so your payment is matched correctly.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-slate-400">Please contact us for payment instructions.</p>
+              {/* Reference reminder */}
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700">
+                  Please use <span className="font-semibold">{invoice.invoice_number}</span> as the payment reference so
+                  your payment is matched correctly.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* If status is not paid but no banking details */}
+        {status !== "paid" && (!banking || (!banking.bank_iban && !banking.bank_name)) && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print-card">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-slate-400" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment</p>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-sm text-slate-500">Please contact us for payment instructions.</p>
+              {company?.company_email && (
+                <a
+                  href={`mailto:${company.company_email}?subject=Re: Invoice ${invoice.invoice_number}`}
+                  className="inline-flex items-center gap-1.5 mt-2 text-sm text-blue-500 hover:underline"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {company.company_email}
+                </a>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Payment History (if any) ────────────────────────────── */}
+        {/* ── Payment History ───────────────────────────────────────── */}
         {payments.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print-card">
             <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/70">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment History</p>
             </div>
@@ -528,8 +617,8 @@ export default function PublicInvoiceView() {
           </div>
         )}
 
-        {/* ── Trust footer ────────────────────────────────────────── */}
-        <div className="flex flex-col items-center gap-1.5 py-4 text-center">
+        {/* ── Trust footer ─────────────────────────────────────────── */}
+        <div className="flex flex-col items-center gap-1.5 py-4 text-center no-print">
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <ShieldCheck className="h-3.5 w-3.5 text-slate-300" />
             <span>Secure link · expires {format(new Date(data.shareLink.expires_at), "d MMM yyyy")}</span>
