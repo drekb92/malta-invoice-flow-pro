@@ -416,17 +416,13 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           `Best regards,\n${companySettings?.company_name || "Your Company"}`,
       );
 
-      const whatsappUrl = `https://wa.me/?text=${message}`;
-
-      // Open via redirect page to avoid cross-origin blocking
-      const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
-      if (!waWindow) {
-        toast({
-          title: "Popup blocked",
-          description: "Please allow popups for this site and try again.",
-          variant: "destructive",
-        });
-        return;
+      const rawPhone = quotation.customers?.phone || "";
+      const phone = rawPhone.replace(/\D/g, "");
+      // Add Malta country code (356) for 8-digit local numbers
+      const normPhone = phone.length === 8 ? `356${phone}` : phone;
+      const whatsappUrl = normPhone
+        ? `https://wa.me/${normPhone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
       }
 
       toast({
