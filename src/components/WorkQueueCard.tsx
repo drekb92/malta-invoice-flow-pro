@@ -4,19 +4,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
+import { SendWhatsAppDialog } from "@/components/SendWhatsAppDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useReminders } from "@/hooks/useReminders";
-import {
-  Bell,
-  CheckCircle2,
-  Loader2,
-  Send,
-  ArrowRight,
-} from "lucide-react";
-
+import { Bell, CheckCircle2, Loader2, Send, ArrowRight, MessageCircle } from "lucide-react";
 
 interface OverdueInvoice {
   id: string;
@@ -50,7 +43,6 @@ interface WorkQueueCardProps {
   onInvoiceSent?: () => void;
 }
 
-
 export function WorkQueueCard({
   overdueInvoices,
   needsSendingInvoices,
@@ -62,33 +54,37 @@ export function WorkQueueCard({
   const { user } = useAuth();
   const { settings: companySettings } = useCompanySettings();
   const { sendReminder, sending } = useReminders();
-  
+
   const [activeTab, setActiveTab] = useState("reminders");
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
+
+  // Email dialog state (Needs Sending tab)
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<UnsentInvoice | null>(null);
 
+  // WhatsApp dialog state (overdue reminders)
+  const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
+  const [whatsappInvoice, setWhatsappInvoice] = useState<OverdueInvoice | null>(null);
+
   // Sort by days overdue (most urgent first) and take top 6
-  const sortedOverdueInvoices = [...overdueInvoices].sort(
-    (a, b) => b.days_overdue - a.days_overdue
-  );
+  const sortedOverdueInvoices = [...overdueInvoices].sort((a, b) => b.days_overdue - a.days_overdue);
   const topOverdueInvoices = sortedOverdueInvoices.slice(0, 6);
   const remainingOverdueCount = overdueInvoices.length - 6;
 
   const handleSendReminder = async (invoice: OverdueInvoice) => {
     setSendingInvoiceId(invoice.id);
     let level: "friendly" | "firm" | "final" = "friendly";
-    if (invoice.days_overdue >= 21) {
-      level = "final";
-    } else if (invoice.days_overdue >= 14) {
-      level = "firm";
-    }
-    
+    if (invoice.days_overdue >= 21) level = "final";
+    else if (invoice.days_overdue >= 14) level = "firm";
+
     const result = await sendReminder(invoice.id, level);
     setSendingInvoiceId(null);
-    if (result.success && onReminderSent) {
-      onReminderSent();
-    }
+    if (result.success && onReminderSent) onReminderSent();
+  };
+
+  const handleWhatsAppClick = (invoice: OverdueInvoice) => {
+    setWhatsappInvoice(invoice);
+    setWhatsappDialogOpen(true);
   };
 
   const getOverdueBadgeClasses = (daysOverdue: number) => {
@@ -96,7 +92,6 @@ export function WorkQueueCard({
     if (daysOverdue >= 31) return "bg-orange-100 text-orange-800 border-orange-300";
     return "bg-amber-100 text-amber-800 border-amber-300";
   };
-
 
   // Needs Sending handlers
   const handleSendClick = (invoice: UnsentInvoice) => {
@@ -110,11 +105,7 @@ export function WorkQueueCard({
     onInvoiceSent?.();
   };
 
-  const getViewAllLink = () => {
-    return activeTab === "reminders" 
-      ? "/invoices?status=overdue" 
-      : "/invoices?needsSending=true";
-  };
+  const getViewAllLink = () => (activeTab === "reminders" ? "/invoices?status=overdue" : "/invoices?needsSending=true");
 
   return (
     <>
@@ -142,7 +133,7 @@ export function WorkQueueCard({
                   )}
                 </TabsTrigger>
               </TabsList>
-              
+
               <Link
                 to={getViewAllLink()}
                 className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 shrink-0"
@@ -153,20 +144,16 @@ export function WorkQueueCard({
             </div>
           </Tabs>
         </CardHeader>
-        
+
         <CardContent className="flex-1 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            {/* Follow-up Queue Tab */}
+            {/* ── Follow-up Queue Tab ── */}
             <TabsContent value="reminders" className="mt-0 flex-1 overflow-auto">
               {overdueInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
-                  <p className="text-sm font-medium text-foreground">
-                    All invoices are on track!
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    No overdue invoices need attention
-                  </p>
+                  <p className="text-sm font-medium text-foreground">All invoices are on track!</p>
+                  <p className="text-xs text-muted-foreground mt-1">No overdue invoices need attention</p>
                 </div>
               ) : (
                 <>
@@ -183,12 +170,11 @@ export function WorkQueueCard({
                           >
                             {invoice.invoice_number}
                           </Link>
-                          <span className="text-xs text-muted-foreground truncate block">
-                            {invoice.customer_name}
-                          </span>
+                          <span className="text-xs text-muted-foreground truncate block">{invoice.customer_name}</span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-right">
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="text-right mr-1">
                             <span className="text-sm font-medium tabular-nums block">
                               {invoice.balance_due > 0
                                 ? formatCurrency(invoice.balance_due)
@@ -202,9 +188,13 @@ export function WorkQueueCard({
                               {invoice.days_overdue}d
                             </span>
                           </div>
+
+                          {/* Email reminder button */}
                           <Button
                             size="sm"
+                            variant="outline"
                             className="h-7 w-7 p-0"
+                            title="Send email reminder"
                             onClick={() => handleSendReminder(invoice)}
                             disabled={sending && sendingInvoiceId === invoice.id}
                           >
@@ -213,6 +203,17 @@ export function WorkQueueCard({
                             ) : (
                               <Bell className="h-3 w-3" />
                             )}
+                          </Button>
+
+                          {/* WhatsApp reminder button */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 w-7 p-0 text-green-700 hover:text-green-800 hover:bg-green-50 hover:border-green-300"
+                            title="Send WhatsApp reminder"
+                            onClick={() => handleWhatsAppClick(invoice)}
+                          >
+                            <MessageCircle className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
@@ -235,17 +236,13 @@ export function WorkQueueCard({
               )}
             </TabsContent>
 
-            {/* Needs Sending Tab */}
+            {/* ── Needs Sending Tab ── */}
             <TabsContent value="sending" className="mt-0 flex-1 overflow-auto">
               {needsSendingInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
-                  <p className="text-sm font-medium text-foreground">
-                    All invoices have been sent!
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    No drafts or unsent invoices
-                  </p>
+                  <p className="text-sm font-medium text-foreground">All invoices have been sent!</p>
+                  <p className="text-xs text-muted-foreground mt-1">No drafts or unsent invoices</p>
                 </div>
               ) : (
                 <>
@@ -262,9 +259,7 @@ export function WorkQueueCard({
                           >
                             {invoice.invoice_number}
                           </button>
-                          <span className="text-xs text-muted-foreground truncate block">
-                            {invoice.customer_name}
-                          </span>
+                          <span className="text-xs text-muted-foreground truncate block">{invoice.customer_name}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="text-right">
@@ -278,11 +273,7 @@ export function WorkQueueCard({
                               {invoice.status === "draft" ? "Draft" : "Not sent"}
                             </Badge>
                           </div>
-                          <Button
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() => handleSendClick(invoice)}
-                          >
+                          <Button size="sm" className="h-7 w-7 p-0" onClick={() => handleSendClick(invoice)}>
                             <Send className="h-3 w-3" />
                           </Button>
                         </div>
@@ -309,6 +300,7 @@ export function WorkQueueCard({
         </CardContent>
       </Card>
 
+      {/* Email dialog — Needs Sending tab */}
       {selectedInvoice && user && (
         <SendDocumentEmailDialog
           open={sendDialogOpen}
@@ -325,6 +317,34 @@ export function WorkQueueCard({
           userId={user.id}
           onSuccess={handleSendSuccess}
           previewAvailable={false}
+        />
+      )}
+
+      {/* WhatsApp dialog — overdue reminders */}
+      {whatsappInvoice && user && (
+        <SendWhatsAppDialog
+          open={whatsappDialogOpen}
+          onOpenChange={(open) => {
+            setWhatsappDialogOpen(open);
+            if (!open) setWhatsappInvoice(null);
+          }}
+          documentType="invoice"
+          documentId={whatsappInvoice.id}
+          documentNumber={whatsappInvoice.invoice_number}
+          customer={{
+            id: whatsappInvoice.customer_id,
+            name: whatsappInvoice.customer_name || "Customer",
+            phone: null,
+          }}
+          companyName={companySettings?.company_name || ""}
+          userId={user.id}
+          totalAmount={whatsappInvoice.balance_due}
+          dueDate={whatsappInvoice.due_date}
+          onSuccess={() => {
+            setWhatsappDialogOpen(false);
+            setWhatsappInvoice(null);
+            onReminderSent?.();
+          }}
         />
       )}
     </>
