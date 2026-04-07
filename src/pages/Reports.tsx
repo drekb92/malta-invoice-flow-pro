@@ -283,23 +283,32 @@ const Reports = () => {
   // ── Top customers ────────────────────────────────────────────────────────
 
   const topCustomers = useMemo(() => {
-    const map: Record<string, { name: string; invoiced: number; collected: number; customerId: string }> = {};
+    // Build a map of total paid per invoice across ALL time (not period-filtered)
+    // so outstanding = invoice total - all payments ever made, not just this period.
+    const paidByInvoice = payments.reduce(
+      (acc, p) => {
+        acc[p.invoice_id] = (acc[p.invoice_id] || 0) + Number(p.amount || 0);
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const map: Record<string, { name: string; invoiced: number; outstanding: number; customerId: string }> = {};
     filteredInvoices.forEach((inv) => {
       const custId = inv.customer_id;
       const custName = (inv.customers as any)?.name || "Unknown";
-      if (!map[custId]) map[custId] = { name: custName, invoiced: 0, collected: 0, customerId: custId };
-      map[custId].invoiced += Number(inv.total_amount || 0);
+      if (!map[custId]) map[custId] = { name: custName, invoiced: 0, outstanding: 0, customerId: custId };
+      const invTotal = Number(inv.total_amount || 0);
+      const paid = paidByInvoice[inv.id] || 0;
+      map[custId].invoiced += invTotal;
+      // Only count remaining balance as outstanding (respects all-time payments)
+      map[custId].outstanding += Math.max(0, invTotal - paid);
     });
-    filteredPayments.forEach((p) => {
-      const inv = filteredInvoices.find((i) => i.id === p.invoice_id);
-      if (inv && map[inv.customer_id]) {
-        map[inv.customer_id].collected += Number(p.amount || 0);
-      }
-    });
+
     return Object.values(map)
       .sort((a, b) => b.invoiced - a.invoiced)
       .slice(0, 8);
-  }, [filteredInvoices, filteredPayments]);
+  }, [filteredInvoices, payments]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -524,8 +533,9 @@ const Reports = () => {
                     ) : (
                       <div className="space-y-2.5 mt-1">
                         {topCustomers.map((c) => {
-                          const rate = c.invoiced > 0 ? (c.collected / c.invoiced) * 100 : 0;
-                          const outstanding = c.invoiced - c.collected;
+                          const outstanding = c.outstanding;
+                          const collected = c.invoiced - outstanding;
+                          const rate = c.invoiced > 0 ? (collected / c.invoiced) * 100 : 0;
                           return (
                             <button
                               key={c.customerId}
