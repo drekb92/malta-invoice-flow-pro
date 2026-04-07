@@ -18,6 +18,7 @@ import { useBankingSettings } from "@/hooks/useBankingSettings";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { downloadPdfFromFunction, prepareHtmlForPdf } from "@/lib/edgePdf";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
+import { normalisePhone } from "@/hooks/useWhatsApp";
 import {
   UnifiedStatementLayout,
   convertLegacyStatementData,
@@ -34,6 +35,7 @@ interface StatementModalProps {
     id: string;
     name: string;
     email: string | null;
+    phone?: string | null;
     address?: string | null;
     vat_number?: string | null;
   };
@@ -60,11 +62,40 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [statementNumber, setStatementNumber] = useState("");
 
+  // ── Shared template settings builders ─────────────────────────────────────
+  const buildTemplateSettings = () =>
+    template
+      ? {
+          primaryColor: template.primary_color || "#1e3a5f",
+          accentColor: template.accent_color || "#26A65B",
+          fontFamily: template.font_family || "Inter",
+          style: (template.style as "modern" | "professional" | "minimalist") || "modern",
+          headerLayout: template.header_layout || "default",
+          tableStyle: template.table_style || "default",
+          totalsStyle: template.totals_style || "default",
+          bankingStyle: template.banking_style || "default",
+          bankingVisibility: template.banking_visibility ?? true,
+          vatSummaryVisibility: template.vat_summary_visibility ?? false,
+        }
+      : undefined;
+
+  const buildBankingSettings = () =>
+    bankingSettings
+      ? {
+          bankName: bankingSettings.bank_name,
+          accountName: bankingSettings.bank_account_name,
+          accountNumber: bankingSettings.bank_account_number,
+          swiftCode: bankingSettings.bank_swift_code,
+          iban: bankingSettings.bank_iban,
+          branch: bankingSettings.bank_branch,
+        }
+      : undefined;
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchStatementData = async (): Promise<StatementData | null> => {
     if (!user) return null;
 
     try {
-      // Fetch invoices for this customer within date range
       const { data: invoicesData, error: invoicesError } = await supabase
         .from("invoices")
         .select("id, invoice_number, invoice_date, due_date, status, total_amount, amount, vat_amount")
@@ -79,7 +110,6 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
 
       const invoiceIds = (invoicesData || []).map((inv) => inv.id);
 
-      // Fetch all payments for these invoices (regardless of statement type - needed for balance calc)
       let payments: StatementPayment[] = [];
       if (invoiceIds.length > 0) {
         const { data: paymentsData, error: paymentsError } = await supabase
@@ -100,7 +130,6 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         }));
       }
 
-      // Fetch credit notes if included
       let creditNotes: StatementCreditNote[] = [];
       if (includeCreditNotes) {
         const { data: cnData, error: cnError } = await supabase
@@ -125,45 +154,34 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         }));
       }
 
-      // Calculate payments per invoice to filter out fully-paid invoices for outstanding statement
       const paymentsByInvoice = new Map<string, number>();
       payments.forEach((pmt) => {
-        const current = paymentsByInvoice.get(pmt.invoice_id) || 0;
-        paymentsByInvoice.set(pmt.invoice_id, current + pmt.amount);
+        paymentsByInvoice.set(pmt.invoice_id, (paymentsByInvoice.get(pmt.invoice_id) || 0) + pmt.amount);
       });
 
-      // Calculate credits per invoice
       const creditsByInvoice = new Map<string, number>();
       creditNotes.forEach((cn) => {
         if (cn.invoice_id) {
           const totalAmount = cn.amount + cn.amount * cn.vat_rate;
-          const current = creditsByInvoice.get(cn.invoice_id) || 0;
-          creditsByInvoice.set(cn.invoice_id, current + totalAmount);
+          creditsByInvoice.set(cn.invoice_id, (creditsByInvoice.get(cn.invoice_id) || 0) + totalAmount);
         }
       });
 
-      // Build invoices list
       const invoices: StatementInvoice[] = (invoicesData || [])
-        .map((inv) => {
-          const paidAmount = paymentsByInvoice.get(inv.id) || 0;
-          const creditsAmount = creditsByInvoice.get(inv.id) || 0;
-          return {
-            id: inv.id,
-            invoice_number: inv.invoice_number || "",
-            invoice_date: inv.invoice_date || "",
-            due_date: inv.due_date || "",
-            status: inv.status || "",
-            total_amount: Number(inv.total_amount) || 0,
-            amount: Number(inv.amount) || 0,
-            vat_amount: Number(inv.vat_amount) || 0,
-            paid_amount: paidAmount + creditsAmount,
-          };
-        })
+        .map((inv) => ({
+          id: inv.id,
+          invoice_number: inv.invoice_number || "",
+          invoice_date: inv.invoice_date || "",
+          due_date: inv.due_date || "",
+          status: inv.status || "",
+          total_amount: Number(inv.total_amount) || 0,
+          amount: Number(inv.amount) || 0,
+          vat_amount: Number(inv.vat_amount) || 0,
+          paid_amount: (paymentsByInvoice.get(inv.id) || 0) + (creditsByInvoice.get(inv.id) || 0),
+        }))
         .filter((inv) => {
-          // For outstanding only, filter to invoices with remaining balance
           if (statementType === "outstanding") {
-            const remaining = inv.total_amount - (inv.paid_amount || 0);
-            return remaining > 0.01; // Small threshold for floating point
+            return inv.total_amount - (inv.paid_amount || 0) > 0.01;
           }
           return true;
         });
@@ -177,8 +195,8 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           vat_number: customer.vat_number || null,
         },
         invoices,
-        creditNotes: statementType === "outstanding" ? [] : creditNotes, // Don't include credit notes in outstanding view
-        payments: statementType === "outstanding" ? [] : payments, // Don't include payments in outstanding view (they're already factored into the remaining calc)
+        creditNotes: statementType === "outstanding" ? [] : creditNotes,
+        payments: statementType === "outstanding" ? [] : payments,
         company: {
           name: companySettings?.company_name || "Your Company",
           email: companySettings?.company_email,
@@ -193,13 +211,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           vat_number: companySettings?.company_vat_number,
           logo: companySettings?.company_logo,
         },
-        options: {
-          dateFrom,
-          dateTo,
-          statementType,
-          includeCreditNotes,
-          includeVatBreakdown,
-        },
+        options: { dateFrom, dateTo, statementType, includeCreditNotes, includeVatBreakdown },
         generatedAt: new Date(),
       };
 
@@ -210,15 +222,10 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     }
   };
 
-  // Generate PDF using Edge Function
   const generateEdgePdf = async (data: StatementData, filename: string) => {
-    // Set data and wait for render
     setStatementData(data);
     setIsGeneratingPdf(true);
-
-    // Wait for the layout to render
     await new Promise((resolve) => setTimeout(resolve, 100));
-
     try {
       await downloadPdfFromFunction(filename, template?.font_family || "Inter");
     } finally {
@@ -227,34 +234,23 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     }
   };
 
+  const generateStatementNumber = () => {
+    const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
+    return `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
+  };
+
   const handlePreviewPDF = async () => {
     setIsLoading(true);
     try {
       const data = await fetchStatementData();
       if (!data) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch statement data.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to fetch statement data.", variant: "destructive" });
         return;
       }
-
-      const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
-      const filename = `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
-      await generateEdgePdf(data, filename);
-
-      toast({
-        title: "Download Complete",
-        description: "Statement PDF has been downloaded.",
-      });
+      await generateEdgePdf(data, generateStatementNumber());
+      toast({ title: "Download Complete", description: "Statement PDF has been downloaded." });
     } catch (error) {
-      console.error("Error generating statement:", error);
-      toast({
-        title: "Error",
-        description: "Failed to generate statement PDF.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to generate statement PDF.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -265,38 +261,16 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     try {
       const data = await fetchStatementData();
       if (!data) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch statement data.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to fetch statement data.", variant: "destructive" });
         return;
       }
-
-      const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
-      const filename = `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
-      await generateEdgePdf(data, filename);
-
-      toast({
-        title: "Download Complete",
-        description: `Statement for ${customer.name} has been downloaded.`,
-      });
+      await generateEdgePdf(data, generateStatementNumber());
+      toast({ title: "Download Complete", description: `Statement for ${customer.name} has been downloaded.` });
     } catch (error) {
-      console.error("Error downloading statement:", error);
-      toast({
-        title: "Download Error",
-        description: "Failed to generate statement PDF.",
-        variant: "destructive",
-      });
+      toast({ title: "Download Error", description: "Failed to generate statement PDF.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Generate statement number for sharing
-  const generateStatementNumber = () => {
-    const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
-    return `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
   };
 
   const handleSendEmail = async () => {
@@ -308,35 +282,21 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       });
       return;
     }
-
     setEmailLoading(true);
     try {
       const data = await fetchStatementData();
       if (!data) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch statement data.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to fetch statement data.", variant: "destructive" });
         return;
       }
-
       const stmtNumber = generateStatementNumber();
       setStatementNumber(stmtNumber);
       setStatementData(data);
       setIsGeneratingPdf(true);
-
-      // Wait for render
       await new Promise((resolve) => setTimeout(resolve, 150));
-
       setShowEmailDialog(true);
     } catch (error) {
-      console.error("Error preparing email:", error);
-      toast({
-        title: "Error",
-        description: "Failed to prepare statement for email.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to prepare statement for email.", variant: "destructive" });
       setStatementData(null);
       setIsGeneratingPdf(false);
     } finally {
@@ -344,16 +304,13 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     }
   };
 
+  // ── WhatsApp send (fixed: phone pre-filled, message properly URL-encoded) ──
   const handleSendWhatsApp = async () => {
     setWhatsappLoading(true);
     try {
       const data = await fetchStatementData();
       if (!data) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch statement data.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to fetch statement data.", variant: "destructive" });
         return;
       }
 
@@ -362,13 +319,10 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       setStatementData(data);
       setIsGeneratingPdf(true);
 
-      // Wait for render
       await new Promise((resolve) => setTimeout(resolve, 150));
 
-      // Prepare HTML for the Edge Function
       const html = await prepareHtmlForPdf(stmtNumber, template?.font_family || "Inter");
 
-      // Call Edge Function to create share link
       const { data: shareData, error: shareError } = await supabase.functions.invoke("create-document-share-link", {
         body: {
           html,
@@ -387,16 +341,12 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
       const shareUrl = shareData?.url;
       if (!shareUrl) throw new Error("No share URL returned");
 
-      // Calculate balance for message
+      // Calculate balance for the message
       const totalInvoiced = data.invoices.reduce((sum, inv) => sum + inv.total_amount, 0);
       const totalCredits = data.creditNotes.reduce((sum, cn) => sum + cn.amount + cn.amount * cn.vat_rate, 0);
       const totalPayments = data.payments.reduce((sum, pmt) => sum + pmt.amount, 0);
       const balance = totalInvoiced - totalCredits - totalPayments;
-
-      const openInvoiceCount = data.invoices.filter((inv) => {
-        const remaining = inv.total_amount - (inv.paid_amount || 0);
-        return remaining > 0.01;
-      }).length;
+      const openInvoiceCount = data.invoices.filter((inv) => inv.total_amount - (inv.paid_amount || 0) > 0.01).length;
 
       let balanceLine = "";
       if (balance > 0) {
@@ -407,24 +357,20 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         balanceLine = "No balance due";
       }
 
-      const message = encodeURIComponent(
+      const message =
         `Hi ${customer.name},\n\n` +
-          `Here is your account statement for the period ${format(dateFrom, "dd/MM/yyyy")} to ${format(dateTo, "dd/MM/yyyy")}.\n\n` +
-          `${balanceLine}\n\n` +
-          `View/Download PDF: ${shareUrl}\n\n` +
-          `Please contact us if you have any questions.\n\n` +
-          `Best regards,\n${companySettings?.company_name || "Your Company"}`,
-      );
+        `Here is your account statement for the period ${format(dateFrom, "dd/MM/yyyy")} to ${format(dateTo, "dd/MM/yyyy")}.\n\n` +
+        `${balanceLine}\n\n` +
+        `View / download PDF:\n${shareUrl}\n\n` +
+        `Please contact us if you have any questions.\n\n` +
+        `Best regards,\n${companySettings?.company_name || "Your Company"}`;
 
-      const rawPhone = quotation.customers?.phone || "";
-      const phone = rawPhone.replace(/\D/g, "");
-      // Add Malta country code (356) for 8-digit local numbers
-      const normPhone = phone.length === 8 ? `356${phone}` : phone;
-      const whatsappUrl = normPhone
-        ? `https://wa.me/${normPhone}?text=${encodeURIComponent(message)}`
+      // Pre-fill phone number if available (fixed: was missing encodeURIComponent)
+      const phone = normalisePhone(customer.phone || "");
+      const whatsappUrl = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
         : `https://wa.me/?text=${encodeURIComponent(message)}`;
 
-      // Open via redirect page to avoid cross-origin blocking
       const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
       if (!waWindow) {
         toast({
@@ -435,17 +381,10 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         return;
       }
 
-      toast({
-        title: "WhatsApp Opened",
-        description: "Statement PDF link included in the message.",
-      });
+      toast({ title: "WhatsApp Opened", description: "Statement PDF link included in the message." });
     } catch (error: any) {
       console.error("Error preparing WhatsApp message:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create share link.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to create share link.", variant: "destructive" });
     } finally {
       setWhatsappLoading(false);
       setStatementData(null);
@@ -611,7 +550,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
                   variant="secondary"
                   onClick={handleSendWhatsApp}
                   disabled={isLoading || whatsappLoading}
-                  className="w-full"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
                 >
                   {whatsappLoading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -626,7 +565,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         </DialogContent>
       </Dialog>
 
-      {/* Hidden container for PDF generation - uses same id pattern as invoices */}
+      {/* Hidden container for PDF generation */}
       {isGeneratingPdf &&
         statementData &&
         (() => {
@@ -634,43 +573,14 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
           return (
             <div
               ref={statementContainerRef}
-              style={{
-                position: "fixed",
-                left: "-9999px",
-                top: 0,
-                width: "21cm",
-                background: "white",
-                zIndex: -1,
-              }}
+              style={{ position: "fixed", left: "-9999px", top: 0, width: "21cm", background: "white", zIndex: -1 }}
             >
               <div id="invoice-preview-root">
                 <UnifiedStatementLayout
                   customer={converted.customer}
                   companySettings={converted.companySettings}
-                  bankingSettings={
-                    bankingSettings
-                      ? {
-                          bankName: bankingSettings.bank_name,
-                          accountName: bankingSettings.bank_account_name,
-                          accountNumber: bankingSettings.bank_account_number,
-                          swiftCode: bankingSettings.bank_swift_code,
-                          iban: bankingSettings.bank_iban,
-                          branch: bankingSettings.bank_branch,
-                        }
-                      : undefined
-                  }
-                  templateSettings={{
-                    primaryColor: template?.primary_color || "#1e3a5f",
-                    accentColor: template?.accent_color || "#26A65B",
-                    fontFamily: template?.font_family || "Inter",
-                    style: (template?.style as "modern" | "professional" | "minimalist") || "modern",
-                    headerLayout: template?.header_layout || "default",
-                    tableStyle: template?.table_style || "default",
-                    totalsStyle: template?.totals_style || "default",
-                    bankingStyle: template?.banking_style || "default",
-                    bankingVisibility: template?.banking_visibility ?? true,
-                    vatSummaryVisibility: template?.vat_summary_visibility ?? false,
-                  }}
+                  bankingSettings={buildBankingSettings()}
+                  templateSettings={buildTemplateSettings()}
                   statementLines={converted.statementLines}
                   dateRange={converted.dateRange}
                   openingBalance={converted.openingBalance}
@@ -696,19 +606,12 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         documentType="statement"
         documentId={customer.id}
         documentNumber={statementNumber}
-        customer={{
-          id: customer.id,
-          name: customer.name,
-          email: customer.email,
-        }}
+        customer={{ id: customer.id, name: customer.name, email: customer.email }}
         companyName={companySettings?.company_name || "Your Company"}
         userId={user?.id || ""}
         fontFamily={template?.font_family || "Inter"}
         onSuccess={() => {
-          toast({
-            title: "Statement Sent",
-            description: `Statement emailed to ${customer.email}`,
-          });
+          toast({ title: "Statement Sent", description: `Statement emailed to ${customer.email}` });
         }}
       />
     </>
