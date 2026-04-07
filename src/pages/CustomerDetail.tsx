@@ -3,14 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
@@ -72,7 +65,7 @@ const CustomerDetail = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,24 +77,20 @@ const CustomerDetail = () => {
 
   // Auto-open statement modal if navigated with ?statement=open
   useEffect(() => {
-    if (searchParams.get('statement') === 'open' && customer) {
+    if (searchParams.get("statement") === "open" && customer) {
       setStatementModalOpen(true);
-      // Clear the query param to prevent re-opening on refresh
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, customer, setSearchParams]);
 
   useEffect(() => {
-    if (user && id) {
-      fetchCustomerData();
-    }
+    if (user && id) fetchCustomerData();
   }, [user, id]);
 
   const fetchCustomerData = async () => {
     if (!user || !id) return;
 
     try {
-      // Fetch customer
       const { data: customerData, error: customerError } = await supabase
         .from("customers")
         .select("*")
@@ -123,7 +112,6 @@ const CustomerDetail = () => {
 
       setCustomer(customerData);
 
-      // Fetch invoices for this customer
       const { data: invoicesData, error: invoicesError } = await supabase
         .from("invoices")
         .select("id, invoice_number, invoice_date, due_date, status, total_amount, is_issued")
@@ -135,7 +123,6 @@ const CustomerDetail = () => {
 
       setInvoices(invoicesData || []);
 
-      // Fetch payments for this customer's invoices to calculate true outstanding
       const invoiceIds = (invoicesData || []).map((inv) => inv.id);
       let paymentsMap = new Map<string, number>();
       if (invoiceIds.length > 0) {
@@ -148,7 +135,6 @@ const CustomerDetail = () => {
         });
       }
 
-      // Calculate outstanding amount (non-paid, non-draft, minus payments)
       const outstanding = (invoicesData || [])
         .filter((inv) => inv.status !== "paid" && inv.status !== "draft")
         .reduce((sum, inv) => {
@@ -160,55 +146,32 @@ const CustomerDetail = () => {
       setOutstandingAmount(outstanding);
     } catch (error) {
       console.error("Error fetching customer data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load customer details",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to load customer details", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IE", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" }).format(amount);
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { className: string; icon: React.ElementType }> = {
-      paid: {
-        className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-        icon: CheckCircle,
-      },
-      pending: {
-        className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-        icon: Clock,
-      },
+      paid: { className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: CheckCircle },
+      pending: { className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200", icon: Clock },
       partially_paid: {
         className: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
         icon: CreditCard,
       },
-      issued: {
-        className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-        icon: FileText,
-      },
-      overdue: {
-        className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-        icon: AlertCircle,
-      },
-      draft: {
-        className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-        icon: FileText,
-      },
+      issued: { className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", icon: FileText },
+      overdue: { className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200", icon: AlertCircle },
+      draft: { className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200", icon: FileText },
     };
     return variants[status] || variants.draft;
   };
 
   const outstandingInvoices = invoices.filter(
-    (inv) => inv.status !== "paid" && inv.status !== "draft" && inv.status !== "overdue"
+    (inv) => inv.status !== "paid" && inv.status !== "draft" && inv.status !== "overdue",
   );
   const overdueInvoices = invoices.filter((inv) => inv.status === "overdue");
   const paidInvoices = invoices.filter((inv) => inv.status === "paid");
@@ -248,7 +211,7 @@ const CustomerDetail = () => {
   }
 
   const handleOpenSettlement = (invoice: Invoice, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click navigation
+    e.stopPropagation();
     setSelectedInvoice(invoice);
     setSettlementSheetOpen(true);
   };
@@ -282,21 +245,18 @@ const CustomerDetail = () => {
                 onClick={() => navigate(`/invoices/${invoice.id}`)}
               >
                 <TableCell className="py-2">
-                  <span className="font-medium text-primary hover:underline">
-                    {invoice.invoice_number}
-                  </span>
+                  <span className="font-medium text-primary hover:underline">{invoice.invoice_number}</span>
                 </TableCell>
-                <TableCell className="py-2 text-sm">
-                  {format(new Date(invoice.invoice_date), "dd/MM/yyyy")}
-                </TableCell>
-                <TableCell className="py-2 text-sm">
-                  {format(new Date(invoice.due_date), "dd/MM/yyyy")}
-                </TableCell>
+                <TableCell className="py-2 text-sm">{format(new Date(invoice.invoice_date), "dd/MM/yyyy")}</TableCell>
+                <TableCell className="py-2 text-sm">{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                 <TableCell className="py-2">
                   <div className="flex items-center gap-1.5">
                     <Badge className={`${statusBadge.className} text-xs`}>
                       <StatusIcon className="h-3 w-3 mr-1" />
-                      {invoice.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                      {invoice.status
+                        .split("_")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ")}
                     </Badge>
                     <Button
                       variant="ghost"
@@ -308,9 +268,7 @@ const CustomerDetail = () => {
                     </Button>
                   </div>
                 </TableCell>
-                <TableCell className="py-2 text-right font-medium">
-                  {formatCurrency(invoice.total_amount)}
-                </TableCell>
+                <TableCell className="py-2 text-right font-medium">{formatCurrency(invoice.total_amount)}</TableCell>
               </TableRow>
             );
           })
@@ -340,31 +298,24 @@ const CustomerDetail = () => {
                     {outstandingAmount > 0 && (
                       <>
                         <span className="mx-2">·</span>
-                        <span className="text-destructive font-medium">{formatCurrency(outstandingAmount)} outstanding</span>
+                        <span className="text-destructive font-medium">
+                          {formatCurrency(outstandingAmount)} outstanding
+                        </span>
                       </>
                     )}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(`/customers/edit/${customer.id}`)}
-                >
+                <Button variant="outline" onClick={() => navigate(`/customers/edit/${customer.id}`)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Customer
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setStatementModalOpen(true)}
-                >
+                <Button variant="outline" onClick={() => setStatementModalOpen(true)}>
                   <ScrollText className="h-4 w-4 mr-2" />
                   Issue Statement
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setCreditNoteDrawerOpen(true)}
-                >
+                <Button variant="outline" onClick={() => setCreditNoteDrawerOpen(true)}>
                   <CreditCard className="h-4 w-4 mr-2" />
                   New Credit Note
                 </Button>
@@ -379,9 +330,9 @@ const CustomerDetail = () => {
 
         <main className="p-6">
           <div className="flex gap-6">
-            {/* Left Column - Main Content */}
+            {/* Left Column */}
             <div className="flex-1 space-y-6 min-w-0">
-            {/* Customer Info Card */}
+              {/* Customer Info Card */}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -389,9 +340,7 @@ const CustomerDetail = () => {
                       <Building className="h-5 w-5" />
                       Customer Information
                     </CardTitle>
-                    <Badge variant="outline">
-                      {customer.client_type === "Business" ? "Business" : "Individual"}
-                    </Badge>
+                    <Badge variant="outline">{customer.client_type === "Business" ? "Business" : "Individual"}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -400,14 +349,18 @@ const CustomerDetail = () => {
                       <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="font-medium truncate">{customer.email || <span className="text-muted-foreground">—</span>}</p>
+                        <p className="font-medium truncate">
+                          {customer.email || <span className="text-muted-foreground">—</span>}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs text-muted-foreground">Phone</p>
-                        <p className="font-medium">{customer.phone || <span className="text-muted-foreground">—</span>}</p>
+                        <p className="font-medium">
+                          {customer.phone || <span className="text-muted-foreground">—</span>}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -432,21 +385,27 @@ const CustomerDetail = () => {
                       <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs text-muted-foreground">VAT Number</p>
-                        <p className="font-medium">{customer.vat_number || <span className="text-muted-foreground">—</span>}</p>
+                        <p className="font-medium">
+                          {customer.vat_number || <span className="text-muted-foreground">—</span>}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <CreditCard className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs text-muted-foreground">VAT Status</p>
-                        <Badge variant="outline" className="mt-0.5">{customer.vat_status || "Not set"}</Badge>
+                        <Badge variant="outline" className="mt-0.5">
+                          {customer.vat_status || "Not set"}
+                        </Badge>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs text-muted-foreground">Payment Terms</p>
-                        <Badge variant="outline" className="mt-0.5">{customer.payment_terms || "Net 30"}</Badge>
+                        <Badge variant="outline" className="mt-0.5">
+                          {customer.payment_terms || "Net 30"}
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -466,7 +425,7 @@ const CustomerDetail = () => {
                   <CardDescription>View and manage invoices for this customer</CardDescription>
                 </CardHeader>
                 <CardContent>
-                <Tabs defaultValue="outstanding" className="w-full">
+                  <Tabs defaultValue="outstanding" className="w-full">
                     <TabsList className="grid w-full grid-cols-4 max-w-xl">
                       <TabsTrigger value="outstanding" className="flex items-center gap-1.5 text-xs">
                         <Clock className="h-3.5 w-3.5" />
@@ -491,19 +450,15 @@ const CustomerDetail = () => {
                         All ({invoices.length})
                       </TabsTrigger>
                     </TabsList>
-
                     <TabsContent value="outstanding" className="mt-4">
                       <InvoiceTable invoiceList={outstandingInvoices} />
                     </TabsContent>
-
                     <TabsContent value="overdue" className="mt-4">
                       <InvoiceTable invoiceList={overdueInvoices} />
                     </TabsContent>
-
                     <TabsContent value="paid" className="mt-4">
                       <InvoiceTable invoiceList={paidInvoices} />
                     </TabsContent>
-
                     <TabsContent value="all" className="mt-4">
                       <InvoiceTable invoiceList={invoices} />
                     </TabsContent>
@@ -512,7 +467,7 @@ const CustomerDetail = () => {
               </Card>
             </div>
 
-            {/* Right Column - Floating Customer Summary */}
+            {/* Right Column - Floating Summary */}
             <div className="hidden lg:block w-80 flex-shrink-0">
               <div className="sticky top-6">
                 <Card className="shadow-lg">
@@ -523,15 +478,10 @@ const CustomerDetail = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Total Outstanding - Big Red Number */}
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Total Outstanding</p>
-                      <p className="text-3xl font-bold text-destructive">
-                        {formatCurrency(outstandingAmount)}
-                      </p>
+                      <p className="text-3xl font-bold text-destructive">{formatCurrency(outstandingAmount)}</p>
                     </div>
-
-                    {/* Invoice Stats */}
                     <div className="space-y-2 pt-2 border-t">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total Invoices</span>
@@ -543,28 +493,22 @@ const CustomerDetail = () => {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Outstanding</span>
-                        <span className="font-medium text-yellow-600 dark:text-yellow-400">{outstandingInvoices.length}</span>
+                        <span className="font-medium text-yellow-600 dark:text-yellow-400">
+                          {outstandingInvoices.length}
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Overdue</span>
                         <span className="font-medium text-destructive">{overdueInvoices.length}</span>
                       </div>
                     </div>
-
-                    {/* Payment Terms */}
                     <div className="pt-2 border-t">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Payment Terms</span>
                         <span className="font-medium">{customer.payment_terms || "Net 30"}</span>
                       </div>
                     </div>
-
-                    {/* Issue Statement Button */}
-                    <Button 
-                      className="w-full mt-2" 
-                      variant="outline"
-                      onClick={() => setStatementModalOpen(true)}
-                    >
+                    <Button className="w-full mt-2" variant="outline" onClick={() => setStatementModalOpen(true)}>
                       <ScrollText className="h-4 w-4 mr-2" />
                       Issue Statement
                     </Button>
@@ -576,7 +520,7 @@ const CustomerDetail = () => {
         </main>
       </div>
 
-      {/* Statement Modal */}
+      {/* Statement Modal — phone now passed so WhatsApp can pre-fill the recipient */}
       {customer && (
         <StatementModal
           open={statementModalOpen}
@@ -585,6 +529,7 @@ const CustomerDetail = () => {
             id: customer.id,
             name: customer.name,
             email: customer.email,
+            phone: customer.phone,
             address: customer.address,
             vat_number: customer.vat_number,
           }}
@@ -605,9 +550,7 @@ const CustomerDetail = () => {
         customerId={customer?.id || ""}
         customerName={customer?.name}
         defaultType="customer_credit"
-        onSuccess={() => {
-          // Optionally refresh data or show toast
-        }}
+        onSuccess={() => {}}
       />
     </div>
   );
