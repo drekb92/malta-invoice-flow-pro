@@ -10,7 +10,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Filter, Download, MoreHorizontal, Eye, FileText, Shield, AlertCircle } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Download,
+  MoreHorizontal,
+  Eye,
+  FileText,
+  Shield,
+  AlertCircle,
+  MessageCircle,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +32,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { CreditNote as CreditNoteType } from "@/types/invoice-compliance";
 import { TransactionDrawer } from "@/components/TransactionDrawer";
 import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLayout";
+import { SendWhatsAppDialog } from "@/components/SendWhatsAppDialog";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
@@ -34,6 +45,7 @@ interface CreditNoteWithRelations extends CreditNoteType {
     email?: string;
     address?: string;
     vat_number?: string;
+    phone?: string;
   };
   invoices?: {
     invoice_number: string;
@@ -50,16 +62,78 @@ const CreditNotes = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [selectedCreditNote, setSelectedCreditNote] = useState<CreditNoteWithRelations | null>(null);
+
+  // PDF download state
   const [pdfCreditNoteData, setPdfCreditNoteData] = useState<InvoiceData | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // WhatsApp state
+  const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
+  const [whatsappCreditNote, setWhatsappCreditNote] = useState<CreditNoteWithRelations | null>(null);
+  const [whatsappCreditNoteData, setWhatsappCreditNoteData] = useState<InvoiceData | null>(null);
+
   const { toast } = useToast();
 
-  // Hooks for PDF generation (Edge HTML engine)
+  // Hooks for PDF / template
   const { template } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
 
+  // ── Shared template settings builder ──────────────────────────────────────
+  const buildTemplateSettings = () =>
+    template
+      ? {
+          primaryColor: template.primary_color,
+          accentColor: template.accent_color,
+          fontFamily: template.font_family,
+          fontSize: template.font_size,
+          layout: template.layout as any,
+          headerLayout: template.header_layout as any,
+          tableStyle: template.table_style as any,
+          totalsStyle: template.totals_style as any,
+          bankingVisibility: template.banking_visibility,
+          bankingStyle: template.banking_style as any,
+          marginTop: template.margin_top,
+          marginRight: template.margin_right,
+          marginBottom: template.margin_bottom,
+          marginLeft: template.margin_left,
+          style: (template.style as any) || "modern",
+        }
+      : undefined;
+
+  const buildCompanySettings = () =>
+    companySettings
+      ? {
+          name: companySettings.company_name,
+          email: companySettings.company_email,
+          phone: companySettings.company_phone,
+          address: companySettings.company_address,
+          addressLine1: companySettings.company_address_line1 || undefined,
+          addressLine2: companySettings.company_address_line2 || undefined,
+          locality: companySettings.company_locality || undefined,
+          postCode: companySettings.company_post_code || undefined,
+          city: companySettings.company_city,
+          state: companySettings.company_state,
+          zipCode: companySettings.company_zip_code,
+          country: companySettings.company_country,
+          taxId: companySettings.company_vat_number,
+          registrationNumber: companySettings.company_registration_number,
+          logo: companySettings.company_logo,
+        }
+      : undefined;
+
+  const buildBankingSettings = () =>
+    bankingSettings
+      ? {
+          bankName: bankingSettings.bank_name,
+          accountName: bankingSettings.bank_account_name,
+          swiftCode: bankingSettings.bank_swift_code,
+          iban: bankingSettings.bank_iban,
+        }
+      : undefined;
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchCreditNotes = async () => {
     try {
       const { data, error } = await (supabase as any)
@@ -69,7 +143,8 @@ const CreditNotes = () => {
           *,
           customers (
             name,
-            email
+            email,
+            phone
           )
         `,
         )
@@ -77,7 +152,6 @@ const CreditNotes = () => {
 
       if (error) throw error;
 
-      // Fetch original invoice numbers separately
       const creditNotesWithInvoices = await Promise.all(
         (data || []).map(async (cn: any) => {
           if (cn.invoice_id) {
@@ -86,11 +160,7 @@ const CreditNotes = () => {
               .select("invoice_number")
               .eq("id", cn.invoice_id)
               .maybeSingle();
-
-            return {
-              ...cn,
-              invoices: invoiceData || undefined,
-            } as CreditNoteWithRelations;
+            return { ...cn, invoices: invoiceData || undefined } as CreditNoteWithRelations;
           }
           return cn as CreditNoteWithRelations;
         }),
@@ -99,11 +169,7 @@ const CreditNotes = () => {
       setCreditNotes(creditNotesWithInvoices);
       setFilteredCreditNotes(creditNotesWithInvoices);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load credit notes",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to load credit notes", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -115,31 +181,21 @@ const CreditNotes = () => {
 
   useEffect(() => {
     let filtered = creditNotes;
-
-    // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        (creditNote) =>
-          creditNote.credit_note_number.toLowerCase().includes(term) ||
-          creditNote.customers?.name.toLowerCase().includes(term) ||
-          creditNote.invoices?.invoice_number?.toLowerCase().includes(term),
+        (cn) =>
+          cn.credit_note_number.toLowerCase().includes(term) ||
+          cn.customers?.name.toLowerCase().includes(term) ||
+          cn.invoices?.invoice_number?.toLowerCase().includes(term),
       );
     }
-
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((creditNote) => creditNote.status === statusFilter);
-    }
-
-    // Filter by type
-    if (typeFilter !== "all") {
-      filtered = filtered.filter((creditNote) => creditNote.type === typeFilter);
-    }
-
+    if (statusFilter !== "all") filtered = filtered.filter((cn) => cn.status === statusFilter);
+    if (typeFilter !== "all") filtered = filtered.filter((cn) => cn.type === typeFilter);
     setFilteredCreditNotes(filtered);
   }, [searchTerm, statusFilter, typeFilter, creditNotes]);
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "invoice_adjustment":
@@ -154,129 +210,112 @@ const CreditNotes = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "draft":
-        return {
-          className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-          label: "Draft",
-        };
+        return { className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200", label: "Draft" };
       case "issued":
-        return {
-          className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-          label: "Issued",
-        };
+        return { className: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200", label: "Issued" };
       case "applied":
-        return {
-          className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-          label: "Applied",
-        };
+        return { className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", label: "Applied" };
       default:
-        return {
-          className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-          label: status,
-        };
+        return { className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200", label: status };
     }
   };
 
+  const calculateTotal = (amount: number, vatRate: number) => amount + amount * vatRate;
+
+  // ── Build InvoiceData from a credit note (shared by PDF + WhatsApp) ────────
+  const buildCreditNoteInvoiceData = async (creditNoteId: string): Promise<InvoiceData> => {
+    const { data: cn, error: cnError } = await (supabase as any)
+      .from("credit_notes")
+      .select(`*, customers(name, email, address, vat_number, phone)`)
+      .eq("id", creditNoteId)
+      .maybeSingle();
+
+    if (cnError || !cn) throw new Error(cnError?.message || "Credit note not found");
+
+    const { data: itemsData, error: itemsError } = await supabase
+      .from("credit_note_items")
+      .select("*")
+      .eq("credit_note_id", creditNoteId);
+
+    if (itemsError) throw new Error(itemsError.message);
+
+    const items = (itemsData || []).map((item: any) => ({
+      description: item.description,
+      quantity: Number(item.quantity || 1),
+      unit_price: Number(item.unit_price || 0),
+      vat_rate: Number(item.vat_rate ?? cn.vat_rate ?? 0.18),
+      unit: item.unit || "unit",
+    }));
+
+    // Fallback single item if no line items exist
+    if (items.length === 0) {
+      const net = Number(cn.amount || 0);
+      items.push({
+        description: cn.reason || "Credit Note",
+        quantity: 1,
+        unit_price: net,
+        vat_rate: Number(cn.vat_rate ?? 0.18),
+        unit: "unit",
+      });
+    }
+
+    const net = Number(cn.amount || 0);
+    const vatRate = Number(cn.vat_rate ?? 0.18);
+    const vat = net * vatRate;
+
+    return {
+      invoiceNumber: cn.credit_note_number,
+      invoiceDate: cn.credit_note_date,
+      dueDate: cn.credit_note_date,
+      customer: {
+        name: cn.customers?.name || "Unknown Customer",
+        email: cn.customers?.email || "",
+        address: cn.customers?.address || "",
+        vat_number: cn.customers?.vat_number || "",
+      },
+      items,
+      totals: { netTotal: net, vatTotal: vat, grandTotal: net + vat },
+    };
+  };
+
+  // ── PDF download ───────────────────────────────────────────────────────────
   const handleDownloadPDF = async (creditNoteId: string) => {
     if (isGeneratingPdf) return;
     setIsGeneratingPdf(true);
-
     try {
-      // 1) Load credit note + customer
-      const { data: cn, error: cnError } = await (supabase as any)
-        .from("credit_notes")
-        .select(
-          `
-        *,
-        customers (
-          name,
-          email,
-          address,
-          vat_number
-        )
-      `,
-        )
-        .eq("id", creditNoteId)
-        .maybeSingle();
-
-      if (cnError || !cn) {
-        throw new Error(cnError?.message || "Credit note not found");
-      }
-
-      // 2) Load credit note items
-      const { data: itemsData, error: itemsError } = await supabase
-        .from("credit_note_items")
-        .select("*")
-        .eq("credit_note_id", creditNoteId);
-
-      if (itemsError) {
-        throw new Error(itemsError.message);
-      }
-
-      const items = (itemsData || []).map((item: any) => ({
-        description: item.description,
-        quantity: Number(item.quantity || 1),
-        unit_price: Number(item.unit_price || 0),
-        vat_rate: Number(item.vat_rate ?? cn.vat_rate ?? 0.18),
-        unit: item.unit || "unit",
-      }));
-
-      // 3) Totals from header (your column `amount` is NET)
-      const net = Number(cn.amount || 0);
-      const vatRate = Number(cn.vat_rate ?? 0.18);
-      const vat = net * vatRate;
-      const total = net + vat;
-
-      // Prepare data for UnifiedInvoiceLayout (Edge HTML engine)
-      const creditNoteData: InvoiceData = {
-        invoiceNumber: cn.credit_note_number,
-        invoiceDate: cn.credit_note_date,
-        dueDate: cn.credit_note_date,
-        customer: {
-          name: cn.customers?.name || "Unknown Customer",
-          email: cn.customers?.email || "",
-          address: cn.customers?.address || "",
-          vat_number: cn.customers?.vat_number || "",
-        },
-        items,
-        totals: {
-          netTotal: net,
-          vatTotal: vat,
-          grandTotal: total,
-        },
-      };
-
-      // Set data for hidden PDF preview
-      setPdfCreditNoteData(creditNoteData);
-
-      // Wait for layout to render
+      const data = await buildCreditNoteInvoiceData(creditNoteId);
+      setPdfCreditNoteData(data);
       await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Generate PDF via Edge Function
-      const filename = `CreditNote-${cn.credit_note_number || "credit-note"}`;
-      await downloadPdfFromFunction(filename, template?.font_family);
-
-      toast({
-        title: "PDF generated",
-        description: `Credit note ${cn.credit_note_number} downloaded.`,
-      });
+      await downloadPdfFromFunction(`CreditNote-${data.invoiceNumber}`, template?.font_family);
+      toast({ title: "PDF generated", description: `Credit note ${data.invoiceNumber} downloaded.` });
     } catch (error: any) {
       console.error("Error generating credit note PDF:", error);
-      toast({
-        title: "PDF error",
-        description: error.message || "Could not generate credit note PDF.",
-        variant: "destructive",
-      });
+      toast({ title: "PDF error", description: error.message || "Could not generate PDF.", variant: "destructive" });
     } finally {
       setIsGeneratingPdf(false);
       setPdfCreditNoteData(null);
     }
   };
 
-  const calculateTotal = (amount: number, vatRate: number) => {
-    const vat = amount * vatRate;
-    return amount + vat;
+  // ── WhatsApp send ──────────────────────────────────────────────────────────
+  const handleSendWhatsApp = async (cn: CreditNoteWithRelations) => {
+    try {
+      const data = await buildCreditNoteInvoiceData(cn.id);
+      setWhatsappCreditNoteData(data);
+      setWhatsappCreditNote(cn);
+      // Give the hidden layout time to render before the dialog captures the DOM
+      await new Promise((r) => setTimeout(r, 150));
+      setWhatsappDialogOpen(true);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Could not prepare WhatsApp send.",
+        variant: "destructive",
+      });
+    }
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -431,7 +470,7 @@ const CreditNotes = () => {
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                <Button variant="ghost" className="h-8 w-8 p0">
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -451,6 +490,10 @@ const CreditNotes = () => {
                                 <DropdownMenuItem onClick={() => handleDownloadPDF(creditNote.id)}>
                                   <Download className="h-4 w-4 mr-2" />
                                   Download PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSendWhatsApp(creditNote)}>
+                                  <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+                                  Send via WhatsApp
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -510,7 +553,7 @@ const CreditNotes = () => {
         type="credit_note"
       />
 
-      {/* Hidden PDF preview for credit note download (Edge HTML engine) */}
+      {/* Hidden PDF preview for download */}
       {pdfCreditNoteData && (
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <UnifiedInvoiceLayout
@@ -518,61 +561,58 @@ const CreditNotes = () => {
             variant="pdf"
             invoiceData={pdfCreditNoteData}
             documentType="CREDIT NOTE"
-            companySettings={
-              companySettings
-                ? {
-                    name: companySettings.company_name,
-                    email: companySettings.company_email,
-                    phone: companySettings.company_phone,
-                    address: companySettings.company_address,
-                    addressLine1: companySettings.company_address_line1 || undefined,
-                    addressLine2: companySettings.company_address_line2 || undefined,
-                    locality: companySettings.company_locality || undefined,
-                    postCode: companySettings.company_post_code || undefined,
-                    city: companySettings.company_city,
-                    state: companySettings.company_state,
-                    zipCode: companySettings.company_zip_code,
-                    country: companySettings.company_country,
-                    taxId: companySettings.company_vat_number,
-                    registrationNumber: companySettings.company_registration_number,
-                    logo: companySettings.company_logo,
-                  }
-                : undefined
-            }
-            bankingSettings={
-              bankingSettings
-                ? {
-                    bankName: bankingSettings.bank_name,
-                    accountName: bankingSettings.bank_account_name,
-                    swiftCode: bankingSettings.bank_swift_code,
-                    iban: bankingSettings.bank_iban,
-                  }
-                : undefined
-            }
-            templateSettings={
-              template
-                ? {
-                    primaryColor: template.primary_color,
-                    accentColor: template.accent_color,
-                    fontFamily: template.font_family,
-                    fontSize: template.font_size,
-                    layout: template.layout as any,
-                    headerLayout: template.header_layout as any,
-                    tableStyle: template.table_style as any,
-                    totalsStyle: template.totals_style as any,
-                    bankingVisibility: template.banking_visibility,
-                    bankingStyle: template.banking_style as any,
-                    marginTop: template.margin_top,
-                    marginRight: template.margin_right,
-                    marginBottom: template.margin_bottom,
-                    marginLeft: template.margin_left,
-                    style: (template.style as any) || "modern",
-                  }
-                : undefined
-            }
+            companySettings={buildCompanySettings()}
+            bankingSettings={buildBankingSettings()}
+            templateSettings={buildTemplateSettings()}
             footerText={invoiceSettings?.invoice_footer_text}
           />
         </div>
+      )}
+
+      {/* Hidden PDF preview for WhatsApp (uses same id — rendered after pdfCreditNoteData is cleared) */}
+      {whatsappCreditNoteData && !pdfCreditNoteData && (
+        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+          <UnifiedInvoiceLayout
+            id="invoice-preview-root"
+            variant="pdf"
+            invoiceData={whatsappCreditNoteData}
+            documentType="CREDIT NOTE"
+            companySettings={buildCompanySettings()}
+            bankingSettings={buildBankingSettings()}
+            templateSettings={buildTemplateSettings()}
+            footerText={invoiceSettings?.invoice_footer_text}
+          />
+        </div>
+      )}
+
+      {/* WhatsApp dialog */}
+      {whatsappCreditNote && user && (
+        <SendWhatsAppDialog
+          open={whatsappDialogOpen}
+          onOpenChange={(open) => {
+            setWhatsappDialogOpen(open);
+            if (!open) {
+              setWhatsappCreditNote(null);
+              setWhatsappCreditNoteData(null);
+            }
+          }}
+          documentType="credit_note"
+          documentId={whatsappCreditNote.id}
+          documentNumber={whatsappCreditNote.credit_note_number}
+          customer={{
+            id: whatsappCreditNote.customer_id || "",
+            name: whatsappCreditNote.customers?.name || "Customer",
+            phone: whatsappCreditNote.customers?.phone || null,
+          }}
+          companyName={companySettings?.company_name || ""}
+          userId={user.id}
+          totalAmount={calculateTotal(whatsappCreditNote.amount, whatsappCreditNote.vat_rate)}
+          onSuccess={() => {
+            setWhatsappDialogOpen(false);
+            setWhatsappCreditNote(null);
+            setWhatsappCreditNoteData(null);
+          }}
+        />
       )}
     </div>
   );
