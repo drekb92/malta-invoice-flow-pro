@@ -51,9 +51,10 @@ import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLa
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
-import { downloadPdfFromFunction, buildA4HtmlDocument } from "@/lib/edgePdf";
+import { downloadPdfFromFunction, buildA4HtmlDocument, inlineImages, captureCssVars } from "@/lib/edgePdf";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
+import { normalisePhone } from "@/hooks/useWhatsApp";
 
 interface Quotation {
   id: string;
@@ -72,6 +73,7 @@ interface Quotation {
     address?: string;
     vat_number?: string;
     payment_terms: string | null;
+    phone?: string | null;
   };
 }
 
@@ -95,44 +97,83 @@ const Quotations = () => {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailQuotation, setEmailQuotation] = useState<Quotation | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState<string | null>(null);
-
   const [isConvertingAndSending, setIsConvertingAndSending] = useState(false);
 
   const navigate = useNavigate();
 
-  // Hooks for PDF generation
   const { template } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
 
+  // ── Shared settings builders ───────────────────────────────────────────────
+  const buildCompanySettings = () =>
+    companySettings
+      ? {
+          name: companySettings.company_name,
+          email: companySettings.company_email,
+          phone: companySettings.company_phone,
+          address: companySettings.company_address,
+          addressLine1: companySettings.company_address_line1 || undefined,
+          addressLine2: companySettings.company_address_line2 || undefined,
+          locality: companySettings.company_locality || undefined,
+          postCode: companySettings.company_post_code || undefined,
+          city: companySettings.company_city,
+          state: companySettings.company_state,
+          zipCode: companySettings.company_zip_code,
+          country: companySettings.company_country,
+          taxId: companySettings.company_vat_number,
+          registrationNumber: companySettings.company_registration_number,
+          logo: companySettings.company_logo,
+        }
+      : undefined;
+
+  const buildBankingSettings = () =>
+    bankingSettings
+      ? {
+          bankName: bankingSettings.bank_name,
+          accountName: bankingSettings.bank_account_name,
+          swiftCode: bankingSettings.bank_swift_code,
+          iban: bankingSettings.bank_iban,
+        }
+      : undefined;
+
+  const buildTemplateSettings = () =>
+    template
+      ? {
+          primaryColor: template.primary_color,
+          accentColor: template.accent_color,
+          fontFamily: template.font_family,
+          fontSize: template.font_size,
+          layout: template.layout as any,
+          headerLayout: template.header_layout as any,
+          tableStyle: template.table_style as any,
+          totalsStyle: template.totals_style as any,
+          bankingVisibility: template.banking_visibility,
+          bankingStyle: template.banking_style as any,
+          marginTop: template.margin_top,
+          marginRight: template.margin_right,
+          marginBottom: template.margin_bottom,
+          marginLeft: template.margin_left,
+          style: (template.style as any) || "modern",
+        }
+      : undefined;
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchQuotations = async () => {
     if (!user) {
       setLoading(false);
       return;
     }
-
     try {
       const { data, error } = await supabase
         .from("quotations")
-        .select(
-          `
-          *,
-          customers (
-            name,
-            email,
-            address,
-            vat_number,
-            payment_terms
-          )
-        `,
-        )
+        .select(`*, customers(name, email, address, vat_number, payment_terms, phone)`)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Auto-expire quotations past their valid_until date
       const today = new Date().toISOString().split("T")[0];
       const toExpire = (data || []).filter(
         (q) => q.valid_until < today && !["accepted", "converted", "expired"].includes(q.status),
@@ -146,7 +187,6 @@ const Quotations = () => {
             "id",
             toExpire.map((q) => q.id),
           );
-
         const expiredIds = new Set(toExpire.map((q) => q.id));
         const updated = (data || []).map((q) => (expiredIds.has(q.id) ? { ...q, status: "expired" } : q));
         setQuotations(updated);
@@ -168,7 +208,6 @@ const Quotations = () => {
 
   useEffect(() => {
     let list = quotations;
-
     if (searchTerm) {
       list = list.filter(
         (q) =>
@@ -176,32 +215,26 @@ const Quotations = () => {
           q.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
-
-    if (statusFilter !== "all") {
-      list = list.filter((q) => q.status === statusFilter);
-    }
-
+    if (statusFilter !== "all") list = list.filter((q) => q.status === statusFilter);
     setFiltered(list);
   }, [searchTerm, statusFilter, quotations]);
 
   const getStatusBadge = (status: string) => {
-    const variants = {
+    const variants: Record<string, string> = {
       draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
       sent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
       accepted: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
       converted: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
       expired: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
     };
-    return (variants as any)[status] || variants.draft;
+    return variants[status] || variants.draft;
   };
 
   const handleDelete = async (id: string) => {
     if (!user) return;
-
     try {
       const { error } = await supabase.from("quotations").delete().eq("id", id).eq("user_id", user.id);
       if (error) throw error;
-
       toast({ title: "Deleted", description: "Quotation removed." });
       fetchQuotations();
     } catch {
@@ -209,152 +242,97 @@ const Quotations = () => {
     }
   };
 
+  // ── Build InvoiceData for a quotation (shared by PDF + email + WhatsApp) ──
+  const buildQuotationInvoiceData = async (quotation: Quotation): Promise<InvoiceData> => {
+    const { data: items, error: itemsError } = await supabase
+      .from("quotation_items")
+      .select("*")
+      .eq("quotation_id", quotation.id);
+
+    if (itemsError) throw itemsError;
+
+    return {
+      invoiceNumber: quotation.quotation_number,
+      invoiceDate: quotation.issue_date || quotation.created_at,
+      dueDate: quotation.valid_until || quotation.issue_date || quotation.created_at,
+      customer: {
+        name: quotation.customers?.name || "Unknown Customer",
+        email: quotation.customers?.email,
+        address: quotation.customers?.address,
+        vat_number: quotation.customers?.vat_number,
+      },
+      items: (items || []).map((item) => ({
+        description: item.description,
+        quantity: item.quantity || 1,
+        unit_price: item.unit_price,
+        vat_rate: item.vat_rate || 0.18,
+        unit: item.unit || "unit",
+      })),
+      totals: {
+        netTotal: quotation.amount || 0,
+        vatTotal: quotation.vat_amount || 0,
+        grandTotal: quotation.total_amount || quotation.amount || 0,
+      },
+    };
+  };
+
+  // ── PDF download ──────────────────────────────────────────────────────────
   const handleDownloadPdf = async (quotation: Quotation) => {
     if (isGeneratingPdf) return;
     setIsGeneratingPdf(true);
-
     try {
-      // Fetch quotation items
-      const { data: items, error: itemsError } = await supabase
-        .from("quotation_items")
-        .select("*")
-        .eq("quotation_id", quotation.id);
-
-      if (itemsError) throw itemsError;
-
-      // Prepare invoice data for UnifiedInvoiceLayout
-      const quotationData: InvoiceData = {
-        invoiceNumber: quotation.quotation_number,
-        invoiceDate: quotation.issue_date || quotation.created_at,
-        dueDate: quotation.valid_until || quotation.issue_date || quotation.created_at,
-        customer: {
-          name: quotation.customers?.name || "Unknown Customer",
-          email: quotation.customers?.email,
-          address: quotation.customers?.address,
-          vat_number: quotation.customers?.vat_number,
-        },
-        items: (items || []).map((item) => ({
-          description: item.description,
-          quantity: item.quantity || 1,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate || 0.18,
-          unit: item.unit || "unit",
-        })),
-        totals: {
-          netTotal: quotation.amount || 0,
-          vatTotal: quotation.vat_amount || 0,
-          grandTotal: quotation.total_amount || quotation.amount || 0,
-        },
-      };
-
-      setPdfQuotationData(quotationData);
-
-      // Wait for the layout to render
+      const data = await buildQuotationInvoiceData(quotation);
+      setPdfQuotationData(data);
       await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Generate PDF
-      const filename = `Quotation-${quotation.quotation_number}`;
-      await downloadPdfFromFunction(filename, template?.font_family);
-
+      await downloadPdfFromFunction(`Quotation-${quotation.quotation_number}`, template?.font_family);
       toast({ title: "Success", description: "PDF downloaded successfully." });
     } catch (err: any) {
-      console.error("PDF download error:", err);
-      toast({
-        title: "Error",
-        description: err?.message || "Failed to download PDF",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: err?.message || "Failed to download PDF", variant: "destructive" });
     } finally {
       setIsGeneratingPdf(false);
       setPdfQuotationData(null);
     }
   };
 
+  // ── Email send ─────────────────────────────────────────────────────────────
   const handleSendEmail = (quotation: Quotation) => {
     setEmailQuotation(quotation);
-    // We need to prepare the PDF data first for the email dialog to use
     (async () => {
-      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", quotation.id);
-
-      const quotationData: InvoiceData = {
-        invoiceNumber: quotation.quotation_number,
-        invoiceDate: quotation.issue_date || quotation.created_at,
-        dueDate: quotation.valid_until || quotation.issue_date || quotation.created_at,
-        customer: {
-          name: quotation.customers?.name || "Unknown Customer",
-          email: quotation.customers?.email,
-          address: quotation.customers?.address,
-          vat_number: quotation.customers?.vat_number,
-        },
-        items: (items || []).map((item) => ({
-          description: item.description,
-          quantity: item.quantity || 1,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate || 0.18,
-          unit: item.unit || "unit",
-        })),
-        totals: {
-          netTotal: quotation.amount || 0,
-          vatTotal: quotation.vat_amount || 0,
-          grandTotal: quotation.total_amount || quotation.amount || 0,
-        },
-      };
-
-      setPdfQuotationData(quotationData);
-      // Wait for the layout to render
+      const data = await buildQuotationInvoiceData(quotation);
+      setPdfQuotationData(data);
       await new Promise((resolve) => setTimeout(resolve, 100));
       setShowEmailDialog(true);
     })();
   };
 
+  // ── WhatsApp send (fixed: phone pre-filled, message URL-encoded) ──────────
   const handleSendWhatsApp = async (quotation: Quotation) => {
     if (!user || whatsappLoading) return;
-
     setWhatsappLoading(quotation.id);
 
     try {
-      // Fetch quotation items
-      const { data: items } = await supabase.from("quotation_items").select("*").eq("quotation_id", quotation.id);
-
-      const quotationData: InvoiceData = {
-        invoiceNumber: quotation.quotation_number,
-        invoiceDate: quotation.issue_date || quotation.created_at,
-        dueDate: quotation.valid_until || quotation.issue_date || quotation.created_at,
-        customer: {
-          name: quotation.customers?.name || "Unknown Customer",
-          email: quotation.customers?.email,
-          address: quotation.customers?.address,
-          vat_number: quotation.customers?.vat_number,
-        },
-        items: (items || []).map((item) => ({
-          description: item.description,
-          quantity: item.quantity || 1,
-          unit_price: item.unit_price,
-          vat_rate: item.vat_rate || 0.18,
-          unit: item.unit || "unit",
-        })),
-        totals: {
-          netTotal: quotation.amount || 0,
-          vatTotal: quotation.vat_amount || 0,
-          grandTotal: quotation.total_amount || quotation.amount || 0,
-        },
-      };
-
-      setPdfQuotationData(quotationData);
+      const data = await buildQuotationInvoiceData(quotation);
+      setPdfQuotationData(data);
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
-      if (!root) {
-        throw new Error("Document preview not found");
+      if (!root) throw new Error("Document preview not found");
+
+      const cloned = root.cloneNode(true) as HTMLElement;
+      await inlineImages(cloned);
+      const cssVars = captureCssVars(root);
+      if (cssVars) {
+        const existing = cloned.getAttribute("style") || "";
+        cloned.setAttribute("style", `${existing}${existing ? " " : ""}${cssVars}`);
       }
 
       const html = buildA4HtmlDocument({
         filename: `Quotation-${quotation.quotation_number}`,
         fontFamily: template?.font_family || "Inter",
-        clonedRoot: root.cloneNode(true) as HTMLElement,
+        clonedRoot: cloned,
       });
 
-      const { data, error } = await supabase.functions.invoke("create-document-share-link", {
+      const { data: shareData, error } = await supabase.functions.invoke("create-document-share-link", {
         body: {
           html,
           filename: `Quotation-${quotation.quotation_number}`,
@@ -367,14 +345,26 @@ const Quotations = () => {
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (shareData?.error) throw new Error(shareData.error);
 
-      const shareUrl = data.url;
-      const message = `Quotation ${quotation.quotation_number} for ${formatCurrency(quotation.total_amount || quotation.amount || 0)}.\n\nValid until: ${quotation.valid_until ? format(new Date(quotation.valid_until), "dd/MM/yyyy") : "N/A"}\n\nView/Download PDF: ${shareUrl}`;
+      const shareUrl = shareData.url;
+      const amountStr = formatCurrency(quotation.total_amount || quotation.amount || 0);
+      const validUntilStr = quotation.valid_until ? format(new Date(quotation.valid_until), "dd/MM/yyyy") : "N/A";
 
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      const message =
+        `Hi ${quotation.customers?.name || ""},\n\n` +
+        `Please find your Quotation *${quotation.quotation_number}* for ${amountStr}.\n\n` +
+        `Valid until: ${validUntilStr}\n\n` +
+        `View / download PDF:\n${shareUrl}\n\n` +
+        `Let us know if you'd like to proceed or have any questions.\n\n` +
+        `${companySettings?.company_name || ""}`;
 
-      // Open via redirect page to avoid cross-origin blocking
+      // Pre-fill phone number if available
+      const phone = normalisePhone(quotation.customers?.phone || "");
+      const whatsappUrl = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+        : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
       const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
       if (!waWindow) {
         toast({
@@ -385,17 +375,14 @@ const Quotations = () => {
         return;
       }
 
-      // Update status to "sent" if currently draft
+      // Mark as sent if currently draft
       if (quotation.status === "draft") {
         await supabase.from("quotations").update({ status: "sent" }).eq("id", quotation.id);
         setQuotations((prev) => prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q)));
         setFiltered((prev) => prev.map((q) => (q.id === quotation.id ? { ...q, status: "sent" } : q)));
       }
 
-      toast({
-        title: "WhatsApp opened",
-        description: "Share link created and WhatsApp opened.",
-      });
+      toast({ title: "WhatsApp opened", description: "Share link created and WhatsApp opened." });
     } catch (error: any) {
       console.error("[Quotations] WhatsApp share error:", error);
       toast({
@@ -409,8 +396,8 @@ const Quotations = () => {
     }
   };
 
+  // ── Invoice number generation ──────────────────────────────────────────────
   const generateNextInvoiceNumber = async (): Promise<string> => {
-    // Read user's configured prefix
     const { data: settingsRow } = await supabase
       .from("invoice_settings")
       .select("numbering_prefix")
@@ -418,7 +405,6 @@ const Quotations = () => {
       .maybeSingle();
 
     const prefix = (settingsRow as any)?.numbering_prefix || "INV-";
-
     const { data, error } = await supabase.rpc("next_invoice_number", {
       p_business_id: user!.id,
       p_prefix: prefix,
@@ -426,41 +412,29 @@ const Quotations = () => {
 
     if (error) throw error;
     if (!data) throw new Error("Failed to generate invoice number");
-
     return data;
   };
 
+  // ── Convert to invoice ─────────────────────────────────────────────────────
   const handleConvertToInvoice = async (quotationId: string, invoiceDateOverride?: Date) => {
     try {
-      // Load quotation + items + customer payment terms
       const { data: qData, error: qErr } = await supabase
         .from("quotations")
-        .select(
-          `
-          *,
-          customers ( payment_terms ),
-          quotation_items ( description, quantity, unit, unit_price, vat_rate )
-        `,
-        )
+        .select(`*, customers(payment_terms), quotation_items(description, quantity, unit, unit_price, vat_rate)`)
         .eq("id", quotationId)
         .single();
 
       if (qErr) throw qErr;
 
       const invoiceNumber = await generateNextInvoiceNumber();
-
-      // Determine base invoice date
       const baseDateObj = invoiceDateOverride
         ? new Date(invoiceDateOverride)
         : new Date(qData.issue_date || qData.created_at);
-
-      // Calculate due date from payment terms and base date
       const paymentTerms = qData.customers?.payment_terms || "Net 30";
       const daysMatch = paymentTerms.match(/\d+/);
       const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
       const dueDate = addDays(baseDateObj, paymentDays);
 
-      // Create invoice
       const invoicePayload: TablesInsert<"invoices"> = {
         invoice_number: invoiceNumber,
         customer_id: qData.customer_id,
@@ -478,10 +452,8 @@ const Quotations = () => {
       };
 
       const { data: inv, error: invErr } = await supabase.from("invoices").insert(invoicePayload).select("id").single();
-
       if (invErr) throw invErr;
 
-      // Create invoice items from quotation items
       const itemsPayload = (qData.quotation_items || []).map((it: any) => ({
         invoice_id: inv.id,
         description: it.description,
@@ -496,7 +468,6 @@ const Quotations = () => {
         if (itemsErr) throw itemsErr;
       }
 
-      // Mark quotation as converted
       const { error: updErr } = await supabase
         .from("quotations")
         .update({ status: "converted" })
@@ -506,18 +477,10 @@ const Quotations = () => {
       if (updErr) throw updErr;
 
       toast({ title: "Converted to Invoice", description: "Quotation converted to invoice." });
-
-      // ✅ Go back to invoice list instead of broken detail route
       navigate("/invoices");
-
-      // Refresh quotations list
       fetchQuotations();
     } catch (e: any) {
-      toast({
-        title: "Error",
-        description: e?.message || "Failed to convert quotation",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: e?.message || "Failed to convert quotation", variant: "destructive" });
       throw e;
     }
   };
@@ -548,20 +511,13 @@ const Quotations = () => {
 
   const confirmConvert = async () => {
     if (!selectedQuotation) return;
-
     if (dateOption === "custom" && !customDate) {
-      toast({
-        title: "Select a date",
-        description: "Please choose a valid custom date.",
-        variant: "destructive",
-      });
+      toast({ title: "Select a date", description: "Please choose a valid custom date.", variant: "destructive" });
       return;
     }
-
     setIsConverting(true);
     try {
       const override = dateOption === "today" ? new Date() : dateOption === "custom" ? customDate : undefined;
-
       await handleConvertToInvoice(selectedQuotation.id, override);
       setConvertDialogOpen(false);
       setSelectedQuotation(null);
@@ -572,24 +528,17 @@ const Quotations = () => {
 
   const handleConvertAndSend = async (quotationId: string, invoiceDateOverride?: Date) => {
     if (!user) return;
-
     try {
-      // Load quotation + items + customer
       const { data: qData, error: qErr } = await supabase
         .from("quotations")
         .select(
-          `
-          *,
-          customers ( name, email, address, vat_number, payment_terms ),
-          quotation_items ( description, quantity, unit, unit_price, vat_rate )
-        `,
+          `*, customers(name, email, address, vat_number, payment_terms), quotation_items(description, quantity, unit, unit_price, vat_rate)`,
         )
         .eq("id", quotationId)
         .single();
 
       if (qErr) throw qErr;
 
-      // Validate customer email
       const customerEmail = qData.customers?.email;
       if (!customerEmail) {
         toast({
@@ -601,15 +550,12 @@ const Quotations = () => {
       }
 
       const invoiceNumber = await generateNextInvoiceNumber();
-
       const baseDateObj = invoiceDateOverride ? new Date(invoiceDateOverride) : new Date();
-
       const paymentTerms = qData.customers?.payment_terms || "Net 30";
       const daysMatch = paymentTerms.match(/\d+/);
       const paymentDays = daysMatch ? parseInt(daysMatch[0]) : 30;
       const dueDate = addDays(baseDateObj, paymentDays);
 
-      // Step 1: Create invoice as DRAFT (avoids immutability trigger on items)
       const invoicePayload: TablesInsert<"invoices"> = {
         invoice_number: invoiceNumber,
         customer_id: qData.customer_id,
@@ -631,7 +577,6 @@ const Quotations = () => {
       const { data: inv, error: invErr } = await supabase.from("invoices").insert(invoicePayload).select("id").single();
       if (invErr) throw invErr;
 
-      // Step 2: Insert invoice items (allowed because invoice is still draft)
       const itemsPayload = (qData.quotation_items || []).map((it: any) => ({
         invoice_id: inv.id,
         description: it.description,
@@ -646,25 +591,17 @@ const Quotations = () => {
         if (itemsErr) throw itemsErr;
       }
 
-      // Step 3: Generate hash after items exist for accuracy
       const { invoiceService } = await import("@/services/invoiceService");
       const invoiceHash = await invoiceService.generateInvoiceHash(inv.id, invoiceNumber);
 
-      // Step 4: Finalize — mark as issued (trigger allows since is_issued was false)
       const { error: finalizeErr } = await supabase
         .from("invoices")
-        .update({
-          status: "sent",
-          is_issued: true,
-          issued_at: new Date().toISOString(),
-          invoice_hash: invoiceHash,
-        })
+        .update({ status: "sent", is_issued: true, issued_at: new Date().toISOString(), invoice_hash: invoiceHash })
         .eq("id", inv.id);
       if (finalizeErr) throw finalizeErr;
 
-      // Build InvoiceData for PDF rendering
       const newInvoiceData: InvoiceData = {
-        invoiceNumber: invoiceNumber,
+        invoiceNumber,
         invoiceDate: baseDateObj.toISOString().split("T")[0],
         dueDate: dueDate.toISOString().split("T")[0],
         customer: {
@@ -687,11 +624,9 @@ const Quotations = () => {
         },
       };
 
-      // Render hidden invoice PDF layout
       setPdfInvoiceData(newInvoiceData);
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // Capture HTML from the hidden invoice send container
       const root = document.getElementById("invoice-send-root") as HTMLElement | null;
       if (!root) throw new Error("PDF render container not found");
 
@@ -702,7 +637,6 @@ const Quotations = () => {
         clonedRoot: root.cloneNode(true) as HTMLElement,
       });
 
-      // Send via edge function
       const { error: sendError } = await supabase.functions.invoke("send-document-email", {
         body: {
           to: customerEmail,
@@ -729,23 +663,14 @@ const Quotations = () => {
 
       if (sendError) throw sendError;
 
-      // Mark quotation as converted
       await supabase.from("quotations").update({ status: "converted" }).eq("id", quotationId).eq("user_id", user.id);
 
-      toast({
-        title: "Invoice sent!",
-        description: `Invoice ${invoiceNumber} sent to ${customerEmail}.`,
-      });
-
+      toast({ title: "Invoice sent!", description: `Invoice ${invoiceNumber} sent to ${customerEmail}.` });
       fetchQuotations();
       navigate(`/invoices/${inv.id}`);
     } catch (e: any) {
       console.error("[ConvertAndSend] Error:", e);
-      toast({
-        title: "Error",
-        description: e?.message || "Failed to convert and send",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: e?.message || "Failed to convert and send", variant: "destructive" });
     } finally {
       setPdfInvoiceData(null);
     }
@@ -775,7 +700,6 @@ const Quotations = () => {
         </header>
 
         <main className="p-6">
-          {/* Filters and Search */}
           <div className="flex items-center space-x-4 mb-6">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -805,7 +729,6 @@ const Quotations = () => {
             </DropdownMenu>
           </div>
 
-          {/* Quotations Table */}
           <Card>
             <CardHeader>
               <CardTitle>Quotation List</CardTitle>
@@ -886,6 +809,10 @@ const Quotations = () => {
                                     Edit
                                   </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDownloadPdf(q)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download PDF
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleSendEmail(q)}>
                                   <Mail className="h-4 w-4 mr-2" />
                                   Send Email
@@ -897,7 +824,7 @@ const Quotations = () => {
                                   {whatsappLoading === q.id ? (
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                   ) : (
-                                    <MessageCircle className="h-4 w-4 mr-2" />
+                                    <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
                                   )}
                                   {whatsappLoading === q.id ? "Creating link..." : "Send WhatsApp"}
                                 </DropdownMenuItem>
@@ -926,7 +853,7 @@ const Quotations = () => {
             </CardContent>
           </Card>
 
-          {/* Convert Confirmation Dialog */}
+          {/* Convert Dialog */}
           <Dialog
             open={convertDialogOpen}
             onOpenChange={(open) => {
@@ -943,7 +870,6 @@ const Quotations = () => {
                     : "Choose the invoice date."}
                 </DialogDescription>
               </DialogHeader>
-
               <div className="space-y-4">
                 <RadioGroup
                   value={dateOption}
@@ -960,14 +886,12 @@ const Quotations = () => {
                       )
                     </Label>
                   </div>
-
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="today" id="date-today" />
                     <Label htmlFor="date-today" className="cursor-pointer">
                       Use today's date ({format(new Date(), "PPP")})
                     </Label>
                   </div>
-
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="custom" id="date-custom" />
                     <Label htmlFor="date-custom" className="cursor-pointer">
@@ -995,7 +919,6 @@ const Quotations = () => {
                   </div>
                 </RadioGroup>
               </div>
-
               <DialogFooter>
                 <Button
                   variant="outline"
@@ -1056,7 +979,7 @@ const Quotations = () => {
         }}
       />
 
-      {/* Hidden PDF preview for quotation download */}
+      {/* Hidden PDF preview for quotation download/email */}
       {pdfQuotationData && (
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <UnifiedInvoiceLayout
@@ -1064,63 +987,15 @@ const Quotations = () => {
             variant="pdf"
             invoiceData={pdfQuotationData}
             documentType="QUOTATION"
-            companySettings={
-              companySettings
-                ? {
-                    name: companySettings.company_name,
-                    email: companySettings.company_email,
-                    phone: companySettings.company_phone,
-                    address: companySettings.company_address,
-                    addressLine1: companySettings.company_address_line1 || undefined,
-                    addressLine2: companySettings.company_address_line2 || undefined,
-                    locality: companySettings.company_locality || undefined,
-                    postCode: companySettings.company_post_code || undefined,
-                    city: companySettings.company_city,
-                    state: companySettings.company_state,
-                    zipCode: companySettings.company_zip_code,
-                    country: companySettings.company_country,
-                    taxId: companySettings.company_vat_number,
-                    registrationNumber: companySettings.company_registration_number,
-                    logo: companySettings.company_logo,
-                  }
-                : undefined
-            }
-            bankingSettings={
-              bankingSettings
-                ? {
-                    bankName: bankingSettings.bank_name,
-                    accountName: bankingSettings.bank_account_name,
-                    swiftCode: bankingSettings.bank_swift_code,
-                    iban: bankingSettings.bank_iban,
-                  }
-                : undefined
-            }
-            templateSettings={
-              template
-                ? {
-                    primaryColor: template.primary_color,
-                    accentColor: template.accent_color,
-                    fontFamily: template.font_family,
-                    fontSize: template.font_size,
-                    layout: template.layout as any,
-                    headerLayout: template.header_layout as any,
-                    tableStyle: template.table_style as any,
-                    totalsStyle: template.totals_style as any,
-                    bankingVisibility: template.banking_visibility,
-                    bankingStyle: template.banking_style as any,
-                    marginTop: template.margin_top,
-                    marginRight: template.margin_right,
-                    marginBottom: template.margin_bottom,
-                    marginLeft: template.margin_left,
-                  }
-                : undefined
-            }
+            companySettings={buildCompanySettings()}
+            bankingSettings={buildBankingSettings()}
+            templateSettings={buildTemplateSettings()}
             quotationTerms={invoiceSettings?.quotation_terms_text || undefined}
           />
         </div>
       )}
 
-      {/* Hidden PDF container for Convert & Send (invoice) */}
+      {/* Hidden PDF container for Convert & Send */}
       {pdfInvoiceData && (
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <UnifiedInvoiceLayout
@@ -1128,57 +1003,9 @@ const Quotations = () => {
             variant="pdf"
             invoiceData={pdfInvoiceData}
             documentType="INVOICE"
-            companySettings={
-              companySettings
-                ? {
-                    name: companySettings.company_name,
-                    email: companySettings.company_email,
-                    phone: companySettings.company_phone,
-                    address: companySettings.company_address,
-                    addressLine1: companySettings.company_address_line1 || undefined,
-                    addressLine2: companySettings.company_address_line2 || undefined,
-                    locality: companySettings.company_locality || undefined,
-                    postCode: companySettings.company_post_code || undefined,
-                    city: companySettings.company_city,
-                    state: companySettings.company_state,
-                    zipCode: companySettings.company_zip_code,
-                    country: companySettings.company_country,
-                    taxId: companySettings.company_vat_number,
-                    registrationNumber: companySettings.company_registration_number,
-                    logo: companySettings.company_logo,
-                  }
-                : undefined
-            }
-            bankingSettings={
-              bankingSettings
-                ? {
-                    bankName: bankingSettings.bank_name,
-                    accountName: bankingSettings.bank_account_name,
-                    swiftCode: bankingSettings.bank_swift_code,
-                    iban: bankingSettings.bank_iban,
-                  }
-                : undefined
-            }
-            templateSettings={
-              template
-                ? {
-                    primaryColor: template.primary_color,
-                    accentColor: template.accent_color,
-                    fontFamily: template.font_family,
-                    fontSize: template.font_size,
-                    layout: template.layout as any,
-                    headerLayout: template.header_layout as any,
-                    tableStyle: template.table_style as any,
-                    totalsStyle: template.totals_style as any,
-                    bankingVisibility: template.banking_visibility,
-                    bankingStyle: template.banking_style as any,
-                    marginTop: template.margin_top,
-                    marginRight: template.margin_right,
-                    marginBottom: template.margin_bottom,
-                    marginLeft: template.margin_left,
-                  }
-                : undefined
-            }
+            companySettings={buildCompanySettings()}
+            bankingSettings={buildBankingSettings()}
+            templateSettings={buildTemplateSettings()}
           />
         </div>
       )}
