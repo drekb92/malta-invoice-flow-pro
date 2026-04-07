@@ -283,32 +283,29 @@ const Reports = () => {
   // ── Top customers ────────────────────────────────────────────────────────
 
   const topCustomers = useMemo(() => {
-    // Build a map of total paid per invoice across ALL time (not period-filtered)
-    // so outstanding = invoice total - all payments ever made, not just this period.
-    const paidByInvoice = payments.reduce(
-      (acc, p) => {
-        acc[p.invoice_id] = (acc[p.invoice_id] || 0) + Number(p.amount || 0);
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    const map: Record<string, { name: string; invoiced: number; outstanding: number; customerId: string }> = {};
+    // Sum invoiced amounts from period-filtered invoices per customer
+    const invoicedMap: Record<string, { name: string; invoiced: number; customerId: string }> = {};
     filteredInvoices.forEach((inv) => {
       const custId = inv.customer_id;
       const custName = (inv.customers as any)?.name || "Unknown";
-      if (!map[custId]) map[custId] = { name: custName, invoiced: 0, outstanding: 0, customerId: custId };
-      const invTotal = Number(inv.total_amount || 0);
-      const paid = paidByInvoice[inv.id] || 0;
-      map[custId].invoiced += invTotal;
-      // Only count remaining balance as outstanding (respects all-time payments)
-      map[custId].outstanding += Math.max(0, invTotal - paid);
+      if (!invoicedMap[custId]) invoicedMap[custId] = { name: custName, invoiced: 0, customerId: custId };
+      invoicedMap[custId].invoiced += Number(inv.total_amount || 0);
     });
 
-    return Object.values(map)
+    // Read outstanding from agingData — single source of truth, matches aging table exactly
+    const outstandingMap: Record<string, number> = {};
+    agingData.forEach((row) => {
+      outstandingMap[row.customerId] = row.total;
+    });
+
+    return Object.values(invoicedMap)
+      .map((c) => ({
+        ...c,
+        outstanding: outstandingMap[c.customerId] || 0,
+      }))
       .sort((a, b) => b.invoiced - a.invoiced)
       .slice(0, 8);
-  }, [filteredInvoices, payments]);
+  }, [filteredInvoices, agingData]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
