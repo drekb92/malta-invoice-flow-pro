@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +45,7 @@ import {
   Hash,
   Link2,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
@@ -68,6 +71,16 @@ import { ReminderHistoryPanel } from "@/components/ReminderHistoryPanel";
 import { ShareLinkPanel } from "@/components/ShareLinkPanel";
 import { SendReminderDialog } from "@/components/SendReminderDialog";
 import { RecurringScheduleCard } from "@/components/RecurringScheduleCard";
+import { normalisePhone } from "@/hooks/useWhatsApp";
+
+// ── Default payment form values ───────────────────────────────────────────────
+const DEFAULT_PAYMENT = {
+  amount: "",
+  payment_date: format(new Date(), "yyyy-MM-dd"),
+  method: "bank_transfer",
+};
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Invoice {
   id: string;
@@ -85,6 +98,7 @@ interface Invoice {
   is_issued?: boolean;
   issued_at?: string;
   invoice_hash?: string;
+  notes?: string;
   customers?: {
     name: string;
     email?: string | null;
@@ -131,40 +145,79 @@ interface CreditNoteSummary {
   reason: string;
 }
 
+// ── Loading skeleton ──────────────────────────────────────────────────────────
+
+function InvoiceDetailsSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="md:ml-64">
+        <header className="bg-card border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-6 w-32" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-28" />
+              <Skeleton className="h-8 w-28" />
+              <Skeleton className="h-8 w-8" />
+            </div>
+          </div>
+        </header>
+        <main className="px-6 py-4 space-y-3">
+          <Skeleton className="h-10 w-full rounded-lg" />
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-64 w-full rounded-lg" />
+              <Skeleton className="h-40 w-full rounded-lg" />
+            </div>
+            <div className="hidden lg:block w-72">
+              <Skeleton className="h-96 w-full rounded-lg" />
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 const InvoiceDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
+
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [invoiceTotals, setInvoiceTotals] = useState<InvoiceTotals | null>(null);
   const [loading, setLoading] = useState(true);
   const [auditTrail, setAuditTrail] = useState<any[]>([]);
   const [isIssuing, setIsIssuing] = useState(false);
+  const [showIssueConfirm, setShowIssueConfirm] = useState(false);
   const [showCreditNoteDialog, setShowCreditNoteDialog] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
-  const [reminderKey, setReminderKey] = useState(0); // Key to force refresh ReminderHistoryPanel
+  const [reminderKey, setReminderKey] = useState(0);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [newPayment, setNewPayment] = useState({
-    amount: "",
-    payment_date: format(new Date(), "yyyy-MM-dd"),
-    method: "bank_transfer",
-  });
-
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+  const [showDeletePaymentConfirm, setShowDeletePaymentConfirm] = useState<Payment | null>(null);
+  const [newPayment, setNewPayment] = useState(DEFAULT_PAYMENT);
   const [creditNotes, setCreditNotes] = useState<CreditNoteSummary[]>([]);
 
-  const { toast } = useToast();
   const { template, isLoading: templateLoading } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
 
-  // Fetch send logs for Activity section
   const { lastEmailSent, lastWhatsAppSent, refetch: refetchSendLogs } = useDocumentSendLogs("invoice", id || "");
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchPayments = async () => {
     if (!id || !user) return;
@@ -174,9 +227,7 @@ const InvoiceDetails = () => {
       .eq("invoice_id", id)
       .eq("user_id", user.id)
       .order("payment_date", { ascending: false });
-    if (!error && data) {
-      setPayments(data as Payment[]);
-    }
+    if (!error && data) setPayments(data as Payment[]);
   };
 
   const fetchCreditNotes = async () => {
@@ -187,9 +238,7 @@ const InvoiceDetails = () => {
       .eq("invoice_id", id)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    if (!error && data) {
-      setCreditNotes(data as CreditNoteSummary[]);
-    }
+    if (!error && data) setCreditNotes(data as CreditNoteSummary[]);
   };
 
   useEffect(() => {
@@ -200,7 +249,7 @@ const InvoiceDetails = () => {
         const { data: invoiceData, error: invoiceError } = await supabase
           .from("invoices")
           .select(
-            `*, customers (name, email, address, address_line1, address_line2, locality, post_code, vat_number, phone)`,
+            `*, customers(name, email, address, address_line1, address_line2, locality, post_code, vat_number, phone)`,
           )
           .eq("id", id)
           .eq("user_id", user.id)
@@ -223,10 +272,7 @@ const InvoiceDetails = () => {
 
         if (totalsError) throw totalsError;
 
-        setInvoice({
-          ...invoiceData,
-          discount_type: invoiceData.discount_type as "amount" | "percent" | undefined,
-        });
+        setInvoice({ ...invoiceData, discount_type: invoiceData.discount_type as "amount" | "percent" | undefined });
         setInvoiceItems(itemsData || []);
         setInvoiceTotals(totalsData);
 
@@ -238,11 +284,7 @@ const InvoiceDetails = () => {
         }
       } catch (error) {
         console.error("Error loading invoice details:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load invoice details",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to load invoice details", variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -253,6 +295,8 @@ const InvoiceDetails = () => {
     fetchCreditNotes();
   }, [id, user, toast]);
 
+  // ── Computed values ────────────────────────────────────────────────────────
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
       paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -260,6 +304,7 @@ const InvoiceDetails = () => {
       pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
       overdue: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
       draft: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      sent: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     };
     return variants[status] || variants.draft;
   };
@@ -277,9 +322,7 @@ const InvoiceDetails = () => {
     return { net, vat, total: net + vat };
   }, [invoiceItems, invoiceTotals]);
 
-  const subtotal = useMemo(() => {
-    return invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
-  }, [invoiceItems]);
+  const subtotal = useMemo(() => invoiceItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0), [invoiceItems]);
 
   const discountInfo = useMemo(() => {
     if (!invoice) return { amount: 0, isPercent: false, percentValue: 0 };
@@ -289,50 +332,38 @@ const InvoiceDetails = () => {
     if (type === "percent") {
       const pct = Math.min(Math.max(raw, 0), 100);
       return { amount: round2(subtotal * (pct / 100)), isPercent: true, percentValue: pct };
-    } else {
-      const amt = Math.min(Math.max(raw, 0), subtotal);
-      return { amount: round2(amt), isPercent: false, percentValue: 0 };
     }
+    return { amount: round2(Math.min(Math.max(raw, 0), subtotal)), isPercent: false, percentValue: 0 };
   }, [invoice, subtotal]);
 
-  const totalPaid = useMemo(() => {
-    return payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-  }, [payments]);
+  const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + Number(p.amount || 0), 0), [payments]);
 
-  const totalCreditNotesAmount = useMemo(() => {
-    return creditNotes.reduce((sum, cn) => {
-      const netAmount = Number(cn.amount || 0);
-      const vatRate = Number(cn.vat_rate || 0);
-      return sum + netAmount + netAmount * vatRate;
-    }, 0);
-  }, [creditNotes]);
+  const totalCreditNotesAmount = useMemo(
+    () =>
+      creditNotes.reduce((sum, cn) => {
+        const net = Number(cn.amount || 0);
+        return sum + net + net * Number(cn.vat_rate || 0);
+      }, 0),
+    [creditNotes],
+  );
 
   const remainingBalance = useMemo(() => {
     const invoiceTotal = invoiceTotals?.total_amount ?? computedTotals.total;
-    const adjustedTotal = Number(invoiceTotal) - totalCreditNotesAmount;
-    return adjustedTotal - totalPaid;
+    return Number(invoiceTotal) - totalCreditNotesAmount - totalPaid;
   }, [invoiceTotals, computedTotals, totalPaid, totalCreditNotesAmount]);
 
   const dueIndicator = useMemo(() => {
-    if (!invoice) return null;
+    if (!invoice || remainingBalance <= 0) return null;
     const dueDate = new Date(invoice.due_date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     dueDate.setHours(0, 0, 0, 0);
     const diff = differenceInDays(dueDate, today);
-
-    if (remainingBalance <= 0) return null;
-
-    if (diff < 0) {
-      return { text: `Overdue by ${Math.abs(diff)} days`, isOverdue: true };
-    } else if (diff === 0) {
-      return { text: "Due today", isOverdue: false };
-    } else {
-      return { text: `Due in ${diff} days`, isOverdue: false };
-    }
+    if (diff < 0) return { text: `Overdue by ${Math.abs(diff)} days`, isOverdue: true };
+    if (diff === 0) return { text: "Due today", isOverdue: false };
+    return { text: `Due in ${diff} days`, isOverdue: false };
   }, [invoice, remainingBalance]);
 
-  // Reminder status for smart prompts (must be after remainingBalance is defined)
   const reminderStatus = useReminderStatus({
     invoiceId: id || "",
     dueDate: invoice?.due_date || "",
@@ -340,18 +371,46 @@ const InvoiceDetails = () => {
     remainingBalance,
   });
 
+  const isSettled = remainingBalance <= 0;
+  const isIssued = !!(invoice as any)?.is_issued;
+  const hasNoItems = invoiceItems.length === 0;
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  const getMethodLabel = (method: string | null) => {
+    const methods: Record<string, string> = {
+      bank_transfer: "Bank Transfer",
+      cash: "Cash",
+      card: "Card",
+      check: "Check",
+      other: "Other",
+    };
+    return methods[method || ""] || method || "—";
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied", description: `${label} copied to clipboard.` });
+  };
+
+  // Normalise VAT rate for display — handles both 0.18 and 18 storage formats
+  const displayVatRate = (rate: number) => {
+    const r = Number(rate || 0);
+    return r > 1 ? r : r * 100;
+  };
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
   const handleDownload = async () => {
     if (!invoice) return;
-
     if (!companySettings?.company_name) {
       toast({
-        title: "Company Settings Required",
+        title: "Company settings required",
         description: "Please complete your company information in Settings.",
         variant: "destructive",
       });
       return;
     }
-
     if (!template) {
       toast({
         title: "Template not ready",
@@ -360,53 +419,35 @@ const InvoiceDetails = () => {
       });
       return;
     }
-
     try {
-      const filename = `Invoice-${invoice.invoice_number}`;
-      await downloadPdfFromFunction(filename, template.font_family);
-      toast({
-        title: "PDF downloaded",
-        description: `Invoice ${invoice.invoice_number} saved.`,
-      });
+      await downloadPdfFromFunction(`Invoice-${invoice.invoice_number}`, template.font_family);
+      toast({ title: "PDF downloaded", description: `Invoice ${invoice.invoice_number} saved.` });
     } catch (e) {
-      console.error("[InvoiceDetails] PDF generation error:", e);
-      toast({
-        title: "PDF error",
-        description: "Failed to generate invoice PDF.",
-        variant: "destructive",
-      });
+      toast({ title: "PDF error", description: "Failed to generate invoice PDF.", variant: "destructive" });
     }
   };
 
   const handleEmailReminder = () => {
     if (!invoice) return;
-    // If already sent an email, use the dedicated reminder dialog
     if (lastEmailSent?.sentAt) {
       setShowReminderDialog(true);
     } else {
-      // First-time send uses generic email dialog
       setShowEmailDialog(true);
     }
   };
 
   const handleReminderSuccess = () => {
-    setReminderKey((k) => k + 1); // Refresh the reminder history panel
-    refetchSendLogs(); // Refresh the send status in sidebar
+    setReminderKey((k) => k + 1);
+    refetchSendLogs();
   };
 
+  // FIX: uses normalisePhone (adds +356 for 8-digit Malta numbers)
   const handleWhatsAppReminder = async () => {
     if (!invoice || !user) return;
-
-    const phoneRaw = invoice.customers?.phone || "";
-    const phone = phoneRaw.replace(/\D/g, "");
-
-    // Generate share link with PDF
     setWhatsappLoading(true);
     try {
       const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
-      if (!root) {
-        throw new Error("Document preview not found");
-      }
+      if (!root) throw new Error("Document preview not found");
 
       const html = buildA4HtmlDocument({
         filename: `Invoice-${invoice.invoice_number}`,
@@ -430,13 +471,16 @@ const InvoiceDetails = () => {
       if (data?.error) throw new Error(data.error);
 
       const shareUrl = data.url;
-      const message = `Payment Reminder: Invoice ${invoice.invoice_number} of €${formatNumber(computedTotals.total, 2)} is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.\n\nView/Download PDF: ${shareUrl}`;
+      const message =
+        `Payment Reminder: Invoice ${invoice.invoice_number} of €${formatNumber(computedTotals.total, 2)} ` +
+        `is due on ${format(new Date(invoice.due_date), "dd/MM/yyyy")}.\n\nView/Download PDF: ${shareUrl}`;
 
+      // FIX: use normalisePhone instead of raw digit strip
+      const phone = normalisePhone(invoice.customers?.phone || "");
       const whatsappUrl = phone
         ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
         : `https://wa.me/?text=${encodeURIComponent(message)}`;
 
-      // Open via redirect page to avoid cross-origin blocking
       const waWindow = window.open(`/redirect?url=${encodeURIComponent(whatsappUrl)}`, "_blank");
       if (!waWindow) {
         toast({
@@ -447,12 +491,8 @@ const InvoiceDetails = () => {
         return;
       }
 
-      toast({
-        title: "WhatsApp opened",
-        description: "Share link created and WhatsApp opened.",
-      });
+      toast({ title: "WhatsApp opened", description: "Share link created and WhatsApp opened." });
     } catch (error: any) {
-      console.error("[InvoiceDetails] WhatsApp share error:", error);
       toast({
         title: "Failed to create share link",
         description: error.message || "An error occurred.",
@@ -463,39 +503,31 @@ const InvoiceDetails = () => {
     }
   };
 
+  // FIX: Issue now goes through a confirmation dialog
   const handleIssueInvoice = async () => {
     if (!id || !invoice) return;
     setIsIssuing(true);
+    setShowIssueConfirm(false);
     const result = await invoiceService.issueInvoice(id);
     setIsIssuing(false);
 
     if (result.success) {
       const { data: updatedInvoice } = await supabase.from("invoices").select("*").eq("id", id).single();
-      if (updatedInvoice) {
-        setInvoice({ ...invoice, ...(updatedInvoice as any) });
-      }
+      if (updatedInvoice) setInvoice({ ...invoice, ...(updatedInvoice as any) });
       const auditResult = await invoiceService.getInvoiceAuditTrail(id);
-      if (auditResult.success && auditResult.auditTrail) {
-        setAuditTrail(auditResult.auditTrail);
-      }
+      if (auditResult.success && auditResult.auditTrail) setAuditTrail(auditResult.auditTrail);
     }
   };
 
-  const handleCreateCreditNote = () => {
-    setShowCreditNoteDialog(true);
-  };
+  const handleCreateCreditNote = () => setShowCreditNoteDialog(true);
 
   const handleCreditNoteSuccess = async () => {
     if (!id) return;
     const { data: updatedInvoice } = await supabase.from("invoices").select("*").eq("id", id).single();
-    if (updatedInvoice && invoice) {
-      setInvoice({ ...invoice, ...(updatedInvoice as any) });
-    }
+    if (updatedInvoice && invoice) setInvoice({ ...invoice, ...(updatedInvoice as any) });
     fetchCreditNotes();
     const auditResult = await invoiceService.getInvoiceAuditTrail(id);
-    if (auditResult.success && auditResult.auditTrail) {
-      setAuditTrail(auditResult.auditTrail);
-    }
+    if (auditResult.success && auditResult.auditTrail) setAuditTrail(auditResult.auditTrail);
   };
 
   const handleAddPayment = async () => {
@@ -503,11 +535,7 @@ const InvoiceDetails = () => {
 
     const amount = parseFloat(newPayment.amount);
     if (isNaN(amount) || amount <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid payment amount.",
-        variant: "destructive",
-      });
+      toast({ title: "Invalid amount", description: "Please enter a valid payment amount.", variant: "destructive" });
       return;
     }
 
@@ -525,7 +553,7 @@ const InvoiceDetails = () => {
       const { error } = await supabase.from("payments").insert({
         user_id: user.id,
         invoice_id: id,
-        amount: amount,
+        amount,
         payment_date: newPayment.payment_date,
         method: newPayment.method,
       });
@@ -538,35 +566,34 @@ const InvoiceDetails = () => {
       const invoiceTotal = Number(invoiceTotals?.total_amount ?? computedTotals.total);
       const adjustedTotal = invoiceTotal - totalCreditNotesAmount;
       const newRemainingBalance = adjustedTotal - newTotalPaid;
-      const isNowFullyPaid = newRemainingBalance <= 0.01;
+
+      // FIX: use Math.round to avoid floating point misclassification
+      const roundedRemaining = Math.round(newRemainingBalance * 100) / 100;
+      const isNowFullyPaid = roundedRemaining <= 0;
 
       if (isNowFullyPaid) {
         await supabase.from("invoices").update({ status: "paid" }).eq("id", id).eq("user_id", user.id);
         setInvoice({ ...invoice, status: "paid" });
-      } else if (newTotalPaid > 0 && newRemainingBalance > 0.01) {
+      } else if (newTotalPaid > 0) {
         await supabase.from("invoices").update({ status: "partially_paid" }).eq("id", id).eq("user_id", user.id);
         setInvoice({ ...invoice, status: "partially_paid" });
       }
 
-      toast({
-        title: "Payment recorded",
-        description: `Payment of €${formatNumber(amount, 2)} has been added.`,
-      });
+      toast({ title: "Payment recorded", description: `Payment of €${formatNumber(amount, 2)} has been added.` });
 
-      // Send payment confirmation email if customer has email
       const customerEmail = invoice.customers?.email;
       if (customerEmail) {
         try {
-          const { error: emailError } = await supabase.functions.invoke("send-payment-confirmation", {
+          await supabase.functions.invoke("send-payment-confirmation", {
             body: {
               invoiceId: id,
               invoiceNumber: invoice.invoice_number,
               paymentAmount: amount,
               paymentMethod: newPayment.method,
               paymentDate: newPayment.payment_date,
-              customerEmail: customerEmail,
+              customerEmail,
               customerName: invoice.customers?.name || "Customer",
-              remainingBalance: Math.max(0, newRemainingBalance),
+              remainingBalance: Math.max(0, roundedRemaining),
               isFullyPaid: isNowFullyPaid,
               userId: user.id,
               customerId: invoice.customer_id,
@@ -574,93 +601,94 @@ const InvoiceDetails = () => {
               companyName: companySettings?.company_name || "Our Company",
             },
           });
-
-          if (emailError) {
-            console.warn("[InvoiceDetails] Payment confirmation email failed:", emailError);
-          } else {
-            toast({
-              title: "Confirmation sent",
-              description: `Payment receipt emailed to ${customerEmail}.`,
-            });
-            refetchSendLogs();
-          }
-        } catch (emailErr) {
-          console.warn("[InvoiceDetails] Payment confirmation email error:", emailErr);
-          // Don't show error toast - email is optional
+          toast({ title: "Confirmation sent", description: `Payment receipt emailed to ${customerEmail}.` });
+          refetchSendLogs();
+        } catch {
+          // Email is optional — don't fail the payment record
         }
       }
 
-      setNewPayment({
-        amount: "",
-        payment_date: format(new Date(), "yyyy-MM-dd"),
-        method: "bank_transfer",
-      });
+      // FIX: always reset the form when payment is successfully recorded
+      setNewPayment(DEFAULT_PAYMENT);
       setShowPaymentDialog(false);
     } catch (error) {
-      console.error("Error adding payment:", error);
-      toast({
-        title: "Error",
-        description: "Failed to record payment. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to record payment. Please try again.", variant: "destructive" });
     } finally {
       setPaymentLoading(false);
     }
   };
 
-  const getMethodLabel = (method: string | null) => {
-    const methods: Record<string, string> = {
-      bank_transfer: "Bank Transfer",
-      cash: "Cash",
-      card: "Card",
-      check: "Check",
-      other: "Other",
-    };
-    return methods[method || ""] || method || "—";
+  // FIX: delete payment handler
+  const handleDeletePayment = async (payment: Payment) => {
+    if (!id || !user || !invoice) return;
+    setDeletingPaymentId(payment.id);
+    try {
+      const { error } = await supabase.from("payments").delete().eq("id", payment.id).eq("user_id", user.id);
+      if (error) throw error;
+
+      await fetchPayments();
+
+      // Recalculate status after deletion
+      const newTotalPaid = payments
+        .filter((p) => p.id !== payment.id)
+        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const invoiceTotal = Number(invoiceTotals?.total_amount ?? computedTotals.total);
+      const adjustedTotal = invoiceTotal - totalCreditNotesAmount;
+      const newRemaining = Math.round((adjustedTotal - newTotalPaid) * 100) / 100;
+
+      let newStatus = invoice.status;
+      if (newRemaining <= 0) {
+        newStatus = "paid";
+      } else if (newTotalPaid > 0) {
+        newStatus = "partially_paid";
+      } else {
+        newStatus = isIssued ? "pending" : "draft";
+      }
+
+      await supabase.from("invoices").update({ status: newStatus }).eq("id", id).eq("user_id", user.id);
+      setInvoice({ ...invoice, status: newStatus });
+
+      toast({
+        title: "Payment deleted",
+        description: `Payment of €${formatNumber(payment.amount, 2)} has been removed.`,
+      });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete payment.", variant: "destructive" });
+    } finally {
+      setDeletingPaymentId(null);
+      setShowDeletePaymentConfirm(null);
+    }
   };
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copied", description: `${label} copied to clipboard.` });
-  };
+  // ── Early returns ──────────────────────────────────────────────────────────
 
-  const isSettled = remainingBalance <= 0;
-  const isIssued = (invoice as any)?.is_issued;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <div className="md:ml-64">
-          <div className="p-6">
-            <div className="text-center py-12">Loading invoice details...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <InvoiceDetailsSkeleton />;
 
   if (!invoice) {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="md:ml-64">
-          <div className="p-6">
-            <div className="text-center py-12">
-              <h2 className="text-xl font-semibold mb-2">Invoice not found</h2>
-              <p className="text-muted-foreground mb-4">The requested invoice could not be found.</p>
-              <Link to="/invoices">
-                <Button>
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Back to Invoices
-                </Button>
-              </Link>
-            </div>
+          <div className="p-6 text-center py-12">
+            <h2 className="text-xl font-semibold mb-2">Invoice not found</h2>
+            <p className="text-muted-foreground mb-4">The requested invoice could not be found.</p>
+            <Link to="/invoices">
+              <Button>
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Back to Invoices
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
     );
   }
+
+  const invoiceDate = (invoice as any).invoice_date || invoice.created_at;
+  const companyNameStr = companySettings?.company_name || "Company";
+  const customerName = invoice.customers?.name || "Customer";
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-background">
@@ -671,7 +699,6 @@ const InvoiceDetails = () => {
         <header className="bg-card border-b border-border">
           <div className="px-6 py-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              {/* Breadcrumb and Title */}
               <div className="flex items-center gap-3">
                 <Link
                   to="/invoices"
@@ -703,29 +730,57 @@ const InvoiceDetails = () => {
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Actions — FIX: Email and WhatsApp promoted to action bar */}
               <div className="flex items-center gap-2">
                 {!isIssued && (
                   <Button
-                    onClick={handleIssueInvoice}
+                    onClick={() => setShowIssueConfirm(true)}
                     disabled={isIssuing}
                     size="sm"
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
-                    {isIssuing ? "Issuing..." : "Issue"}
+                    {isIssuing ? "Issuing…" : "Issue"}
                   </Button>
                 )}
+
+                {/* FIX: Email + WhatsApp as prominent icon buttons for issued unpaid invoices */}
+                {isIssued && !isSettled && (
+                  <>
+                    <Button onClick={handleEmailReminder} variant="outline" size="sm" title="Send email">
+                      <Mail className="h-4 w-4 mr-1" />
+                      Email
+                    </Button>
+                    <Button
+                      onClick={handleWhatsAppReminder}
+                      variant="outline"
+                      size="sm"
+                      disabled={whatsappLoading}
+                      title="Send via WhatsApp"
+                      className="text-green-700 border-green-300 hover:bg-green-50 hover:border-green-400"
+                    >
+                      {whatsappLoading ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <MessageCircle className="h-4 w-4 mr-1" />
+                      )}
+                      WhatsApp
+                    </Button>
+                  </>
+                )}
+
                 <Button onClick={handleDownload} size="sm">
                   <Download className="h-4 w-4 mr-1" />
                   Download PDF
                 </Button>
+
                 {isIssued && remainingBalance > 0 && (
                   <Button onClick={() => setShowPaymentDialog(true)} variant="secondary" size="sm">
                     <Plus className="h-4 w-4 mr-1" />
                     Add Payment
                   </Button>
                 )}
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="px-2">
@@ -739,17 +794,11 @@ const InvoiceDetails = () => {
                         Create Credit Note
                       </DropdownMenuItem>
                     )}
-                    {isIssued && !isSettled && (
-                      <>
-                        <DropdownMenuItem onClick={handleEmailReminder}>
-                          <Mail className="h-4 w-4 mr-2" />
-                          Email Reminder
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleWhatsAppReminder}>
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          WhatsApp
-                        </DropdownMenuItem>
-                      </>
+                    {!isIssued && (
+                      <DropdownMenuItem onClick={() => navigate(`/invoices/edit/${id}`)}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Edit Invoice
+                      </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -759,7 +808,7 @@ const InvoiceDetails = () => {
         </header>
 
         <main className="px-6 py-2 space-y-2">
-          {/* Invoice Summary Strip */}
+          {/* Summary strip */}
           <Card className="shadow-none bg-muted/20 border-border/40">
             <CardContent className="px-3 py-1.5">
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -768,12 +817,10 @@ const InvoiceDetails = () => {
                     to={`/customers/${invoice.customer_id}`}
                     className="font-medium text-foreground hover:text-primary transition-colors"
                   >
-                    {invoice.customers?.name || "Unknown Customer"}
+                    {customerName}
                   </Link>
                   <span className="text-muted-foreground/60 hidden sm:inline">•</span>
-                  <span className="text-muted-foreground">
-                    Issued {format(new Date((invoice as any).invoice_date || invoice.created_at), "dd MMM yyyy")}
-                  </span>
+                  <span className="text-muted-foreground">Issued {format(new Date(invoiceDate), "dd MMM yyyy")}</span>
                   <span className="text-muted-foreground/60 hidden sm:inline">•</span>
                   <span className="text-muted-foreground">Due {format(new Date(invoice.due_date), "dd MMM yyyy")}</span>
                 </div>
@@ -783,7 +830,7 @@ const InvoiceDetails = () => {
                     <span className="font-medium text-foreground">
                       {invoice.status
                         .split("_")
-                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
                         .join(" ")}
                     </span>
                   </span>
@@ -801,7 +848,6 @@ const InvoiceDetails = () => {
                       </span>
                     </>
                   )}
-                  {/* Inline compliance tag */}
                   {isIssued && (
                     <>
                       <span className="text-muted-foreground/60 hidden sm:inline">•</span>
@@ -816,7 +862,7 @@ const InvoiceDetails = () => {
             </CardContent>
           </Card>
 
-          {/* Compliance Note - mobile only or draft */}
+          {/* Draft warning */}
           {!isIssued && (
             <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/50 rounded px-2.5 py-1 max-w-fit">
               <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
@@ -826,7 +872,17 @@ const InvoiceDetails = () => {
             </div>
           )}
 
-          {/* Smart Reminder Prompt Banner */}
+          {/* FIX: warning when issued invoice has no line items */}
+          {isIssued && hasNoItems && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                This invoice has no line items. The PDF will be invalid for VAT purposes. Please contact support.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Smart reminder banner */}
           {isIssued && invoice && reminderStatus.shouldShowReminder && (
             <ReminderPromptBanner
               invoiceId={invoice.id}
@@ -837,9 +893,8 @@ const InvoiceDetails = () => {
 
           {/* Two-column layout */}
           <div className="flex flex-col lg:flex-row gap-3">
-            {/* Main Content */}
             <div className="flex-1 space-y-2 min-w-0">
-              {/* Mobile Sidebar - shown above content on mobile */}
+              {/* Mobile sidebar */}
               <div className="lg:hidden">
                 <SidebarCard
                   invoice={invoice}
@@ -849,6 +904,7 @@ const InvoiceDetails = () => {
                   computedTotals={computedTotals}
                   invoiceTotals={invoiceTotals}
                   creditNotes={creditNotes}
+                  totalCreditNotesAmount={totalCreditNotesAmount}
                   discountInfo={discountInfo}
                   subtotal={subtotal}
                   dueIndicator={dueIndicator}
@@ -888,30 +944,27 @@ const InvoiceDetails = () => {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          invoiceItems.map((item) => {
-                            const lineTotal = item.quantity * item.unit_price;
-                            return (
-                              <TableRow key={item.id} className="border-b border-border/50 last:border-0">
-                                <TableCell className="py-2">
-                                  <span className="line-clamp-2 text-sm">{item.description}</span>
-                                </TableCell>
-                                <TableCell className="py-2 text-sm text-right tabular-nums">{item.quantity}</TableCell>
-                                <TableCell className="py-2 text-sm text-right tabular-nums">
-                                  €{formatNumber(item.unit_price, 2)}
-                                </TableCell>
-                                <TableCell className="py-2 text-sm text-right tabular-nums text-muted-foreground">
-                                  {formatNumber(item.vat_rate * 100, 0)}%
-                                </TableCell>
-                                <TableCell className="py-2 text-sm text-right font-medium tabular-nums">
-                                  €{formatNumber(lineTotal, 2)}
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })
+                          invoiceItems.map((item) => (
+                            <TableRow key={item.id} className="border-b border-border/50 last:border-0">
+                              <TableCell className="py-2">
+                                <span className="line-clamp-2 text-sm">{item.description}</span>
+                              </TableCell>
+                              <TableCell className="py-2 text-sm text-right tabular-nums">{item.quantity}</TableCell>
+                              <TableCell className="py-2 text-sm text-right tabular-nums">
+                                €{formatNumber(item.unit_price, 2)}
+                              </TableCell>
+                              {/* FIX: normalised VAT rate display */}
+                              <TableCell className="py-2 text-sm text-right tabular-nums text-muted-foreground">
+                                {formatNumber(displayVatRate(item.vat_rate), 0)}%
+                              </TableCell>
+                              <TableCell className="py-2 text-sm text-right font-medium tabular-nums">
+                                €{formatNumber(item.quantity * item.unit_price, 2)}
+                              </TableCell>
+                            </TableRow>
+                          ))
                         )}
                       </TableBody>
                     </Table>
-                    {/* Table Footer Totals */}
                     {invoiceItems.length > 0 && (
                       <div className="border-t-2 border-border bg-muted/20">
                         <div className="flex flex-col items-end py-2 pr-4">
@@ -989,6 +1042,8 @@ const InvoiceDetails = () => {
                             <TableHead className="py-2 text-xs font-medium">Date</TableHead>
                             <TableHead className="py-2 text-xs font-medium">Method</TableHead>
                             <TableHead className="py-2 text-xs font-medium text-right">Amount</TableHead>
+                            {/* FIX: delete column */}
+                            <TableHead className="py-2 text-xs font-medium w-10" />
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1002,6 +1057,22 @@ const InvoiceDetails = () => {
                               </TableCell>
                               <TableCell className="py-2 text-sm text-right font-medium tabular-nums">
                                 €{formatNumber(payment.amount, 2)}
+                              </TableCell>
+                              <TableCell className="py-2 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  disabled={deletingPaymentId === payment.id}
+                                  onClick={() => setShowDeletePaymentConfirm(payment)}
+                                  title="Delete payment"
+                                >
+                                  {deletingPaymentId === payment.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3 w-3" />
+                                  )}
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -1022,7 +1093,7 @@ const InvoiceDetails = () => {
                 />
               )}
 
-              {/* Share Link Panel */}
+              {/* Share Link */}
               {isIssued && (
                 <div className="border border-border/60 rounded-lg bg-card/50 shadow-sm p-4">
                   <ShareLinkPanel invoiceId={id || ""} invoiceNumber={invoice.invoice_number} />
@@ -1104,6 +1175,7 @@ const InvoiceDetails = () => {
                   computedTotals={computedTotals}
                   invoiceTotals={invoiceTotals}
                   creditNotes={creditNotes}
+                  totalCreditNotesAmount={totalCreditNotesAmount}
                   discountInfo={discountInfo}
                   subtotal={subtotal}
                   dueIndicator={dueIndicator}
@@ -1122,18 +1194,7 @@ const InvoiceDetails = () => {
         </main>
       </div>
 
-      {/* Hidden elements for PDF generation */}
-      <div style={{ display: "none" }}>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(template?.font_family || "Inter")}:wght@400;600;700&display=swap`}
-          rel="stylesheet"
-        />
-      </div>
-
-      {/* PDF styles are embedded in UnifiedInvoiceLayout */}
-
+      {/* Hidden PDF preview */}
       <div style={{ display: "none" }}>
         {invoice && template && !templateLoading && (
           <InvoiceErrorBoundary>
@@ -1143,10 +1204,10 @@ const InvoiceDetails = () => {
               debug={false}
               invoiceData={{
                 invoiceNumber: invoice.invoice_number,
-                invoiceDate: format(new Date((invoice as any).invoice_date || invoice.created_at), "yyyy-MM-dd"),
+                invoiceDate: format(new Date(invoiceDate), "yyyy-MM-dd"),
                 dueDate: invoice.due_date,
                 customer: {
-                  name: invoice.customers?.name || "Unknown Customer",
+                  name: customerName,
                   email: invoice.customers?.email || undefined,
                   address: invoice.customers?.address || undefined,
                   address_line1: invoice.customers?.address_line1 || undefined,
@@ -1234,8 +1295,56 @@ const InvoiceDetails = () => {
         )}
       </div>
 
-      {/* Add Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      {/* ── Dialogs ── */}
+
+      {/* FIX: Issue Invoice confirmation dialog */}
+      <Dialog open={showIssueConfirm} onOpenChange={setShowIssueConfirm}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-4 w-4 text-green-600" />
+              Issue Invoice {invoice.invoice_number}?
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-1">
+              <span className="block">
+                Once issued, this invoice will be <strong>locked and cannot be edited</strong>. This is required for
+                Malta VAT compliance.
+              </span>
+              <span className="block text-sm">
+                To make corrections after issuing, you will need to create a credit note.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowIssueConfirm(false)} disabled={isIssuing}>
+              Cancel
+            </Button>
+            <Button onClick={handleIssueInvoice} disabled={isIssuing} className="bg-green-600 hover:bg-green-700">
+              {isIssuing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Issuing…
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Issue Invoice
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Payment dialog */}
+      <Dialog
+        open={showPaymentDialog}
+        onOpenChange={(open) => {
+          // FIX: reset form on close
+          if (!open) setNewPayment(DEFAULT_PAYMENT);
+          setShowPaymentDialog(open);
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Add Payment</DialogTitle>
@@ -1287,11 +1396,55 @@ const InvoiceDetails = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewPayment(DEFAULT_PAYMENT);
+                setShowPaymentDialog(false);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleAddPayment} disabled={paymentLoading}>
-              {paymentLoading ? "Recording..." : "Record Payment"}
+              {paymentLoading ? "Recording…" : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* FIX: Delete payment confirmation dialog */}
+      <Dialog
+        open={!!showDeletePaymentConfirm}
+        onOpenChange={(open) => {
+          if (!open) setShowDeletePaymentConfirm(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete payment?</DialogTitle>
+            <DialogDescription>
+              This will remove the payment of €{formatNumber(showDeletePaymentConfirm?.amount || 0, 2)} recorded on{" "}
+              {showDeletePaymentConfirm ? format(new Date(showDeletePaymentConfirm.payment_date), "dd MMM yyyy") : ""}.
+              The invoice balance and status will be recalculated.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeletePaymentConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => showDeletePaymentConfirm && handleDeletePayment(showDeletePaymentConfirm)}
+              disabled={!!deletingPaymentId}
+            >
+              {deletingPaymentId ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete Payment"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1317,32 +1470,12 @@ const InvoiceDetails = () => {
           const isFirstSend = !lastEmailSent?.sentAt;
           const formattedDueDate = format(new Date(invoice.due_date), "dd MMM yyyy");
           const formattedAmount = `€${formatNumber(remainingBalance, 2)}`;
-          const companyNameStr = companySettings.company_name || "Company";
-          const customerName = invoice.customers?.name || "Customer";
 
-          // First-time send copy
           const firstSendSubject = `Invoice ${invoice.invoice_number} from ${companyNameStr}`;
-          const firstSendMessage = `Dear ${customerName},
+          const firstSendMessage = `Dear ${customerName},\n\nPlease find attached invoice ${invoice.invoice_number} for ${formattedAmount}, due on ${formattedDueDate}.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n${companyNameStr}`;
 
-Please find attached invoice ${invoice.invoice_number} for ${formattedAmount}, due on ${formattedDueDate}.
-
-If you have any questions, please don't hesitate to contact us.
-
-Best regards,
-${companyNameStr}`;
-
-          // Reminder copy
           const reminderSubject = `Payment Reminder: Invoice ${invoice.invoice_number} from ${companyNameStr}`;
-          const reminderMessage = `Dear ${customerName},
-
-This is a friendly reminder that invoice ${invoice.invoice_number} for ${formattedAmount} was due on ${formattedDueDate}.
-
-Please arrange payment at your earliest convenience. If you have already made this payment, please disregard this message.
-
-If you have any questions, please don't hesitate to contact us.
-
-Best regards,
-${companyNameStr}`;
+          const reminderMessage = `Dear ${customerName},\n\nThis is a friendly reminder that invoice ${invoice.invoice_number} for ${formattedAmount} was due on ${formattedDueDate}.\n\nPlease arrange payment at your earliest convenience. If you have already made this payment, please disregard this message.\n\nBest regards,\n${companyNameStr}`;
 
           return (
             <SendDocumentEmailDialog
@@ -1351,11 +1484,7 @@ ${companyNameStr}`;
               documentType="invoice"
               documentId={invoice.id}
               documentNumber={invoice.invoice_number}
-              customer={{
-                id: invoice.customer_id,
-                name: customerName,
-                email: invoice.customers?.email || null,
-              }}
+              customer={{ id: invoice.customer_id, name: customerName, email: invoice.customers?.email || null }}
               companyName={companyNameStr}
               userId={user.id}
               fontFamily={template?.font_family}
@@ -1366,7 +1495,7 @@ ${companyNameStr}`;
           );
         })()}
 
-      {/* Send Reminder Dialog */}
+      {/* Send Reminder Dialog — FIX: customerPhone and userId now passed */}
       {invoice && (
         <SendReminderDialog
           open={showReminderDialog}
@@ -1375,6 +1504,8 @@ ${companyNameStr}`;
           invoiceNumber={invoice.invoice_number}
           customerName={invoice.customers?.name}
           customerEmail={invoice.customers?.email}
+          customerPhone={invoice.customers?.phone}
+          userId={user?.id}
           invoiceAmount={computedTotals.total}
           dueDate={invoice.due_date}
           daysOverdue={invoice.due_date ? Math.max(0, differenceInDays(new Date(), new Date(invoice.due_date))) : 0}
@@ -1387,7 +1518,8 @@ ${companyNameStr}`;
   );
 };
 
-// Sidebar Card Component
+// ── SidebarCard ───────────────────────────────────────────────────────────────
+
 interface SidebarCardProps {
   invoice: Invoice;
   remainingBalance: number;
@@ -1396,6 +1528,7 @@ interface SidebarCardProps {
   computedTotals: { net: number; vat: number; total: number };
   invoiceTotals: InvoiceTotals | null;
   creditNotes: CreditNoteSummary[];
+  totalCreditNotesAmount: number; // FIX: passed in, not recalculated
   discountInfo: { amount: number; isPercent: boolean; percentValue: number };
   subtotal: number;
   dueIndicator: { text: string; isOverdue: boolean } | null;
@@ -1417,6 +1550,7 @@ const SidebarCard = ({
   computedTotals,
   invoiceTotals,
   creditNotes,
+  totalCreditNotesAmount,
   discountInfo,
   subtotal,
   dueIndicator,
@@ -1431,31 +1565,23 @@ const SidebarCard = ({
 }: SidebarCardProps) => {
   const total = invoiceTotals?.total_amount ?? computedTotals.total;
   const vat = invoiceTotals?.vat_amount ?? computedTotals.vat;
-
-  const totalCreditNotesAmount = creditNotes.reduce((sum, cn) => {
-    const netAmount = Number(cn.amount || 0);
-    const vatRate = Number(cn.vat_rate || 0);
-    return sum + netAmount + netAmount * vatRate;
-  }, 0);
-
-  const isIssued = (invoice as any)?.is_issued;
+  const isIssued = !!(invoice as any)?.is_issued;
   const invoiceUrl = typeof window !== "undefined" ? `${window.location.origin}/invoices/${invoice.id}` : "";
 
   return (
     <Card className="shadow-sm">
       <CardContent className="p-2.5 space-y-2">
-        {/* Status and Balance Due - same row */}
+        {/* Balance */}
         <div>
           <div className="flex items-center justify-between mb-0.5">
             <span className="text-xs text-muted-foreground">Balance Due</span>
             <Badge className={`${getStatusBadge(invoice.status)} text-[10px] px-1.5 py-0 h-4`}>
               {invoice.status
                 .split("_")
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
                 .join(" ")}
             </Badge>
           </div>
-
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold tabular-nums">
               {isSettled ? "€0.00" : `€${formatNumber(Math.max(0, remainingBalance), 2)}`}
@@ -1467,7 +1593,6 @@ const SidebarCard = ({
               </span>
             )}
           </div>
-
           {dueIndicator && !isSettled && (
             <div
               className={`mt-0.5 text-xs font-medium ${dueIndicator.isOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}
@@ -1478,7 +1603,7 @@ const SidebarCard = ({
           )}
         </div>
 
-        {/* Totals Breakdown */}
+        {/* Totals breakdown */}
         <div className="border-t pt-1.5 space-y-0.5 text-sm">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Subtotal</span>
@@ -1498,7 +1623,6 @@ const SidebarCard = ({
             <span>Total</span>
             <span className="tabular-nums font-bold">€{formatNumber(total, 2)}</span>
           </div>
-
           {creditNotes.length > 0 && (
             <>
               <div className="flex justify-between text-xs">
@@ -1511,14 +1635,13 @@ const SidebarCard = ({
               </div>
             </>
           )}
-
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Paid</span>
             <span className="tabular-nums">€{formatNumber(totalPaid, 2)}</span>
           </div>
         </div>
 
-        {/* Quick Actions - compact outline buttons with hover states */}
+        {/* Quick Actions */}
         {isIssued && (
           <div className="border-t pt-1.5">
             <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
@@ -1530,7 +1653,7 @@ const SidebarCard = ({
                   onClick={onEmailReminder}
                   variant="outline"
                   size="sm"
-                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
+                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50"
                 >
                   <Mail className="h-3 w-3" />
                   {lastEmailSent?.sentAt ? "Send Email Reminder" : "Send Invoice Email"}
@@ -1542,7 +1665,7 @@ const SidebarCard = ({
                   variant="outline"
                   size="sm"
                   disabled={whatsappLoading}
-                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
+                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-green-50 text-green-700 border-green-200 hover:border-green-300"
                 >
                   {whatsappLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -1550,7 +1673,7 @@ const SidebarCard = ({
                     <MessageCircle className="h-3 w-3" />
                   )}
                   {whatsappLoading
-                    ? "Creating link..."
+                    ? "Creating link…"
                     : lastWhatsAppSent?.sentAt
                       ? "Send WhatsApp Reminder"
                       : "Send via WhatsApp"}
@@ -1561,7 +1684,7 @@ const SidebarCard = ({
                   onClick={onCreateCreditNote}
                   variant="outline"
                   size="sm"
-                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50 transition-colors"
+                  className="w-full h-7 text-xs justify-start gap-2 hover:bg-muted/50"
                 >
                   <FileText className="h-3 w-3" />
                   Create Credit Note
@@ -1571,21 +1694,16 @@ const SidebarCard = ({
           </div>
         )}
 
-        {/* Send Status Section */}
+        {/* Send Status */}
         {isIssued && (
           <div className="border-t pt-1.5">
             <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
               Send Status
             </div>
             <div className="space-y-1.5">
-              {/* Email Status */}
               <div className="flex items-center gap-2 text-xs">
                 <div
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-                    lastEmailSent?.sentAt
-                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${lastEmailSent?.sentAt ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-muted text-muted-foreground"}`}
                 >
                   <Mail className="h-3 w-3" />
                   {lastEmailSent?.sentAt ? (
@@ -1603,15 +1721,9 @@ const SidebarCard = ({
                   </span>
                 )}
               </div>
-
-              {/* WhatsApp Status */}
               <div className="flex items-center gap-2 text-xs">
                 <div
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-                    lastWhatsAppSent?.sentAt
-                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${lastWhatsAppSent?.sentAt ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-muted text-muted-foreground"}`}
                 >
                   <MessageCircle className="h-3 w-3" />
                   {lastWhatsAppSent?.sentAt ? (
@@ -1633,7 +1745,7 @@ const SidebarCard = ({
           </div>
         )}
 
-        {/* Customer Section */}
+        {/* Customer */}
         <div className="border-t pt-2">
           <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
             <User className="h-2.5 w-2.5" />
@@ -1665,7 +1777,6 @@ const SidebarCard = ({
             <FileText className="h-2.5 w-2.5" />
             Invoice Details
           </div>
-
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1">
               <Hash className="h-3 w-3" />
@@ -1681,7 +1792,6 @@ const SidebarCard = ({
               </button>
             </div>
           </div>
-
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1">
               <CalendarDays className="h-3 w-3" />
@@ -1689,7 +1799,6 @@ const SidebarCard = ({
             </span>
             <span>{format(new Date((invoice as any).invoice_date || invoice.created_at), "dd MMM yyyy")}</span>
           </div>
-
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
@@ -1699,8 +1808,6 @@ const SidebarCard = ({
               {format(new Date(invoice.due_date), "dd MMM yyyy")}
             </span>
           </div>
-
-          {/* Copy invoice link */}
           <button
             onClick={() => copyToClipboard(invoiceUrl, "Invoice link")}
             className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-2 py-1 mt-1.5 transition-colors border border-border/50"
