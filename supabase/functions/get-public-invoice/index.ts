@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const handler = async (req: Request): Promise<Response> => {
@@ -34,19 +35,21 @@ const handler = async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     if (linkErr || !linkData) {
-      return new Response(
-        JSON.stringify({ error: "This link is invalid, has expired, or has been revoked." }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      );
+      return new Response(JSON.stringify({ error: "This link is invalid, has expired, or has been revoked." }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     const { invoice_id, user_id } = linkData;
 
-    // 2. Fetch all invoice data in parallel (service role bypasses RLS)
+    // 2. Fetch all invoice data in parallel
     const [invoiceRes, itemsRes, totalsRes, companyRes, bankingRes, paymentsRes] = await Promise.all([
       supabase
         .from("invoices")
-        .select("id, invoice_number, invoice_date, due_date, status, amount, vat_amount, total_amount, vat_rate, discount_type, discount_value, is_issued, customer_id")
+        .select(
+          "id, invoice_number, invoice_date, due_date, status, amount, vat_amount, total_amount, vat_rate, discount_type, discount_value, is_issued, customer_id",
+        )
         .eq("id", invoice_id)
         .eq("user_id", user_id)
         .single(),
@@ -62,7 +65,9 @@ const handler = async (req: Request): Promise<Response> => {
         .maybeSingle(),
       supabase
         .from("company_settings")
-        .select("company_name, company_email, company_phone, company_address, company_locality, company_post_code, company_country, company_vat_number, company_registration_number, company_logo, company_website")
+        .select(
+          "company_name, company_email, company_phone, company_address, company_locality, company_post_code, company_country, company_vat_number, company_registration_number, company_logo, company_website",
+        )
         .eq("user_id", user_id)
         .maybeSingle(),
       supabase
@@ -79,13 +84,13 @@ const handler = async (req: Request): Promise<Response> => {
     ]);
 
     if (invoiceRes.error || !invoiceRes.data) {
-      return new Response(
-        JSON.stringify({ error: "Invoice data could not be loaded." }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } },
-      );
+      return new Response(JSON.stringify({ error: "Invoice data could not be loaded." }), {
+        status: 404,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    // 3. Fetch customer if exists
+    // 3. Fetch customer
     const customerId = invoiceRes.data.customer_id;
     let customerData = null;
     if (customerId) {
@@ -97,7 +102,27 @@ const handler = async (req: Request): Promise<Response> => {
       customerData = cust;
     }
 
-    // 4. Return assembled data
+    // 4. Fetch the most recent non-expired PDF share URL from document_send_logs
+    //    This is the exact same PDF that was sent to the client via WhatsApp/email —
+    //    so the download button gives them the identical document, not a re-rendered page.
+    let pdfUrl: string | null = null;
+    const now = new Date().toISOString();
+    const { data: sendLog } = await supabase
+      .from("document_send_logs")
+      .select("share_url, share_url_expires_at")
+      .eq("document_id", invoice_id)
+      .eq("document_type", "invoice")
+      .not("share_url", "is", null)
+      .gt("share_url_expires_at", now)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (sendLog?.share_url) {
+      pdfUrl = sendLog.share_url;
+    }
+
+    // 5. Return assembled data including pdf_url
     const result = {
       invoice: invoiceRes.data,
       customer: customerData,
@@ -107,6 +132,7 @@ const handler = async (req: Request): Promise<Response> => {
       banking: bankingRes.data?.include_on_invoices ? bankingRes.data : null,
       payments: paymentsRes.data || [],
       shareLink: { expires_at: linkData.expires_at },
+      pdf_url: pdfUrl, // null if no PDF has been generated yet or all have expired
     };
 
     return new Response(JSON.stringify(result), {
@@ -115,10 +141,10 @@ const handler = async (req: Request): Promise<Response> => {
     });
   } catch (err: any) {
     console.error("[get-public-invoice] Error:", err);
-    return new Response(
-      JSON.stringify({ error: "An unexpected error occurred." }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
-    );
+    return new Response(JSON.stringify({ error: "An unexpected error occurred." }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 };
 
