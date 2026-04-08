@@ -238,16 +238,33 @@ export default function PublicInvoiceView() {
         .join(", ")
     : null;
 
-  // If a real PDF exists from a previous send, download that exact file.
-  // Otherwise fall back to browser print (which renders the webpage, not the invoice template).
-  const handleDownload = () => {
+  const [downloading, setDownloading] = useState(false);
+
+  // Fetch the PDF as a blob first, then trigger download from a local object URL.
+  // This avoids ad blockers/privacy extensions blocking direct requests to
+  // external storage domains (e.g. supabase.co) when using anchor.click().
+  const handleDownload = async () => {
     if (data?.pdf_url) {
-      const a = document.createElement("a");
-      a.href = data.pdf_url;
-      a.download = `Invoice-${data?.invoice?.invoice_number || "download"}.pdf`;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.click();
+      setDownloading(true);
+      try {
+        const response = await fetch(data.pdf_url);
+        if (!response.ok) throw new Error("Failed to fetch PDF");
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = `Invoice-${data?.invoice?.invoice_number || "download"}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Release the object URL after a short delay
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+      } catch {
+        // Fallback: open in new tab so user can save manually
+        window.open(data.pdf_url, "_blank", "noopener,noreferrer");
+      } finally {
+        setDownloading(false);
+      }
     } else {
       window.print();
     }
@@ -295,11 +312,16 @@ export default function PublicInvoiceView() {
               {/* FIX: PDF download button */}
               <button
                 onClick={handleDownload}
-                className="no-print inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                disabled={downloading}
+                className="no-print inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Save as PDF"
               >
-                <Download className="h-3.5 w-3.5" />
-                Download PDF
+                {downloading ? (
+                  <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                {downloading ? "Downloading…" : "Download PDF"}
               </button>
               <div
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${statusCfg.className}`}
