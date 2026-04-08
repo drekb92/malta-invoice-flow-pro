@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon, CheckCircle2, AlertCircle, Upload, Image as ImageIcon, X, ChevronDown } from "lucide-react";
+import { InfoIcon, CheckCircle2, AlertCircle, Upload, Image as ImageIcon, X, ChevronDown, Globe } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Settings as SettingsIcon,
@@ -31,7 +30,8 @@ import {
   MapPin,
 } from "lucide-react";
 
-// TypeScript interfaces
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 interface CompanySettings {
   name: string;
   email: string;
@@ -49,10 +49,10 @@ interface CompanySettings {
   taxId: string;
   registrationNumber: string;
   logo: string;
-  invoicePrefix: string;
-  quotationPrefix: string;
   defaultCurrency: string;
   defaultPaymentTerms: number;
+  // FIX: invoicePrefix / quotationPrefix removed — they duplicated Invoice tab fields
+  // and company_settings.invoice_prefix is never read by the numbering RPC.
 }
 
 interface BankingSettings {
@@ -65,9 +65,15 @@ interface BankingSettings {
   branch: string;
 }
 
+interface BankingPreferences {
+  includeBankingOnInvoices: boolean;
+  bankingDisplayFormat: string;
+}
+
 interface InvoiceSettings {
   prefix: string;
   nextNumber: number;
+  isFirstInvoice: boolean; // FIX: tracks whether counter is still at default so we allow editing
   defaultCurrency: string;
   defaultPaymentTerms: number;
   defaultTaxRate: number;
@@ -89,11 +95,6 @@ interface InvoiceSettings {
   distanceSellingThreshold: number;
   includeEoriNumber: boolean;
   euVatMossEligible: boolean;
-}
-
-interface BankingPreferences {
-  includeBankingOnInvoices: boolean;
-  bankingDisplayFormat: string;
 }
 
 interface NotificationSettings {
@@ -119,116 +120,140 @@ interface PreferenceSettings {
   defaultView: string;
 }
 
+// ── Default states ─────────────────────────────────────────────────────────────
+
+const DEFAULT_COMPANY: CompanySettings = {
+  name: "",
+  email: "",
+  phone: "",
+  website: "",
+  address: "",
+  addressLine1: "",
+  addressLine2: "",
+  locality: "",
+  postCode: "",
+  city: "",
+  state: "",
+  zipCode: "",
+  country: "",
+  taxId: "",
+  registrationNumber: "",
+  logo: "",
+  defaultCurrency: "EUR",
+  defaultPaymentTerms: 30,
+};
+
+const DEFAULT_BANKING: BankingSettings = {
+  bankName: "",
+  accountName: "",
+  accountNumber: "",
+  routingNumber: "",
+  swiftCode: "",
+  iban: "",
+  branch: "",
+};
+
+const DEFAULT_BANKING_PREFS: BankingPreferences = {
+  includeBankingOnInvoices: true,
+  bankingDisplayFormat: "full",
+};
+
+const DEFAULT_INVOICE: InvoiceSettings = {
+  prefix: "INV-",
+  nextNumber: 1001,
+  isFirstInvoice: true,
+  defaultCurrency: "EUR",
+  defaultPaymentTerms: 30,
+  defaultTaxRate: 18,
+  footer: "",
+  notes: "",
+  quotationTerms: "",
+  latePaymentInterestRate: 8,
+  earlyPaymentDiscountRate: 0,
+  earlyPaymentDiscountDays: 0,
+  includePaymentInstructions: true,
+  vatRateStandard: 18,
+  vatRateReduced: 5,
+  vatRateZero: 0,
+  invoiceLanguage: "en",
+  includeVatBreakdown: true,
+  reverseChargeNote:
+    "Reverse charge applies - VAT to be accounted for by the recipient as per Article 196 of Council Directive 2006/112/EC",
+  defaultSupplyPlace: "malta",
+  intrastatThreshold: 50000,
+  distanceSellingThreshold: 10000,
+  includeEoriNumber: false,
+  euVatMossEligible: false,
+};
+
+const DEFAULT_NOTIFICATIONS: NotificationSettings = {
+  emailNotifications: true,
+  emailReminders: true,
+  paymentNotifications: true,
+  overdueAlerts: true,
+  weeklyReports: false,
+  customerCommunications: false,
+  firstReminderDays: 7,
+  secondReminderDays: 14,
+  finalNoticeDays: 21,
+};
+
+const DEFAULT_PREFERENCES: PreferenceSettings = {
+  theme: "light",
+  language: "en",
+  dateFormat: "DD/MM/YYYY",
+  timeFormat: "24h",
+  currencySymbolDisplay: "symbol",
+  currencyPosition: "before",
+  itemsPerPage: 25,
+  defaultView: "table",
+};
+
+// ── Component ──────────────────────────────────────────────────────────────────
+
 const Settings = () => {
   const { user } = useAuth();
   const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  // State management for all settings categories
-  const [companySettings, setCompanySettings] = useState<CompanySettings>({
-    name: "",
-    email: "",
-    phone: "",
-    website: "",
-    address: "",
-    addressLine1: "",
-    addressLine2: "",
-    locality: "",
-    postCode: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "",
-    taxId: "",
-    registrationNumber: "",
-    logo: "",
-    invoicePrefix: "INV-",
-    quotationPrefix: "QUO-",
-    defaultCurrency: "EUR",
-    defaultPaymentTerms: 30,
+  // FIX: per-tab unsaved change tracking instead of one shared flag
+  const [unsaved, setUnsaved] = useState({
+    company: false,
+    banking: false,
+    invoice: false,
+    notifications: false,
+    preferences: false,
   });
+  const [lastSaved, setLastSaved] = useState<{ tab: string; time: Date } | null>(null);
 
-  const [bankingSettings, setBankingSettings] = useState<BankingSettings>({
-    bankName: "",
-    accountName: "",
-    accountNumber: "",
-    routingNumber: "",
-    swiftCode: "",
-    iban: "",
-    branch: "",
-  });
+  const markUnsaved = (tab: keyof typeof unsaved) => setUnsaved((prev) => ({ ...prev, [tab]: true }));
+  const markSaved = (tab: keyof typeof unsaved) => {
+    setUnsaved((prev) => ({ ...prev, [tab]: false }));
+    setLastSaved({ tab, time: new Date() });
+  };
 
-  const [bankingPreferences, setBankingPreferences] = useState<BankingPreferences>({
-    includeBankingOnInvoices: true,
-    bankingDisplayFormat: "full",
-  });
+  const [companySettings, setCompanySettings] = useState<CompanySettings>(DEFAULT_COMPANY);
+  const [bankingSettings, setBankingSettings] = useState<BankingSettings>(DEFAULT_BANKING);
+  const [bankingPreferences, setBankingPreferences] = useState<BankingPreferences>(DEFAULT_BANKING_PREFS);
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(DEFAULT_INVOICE);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATIONS);
+  const [preferenceSettings, setPreferenceSettings] = useState<PreferenceSettings>(DEFAULT_PREFERENCES);
 
-  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>({
-    prefix: "INV-",
-    nextNumber: 1001,
-    defaultCurrency: "EUR",
-    defaultPaymentTerms: 30,
-    defaultTaxRate: 18,
-    footer: "",
-    notes: "",
-    quotationTerms: "",
-    latePaymentInterestRate: 8,
-    earlyPaymentDiscountRate: 0,
-    earlyPaymentDiscountDays: 0,
-    includePaymentInstructions: true,
-    vatRateStandard: 18,
-    vatRateReduced: 5,
-    vatRateZero: 0,
-    invoiceLanguage: "en",
-    includeVatBreakdown: true,
-    reverseChargeNote:
-      "Reverse charge applies - VAT to be accounted for by the recipient as per Article 196 of Council Directive 2006/112/EC",
-    defaultSupplyPlace: "malta",
-    intrastatThreshold: 50000,
-    distanceSellingThreshold: 10000,
-    includeEoriNumber: false,
-    euVatMossEligible: false,
-  });
+  // ── Load settings ────────────────────────────────────────────────────────────
 
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-    emailNotifications: true,
-    emailReminders: true,
-    paymentNotifications: true,
-    overdueAlerts: true,
-    weeklyReports: false,
-    customerCommunications: false,
-    firstReminderDays: 7,
-    secondReminderDays: 14,
-    finalNoticeDays: 21,
-  });
-
-  const [preferenceSettings, setPreferenceSettings] = useState<PreferenceSettings>({
-    theme: "light",
-    language: "en",
-    dateFormat: "DD/MM/YYYY",
-    timeFormat: "24h",
-    currencySymbolDisplay: "symbol",
-    currencyPosition: "before",
-    itemsPerPage: 25,
-    defaultView: "table",
-  });
-
-  // Load settings on mount
   useEffect(() => {
-    const loadSettings = async () => {
-      if (!user?.id) return;
-
+    if (!user?.id) return;
+    const load = async () => {
       try {
-        // Load company settings
-        const { data: companyData } = await supabase
-          .from("company_settings")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        const [{ data: companyData }, { data: bankingData }, { data: invoiceData }, { data: prefsData }] =
+          await Promise.all([
+            supabase.from("company_settings").select("*").eq("user_id", user.id).maybeSingle(),
+            supabase.from("banking_details").select("*").eq("user_id", user.id).maybeSingle(),
+            supabase.from("invoice_settings").select("*").eq("user_id", user.id).maybeSingle(),
+            supabase.from("user_preferences").select("*").eq("user_id", user.id).maybeSingle(),
+          ]);
 
         if (companyData) {
           setCompanySettings({
@@ -248,19 +273,10 @@ const Settings = () => {
             taxId: companyData.company_vat_number || "",
             registrationNumber: companyData.company_registration_number || "",
             logo: companyData.company_logo || "",
-            invoicePrefix: companyData.invoice_prefix || "INV-",
-            quotationPrefix: companyData.quotation_prefix || "QUO-",
             defaultCurrency: companyData.currency_code || "EUR",
             defaultPaymentTerms: companyData.default_payment_terms || 30,
           });
         }
-
-        // Load banking settings
-        const { data: bankingData } = await supabase
-          .from("banking_details")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
 
         if (bankingData) {
           setBankingSettings({
@@ -278,17 +294,13 @@ const Settings = () => {
           });
         }
 
-        // Load invoice settings
-        const { data: invoiceData } = await supabase
-          .from("invoice_settings")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
         if (invoiceData) {
+          const nextNum = invoiceData.next_invoice_number || 1001;
           setInvoiceSettings({
             prefix: invoiceData.numbering_prefix || "INV-",
-            nextNumber: invoiceData.next_invoice_number || 1001,
+            nextNumber: nextNum,
+            // FIX: allow editing next number only if still at default (no invoices created yet)
+            isFirstInvoice: nextNum === 1001,
             defaultCurrency: "EUR",
             defaultPaymentTerms: invoiceData.default_payment_days || 30,
             defaultTaxRate: invoiceData.vat_rate_standard || 18,
@@ -313,13 +325,6 @@ const Settings = () => {
           });
         }
 
-        // Load user preferences
-        const { data: prefsData } = await supabase
-          .from("user_preferences")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
         if (prefsData) {
           setNotificationSettings({
             emailNotifications: prefsData.email_reminders ?? true,
@@ -332,7 +337,6 @@ const Settings = () => {
             secondReminderDays: prefsData.second_reminder_days || 14,
             finalNoticeDays: prefsData.final_notice_days || 21,
           });
-
           setPreferenceSettings({
             theme: prefsData.theme === "system" ? "light" : prefsData.theme || "light",
             language: prefsData.language || "en",
@@ -346,144 +350,96 @@ const Settings = () => {
         }
       } catch (error) {
         console.error("Error loading settings:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load settings",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to load settings", variant: "destructive" });
       } finally {
         setIsInitialLoading(false);
       }
     };
-
-    loadSettings();
+    load();
   }, [user?.id]);
 
-  // Validation helpers
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  // ── Validation helpers ───────────────────────────────────────────────────────
 
-  const validatePhone = (phone: string): boolean => {
-    // Malta phone format: +356 followed by 8 digits
-    const phoneRegex = /^\+356\s?\d{4}\s?\d{4}$/;
-    return phoneRegex.test(phone);
-  };
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const validateMaltaVAT = (vat: string): boolean => {
-    // Malta VAT: MT followed by 8 digits
-    const vatRegex = /^MT\d{8}$/;
-    return vatRegex.test(vat.replace(/\s/g, ""));
-  };
+  // FIX: accepts any international phone number — digits, spaces, +, -, (, ), min 6 chars
+  const validatePhone = (phone: string) => /^[+\d][\d\s\-().]{5,24}$/.test(phone.trim());
 
-  // Handle logo upload
+  const validateMaltaVAT = (vat: string) => /^MT\d{8}$/.test(vat.replace(/\s/g, ""));
+
+  const validateIBAN = (iban: string) => /^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$/.test(iban.replace(/\s/g, "").toUpperCase());
+
+  // ── Logo upload ──────────────────────────────────────────────────────────────
+
   const handleLogoUpload = async (file: File) => {
     if (!user?.id) return;
-
-    // Validate file type
     const validTypes = ["image/png", "image/jpeg", "image/jpg"];
     if (!validTypes.includes(file.type)) {
-      setValidationErrors((prev) => ({
-        ...prev,
-        logo: "Please upload a PNG or JPG file",
-      }));
+      setValidationErrors((p) => ({ ...p, logo: "Please upload a PNG or JPG file" }));
       return;
     }
-
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setValidationErrors((prev) => ({
-        ...prev,
-        logo: "File size must be less than 5MB",
-      }));
+    if (file.size > 5 * 1024 * 1024) {
+      setValidationErrors((p) => ({ ...p, logo: "File size must be less than 5MB" }));
       return;
     }
-
     setIsLoading(true);
-    setValidationErrors((prev) => ({ ...prev, logo: "" }));
-
+    setValidationErrors((p) => ({ ...p, logo: "" }));
     try {
-      // Generate unique filename
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-
-      // Upload to Supabase storage
       const { error: uploadError } = await supabase.storage.from("logos").upload(fileName, file, {
         cacheControl: "3600",
         upsert: false,
       });
-
       if (uploadError) throw uploadError;
-
-      // Get public URL
       const { data } = supabase.storage.from("logos").getPublicUrl(fileName);
-
-      // Update company settings with logo URL
-      setCompanySettings((prev) => ({
-        ...prev,
-        logo: data.publicUrl,
-      }));
-
-      setHasUnsavedChanges(true);
-
-      toast({
-        title: "Logo uploaded",
-        description: "Logo has been uploaded successfully. Click Save to persist.",
-      });
+      setCompanySettings((p) => ({ ...p, logo: data.publicUrl }));
+      markUnsaved("company");
+      toast({ title: "Logo uploaded", description: "Click Save to persist." });
     } catch (error) {
-      console.error("Error uploading logo:", error);
-      setValidationErrors((prev) => ({
-        ...prev,
-        logo: "Failed to upload logo. Please try again.",
-      }));
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload logo. Please try again.",
-        variant: "destructive",
-      });
+      setValidationErrors((p) => ({ ...p, logo: "Failed to upload logo. Please try again." }));
+      toast({ title: "Upload failed", description: "Failed to upload logo.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle logo removal
   const handleRemoveLogo = () => {
-    setCompanySettings((prev) => ({
-      ...prev,
-      logo: "",
-    }));
-    setHasUnsavedChanges(true);
+    setCompanySettings((p) => ({ ...p, logo: "" }));
+    markUnsaved("company");
   };
 
+  const triggerFileInput = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/jpg";
+    input.onchange = (e: any) => {
+      const f = e.target?.files?.[0];
+      if (f) handleLogoUpload(f);
+    };
+    input.click();
+  };
+
+  // ── Save handlers ────────────────────────────────────────────────────────────
+
   const handleSaveCompany = async () => {
-    // Validate fields
     const errors: Record<string, string> = {};
-
-    if (companySettings.email && !validateEmail(companySettings.email)) {
+    if (companySettings.email && !validateEmail(companySettings.email))
       errors.company_email = "Please enter a valid email address";
-    }
-
-    if (companySettings.phone && !validatePhone(companySettings.phone)) {
-      errors.company_phone = "Please use Malta format: +356 1234 5678";
-    }
-
-    if (companySettings.taxId && companySettings.taxId.startsWith("MT") && !validateMaltaVAT(companySettings.taxId)) {
-      errors.company_vat = "Malta VAT format: MT followed by 8 digits";
-    }
+    // FIX: relaxed phone validation — any international format accepted
+    if (companySettings.phone && !validatePhone(companySettings.phone))
+      errors.company_phone = "Please enter a valid phone number (include country code, e.g. +356 99123456)";
+    if (companySettings.taxId && companySettings.taxId.startsWith("MT") && !validateMaltaVAT(companySettings.taxId))
+      errors.company_vat = "Malta VAT format: MT followed by 8 digits (e.g. MT12345678)";
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       return;
     }
-
     setValidationErrors({});
     setIsLoading(true);
-
     try {
       if (!user?.id) throw new Error("User not authenticated");
-
       const { error } = await supabase.from("company_settings").upsert(
         {
           user_id: user.id,
@@ -503,64 +459,32 @@ const Settings = () => {
           company_vat_number: companySettings.taxId,
           company_registration_number: companySettings.registrationNumber,
           company_logo: companySettings.logo,
-          invoice_prefix: companySettings.invoicePrefix,
-          quotation_prefix: companySettings.quotationPrefix,
           currency_code: companySettings.defaultCurrency,
           default_payment_terms: companySettings.defaultPaymentTerms,
+          // FIX: not saving invoice_prefix here — only invoice_settings.numbering_prefix is used
         },
-        {
-          onConflict: "user_id",
-        },
+        { onConflict: "user_id" },
       );
-
       if (error) throw error;
-
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
-      toast({
-        title: "Success",
-        description: "Company settings saved successfully",
-      });
+      markSaved("company");
+      toast({ title: "Saved", description: "Company settings saved successfully." });
     } catch (error) {
-      console.error("Error saving company settings:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save company settings",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to save company settings", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // IBAN validation helper
-  const validateIBAN = (iban: string): boolean => {
-    // Remove spaces and convert to uppercase
-    const cleanIBAN = iban.replace(/\s/g, "").toUpperCase();
-
-    // Basic IBAN format check (2 letters + 2 digits + up to 30 alphanumeric)
-    const ibanRegex = /^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$/;
-    return ibanRegex.test(cleanIBAN);
-  };
-
   const handleSaveBanking = async () => {
-    // Validate IBAN if provided
     if (bankingSettings.iban && !validateIBAN(bankingSettings.iban)) {
       setValidationErrors({ banking_iban: "Please enter a valid IBAN format" });
-      toast({
-        title: "Validation Error",
-        description: "Please enter a valid IBAN format",
-        variant: "destructive",
-      });
+      toast({ title: "Validation Error", description: "Please enter a valid IBAN format", variant: "destructive" });
       return;
     }
-
     setValidationErrors({});
     setIsLoading(true);
-
     try {
       if (!user?.id) throw new Error("User not authenticated");
-
       const { error } = await supabase.from("banking_details").upsert(
         {
           user_id: user.id,
@@ -574,42 +498,27 @@ const Settings = () => {
           include_on_invoices: bankingPreferences.includeBankingOnInvoices,
           display_format: bankingPreferences.bankingDisplayFormat,
         },
-        {
-          onConflict: "user_id",
-        },
+        { onConflict: "user_id" },
       );
-
       if (error) throw error;
-
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
-      toast({
-        title: "Success",
-        description: "Banking settings saved successfully",
-      });
+      markSaved("banking");
+      toast({ title: "Saved", description: "Banking details saved successfully." });
     } catch (error) {
-      console.error("Error saving banking settings:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save banking settings",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to save banking settings", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSaveInvoice = async () => {
-    // Validate VAT rates
     if (invoiceSettings.vatRateStandard < 0 || invoiceSettings.vatRateStandard > 27) {
       toast({
         title: "Validation Error",
-        description: "Standard VAT rate must be between 0% and 27% (EU maximum)",
+        description: "Standard VAT rate must be between 0% and 27%",
         variant: "destructive",
       });
       return;
     }
-
     if (invoiceSettings.vatRateReduced < 0 || invoiceSettings.vatRateReduced > 27) {
       toast({
         title: "Validation Error",
@@ -618,12 +527,9 @@ const Settings = () => {
       });
       return;
     }
-
     setIsLoading(true);
-
     try {
       if (!user?.id) throw new Error("User not authenticated");
-
       const { error } = await supabase.from("invoice_settings").upsert(
         {
           user_id: user.id,
@@ -649,26 +555,15 @@ const Settings = () => {
           include_eori_number: invoiceSettings.includeEoriNumber,
           eu_vat_moss_eligible: invoiceSettings.euVatMossEligible,
         },
-        {
-          onConflict: "user_id",
-        },
+        { onConflict: "user_id" },
       );
-
       if (error) throw error;
-
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
-      toast({
-        title: "Success",
-        description: "Invoice settings saved successfully. All changes comply with EU VAT regulations.",
-      });
+      // Once saved, lock the next number field (it is now authoritative)
+      setInvoiceSettings((p) => ({ ...p, isFirstInvoice: false }));
+      markSaved("invoice");
+      toast({ title: "Saved", description: "Invoice settings saved successfully." });
     } catch (error) {
-      console.error("Error saving invoice settings:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save invoice settings",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to save invoice settings", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -676,10 +571,8 @@ const Settings = () => {
 
   const handleSaveNotifications = async () => {
     setIsLoading(true);
-
     try {
       if (!user?.id) throw new Error("User not authenticated");
-
       const { error } = await supabase.from("user_preferences").upsert(
         {
           user_id: user.id,
@@ -692,26 +585,13 @@ const Settings = () => {
           second_reminder_days: notificationSettings.secondReminderDays,
           final_notice_days: notificationSettings.finalNoticeDays,
         },
-        {
-          onConflict: "user_id",
-        },
+        { onConflict: "user_id" },
       );
-
       if (error) throw error;
-
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
-      toast({
-        title: "Success",
-        description: "Notification settings saved successfully",
-      });
+      markSaved("notifications");
+      toast({ title: "Saved", description: "Notification settings saved." });
     } catch (error) {
-      console.error("Error saving notification settings:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save notification settings",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to save notification settings", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -719,10 +599,8 @@ const Settings = () => {
 
   const handleSavePreferences = async () => {
     setIsLoading(true);
-
     try {
       if (!user?.id) throw new Error("User not authenticated");
-
       const { error } = await supabase.from("user_preferences").upsert(
         {
           user_id: user.id,
@@ -735,33 +613,27 @@ const Settings = () => {
           items_per_page: preferenceSettings.itemsPerPage,
           default_view: preferenceSettings.defaultView,
         },
-        {
-          onConflict: "user_id",
-        },
+        { onConflict: "user_id" },
       );
-
       if (error) throw error;
-
-      // Apply theme immediately via next-themes
       setTheme(preferenceSettings.theme);
-
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
-      toast({
-        title: "Success",
-        description: "Preferences saved successfully",
-      });
+      markSaved("preferences");
+      toast({ title: "Saved", description: "Preferences saved." });
     } catch (error) {
-      console.error("Error saving preferences:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save preferences",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to save preferences", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // ── Helpers for tab header indicator ────────────────────────────────────────
+
+  const TabUnsavedDot = ({ tab }: { tab: keyof typeof unsaved }) =>
+    unsaved[tab] ? (
+      <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-500" title="Unsaved changes" />
+    ) : null;
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-background">
@@ -776,21 +648,21 @@ const Settings = () => {
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">Settings</h1>
                   <p className="text-sm text-muted-foreground">
-                    Manage your company information, banking, and application preferences
+                    Manage your company information, banking, and preferences
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {hasUnsavedChanges && (
+                {Object.values(unsaved).some(Boolean) && (
                   <div className="flex items-center gap-2 text-amber-600">
                     <AlertCircle className="h-4 w-4" />
-                    <span className="text-sm">Unsaved changes</span>
+                    <span className="text-sm">Unsaved changes on this tab</span>
                   </div>
                 )}
-                {lastSaved && !hasUnsavedChanges && (
+                {lastSaved && !Object.values(unsaved).some(Boolean) && (
                   <div className="flex items-center gap-2 text-green-600">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span className="text-sm">Saved {lastSaved.toLocaleTimeString()}</span>
+                    <span className="text-sm">Saved {lastSaved.time.toLocaleTimeString()}</span>
                   </div>
                 )}
               </div>
@@ -802,39 +674,43 @@ const Settings = () => {
           {isInitialLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
                 <p className="text-muted-foreground">Loading settings...</p>
               </div>
             </div>
           ) : (
             <Tabs defaultValue="company" className="w-full">
               <TabsList className="grid w-full grid-cols-5 mb-6">
-                <TabsTrigger value="company" className="gap-2">
+                <TabsTrigger value="company" className="gap-1">
                   <Building className="h-4 w-4" />
                   <span className="hidden sm:inline">Company</span>
+                  <TabUnsavedDot tab="company" />
                 </TabsTrigger>
-                <TabsTrigger value="banking" className="gap-2">
+                <TabsTrigger value="banking" className="gap-1">
                   <CreditCard className="h-4 w-4" />
                   <span className="hidden sm:inline">Banking</span>
+                  <TabUnsavedDot tab="banking" />
                 </TabsTrigger>
-                <TabsTrigger value="invoice" className="gap-2">
+                <TabsTrigger value="invoice" className="gap-1">
                   <Palette className="h-4 w-4" />
                   <span className="hidden sm:inline">Invoice</span>
+                  <TabUnsavedDot tab="invoice" />
                 </TabsTrigger>
-                <TabsTrigger value="notifications" className="gap-2">
+                <TabsTrigger value="notifications" className="gap-1">
                   <Bell className="h-4 w-4" />
                   <span className="hidden sm:inline">Notifications</span>
+                  <TabUnsavedDot tab="notifications" />
                 </TabsTrigger>
-                <TabsTrigger value="preferences" className="gap-2">
+                <TabsTrigger value="preferences" className="gap-1">
                   <Shield className="h-4 w-4" />
                   <span className="hidden sm:inline">Preferences</span>
+                  <TabUnsavedDot tab="preferences" />
                 </TabsTrigger>
               </TabsList>
 
-              {/* Company Tab */}
+              {/* ── Company Tab ── */}
               <TabsContent value="company">
                 <div className="space-y-6">
-                  {/* Company Information Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -844,8 +720,8 @@ const Settings = () => {
                       <CardDescription>Your business details and contact information</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Logo Upload Section */}
-                      <div className="space-y-4 mb-6 p-4 border border-border rounded-lg bg-muted/30">
+                      {/* Logo */}
+                      <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/30">
                         <div className="flex items-center justify-between">
                           <Label className="flex items-center gap-2">
                             <ImageIcon className="h-4 w-4" />
@@ -857,10 +733,7 @@ const Settings = () => {
                                 <InfoIcon className="h-4 w-4 text-muted-foreground" />
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p className="max-w-xs">
-                                  Upload your company logo to appear on invoices and documents. Supports PNG, JPG (max
-                                  5MB).
-                                </p>
+                                <p className="max-w-xs">Appears on invoices and documents. PNG or JPG, max 5MB.</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -868,29 +741,13 @@ const Settings = () => {
 
                         {companySettings.logo ? (
                           <div className="flex items-start gap-4">
-                            <div className="relative">
-                              <img
-                                src={companySettings.logo}
-                                alt="Company Logo"
-                                className="h-24 w-auto object-contain border border-border rounded"
-                              />
-                            </div>
+                            <img
+                              src={companySettings.logo}
+                              alt="Company Logo"
+                              className="h-24 w-auto object-contain border border-border rounded"
+                            />
                             <div className="flex flex-col gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const input = document.createElement("input");
-                                  input.type = "file";
-                                  input.accept = "image/png,image/jpeg,image/jpg";
-                                  input.onchange = (e: any) => {
-                                    const file = e.target?.files?.[0];
-                                    if (file) handleLogoUpload(file);
-                                  };
-                                  input.click();
-                                }}
-                                disabled={isLoading}
-                              >
+                              <Button variant="outline" size="sm" onClick={triggerFileInput} disabled={isLoading}>
                                 <Upload className="h-4 w-4 mr-2" />
                                 Change Logo
                               </Button>
@@ -903,20 +760,11 @@ const Settings = () => {
                         ) : (
                           <div
                             className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-                            onClick={() => {
-                              const input = document.createElement("input");
-                              input.type = "file";
-                              input.accept = "image/png,image/jpeg,image/jpg";
-                              input.onchange = (e: any) => {
-                                const file = e.target?.files?.[0];
-                                if (file) handleLogoUpload(file);
-                              };
-                              input.click();
-                            }}
+                            onClick={triggerFileInput}
                             onDrop={(e) => {
                               e.preventDefault();
-                              const file = e.dataTransfer.files[0];
-                              if (file) handleLogoUpload(file);
+                              const f = e.dataTransfer.files[0];
+                              if (f) handleLogoUpload(f);
                             }}
                             onDragOver={(e) => e.preventDefault()}
                           >
@@ -927,7 +775,6 @@ const Settings = () => {
                             <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
                           </div>
                         )}
-
                         {validationErrors.logo && (
                           <p className="text-sm text-destructive flex items-center gap-1">
                             <AlertCircle className="h-4 w-4" />
@@ -936,7 +783,7 @@ const Settings = () => {
                         )}
                       </div>
 
-                      <Separator className="my-6" />
+                      <Separator />
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -948,7 +795,10 @@ const Settings = () => {
                             id="company_name"
                             placeholder="Your Company Ltd"
                             value={companySettings.name}
-                            onChange={(e) => setCompanySettings({ ...companySettings, name: e.target.value })}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, name: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                         </div>
 
@@ -962,8 +812,11 @@ const Settings = () => {
                             type="email"
                             placeholder="info@company.com"
                             value={companySettings.email}
-                            onChange={(e) => setCompanySettings({ ...companySettings, email: e.target.value })}
                             className={validationErrors.company_email ? "border-destructive" : ""}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, email: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                           {validationErrors.company_email && (
                             <p className="text-xs text-destructive">{validationErrors.company_email}</p>
@@ -977,28 +830,51 @@ const Settings = () => {
                           </Label>
                           <Input
                             id="company_phone"
-                            placeholder="+356 1234 5678"
+                            placeholder="+356 99123456 or +44 7700 900000"
                             value={companySettings.phone}
-                            onChange={(e) => setCompanySettings({ ...companySettings, phone: e.target.value })}
                             className={validationErrors.company_phone ? "border-destructive" : ""}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, phone: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                           {validationErrors.company_phone ? (
                             <p className="text-xs text-destructive">{validationErrors.company_phone}</p>
                           ) : (
-                            <p className="text-xs text-muted-foreground">Format: +356 1234 5678</p>
+                            <p className="text-xs text-muted-foreground">Include country code, e.g. +356 for Malta</p>
                           )}
                         </div>
 
+                        {/* FIX: website field now visible in UI */}
                         <div className="space-y-2">
-                          <Label htmlFor="company_vat_number" className="flex items-center gap-2">
-                            VAT Number
+                          <Label htmlFor="company_website" className="flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            Website
+                          </Label>
+                          <Input
+                            id="company_website"
+                            placeholder="https://www.yourcompany.com"
+                            value={companySettings.website}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, website: e.target.value });
+                              markUnsaved("company");
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Shown on public invoice view as a clickable link
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="company_vat_number">
+                            VAT Number{" "}
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  <InfoIcon className="h-3 w-3 text-muted-foreground inline" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p className="max-w-xs">Malta VAT format: MT12345678 (MT followed by 8 digits)</p>
+                                  <p className="max-w-xs">Malta: MT12345678 (MT + 8 digits). Leave blank if exempt.</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -1007,14 +883,30 @@ const Settings = () => {
                             id="company_vat_number"
                             placeholder="MT12345678"
                             value={companySettings.taxId}
-                            onChange={(e) => setCompanySettings({ ...companySettings, taxId: e.target.value })}
                             className={validationErrors.company_vat ? "border-destructive" : ""}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, taxId: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                           {validationErrors.company_vat ? (
                             <p className="text-xs text-destructive">{validationErrors.company_vat}</p>
                           ) : (
-                            <p className="text-xs text-muted-foreground">Optional - Leave blank if exempt</p>
+                            <p className="text-xs text-muted-foreground">Optional — leave blank if exempt</p>
                           )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="company_registration">Registration Number</Label>
+                          <Input
+                            id="company_registration"
+                            placeholder="C12345"
+                            value={companySettings.registrationNumber}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, registrationNumber: e.target.value });
+                              markUnsaved("company");
+                            }}
+                          />
                         </div>
 
                         <div className="space-y-2">
@@ -1025,8 +917,11 @@ const Settings = () => {
                           <Input
                             id="company_address_line1"
                             placeholder="e.g. 123 or Villa Rosa"
-                            value={companySettings.addressLine1 || ""}
-                            onChange={(e) => setCompanySettings({ ...companySettings, addressLine1: e.target.value })}
+                            value={companySettings.addressLine1}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, addressLine1: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                         </div>
 
@@ -1035,8 +930,11 @@ const Settings = () => {
                           <Input
                             id="company_address_line2"
                             placeholder="e.g. Republic Street"
-                            value={companySettings.addressLine2 || ""}
-                            onChange={(e) => setCompanySettings({ ...companySettings, addressLine2: e.target.value })}
+                            value={companySettings.addressLine2}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, addressLine2: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                         </div>
 
@@ -1045,8 +943,11 @@ const Settings = () => {
                           <Input
                             id="company_locality"
                             placeholder="e.g. Valletta"
-                            value={companySettings.locality || ""}
-                            onChange={(e) => setCompanySettings({ ...companySettings, locality: e.target.value })}
+                            value={companySettings.locality}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, locality: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                         </div>
 
@@ -1055,27 +956,17 @@ const Settings = () => {
                           <Input
                             id="company_post_code"
                             placeholder="e.g. VLT 1234"
-                            value={companySettings.postCode || ""}
-                            onChange={(e) => setCompanySettings({ ...companySettings, postCode: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="company_registration">Registration Number</Label>
-                          <Input
-                            id="company_registration"
-                            placeholder="C12345"
-                            value={companySettings.registrationNumber}
-                            onChange={(e) =>
-                              setCompanySettings({ ...companySettings, registrationNumber: e.target.value })
-                            }
+                            value={companySettings.postCode}
+                            onChange={(e) => {
+                              setCompanySettings({ ...companySettings, postCode: e.target.value });
+                              markUnsaved("company");
+                            }}
                           />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Currency Card - simplified, no duplicates */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -1087,12 +978,13 @@ const Settings = () => {
                       <div className="max-w-xs">
                         <Select
                           value={companySettings.defaultCurrency}
-                          onValueChange={(value) =>
-                            setCompanySettings({ ...companySettings, defaultCurrency: value })
-                          }
+                          onValueChange={(v) => {
+                            setCompanySettings({ ...companySettings, defaultCurrency: v });
+                            markUnsaved("company");
+                          }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select currency" />
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="EUR">EUR (€)</SelectItem>
@@ -1101,9 +993,7 @@ const Settings = () => {
                           </SelectContent>
                         </Select>
                       </div>
-
                       <Separator />
-
                       <div className="flex justify-end">
                         <Button onClick={handleSaveCompany} disabled={isLoading}>
                           <Save className="mr-2 h-4 w-4" />
@@ -1115,17 +1005,16 @@ const Settings = () => {
                 </div>
               </TabsContent>
 
-              {/* Banking Tab */}
+              {/* ── Banking Tab ── */}
               <TabsContent value="banking">
                 <div className="space-y-6">
-                  {/* Primary Bank Account Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <CreditCard className="h-5 w-5" />
                         Primary Bank Account
                       </CardTitle>
-                      <CardDescription>Your bank account details that will appear on invoices</CardDescription>
+                      <CardDescription>Bank account details that appear on invoices</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1135,27 +1024,31 @@ const Settings = () => {
                             id="bank_name"
                             placeholder="e.g., Bank of Valletta"
                             value={bankingSettings.bankName}
-                            onChange={(e) => setBankingSettings({ ...bankingSettings, bankName: e.target.value })}
+                            onChange={(e) => {
+                              setBankingSettings({ ...bankingSettings, bankName: e.target.value });
+                              markUnsaved("banking");
+                            }}
                           />
                         </div>
-
                         <div className="space-y-2">
                           <Label htmlFor="bank_account_name">Account Holder Name</Label>
                           <Input
                             id="bank_account_name"
                             placeholder="Your Company Ltd"
                             value={bankingSettings.accountName}
-                            onChange={(e) => setBankingSettings({ ...bankingSettings, accountName: e.target.value })}
+                            onChange={(e) => {
+                              setBankingSettings({ ...bankingSettings, accountName: e.target.value });
+                              markUnsaved("banking");
+                            }}
                           />
                         </div>
-
                         <div className="space-y-2">
-                          <Label htmlFor="bank_iban" className="flex items-center gap-2">
-                            IBAN
+                          <Label htmlFor="bank_iban">
+                            IBAN{" "}
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  <InfoIcon className="h-3 w-3 text-muted-foreground inline" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p className="max-w-xs">International Bank Account Number for receiving payments</p>
@@ -1167,85 +1060,83 @@ const Settings = () => {
                             id="bank_iban"
                             placeholder="MT84MALT011000012345MTLCAST001S"
                             value={bankingSettings.iban}
-                            onChange={(e) => setBankingSettings({ ...bankingSettings, iban: e.target.value })}
-                            className={validationErrors.bank_iban ? "border-destructive" : ""}
+                            className={validationErrors.banking_iban ? "border-destructive" : ""}
+                            onChange={(e) => {
+                              setBankingSettings({ ...bankingSettings, iban: e.target.value });
+                              markUnsaved("banking");
+                            }}
                           />
-                          {validationErrors.bank_iban ? (
-                            <p className="text-xs text-destructive">{validationErrors.bank_iban}</p>
+                          {validationErrors.banking_iban ? (
+                            <p className="text-xs text-destructive">{validationErrors.banking_iban}</p>
                           ) : (
-                            <p className="text-xs text-muted-foreground">
-                              Format: 2 letters, 2 digits, up to 30 alphanumeric
-                            </p>
+                            <p className="text-xs text-muted-foreground">2 letters, 2 digits, up to 30 alphanumeric</p>
                           )}
                         </div>
-
                         <div className="space-y-2">
-                          <Label htmlFor="bank_swift">SWIFT/BIC Code</Label>
+                          <Label htmlFor="bank_swift">SWIFT / BIC Code</Label>
                           <Input
                             id="bank_swift"
                             placeholder="VALLMTMT"
                             value={bankingSettings.swiftCode}
-                            onChange={(e) => setBankingSettings({ ...bankingSettings, swiftCode: e.target.value })}
+                            onChange={(e) => {
+                              setBankingSettings({ ...bankingSettings, swiftCode: e.target.value });
+                              markUnsaved("banking");
+                            }}
                           />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Banking Preferences Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <SettingsIcon className="h-5 w-5" />
                         Banking Preferences
                       </CardTitle>
-                      <CardDescription>Control how banking information appears on your invoices</CardDescription>
+                      <CardDescription>Control how banking information appears on invoices</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="include_banking">Show bank details on invoices</Label>
-                            <p className="text-sm text-muted-foreground">
-                              Display your bank account information on generated invoices
-                            </p>
-                          </div>
-                          <Switch
-                            id="include_banking"
-                            checked={bankingPreferences.includeBankingOnInvoices}
-                            onCheckedChange={(checked) =>
-                              setBankingPreferences({ ...bankingPreferences, includeBankingOnInvoices: checked })
-                            }
-                          />
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="include_banking">Show bank details on invoices</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Display your bank account on generated invoices
+                          </p>
                         </div>
-
-                        {bankingPreferences.includeBankingOnInvoices && (
-                          <div className="space-y-2">
-                            <Label htmlFor="banking_format">Display Format</Label>
-                            <Select
-                              value={bankingPreferences.bankingDisplayFormat}
-                              onValueChange={(value) =>
-                                setBankingPreferences({ ...bankingPreferences, bankingDisplayFormat: value })
-                              }
-                            >
-                              <SelectTrigger id="banking_format">
-                                <SelectValue placeholder="Select format" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="full">Full details (Bank, IBAN, SWIFT)</SelectItem>
-                                <SelectItem value="iban">IBAN only</SelectItem>
-                                <SelectItem value="custom">Custom (editable in template)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                              Choose how much banking information to display on invoices
-                            </p>
-                          </div>
-                        )}
+                        <Switch
+                          id="include_banking"
+                          checked={bankingPreferences.includeBankingOnInvoices}
+                          onCheckedChange={(v) => {
+                            setBankingPreferences({ ...bankingPreferences, includeBankingOnInvoices: v });
+                            markUnsaved("banking");
+                          }}
+                        />
                       </div>
 
-                      <Separator />
+                      {bankingPreferences.includeBankingOnInvoices && (
+                        <div className="space-y-2">
+                          <Label htmlFor="banking_format">Display Format</Label>
+                          <Select
+                            value={bankingPreferences.bankingDisplayFormat}
+                            onValueChange={(v) => {
+                              setBankingPreferences({ ...bankingPreferences, bankingDisplayFormat: v });
+                              markUnsaved("banking");
+                            }}
+                          >
+                            <SelectTrigger id="banking_format">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="full">Full details (Bank, IBAN, SWIFT)</SelectItem>
+                              <SelectItem value="iban">IBAN only</SelectItem>
+                              <SelectItem value="custom">Custom (editable in template)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
+                      <Separator />
                       <div className="flex justify-end">
                         <Button onClick={handleSaveBanking} disabled={isLoading}>
                           <Save className="mr-2 h-4 w-4" />
@@ -1257,10 +1148,9 @@ const Settings = () => {
                 </div>
               </TabsContent>
 
-              {/* Invoice Settings Tab */}
+              {/* ── Invoice Tab ── */}
               <TabsContent value="invoice">
                 <div className="space-y-6">
-                  {/* Numbering & Terms - Combined card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -1277,7 +1167,10 @@ const Settings = () => {
                             id="numbering_prefix"
                             placeholder="INV-"
                             value={invoiceSettings.prefix}
-                            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, prefix: e.target.value })}
+                            onChange={(e) => {
+                              setInvoiceSettings({ ...invoiceSettings, prefix: e.target.value });
+                              markUnsaved("invoice");
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">
                             Preview:{" "}
@@ -1288,27 +1181,40 @@ const Settings = () => {
                           </p>
                         </div>
 
+                        {/* FIX: next number editable only before first invoice is created */}
                         <div className="space-y-2">
                           <Label htmlFor="next_invoice_number">Next Number</Label>
                           <Input
                             id="next_invoice_number"
+                            type="number"
+                            min="1"
                             value={invoiceSettings.nextNumber}
-                            disabled
-                            className="bg-muted"
+                            disabled={!invoiceSettings.isFirstInvoice}
+                            className={!invoiceSettings.isFirstInvoice ? "bg-muted" : ""}
+                            onChange={(e) => {
+                              if (!invoiceSettings.isFirstInvoice) return;
+                              setInvoiceSettings({ ...invoiceSettings, nextNumber: parseInt(e.target.value) || 1 });
+                              markUnsaved("invoice");
+                            }}
                           />
-                          <p className="text-xs text-muted-foreground">Auto-increments with each invoice</p>
+                          <p className="text-xs text-muted-foreground">
+                            {invoiceSettings.isFirstInvoice
+                              ? "Set your starting number before creating your first invoice — cannot be changed after."
+                              : "Auto-increments with each invoice — locked after first invoice is created."}
+                          </p>
                         </div>
 
                         <div className="space-y-2">
                           <Label htmlFor="default_payment_days">Default Payment Terms</Label>
                           <Select
                             value={invoiceSettings.defaultPaymentTerms.toString()}
-                            onValueChange={(value) =>
-                              setInvoiceSettings({ ...invoiceSettings, defaultPaymentTerms: parseInt(value) })
-                            }
+                            onValueChange={(v) => {
+                              setInvoiceSettings({ ...invoiceSettings, defaultPaymentTerms: parseInt(v) });
+                              markUnsaved("invoice");
+                            }}
                           >
                             <SelectTrigger id="default_payment_days">
-                              <SelectValue placeholder="Select payment terms" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="0">Due on receipt</SelectItem>
@@ -1319,7 +1225,9 @@ const Settings = () => {
                               <SelectItem value="90">Net 90 days</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">Used when customer has no specific terms set</p>
+                          <p className="text-xs text-muted-foreground">
+                            Used when a customer has no specific terms set
+                          </p>
                         </div>
 
                         <div className="space-y-2">
@@ -1331,12 +1239,13 @@ const Settings = () => {
                             max="20"
                             step="0.1"
                             value={invoiceSettings.latePaymentInterestRate}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setInvoiceSettings({
                                 ...invoiceSettings,
                                 latePaymentInterestRate: parseFloat(e.target.value),
-                              })
-                            }
+                              });
+                              markUnsaved("invoice");
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">EU Late Payment Directive default: 8%</p>
                         </div>
@@ -1350,12 +1259,13 @@ const Settings = () => {
                             max="20"
                             step="0.1"
                             value={invoiceSettings.earlyPaymentDiscountRate}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setInvoiceSettings({
                                 ...invoiceSettings,
                                 earlyPaymentDiscountRate: parseFloat(e.target.value),
-                              })
-                            }
+                              });
+                              markUnsaved("invoice");
+                            }}
                           />
                         </div>
 
@@ -1367,19 +1277,19 @@ const Settings = () => {
                             min="0"
                             max="30"
                             value={invoiceSettings.earlyPaymentDiscountDays}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               setInvoiceSettings({
                                 ...invoiceSettings,
                                 earlyPaymentDiscountDays: parseInt(e.target.value),
-                              })
-                            }
+                              });
+                              markUnsaved("invoice");
+                            }}
                           />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Document Content */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -1396,34 +1306,44 @@ const Settings = () => {
                           rows={2}
                           placeholder="Thank you for your business"
                           value={invoiceSettings.footer}
-                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, footer: e.target.value })}
+                          onChange={(e) => {
+                            setInvoiceSettings({ ...invoiceSettings, footer: e.target.value });
+                            markUnsaved("invoice");
+                          }}
                         />
                       </div>
-
                       <div className="space-y-2">
                         <Label htmlFor="invoice_notes">Default Invoice Notes</Label>
-                        <p className="text-xs text-muted-foreground">Auto-populates on new invoices. Editable per invoice.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Auto-populates on new invoices. Editable per invoice.
+                        </p>
                         <Textarea
                           id="invoice_notes"
                           rows={2}
                           placeholder="Payment due within 30 days. Late payments subject to interest per EU Directive 2011/7/EU."
                           value={invoiceSettings.notes}
-                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, notes: e.target.value })}
+                          onChange={(e) => {
+                            setInvoiceSettings({ ...invoiceSettings, notes: e.target.value });
+                            markUnsaved("invoice");
+                          }}
                         />
                       </div>
-
                       <div className="space-y-2">
                         <Label htmlFor="quotation_terms">Quotation Terms &amp; Conditions</Label>
-                        <p className="text-xs text-muted-foreground">Each line becomes a numbered item on quotation PDFs.</p>
+                        <p className="text-xs text-muted-foreground">
+                          Each line becomes a numbered item on quotation PDFs.
+                        </p>
                         <Textarea
                           id="quotation_terms"
                           rows={3}
                           placeholder={`This quotation is valid until the date shown above.\nWork will commence upon acceptance.\nAny additional services will be quoted separately.`}
                           value={invoiceSettings.quotationTerms}
-                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, quotationTerms: e.target.value })}
+                          onChange={(e) => {
+                            setInvoiceSettings({ ...invoiceSettings, quotationTerms: e.target.value });
+                            markUnsaved("invoice");
+                          }}
                         />
                       </div>
-
                       <div className="flex items-center justify-between py-2">
                         <div>
                           <Label htmlFor="payment_instructions">Include Payment Instructions</Label>
@@ -1432,15 +1352,15 @@ const Settings = () => {
                         <Switch
                           id="payment_instructions"
                           checked={invoiceSettings.includePaymentInstructions}
-                          onCheckedChange={(checked) =>
-                            setInvoiceSettings({ ...invoiceSettings, includePaymentInstructions: checked })
-                          }
+                          onCheckedChange={(v) => {
+                            setInvoiceSettings({ ...invoiceSettings, includePaymentInstructions: v });
+                            markUnsaved("invoice");
+                          }}
                         />
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* VAT & Compliance - Combined card with collapsible EU section */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -1460,13 +1380,13 @@ const Settings = () => {
                             max="27"
                             step="0.1"
                             value={invoiceSettings.vatRateStandard}
-                            onChange={(e) =>
-                              setInvoiceSettings({ ...invoiceSettings, vatRateStandard: parseFloat(e.target.value) })
-                            }
+                            onChange={(e) => {
+                              setInvoiceSettings({ ...invoiceSettings, vatRateStandard: parseFloat(e.target.value) });
+                              markUnsaved("invoice");
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">Malta: 18%</p>
                         </div>
-
                         <div className="space-y-2">
                           <Label htmlFor="vat_reduced">Reduced VAT Rate (%)</Label>
                           <Input
@@ -1476,9 +1396,10 @@ const Settings = () => {
                             max="27"
                             step="0.1"
                             value={invoiceSettings.vatRateReduced}
-                            onChange={(e) =>
-                              setInvoiceSettings({ ...invoiceSettings, vatRateReduced: parseFloat(e.target.value) })
-                            }
+                            onChange={(e) => {
+                              setInvoiceSettings({ ...invoiceSettings, vatRateReduced: parseFloat(e.target.value) });
+                              markUnsaved("invoice");
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">Malta: 5%</p>
                         </div>
@@ -1487,14 +1408,17 @@ const Settings = () => {
                       <div className="flex items-center justify-between py-2">
                         <div>
                           <Label htmlFor="vat_breakdown">Show VAT Breakdown</Label>
-                          <p className="text-xs text-muted-foreground">Per-rate VAT summary on invoices (recommended for B2B)</p>
+                          <p className="text-xs text-muted-foreground">
+                            Per-rate VAT summary on invoices (recommended for B2B)
+                          </p>
                         </div>
                         <Switch
                           id="vat_breakdown"
                           checked={invoiceSettings.includeVatBreakdown}
-                          onCheckedChange={(checked) =>
-                            setInvoiceSettings({ ...invoiceSettings, includeVatBreakdown: checked })
-                          }
+                          onCheckedChange={(v) => {
+                            setInvoiceSettings({ ...invoiceSettings, includeVatBreakdown: v });
+                            markUnsaved("invoice");
+                          }}
                         />
                       </div>
 
@@ -1504,16 +1428,16 @@ const Settings = () => {
                           id="reverse_charge"
                           rows={2}
                           value={invoiceSettings.reverseChargeNote}
-                          onChange={(e) =>
-                            setInvoiceSettings({ ...invoiceSettings, reverseChargeNote: e.target.value })
-                          }
+                          onChange={(e) => {
+                            setInvoiceSettings({ ...invoiceSettings, reverseChargeNote: e.target.value });
+                            markUnsaved("invoice");
+                          }}
                         />
                         <p className="text-xs text-muted-foreground">For B2B EU cross-border transactions</p>
                       </div>
 
                       <Separator />
 
-                      {/* EU Cross-Border - Collapsible */}
                       <Collapsible>
                         <CollapsibleTrigger className="flex items-center justify-between w-full py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                           <span className="flex items-center gap-2">
@@ -1528,12 +1452,13 @@ const Settings = () => {
                               <Label htmlFor="supply_place">Default Place of Supply</Label>
                               <Select
                                 value={invoiceSettings.defaultSupplyPlace}
-                                onValueChange={(value) =>
-                                  setInvoiceSettings({ ...invoiceSettings, defaultSupplyPlace: value })
-                                }
+                                onValueChange={(v) => {
+                                  setInvoiceSettings({ ...invoiceSettings, defaultSupplyPlace: v });
+                                  markUnsaved("invoice");
+                                }}
                               >
                                 <SelectTrigger id="supply_place">
-                                  <SelectValue placeholder="Select place" />
+                                  <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="malta">Malta</SelectItem>
@@ -1542,17 +1467,17 @@ const Settings = () => {
                                 </SelectContent>
                               </Select>
                             </div>
-
                             <div className="space-y-2">
                               <Label htmlFor="invoice_language">Invoice Language</Label>
                               <Select
                                 value={invoiceSettings.invoiceLanguage}
-                                onValueChange={(value) =>
-                                  setInvoiceSettings({ ...invoiceSettings, invoiceLanguage: value })
-                                }
+                                onValueChange={(v) => {
+                                  setInvoiceSettings({ ...invoiceSettings, invoiceLanguage: v });
+                                  markUnsaved("invoice");
+                                }}
                               >
                                 <SelectTrigger id="invoice_language">
-                                  <SelectValue placeholder="Select language" />
+                                  <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="en">English</SelectItem>
@@ -1560,7 +1485,6 @@ const Settings = () => {
                                 </SelectContent>
                               </Select>
                             </div>
-
                             <div className="space-y-2">
                               <Label htmlFor="intrastat_threshold">Intrastat Threshold (€)</Label>
                               <Input
@@ -1568,12 +1492,15 @@ const Settings = () => {
                                 type="number"
                                 min="0"
                                 value={invoiceSettings.intrastatThreshold}
-                                onChange={(e) =>
-                                  setInvoiceSettings({ ...invoiceSettings, intrastatThreshold: parseFloat(e.target.value) })
-                                }
+                                onChange={(e) => {
+                                  setInvoiceSettings({
+                                    ...invoiceSettings,
+                                    intrastatThreshold: parseFloat(e.target.value),
+                                  });
+                                  markUnsaved("invoice");
+                                }}
                               />
                             </div>
-
                             <div className="space-y-2">
                               <Label htmlFor="distance_selling">Distance Selling Threshold (€)</Label>
                               <Input
@@ -1581,42 +1508,42 @@ const Settings = () => {
                                 type="number"
                                 min="0"
                                 value={invoiceSettings.distanceSellingThreshold}
-                                onChange={(e) =>
+                                onChange={(e) => {
                                   setInvoiceSettings({
                                     ...invoiceSettings,
                                     distanceSellingThreshold: parseFloat(e.target.value),
-                                  })
-                                }
+                                  });
+                                  markUnsaved("invoice");
+                                }}
                               />
                             </div>
                           </div>
-
                           <div className="flex items-center justify-between py-1">
                             <Label htmlFor="eori_number">Include EORI Number</Label>
                             <Switch
                               id="eori_number"
                               checked={invoiceSettings.includeEoriNumber}
-                              onCheckedChange={(checked) =>
-                                setInvoiceSettings({ ...invoiceSettings, includeEoriNumber: checked })
-                              }
+                              onCheckedChange={(v) => {
+                                setInvoiceSettings({ ...invoiceSettings, includeEoriNumber: v });
+                                markUnsaved("invoice");
+                              }}
                             />
                           </div>
-
                           <div className="flex items-center justify-between py-1">
-                            <Label htmlFor="moss_eligible">MOSS/OSS Eligible</Label>
+                            <Label htmlFor="moss_eligible">MOSS / OSS Eligible</Label>
                             <Switch
                               id="moss_eligible"
                               checked={invoiceSettings.euVatMossEligible}
-                              onCheckedChange={(checked) =>
-                                setInvoiceSettings({ ...invoiceSettings, euVatMossEligible: checked })
-                              }
+                              onCheckedChange={(v) => {
+                                setInvoiceSettings({ ...invoiceSettings, euVatMossEligible: v });
+                                markUnsaved("invoice");
+                              }}
                             />
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
 
                       <Separator />
-
                       <div className="flex justify-end">
                         <Button onClick={handleSaveInvoice} disabled={isLoading}>
                           <Save className="mr-2 h-4 w-4" />
@@ -1628,10 +1555,9 @@ const Settings = () => {
                 </div>
               </TabsContent>
 
-              {/* Notifications Tab */}
+              {/* ── Notifications Tab ── */}
               <TabsContent value="notifications">
                 <div className="space-y-6">
-                  {/* Email Notifications Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -1641,91 +1567,59 @@ const Settings = () => {
                       <CardDescription>Choose which email notifications you want to receive</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="email_reminders">Payment Reminders</Label>
-                            <p className="text-sm text-muted-foreground">Send email reminders for overdue invoices</p>
+                      {[
+                        {
+                          id: "email_reminders",
+                          label: "Payment Reminders",
+                          desc: "Send email reminders for overdue invoices",
+                          key: "emailReminders" as const,
+                        },
+                        {
+                          id: "payment_notifications",
+                          label: "Payment Received",
+                          desc: "Get notified when payments are received",
+                          key: "paymentNotifications" as const,
+                        },
+                        {
+                          id: "overdue_alerts",
+                          label: "Overdue Alerts",
+                          desc: "Daily alerts for overdue invoices",
+                          key: "overdueAlerts" as const,
+                        },
+                        {
+                          id: "weekly_reports",
+                          label: "Weekly Reports",
+                          desc: "Weekly summary of invoices and payments",
+                          key: "weeklyReports" as const,
+                        },
+                        {
+                          id: "customer_communications",
+                          label: "Customer Updates",
+                          desc: "Notifications when customers view/download invoices",
+                          key: "customerCommunications" as const,
+                        },
+                      ].map((item, idx) => (
+                        <div key={item.id}>
+                          {idx > 0 && <Separator className="mb-4" />}
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label htmlFor={item.id}>{item.label}</Label>
+                              <p className="text-sm text-muted-foreground">{item.desc}</p>
+                            </div>
+                            <Switch
+                              id={item.id}
+                              checked={notificationSettings[item.key]}
+                              onCheckedChange={(v) => {
+                                setNotificationSettings({ ...notificationSettings, [item.key]: v });
+                                markUnsaved("notifications");
+                              }}
+                            />
                           </div>
-                          <Switch
-                            id="email_reminders"
-                            checked={notificationSettings.emailReminders}
-                            onCheckedChange={(checked) =>
-                              setNotificationSettings({ ...notificationSettings, emailReminders: checked })
-                            }
-                          />
                         </div>
-
-                        <Separator />
-
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="payment_notifications">Payment Received</Label>
-                            <p className="text-sm text-muted-foreground">Get notified when payments are received</p>
-                          </div>
-                          <Switch
-                            id="payment_notifications"
-                            checked={notificationSettings.paymentNotifications}
-                            onCheckedChange={(checked) =>
-                              setNotificationSettings({ ...notificationSettings, paymentNotifications: checked })
-                            }
-                          />
-                        </div>
-
-                        <Separator />
-
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="overdue_alerts">Overdue Alerts</Label>
-                            <p className="text-sm text-muted-foreground">Daily alerts for overdue invoices</p>
-                          </div>
-                          <Switch
-                            id="overdue_alerts"
-                            checked={notificationSettings.overdueAlerts}
-                            onCheckedChange={(checked) =>
-                              setNotificationSettings({ ...notificationSettings, overdueAlerts: checked })
-                            }
-                          />
-                        </div>
-
-                        <Separator />
-
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="weekly_reports">Weekly Reports</Label>
-                            <p className="text-sm text-muted-foreground">Weekly summary of invoices and payments</p>
-                          </div>
-                          <Switch
-                            id="weekly_reports"
-                            checked={notificationSettings.weeklyReports}
-                            onCheckedChange={(checked) =>
-                              setNotificationSettings({ ...notificationSettings, weeklyReports: checked })
-                            }
-                          />
-                        </div>
-
-                        <Separator />
-
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="customer_communications">Customer Updates</Label>
-                            <p className="text-sm text-muted-foreground">
-                              Notifications when customers view/download invoices
-                            </p>
-                          </div>
-                          <Switch
-                            id="customer_communications"
-                            checked={notificationSettings.customerCommunications}
-                            onCheckedChange={(checked) =>
-                              setNotificationSettings({ ...notificationSettings, customerCommunications: checked })
-                            }
-                          />
-                        </div>
-                      </div>
+                      ))}
                     </CardContent>
                   </Card>
 
-                  {/* Reminder Schedule Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -1736,73 +1630,71 @@ const Settings = () => {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="first_reminder">First Reminder</Label>
-                          <Select
-                            value={notificationSettings.firstReminderDays.toString()}
-                            onValueChange={(value) =>
-                              setNotificationSettings({ ...notificationSettings, firstReminderDays: parseInt(value) })
-                            }
-                          >
-                            <SelectTrigger id="first_reminder">
-                              <SelectValue placeholder="Select days" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="3">3 days after due date</SelectItem>
-                              <SelectItem value="7">7 days after due date</SelectItem>
-                              <SelectItem value="14">14 days after due date</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="second_reminder">Second Reminder</Label>
-                          <Select
-                            value={notificationSettings.secondReminderDays.toString()}
-                            onValueChange={(value) =>
-                              setNotificationSettings({ ...notificationSettings, secondReminderDays: parseInt(value) })
-                            }
-                          >
-                            <SelectTrigger id="second_reminder">
-                              <SelectValue placeholder="Select days" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="7">7 days after 1st reminder</SelectItem>
-                              <SelectItem value="14">14 days after 1st reminder</SelectItem>
-                              <SelectItem value="21">21 days after 1st reminder</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="final_notice">Final Notice</Label>
-                          <Select
-                            value={notificationSettings.finalNoticeDays.toString()}
-                            onValueChange={(value) =>
-                              setNotificationSettings({ ...notificationSettings, finalNoticeDays: parseInt(value) })
-                            }
-                          >
-                            <SelectTrigger id="final_notice">
-                              <SelectValue placeholder="Select days" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="14">14 days after 2nd reminder</SelectItem>
-                              <SelectItem value="21">21 days after 2nd reminder</SelectItem>
-                              <SelectItem value="30">30 days after 2nd reminder</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {[
+                          {
+                            id: "first_reminder",
+                            label: "First Reminder",
+                            key: "firstReminderDays" as const,
+                            options: [
+                              ["3", "3 days after due date"],
+                              ["7", "7 days after due date"],
+                              ["14", "14 days after due date"],
+                            ],
+                          },
+                          {
+                            id: "second_reminder",
+                            label: "Second Reminder",
+                            key: "secondReminderDays" as const,
+                            options: [
+                              ["7", "7 days after 1st reminder"],
+                              ["14", "14 days after 1st reminder"],
+                              ["21", "21 days after 1st reminder"],
+                            ],
+                          },
+                          {
+                            id: "final_notice",
+                            label: "Final Notice",
+                            key: "finalNoticeDays" as const,
+                            options: [
+                              ["14", "14 days after 2nd reminder"],
+                              ["21", "21 days after 2nd reminder"],
+                              ["30", "30 days after 2nd reminder"],
+                            ],
+                          },
+                        ].map((item) => (
+                          <div key={item.id} className="space-y-2">
+                            <Label htmlFor={item.id}>{item.label}</Label>
+                            <Select
+                              value={notificationSettings[item.key].toString()}
+                              onValueChange={(v) => {
+                                setNotificationSettings({ ...notificationSettings, [item.key]: parseInt(v) });
+                                markUnsaved("notifications");
+                              }}
+                            >
+                              <SelectTrigger id={item.id}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {item.options.map(([val, label]) => (
+                                  <SelectItem key={val} value={val}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
                       </div>
 
-                      <div className="rounded-lg bg-muted p-4 border border-border">
-                        <p className="text-sm text-muted-foreground">
-                          💡 <strong>Tip:</strong> Automated reminders help maintain healthy cash flow. Customers will
-                          receive polite reminders at the intervals you specify above.
-                        </p>
-                      </div>
+                      <Alert>
+                        <InfoIcon className="h-4 w-4" />
+                        <AlertDescription>
+                          Automated reminders help maintain healthy cash flow. Customers receive polite reminders at the
+                          intervals set above.
+                        </AlertDescription>
+                      </Alert>
 
                       <Separator />
-
                       <div className="flex justify-end">
                         <Button onClick={handleSaveNotifications} disabled={isLoading}>
                           <Save className="mr-2 h-4 w-4" />
@@ -1814,10 +1706,9 @@ const Settings = () => {
                 </div>
               </TabsContent>
 
-              {/* Preferences Tab */}
+              {/* ── Preferences Tab ── */}
               <TabsContent value="preferences">
                 <div className="space-y-6">
-                  {/* Display Settings Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -1832,46 +1723,49 @@ const Settings = () => {
                           <Label htmlFor="theme">Theme</Label>
                           <Select
                             value={preferenceSettings.theme}
-                            onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, theme: value })}
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, theme: v });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="theme">
-                              <SelectValue placeholder="Select theme" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="light">Light</SelectItem>
                               <SelectItem value="dark">Dark</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">Choose your preferred color scheme</p>
                         </div>
-
                         <div className="space-y-2">
                           <Label htmlFor="language">Language</Label>
                           <Select
                             value={preferenceSettings.language}
-                            onValueChange={(value) => setPreferenceSettings({ ...preferenceSettings, language: value })}
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, language: v });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="language">
-                              <SelectValue placeholder="Select language" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="en">English</SelectItem>
                               <SelectItem value="mt">Maltese (Coming Soon)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">Select your preferred language</p>
                         </div>
-
                         <div className="space-y-2">
                           <Label htmlFor="date_format">Date Format</Label>
                           <Select
                             value={preferenceSettings.dateFormat}
-                            onValueChange={(value) =>
-                              setPreferenceSettings({ ...preferenceSettings, dateFormat: value })
-                            }
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, dateFormat: v });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="date_format">
-                              <SelectValue placeholder="Select format" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="DD/MM/YYYY">DD/MM/YYYY (31/12/2025)</SelectItem>
@@ -1879,39 +1773,36 @@ const Settings = () => {
                               <SelectItem value="YYYY-MM-DD">YYYY-MM-DD (2025-12-31)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">How dates should be displayed</p>
                         </div>
-
                         <div className="space-y-2">
                           <Label htmlFor="time_format">Time Format</Label>
                           <Select
                             value={preferenceSettings.timeFormat}
-                            onValueChange={(value) =>
-                              setPreferenceSettings({ ...preferenceSettings, timeFormat: value })
-                            }
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, timeFormat: v });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="time_format">
-                              <SelectValue placeholder="Select format" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="24h">24-hour (14:30)</SelectItem>
                               <SelectItem value="12h">12-hour (2:30 PM)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">How times should be displayed</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Currency Display Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <CreditCard className="h-5 w-5" />
                         Currency Display
                       </CardTitle>
-                      <CardDescription>Customize how currency values are formatted and displayed</CardDescription>
+                      <CardDescription>Customize how currency values are formatted</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1919,44 +1810,42 @@ const Settings = () => {
                           <Label htmlFor="currency_symbol">Currency Display</Label>
                           <Select
                             value={preferenceSettings.currencySymbolDisplay}
-                            onValueChange={(value) =>
-                              setPreferenceSettings({ ...preferenceSettings, currencySymbolDisplay: value })
-                            }
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, currencySymbolDisplay: v });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="currency_symbol">
-                              <SelectValue placeholder="Select format" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="symbol">Symbol (€)</SelectItem>
                               <SelectItem value="code">Code (EUR)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">Show currency as symbol or code</p>
                         </div>
-
                         <div className="space-y-2">
                           <Label htmlFor="currency_position">Currency Position</Label>
                           <Select
                             value={preferenceSettings.currencyPosition}
-                            onValueChange={(value) =>
-                              setPreferenceSettings({ ...preferenceSettings, currencyPosition: value })
-                            }
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, currencyPosition: v });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="currency_position">
-                              <SelectValue placeholder="Select position" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="before">Before amount (€100.00)</SelectItem>
                               <SelectItem value="after">After amount (100.00€)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">Where to place the currency symbol</p>
                         </div>
                       </div>
-
                       <div className="rounded-lg bg-muted p-4 border border-border">
                         <p className="text-sm text-muted-foreground">
-                          <strong>Preview:</strong>{" "}
+                          Preview:{" "}
                           {preferenceSettings.currencyPosition === "before"
                             ? `${preferenceSettings.currencySymbolDisplay === "symbol" ? "€" : "EUR"} 1,234.56`
                             : `1,234.56 ${preferenceSettings.currencySymbolDisplay === "symbol" ? "€" : "EUR"}`}
@@ -1965,7 +1854,6 @@ const Settings = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Data Display Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -1980,12 +1868,13 @@ const Settings = () => {
                           <Label htmlFor="items_per_page">Items per Page</Label>
                           <Select
                             value={preferenceSettings.itemsPerPage.toString()}
-                            onValueChange={(value) =>
-                              setPreferenceSettings({ ...preferenceSettings, itemsPerPage: parseInt(value) })
-                            }
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, itemsPerPage: parseInt(v) });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="items_per_page">
-                              <SelectValue placeholder="Select number" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="10">10 items</SelectItem>
@@ -1994,31 +1883,27 @@ const Settings = () => {
                               <SelectItem value="100">100 items</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">Number of items to show per page in lists</p>
                         </div>
-
                         <div className="space-y-2">
                           <Label htmlFor="default_view">Default List View</Label>
                           <Select
                             value={preferenceSettings.defaultView}
-                            onValueChange={(value) =>
-                              setPreferenceSettings({ ...preferenceSettings, defaultView: value })
-                            }
+                            onValueChange={(v) => {
+                              setPreferenceSettings({ ...preferenceSettings, defaultView: v });
+                              markUnsaved("preferences");
+                            }}
                           >
                             <SelectTrigger id="default_view">
-                              <SelectValue placeholder="Select view" />
+                              <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="table">Table View</SelectItem>
                               <SelectItem value="cards">Cards View</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground">Preferred layout for viewing lists</p>
                         </div>
                       </div>
-
                       <Separator />
-
                       <div className="flex justify-end">
                         <Button onClick={handleSavePreferences} disabled={isLoading}>
                           <Save className="mr-2 h-4 w-4" />
