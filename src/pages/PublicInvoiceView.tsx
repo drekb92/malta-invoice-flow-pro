@@ -81,6 +81,7 @@ interface PublicInvoiceData {
   } | null;
   payments: Array<{ amount: number; payment_date: string; method: string | null }>;
   shareLink: { expires_at: string };
+  pdf_url: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -237,7 +238,20 @@ export default function PublicInvoiceView() {
         .join(", ")
     : null;
 
-  const handlePrint = () => window.print();
+  // If a real PDF exists from a previous send, download that exact file.
+  // Otherwise fall back to browser print (which renders the webpage, not the invoice template).
+  const handleDownload = () => {
+    if (data?.pdf_url) {
+      const a = document.createElement("a");
+      a.href = data.pdf_url;
+      a.download = `Invoice-${data?.invoice?.invoice_number || "download"}.pdf`;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.click();
+    } else {
+      window.print();
+    }
+  };
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -280,7 +294,7 @@ export default function PublicInvoiceView() {
             <div className="flex items-center gap-2">
               {/* FIX: PDF download button */}
               <button
-                onClick={handlePrint}
+                onClick={handleDownload}
                 className="no-print inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
                 title="Save as PDF"
               >
