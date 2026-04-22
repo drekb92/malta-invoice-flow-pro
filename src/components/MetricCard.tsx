@@ -17,24 +17,33 @@ interface MetricCardProps {
   urgent?: boolean;
 }
 
-const schemeStyles: Record<ColorScheme, { iconBg: string; iconText: string; cardBorder?: string; cardBg?: string }> = {
+const schemeStyles: Record<
+  ColorScheme,
+  { iconBg: string; iconText: string; cardBorder: string; cardBg?: string }
+> = {
   amber: {
     iconBg: "bg-amber-100",
     iconText: "text-amber-600",
-    cardBorder: "border-amber-200",
+    cardBorder: "border border-amber-200/70",
     cardBg: "bg-amber-50/40",
   },
   emerald: {
     iconBg: "bg-emerald-100",
     iconText: "text-emerald-600",
+    cardBorder: "border border-emerald-200/60",
+    cardBg: "bg-emerald-50/30",
   },
   blue: {
     iconBg: "bg-blue-100",
     iconText: "text-blue-600",
+    cardBorder: "border border-blue-200/60",
+    cardBg: "bg-blue-50/25",
   },
   slate: {
     iconBg: "bg-slate-100",
-    iconText: "text-slate-600",
+    iconText: "text-slate-500",
+    cardBorder: "border border-border",
+    cardBg: undefined,
   },
 };
 
@@ -58,36 +67,33 @@ export function MetricCard({
 
   const scheme = schemeStyles[colorScheme];
 
-  // Urgent cards (Outstanding with balance) get a left accent border + tinted bg
-  const urgentStyles = urgent ? "border-l-4 border-l-amber-400 bg-amber-50/40" : "";
-
   return (
     <Card
-      className={`h-[130px] ${urgentStyles} ${
-        onClick ? "cursor-pointer hover:shadow-md transition-all hover:border-primary/20" : ""
+      className={`min-h-[140px] ${scheme.cardBorder} ${scheme.cardBg ?? ""} ${
+        onClick ? "cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-150" : ""
       }`}
       onClick={onClick}
     >
-      <CardContent className="p-4 h-full flex flex-col justify-between">
+      <CardContent className="p-5 h-full flex flex-col justify-between">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${scheme.iconBg}`}>
-                <Icon className={`h-4 w-4 ${scheme.iconText}`} />
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${scheme.iconBg}`}>
+                <Icon className={`h-5 w-5 ${scheme.iconText}`} />
               </div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">{title}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">{title}</p>
             </div>
-            <p className="text-2xl font-semibold tabular-nums mt-2">{value}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <p className={`text-xs ${changeColor}`}>{change}</p>
-              {subtitle && <span className="text-[10px] text-muted-foreground/70">· {subtitle}</span>}
+            <p className="text-3xl font-bold tabular-nums mt-1 tracking-tight">{value}</p>
+            <div className="flex items-center gap-2 mt-1.5">
+              <p className={`text-xs font-medium ${changeColor}`}>{change}</p>
+              {subtitle && <span className="text-[10px] text-muted-foreground/60">· {subtitle}</span>}
             </div>
           </div>
           {onClick && (
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs text-muted-foreground hover:text-foreground h-6 px-2 -mr-2 -mt-1"
+              className="text-xs text-muted-foreground hover:text-foreground h-6 px-2 -mr-1 -mt-1 shrink-0"
               onClick={(e) => {
                 e.stopPropagation();
                 onClick();

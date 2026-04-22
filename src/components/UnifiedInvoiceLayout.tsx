@@ -295,6 +295,8 @@ export const UnifiedInvoiceLayout = ({
     #${id} .footer { margin-top: auto; padding-top: ${isPdf ? "4mm" : "14px"}; }
     #${id} .banking { font-size: ${fontSize.small}; line-height: 1.4; color: #4b5563; }
     #${id} .banking .line { margin: ${isPdf ? "0.5mm 0" : "2px 0"}; }
+    #${id} .vat-total-row { background: #e2e8f0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    #${id} .vat-total-row td { border-bottom: none; }
     #${id} .thanks {
       margin-top: ${isPdf ? "3mm" : "12px"};
       padding-top: ${isPdf ? "2.5mm" : "10px"};
@@ -382,6 +384,29 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} .totals .total .label,
       #${id} .totals .total .value { color: ${styleConfig.totalTextColor}; }
+
+      /* Banking — modern */
+      #${id} .banking {
+        background: ${primary}0e;
+        border: 1px solid ${primary}28;
+        padding: ${isPdf ? "2.5mm 4mm" : "10px 16px"};
+        border-radius: ${isPdf ? "1mm" : "4px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .banking .section-label { color: ${primary}; font-weight: 700; margin-bottom: ${isPdf ? "1.5mm" : "6px"}; }
+
+      /* VAT Summary — modern */
+      #${id} .vat-summary-section {
+        background: ${primary}10 !important;
+        border: 1px solid ${primary}30 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .vat-summary-section .section-label { color: ${primary}; font-weight: 700; }
+      #${id} table.vat-summary thead th { color: ${primary}; border-bottom: 1px solid ${primary}30; }
+      #${id} .vat-total-row { background: ${primary}20 !important; }
+      #${id} .vat-total-row td { color: ${primary} !important; }
     `
         : ""
     }
@@ -419,6 +444,30 @@ export const UnifiedInvoiceLayout = ({
       }
       #${id} .totals .total .label { color: #111827; font-weight: 700; }
       #${id} .totals .total .value { color: ${styleConfig.totalTextColor}; font-weight: 800; }
+
+      /* Banking — professional */
+      #${id} .banking {
+        border-top: ${isPdf ? "0.8mm" : "2px"} solid ${primary};
+        padding-top: ${isPdf ? "2.5mm" : "10px"};
+        background: transparent;
+      }
+      #${id} .banking .section-label { color: ${primary}; font-weight: 700; margin-bottom: ${isPdf ? "1.5mm" : "6px"}; }
+
+      /* VAT Summary — professional */
+      #${id} .vat-summary-section {
+        background: #ffffff !important;
+        border: none !important;
+        border-top: ${isPdf ? "1.2mm" : "2px"} solid ${primary} !important;
+        border-radius: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .vat-summary-section .section-label { color: ${primary}; font-weight: 700; }
+      #${id} table.vat-summary thead th { color: ${primary}; border-bottom: 2px solid ${primary}; }
+      #${id} .vat-total-row { background: #f9fafb !important; }
+      #${id} .vat-total-row td { color: ${primary} !important; }
     `
         : ""
     }
@@ -452,7 +501,38 @@ export const UnifiedInvoiceLayout = ({
       #${id} .totals .total { border-top: none; margin-top: ${isPdf ? "3mm" : "12px"}; padding-top: ${isPdf ? "2mm" : "8px"}; }
       #${id} .totals .total .label { font-weight: 600; color: #374151; }
       #${id} .totals .total .value { font-weight: 700; color: ${styleConfig.totalTextColor} !important; }
-      #${id} .banking { margin-top: ${isPdf ? "6mm" : "24px"}; background: transparent; }
+      /* Banking — minimalist */
+      #${id} .banking {
+        margin-top: ${isPdf ? "4mm" : "16px"};
+        padding-top: ${isPdf ? "3mm" : "12px"};
+        border-top: 1px solid #e5e7eb;
+        background: transparent !important;
+      }
+      #${id} .banking .section-label { color: #9ca3af; font-weight: 400; letter-spacing: 0.1em; margin-bottom: ${isPdf ? "1.5mm" : "6px"}; }
+      #${id} .banking .line strong { font-weight: 400; color: #9ca3af; }
+      #${id} .banking { color: #6b7280; }
+
+      /* VAT Summary — minimalist */
+      #${id} .vat-summary-section {
+        background: transparent !important;
+        border: none !important;
+        border-top: 1px solid #e5e7eb !important;
+        border-radius: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      #${id} .vat-summary-section .section-label { color: #9ca3af; font-weight: 400; letter-spacing: 0.1em; }
+      #${id} table.vat-summary thead th {
+        color: #9ca3af;
+        font-weight: 400;
+        letter-spacing: 0.08em;
+        border-bottom: 1px solid #e5e7eb;
+        text-transform: lowercase;
+      }
+      #${id} table.vat-summary tbody td { color: #6b7280; border-bottom: 1px solid #f3f4f6; }
+      #${id} .vat-total-row { background: transparent !important; }
+      #${id} .vat-total-row td { color: ${primary} !important; font-weight: 600 !important; border-top: 1px solid #e5e7eb; }
+
       #${id} .thanks { border-top: 1px solid #f3f4f6; color: #9ca3af; }
     `
         : ""
@@ -788,7 +868,7 @@ export const UnifiedInvoiceLayout = ({
                           </tr>
                         );
                       })}
-                      <tr style={{ background: "#e2e8f0" }}>
+                      <tr className="vat-total-row">
                         <td style={{ fontWeight: 600 }}>Total</td>
                         <td className="num" style={{ fontWeight: 600 }}>
                           {money(totalNet)}

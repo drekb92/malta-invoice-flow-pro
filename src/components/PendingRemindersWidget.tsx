@@ -4,22 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Bell,
   CheckCircle2,
-  ChevronDown,
   Settings,
   Loader2,
   Mail,
   MessageCircle,
   Clock,
-  Calendar,
   Send,
 } from "lucide-react";
 import { useReminders } from "@/hooks/useReminders";
@@ -93,12 +84,6 @@ export function PendingRemindersWidget({
     if (result.success && onReminderSent) {
       onReminderSent();
     }
-  };
-
-  const handleSchedule = (invoiceId: string, when: string) => {
-    // For now, navigate to reminder settings with context
-    // In a full implementation, this would create a scheduled reminder
-    navigate(`/reminders?schedule=${when}&invoice=${invoiceId}`);
   };
 
   const toggleChannel = (invoiceId: string, channel: Channel) => {
@@ -222,54 +207,21 @@ export function PendingRemindersWidget({
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      className="h-7 px-3 text-xs"
-                      onClick={() => handleSendNow(invoice)}
-                      disabled={sending && sendingInvoiceId === invoice.id}
-                    >
-                      {sending && sendingInvoiceId === invoice.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <>
-                          <Send className="h-3 w-3 mr-1" />
-                          Send now
-                        </>
-                      )}
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                          disabled={sending && sendingInvoiceId === invoice.id}
-                        >
-                          <Calendar className="h-3 w-3 mr-1" />
-                          <ChevronDown className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem
-                          onClick={() => handleSchedule(invoice.id, "tomorrow")}
-                        >
-                          Tomorrow 9am
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleSchedule(invoice.id, "next-week")}
-                        >
-                          Next week
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleSchedule(invoice.id, "custom")}
-                        >
-                          Custom...
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs"
+                    onClick={() => handleSendNow(invoice)}
+                    disabled={sending && sendingInvoiceId === invoice.id}
+                  >
+                    {sending && sendingInvoiceId === invoice.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="h-3 w-3 mr-1" />
+                        Send now
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             ))}

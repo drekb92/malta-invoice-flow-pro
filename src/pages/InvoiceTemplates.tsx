@@ -3,25 +3,19 @@ import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Star,
-  Palette,
-  Type,
-  Settings2,
   Layout,
   AlertCircle,
   RotateCcw,
   FileDown,
   Loader2,
-  Wand2,
   Save,
   ChevronDown,
-  FlaskConical,
 } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
@@ -74,6 +68,7 @@ const designPresets = [
   {
     id: "malta-professional",
     name: "Malta Pro",
+    description: "Bordered table, boxed totals",
     color: "#2563eb",
     settings: {
       primary_color: "#2563eb",
@@ -91,6 +86,7 @@ const designPresets = [
   {
     id: "service-business",
     name: "Service",
+    description: "Minimal lines, logo right",
     color: "#7c3aed",
     settings: {
       primary_color: "#7c3aed",
@@ -108,6 +104,7 @@ const designPresets = [
   {
     id: "retail-products",
     name: "Retail",
+    description: "Striped rows, boxed totals",
     color: "#059669",
     settings: {
       primary_color: "#059669",
@@ -125,6 +122,7 @@ const designPresets = [
   {
     id: "minimal-clean",
     name: "Minimal",
+    description: "Clean layout, lines only",
     color: "#64748b",
     settings: {
       primary_color: "#64748b",
@@ -142,6 +140,7 @@ const designPresets = [
   {
     id: "corporate",
     name: "Corporate",
+    description: "Lato font, logo right",
     color: "#1e40af",
     settings: {
       primary_color: "#1e40af",
@@ -154,6 +153,48 @@ const designPresets = [
       totals_style: "boxed" as const,
       banking_visibility: true,
       banking_style: "boxed" as const,
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Style presets — each drives all structural settings at once
+// ---------------------------------------------------------------------------
+const stylePresets = [
+  {
+    id: "classic",
+    name: "Classic",
+    description: "White header, clean ruled table, right-aligned totals",
+    settings: {
+      style: "professional" as TemplateStyle,
+      layout: "default" as const,
+      table_style: "default" as const,
+      totals_style: "default" as const,
+      banking_style: "default" as const,
+    },
+  },
+  {
+    id: "bold",
+    name: "Bold",
+    description: "Full-colour header, striped rows, boxed totals",
+    settings: {
+      style: "modern" as TemplateStyle,
+      layout: "default" as const,
+      table_style: "striped" as const,
+      totals_style: "boxed" as const,
+      banking_style: "boxed" as const,
+    },
+  },
+  {
+    id: "minimal",
+    name: "Minimal",
+    description: "No background, lines only, understated",
+    settings: {
+      style: "minimalist" as TemplateStyle,
+      layout: "cleanMinimal" as const,
+      table_style: "minimal" as const,
+      totals_style: "default" as const,
+      banking_style: "minimal" as const,
     },
   },
 ];
@@ -302,6 +343,18 @@ const InvoiceTemplates = () => {
     setCurrentSettings((prev) => ({ ...prev, ...preset.settings }));
     toast({ title: `${preset.name} preset applied` });
   };
+
+  const applyStylePreset = (preset: (typeof stylePresets)[0]) => {
+    setCurrentSettings((prev) => ({ ...prev, ...preset.settings }));
+  };
+
+  // Maps currentSettings.style → style preset id
+  const activeStyleId =
+    currentSettings.style === "professional"
+      ? "classic"
+      : currentSettings.style === "minimalist"
+      ? "minimal"
+      : "bold";
 
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -459,26 +512,48 @@ const InvoiceTemplates = () => {
                 <h1 className="text-xl font-bold text-foreground">Invoice Template Designer</h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Design and preview your invoice templates</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <PreviewModeSelector mode={previewMode} onModeChange={setPreviewMode} />
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={resetToDefault} disabled={!selectedTemplate}>
-                        <RotateCcw className="h-4 w-4" />
-                        <span className="ml-1.5 hidden sm:inline">Discard</span>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Discard unsaved changes</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving || !selectedTemplate}>
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  <span className="ml-1.5 hidden sm:inline">{isSaving ? "Saving…" : "Save"}</span>
-                  {hasUnsavedChanges && !isSaving && (
-                    <span className="ml-1.5 w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Unsaved changes" />
-                  )}
-                </Button>
+
+                {/* Unsaved changes badge */}
+                {hasUnsavedChanges && !isSaving && (
+                  <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 text-xs hidden sm:flex">
+                    Unsaved changes
+                  </Badge>
+                )}
+
+                {/* Discard + Save group */}
+                <div className="flex items-center rounded-lg border border-border overflow-hidden divide-x divide-border">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={resetToDefault}
+                          disabled={!selectedTemplate || !hasUnsavedChanges}
+                          className="rounded-none h-8 px-3 text-muted-foreground hover:text-foreground"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span className="ml-1.5 hidden sm:inline text-xs">Discard</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Discard unsaved changes</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={isSaving || !selectedTemplate}
+                    className="rounded-none h-8 px-3 hover:text-foreground"
+                  >
+                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    <span className="ml-1.5 hidden sm:inline text-xs">{isSaving ? "Saving…" : "Save"}</span>
+                  </Button>
+                </div>
+
+                {/* Primary CTA */}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -497,8 +572,8 @@ const InvoiceTemplates = () => {
 
         <div className="flex flex-1 min-h-0">
           {/* LEFT SIDEBAR */}
-          <aside className="w-[320px] flex-shrink-0 border-r border-border bg-card overflow-y-auto h-full">
-            <div className="p-4 space-y-2">
+          <aside className="w-[300px] flex-shrink-0 border-r border-border bg-card overflow-y-auto h-full">
+            <div className="p-4 space-y-5">
               {/* Validation warning */}
               {(!companyValid || !bankingValid) && (
                 <Alert className="mb-1">
@@ -523,312 +598,254 @@ const InvoiceTemplates = () => {
               {isLoading ? (
                 <div className="space-y-3 py-4">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-5">
                   {/* Design Presets */}
-                  <TemplateControlSection
-                    title="Design Presets"
-                    icon={<Wand2 className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={false}
-                  >
-                    <p className="text-xs text-muted-foreground -mt-1">
-                      Apply a complete design in one click. Adjust any setting after.
-                    </p>
-                    <div className="grid grid-cols-5 gap-2 pt-1">
-                      {designPresets.map((preset) => (
-                        <TooltipProvider key={preset.id}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => applyPreset(preset)}
-                                className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all hover:ring-2 hover:ring-primary/40 hover:border-primary/40 ${
-                                  currentSettings.primary_color === preset.color
-                                    ? "ring-2 ring-primary border-primary bg-primary/5"
-                                    : "border-border"
-                                }`}
-                              >
-                                <div
-                                  className="w-8 h-8 rounded-full border border-white/20 shadow-sm"
-                                  style={{ backgroundColor: preset.color }}
-                                />
-                                <span className="text-[10px] font-medium text-center leading-tight">{preset.name}</span>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">
-                              <p>{preset.name}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ))}
-                    </div>
-                  </TemplateControlSection>
-
-                  {/* Template Style */}
-                  <TemplateControlSection
-                    title="Template Style"
-                    icon={<Layout className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={false}
-                  >
+                  {/* ── SECTION 1: Style picker ── */}
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Style</p>
                     <div className="space-y-2">
-                      {(["modern", "professional", "minimalist"] as TemplateStyle[]).map((styleValue) => {
-                        const labels: Record<TemplateStyle, { label: string; desc: string }> = {
-                          modern: { label: "Modern", desc: "Solid brand colour header with white text" },
-                          professional: { label: "Professional", desc: "White header with coloured top border" },
-                          minimalist: { label: "Minimalist", desc: "Clean design, colour only on totals" },
-                        };
-                        const isActive = (currentSettings.style || "modern") === styleValue;
-                        const primaryColor = currentSettings.primary_color || "#26A65B";
+                      {stylePresets.map((preset) => {
+                        const isActive = activeStyleId === preset.id;
+                        const primaryColor = currentSettings.primary_color || "#1e3a5f";
                         return (
                           <button
-                            key={styleValue}
-                            onClick={() => updateSetting("style", styleValue)}
+                            key={preset.id}
+                            onClick={() => applyStylePreset(preset)}
                             className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
                               isActive
                                 ? "border-primary bg-primary/5 ring-1 ring-primary"
                                 : "border-border hover:border-primary/40 hover:bg-muted/50"
                             }`}
                           >
-                            {/* Live thumbnail */}
-                            <div className="w-10 h-10 rounded overflow-hidden border border-border/50 flex-shrink-0 bg-muted flex flex-col">
-                              {styleValue === "modern" && (
+                            {/* Mini-invoice thumbnail */}
+                            <div className="w-20 h-14 rounded overflow-hidden border border-border/50 flex-shrink-0 bg-white flex flex-col shadow-sm">
+                              {preset.id === "classic" && (
                                 <>
-                                  <div className="h-4 w-full" style={{ backgroundColor: primaryColor }} />
-                                  <div className="flex-1 p-0.5 space-y-0.5">
-                                    <div className="h-1 bg-muted-foreground/20 rounded-full w-3/4" />
+                                  <div className="h-1 w-full" style={{ backgroundColor: primaryColor }} />
+                                  <div className="flex items-center px-1.5 py-1 gap-1">
+                                    <div className="w-3 h-3 rounded-sm bg-muted" />
+                                    <div className="flex-1 space-y-0.5">
+                                      <div className="h-0.5 bg-muted-foreground/30 rounded-full w-full" />
+                                      <div className="h-0.5 bg-muted-foreground/15 rounded-full w-2/3" />
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 px-1.5 pb-1 space-y-1">
+                                    <div className="h-px bg-border w-full" />
+                                    <div className="h-1 bg-muted-foreground/15 rounded-full w-3/4" />
                                     <div className="h-1 bg-muted-foreground/10 rounded-full w-1/2" />
+                                    <div className="flex justify-end mt-1">
+                                      <div className="h-1 rounded w-1/3 bg-muted-foreground/20" />
+                                    </div>
                                   </div>
                                 </>
                               )}
-                              {styleValue === "professional" && (
+                              {preset.id === "bold" && (
                                 <>
-                                  <div className="h-0.5 w-full" style={{ backgroundColor: primaryColor }} />
-                                  <div className="flex-1 p-0.5 space-y-0.5 pt-1">
-                                    <div className="h-1 bg-muted-foreground/20 rounded-full w-3/4" />
-                                    <div className="h-1 bg-muted-foreground/10 rounded-full w-1/2" />
+                                  <div className="h-5 w-full flex items-center px-1.5 gap-1" style={{ backgroundColor: primaryColor }}>
+                                    <div className="w-3 h-3 rounded-sm bg-white/30" />
+                                    <div className="flex-1 space-y-0.5">
+                                      <div className="h-0.5 bg-white/60 rounded-full w-full" />
+                                      <div className="h-0.5 bg-white/40 rounded-full w-2/3" />
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 px-1 pb-1 space-y-0.5 pt-0.5">
+                                    <div className="h-1.5 bg-muted/60 rounded-sm w-full" />
+                                    <div className="h-1.5 w-full" />
+                                    <div className="h-1.5 bg-muted/40 rounded-sm w-full" />
+                                    <div className="flex justify-end mt-0.5">
+                                      <div className="h-2 rounded w-1/3 border" style={{ borderColor: primaryColor, backgroundColor: `${primaryColor}15` }} />
+                                    </div>
                                   </div>
                                 </>
                               )}
-                              {styleValue === "minimalist" && (
-                                <div className="flex-1 p-1 space-y-0.5 flex flex-col justify-center">
-                                  <div className="h-1 bg-muted-foreground/30 rounded-full w-3/4" />
-                                  <div className="h-1 bg-muted-foreground/15 rounded-full w-1/2" />
-                                  <div
-                                    className="h-1.5 rounded-full w-full mt-1"
-                                    style={{ backgroundColor: `${primaryColor}40` }}
-                                  />
+                              {preset.id === "minimal" && (
+                                <div className="flex-1 p-1.5 flex flex-col gap-1">
+                                  <div className="flex items-baseline gap-1 mb-0.5">
+                                    <div className="h-1.5 bg-muted-foreground/40 rounded-full w-2/5" />
+                                    <div className="h-1 bg-muted-foreground/15 rounded-full w-1/4 ml-auto" />
+                                  </div>
+                                  <div className="h-px bg-border w-full" />
+                                  <div className="h-1 bg-muted-foreground/15 rounded-full w-3/4" />
+                                  <div className="h-1 bg-muted-foreground/10 rounded-full w-1/2" />
+                                  <div className="h-px bg-border w-full mt-auto" />
+                                  <div className="flex justify-end">
+                                    <div className="h-1 rounded w-1/3" style={{ backgroundColor: `${primaryColor}50` }} />
+                                  </div>
                                 </div>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm">{labels[styleValue].label}</div>
-                              <div className="text-xs text-muted-foreground mt-0.5">{labels[styleValue].desc}</div>
+                              <p className="font-semibold text-sm">{preset.name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{preset.description}</p>
                             </div>
                             {isActive && (
-                              <div
-                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: primaryColor }}
-                              />
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: primaryColor }} />
                             )}
                           </button>
                         );
                       })}
                     </div>
-                  </TemplateControlSection>
+                  </div>
 
-                  {/* Brand Colors */}
-                  <TemplateControlSection
-                    title="Brand Colors"
-                    icon={<Palette className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={true}
-                  >
-                    <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border">
-                      <div
-                        className="w-12 h-12 rounded-lg border-2 border-border shadow-sm cursor-pointer relative overflow-hidden"
-                        style={{ backgroundColor: currentSettings.primary_color || "#1e3a5f" }}
-                      >
-                        <Input
-                          type="color"
-                          value={currentSettings.primary_color || "#1e3a5f"}
-                          onChange={(e) => updateSetting("primary_color", e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">Primary Brand Color</div>
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {currentSettings.primary_color || "#1e3a5f"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pt-1">
-                      <Label className="text-xs text-muted-foreground mb-2 block">Professional Presets</Label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { name: "Navy", color: "#1e3a5f" },
-                          { name: "Slate", color: "#475569" },
-                          { name: "Emerald", color: "#065f46" },
-                          { name: "Maroon", color: "#7f1d1d" },
-                          { name: "Indigo", color: "#3730a3" },
-                          { name: "Charcoal", color: "#1f2937" },
-                        ].map((p) => (
-                          <button
-                            key={p.name}
-                            onClick={() => updateSetting("primary_color", p.color)}
-                            className={`flex items-center gap-2 p-2 rounded-md border transition-all hover:ring-2 hover:ring-primary/50 ${
-                              currentSettings.primary_color === p.color
-                                ? "ring-2 ring-primary border-primary"
-                                : "border-border"
-                            }`}
-                          >
-                            <div
-                              className="w-5 h-5 rounded-full border border-border/50 flex-shrink-0"
-                              style={{ backgroundColor: p.color }}
-                            />
-                            <span className="text-xs font-medium truncate">{p.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="pt-1">
-                      <Label className="text-xs text-muted-foreground mb-2 block">Accent Color</Label>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Used for the invoice title and grand total figure.
-                      </p>
-                      <div className="flex items-center gap-3 p-2 rounded-lg border border-border/50">
+                  <div className="border-t border-border" />
+
+                  {/* ── SECTION 2: Customise ── */}
+                  <div className="space-y-4">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Customise</p>
+
+                    {/* Brand Colour */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Brand Colour</Label>
+                      <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border">
                         <div
-                          className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden"
-                          style={{ backgroundColor: currentSettings.accent_color || "#1F2D3D" }}
+                          className="w-10 h-10 rounded-lg border-2 border-white shadow-sm cursor-pointer relative overflow-hidden shrink-0"
+                          style={{ backgroundColor: currentSettings.primary_color || "#1e3a5f" }}
                         >
                           <Input
                             type="color"
-                            value={currentSettings.accent_color || "#1F2D3D"}
-                            onChange={(e) => updateSetting("accent_color", e.target.value)}
+                            value={currentSettings.primary_color || "#1e3a5f"}
+                            onChange={(e) => updateSetting("primary_color", e.target.value)}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
                         </div>
-                        <div className="text-xs font-mono text-muted-foreground">
-                          {currentSettings.accent_color || "#1F2D3D"}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Primary</p>
+                          <p className="text-xs text-muted-foreground font-mono">{currentSettings.primary_color || "#1e3a5f"}</p>
                         </div>
                       </div>
+                      <div className="grid grid-cols-6 gap-1.5">
+                        {[
+                          { name: "Navy",     color: "#1e3a5f" },
+                          { name: "Indigo",   color: "#3730a3" },
+                          { name: "Slate",    color: "#475569" },
+                          { name: "Charcoal", color: "#1f2937" },
+                          { name: "Emerald",  color: "#065f46" },
+                          { name: "Maroon",   color: "#7f1d1d" },
+                        ].map((p) => (
+                          <button
+                            key={p.name}
+                            title={p.name}
+                            onClick={() => updateSetting("primary_color", p.color)}
+                            className={`w-full aspect-square rounded-md border-2 transition-all hover:scale-110 ${
+                              currentSettings.primary_color === p.color
+                                ? "border-primary scale-110 shadow-sm ring-2 ring-primary/30"
+                                : "border-transparent hover:border-muted-foreground/30"
+                            }`}
+                            style={{ backgroundColor: p.color }}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </TemplateControlSection>
 
-                  {/* Typography */}
-                  <TemplateControlSection
-                    title="Typography"
-                    icon={<Type className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={false}
-                  >
+                    {/* Font */}
                     <FontPreviewSelect
                       value={currentSettings.font_family || "Inter"}
                       onChange={(v) => updateSetting("font_family", v)}
                     />
-                  </TemplateControlSection>
 
-                  {/* Layout Options */}
-                  <TemplateControlSection
-                    title="Layout Options"
-                    icon={<Settings2 className="h-4 w-4 text-muted-foreground" />}
-                    defaultOpen={false}
-                  >
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Header Layout</Label>
-                        <Select
-                          value={currentSettings.header_layout || "default"}
-                          onValueChange={(v) => updateSetting("header_layout", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default — logo left, details right</SelectItem>
-                            <SelectItem value="logo-right">Logo right — details left, logo right</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Table Style</Label>
-                        <Select
-                          value={currentSettings.table_style || "default"}
-                          onValueChange={(v) => updateSetting("table_style", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default — plain rows</SelectItem>
-                            <SelectItem value="striped">Striped — alternating fills</SelectItem>
-                            <SelectItem value="bordered">Bordered — full cell borders</SelectItem>
-                            <SelectItem value="minimal">Minimal — lines only</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Totals Style</Label>
-                        <Select
-                          value={currentSettings.totals_style || "default"}
-                          onValueChange={(v) => updateSetting("totals_style", v)}
-                        >
-                          <SelectTrigger className="bg-background">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            <SelectItem value="default">Default — right-aligned</SelectItem>
-                            <SelectItem value="boxed">Boxed — framed total area</SelectItem>
-                            <SelectItem value="highlighted">Highlighted — coloured row</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center justify-between py-2 px-1">
-                        <Label className="text-sm">Show Banking Details</Label>
-                        <Switch
-                          checked={currentSettings.banking_visibility !== false}
-                          onCheckedChange={(v) => updateSetting("banking_visibility", v)}
-                        />
-                      </div>
-                      {currentSettings.banking_visibility !== false && (
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Banking Style</Label>
-                          <Select
-                            value={currentSettings.banking_style || "default"}
-                            onValueChange={(v) => updateSetting("banking_style", v)}
+                    {/* Logo Position */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Logo Position</Label>
+                      <div className="flex rounded-lg border border-border overflow-hidden divide-x divide-border">
+                        {(["default", "logo-right"] as const).map((pos) => (
+                          <button
+                            key={pos}
+                            onClick={() => updateSetting("header_layout", pos)}
+                            className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                              (currentSettings.header_layout || "default") === pos
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-background text-muted-foreground hover:bg-muted"
+                            }`}
                           >
-                            <SelectTrigger className="bg-background">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-popover z-50">
-                              <SelectItem value="default">Default — inline text</SelectItem>
-                              <SelectItem value="boxed">Boxed — framed block</SelectItem>
-                              <SelectItem value="minimal">Minimal — compact list</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between py-2 px-1">
-                        <Label className="text-sm">Show VAT Summary</Label>
-                        <Switch
-                          checked={currentSettings.vat_summary_visibility === true}
-                          onCheckedChange={(v) => updateSetting("vat_summary_visibility", v)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between py-2 px-1">
-                        <Label className="text-sm">Show Invoice Notes</Label>
-                        <Switch
-                          checked={currentSettings.notes_visibility !== false}
-                          onCheckedChange={(v) => updateSetting("notes_visibility", v)}
-                        />
+                            {pos === "default" ? "Left" : "Right"}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  </TemplateControlSection>
+                  </div>
 
-                  {/* Template Management */}
+                  <div className="border-t border-border" />
+
+                  {/* ── SECTION 3: Advanced ── */}
+                  <div>
+                    <button
+                      onClick={() => setShowAdvanced((v) => !v)}
+                      className="w-full flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+                    >
+                      Advanced
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showAdvanced ? "rotate-180" : ""}`} />
+                    </button>
+                    {showAdvanced && (
+                      <div className="mt-4 space-y-4">
+                        {/* Accent colour */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Accent Colour</Label>
+                          <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border/60 bg-muted/20">
+                            <div
+                              className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden shrink-0"
+                              style={{ backgroundColor: currentSettings.accent_color || "#1F2D3D" }}
+                            >
+                              <Input
+                                type="color"
+                                value={currentSettings.accent_color || "#1F2D3D"}
+                                onChange={(e) => updateSetting("accent_color", e.target.value)}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              />
+                            </div>
+                            <p className="text-xs font-mono text-muted-foreground">{currentSettings.accent_color || "#1F2D3D"}</p>
+                          </div>
+                        </div>
+                        {/* Visibility toggles */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm">Show Banking Details</Label>
+                            <Switch
+                              checked={currentSettings.banking_visibility !== false}
+                              onCheckedChange={(v) => updateSetting("banking_visibility", v)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Label className="text-sm cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-2">
+                                    Show VAT Summary
+                                  </Label>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="max-w-[220px] text-xs">
+                                  Adds a VAT breakdown table showing net, VAT rate, and tax amount per rate. Required for most Malta VAT filings.
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <Switch
+                              checked={currentSettings.vat_summary_visibility === true}
+                              onCheckedChange={(v) => updateSetting("vat_summary_visibility", v)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm">Show Notes</Label>
+                            <Switch
+                              checked={currentSettings.notes_visibility !== false}
+                              onCheckedChange={(v) => updateSetting("notes_visibility", v)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-border" />
+
+                  {/* ── SECTION 4: Template management ── */}
+                  {/* ── SECTION 4: Template management ── */}
                   <TemplateControlSection
-                    title="Template Selection"
-                    icon={<Layout className="h-4 w-4 text-muted-foreground" />}
+                    title="Templates"
+                    icon={<Layout className="h-4 w-4" />}
+                    iconBg="bg-emerald-100 text-emerald-600"
                     defaultOpen={false}
                   >
                     {user && (
@@ -873,55 +890,6 @@ const InvoiceTemplates = () => {
                     </Button>
                   </TemplateControlSection>
 
-                  {/* Advanced: export/import/delete — collapsed by default */}
-                  <div className="pt-1">
-                    <button
-                      onClick={() => setShowAdvanced((v) => !v)}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border border-dashed border-border/60"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <FlaskConical className="h-3.5 w-3.5" />
-                        Advanced
-                      </span>
-                      <ChevronDown
-                        className={`h-3.5 w-3.5 transition-transform duration-200 ${showAdvanced ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                    {showAdvanced && (
-                      <div className="mt-2 space-y-2 p-3 rounded-lg border border-border/60 bg-muted/20">
-                        <p className="text-xs text-muted-foreground">
-                          Export or import a template as a JSON file to share between accounts.
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-xs"
-                            disabled={!selectedTemplate}
-                            onClick={async () => {
-                              if (!selectedTemplate) return;
-                              try {
-                                await downloadPdfFromFunction(
-                                  `Template-Preview-${selectedTemplate.name.replace(/\s+/g, "-")}`,
-                                  templateForPreview.font_family,
-                                );
-                                toast({ title: "PDF preview downloaded" });
-                              } catch {
-                                toast({
-                                  title: "PDF error",
-                                  description: "Failed to generate preview.",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                          >
-                            <FileDown className="h-3.5 w-3.5 mr-1" />
-                            Preview PDF
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
             </div>

@@ -201,7 +201,7 @@ const Index = () => {
   };
 
   const { data: setupData, isLoading: setupLoading } = useSetupStatus(userId);
-  const { data: metricsData, isLoading: metricsLoading } = useDashboardMetrics(userId, filters);
+  const { data: metricsData, isLoading: metricsLoading, isError: metricsError, refetch: refetchMetrics } = useDashboardMetrics(userId, filters);
   const { data: recentCustomersData } = useRecentCustomers(userId);
   const {
     data: overdueInvoicesData,
@@ -274,7 +274,7 @@ const Index = () => {
   const metricCards = setupStatus.isComplete
     ? [
         {
-          title: "Outstanding",
+          title: "Outstanding Balance",
           value: formatCurrency(metrics.outstanding),
           change: metrics.outstanding > 0 ? "Requires attention" : "All paid up",
           changeType: (metrics.outstanding > 0 ? "negative" : "positive") as "positive" | "negative" | "neutral",
@@ -286,7 +286,7 @@ const Index = () => {
           viewAllLabel: "View unpaid",
         },
         {
-          title: "Customers",
+          title: "Active Customers",
           value: metrics.customers.toString(),
           change: metrics.customers > 0 ? `${metrics.customers} active` : "No customers yet",
           changeType: "neutral" as const,
@@ -297,7 +297,7 @@ const Index = () => {
           viewAllLabel: "View all",
         },
         {
-          title: "Collected",
+          title: "Collected This Month",
           value: formatCurrency(metrics.payments),
           change: metrics.payments > 0 ? "Payments received" : "No payments yet",
           changeType: (metrics.payments > 0 ? "positive" : "neutral") as "positive" | "negative" | "neutral",
@@ -308,7 +308,7 @@ const Index = () => {
           viewAllLabel: "View paid",
         },
         {
-          title: "Invoices Issued",
+          title: "Invoices This Month",
           value: metrics.invoicesCount.toString(),
           change: metrics.invoicesTotal > 0 ? `${formatCurrency(metrics.invoicesTotal)} total` : "No invoices yet",
           changeType: "neutral" as const,
@@ -350,17 +350,21 @@ const Index = () => {
       <div className="md:ml-64">
         {/* ── Header ── */}
         <header className="bg-card border-b border-border sticky top-0 z-10">
-          <div className="px-6 py-4">
+          <div className="px-6 py-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-foreground">{greetingText}</h1>
-                <p
-                  className={`text-sm mt-0.5 ${
-                    overdueCount > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"
-                  }`}
-                >
-                  {isLoading ? <Skeleton className="h-4 w-64 inline-block" /> : headerSubtitle}
-                </p>
+                <h1 className="text-3xl font-bold text-foreground tracking-tight">{greetingText}</h1>
+                <div className="mt-1">
+                  {isLoading ? (
+                    <Skeleton className="h-4 w-64 inline-block" />
+                  ) : overdueCount > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-0.5">
+                      {headerSubtitle}
+                    </span>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{headerSubtitle}</p>
+                  )}
+                </div>
               </div>
 
               {/* New button — only shown once setup is complete */}
@@ -381,7 +385,7 @@ const Index = () => {
           {!isLoading && !setupStatus.isComplete && (
             <>
               {/* Onboarding card */}
-              <Card className="mb-6 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+              <Card className="mb-6 border-primary/20 bg-primary/5">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -411,7 +415,7 @@ const Index = () => {
                         {completionPercentage.toFixed(0)}% Complete
                       </span>
                     </div>
-                    <Progress value={completionPercentage} className="h-2" />
+                    <Progress value={completionPercentage} className="h-2.5" />
                   </div>
 
                   {/* Step cards — single canonical rendering */}
@@ -494,11 +498,21 @@ const Index = () => {
               />
 
               {/* KPI row */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {metricCards.map((metric, index) => (
-                  <MetricCard key={index} {...metric} />
-                ))}
-              </div>
+              {metricsError ? (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+                  <span>Couldn't load metrics.</span>
+                  <Button variant="ghost" size="sm" className="ml-auto h-7 px-2 text-xs" onClick={() => refetchMetrics()}>
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                  {metricCards.map((metric, index) => (
+                    <MetricCard key={index} {...metric} />
+                  ))}
+                </div>
+              )}
 
               {/* Mobile layout */}
               <div className="lg:hidden space-y-6">

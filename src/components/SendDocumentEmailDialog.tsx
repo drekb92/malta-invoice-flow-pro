@@ -168,7 +168,7 @@ ${companyName}`;
       const html = await generatePdfHtml();
 
       const messageHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: ${fontFamily}, Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto;">
           ${message.split('\n').map(line => `<p style="margin: 0 0 10px 0;">${line || '&nbsp;'}</p>`).join('')}
         </div>
       `;

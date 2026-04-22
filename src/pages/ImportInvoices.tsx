@@ -81,6 +81,7 @@ const ImportInvoices = () => {
   const [createMissingClients, setCreateMissingClients] = useState(true);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const { toast } = useToast();
 
@@ -92,13 +93,14 @@ const ImportInvoices = () => {
   ];
 
   const downloadTemplate = () => {
+    // Malta VAT rates: 18% standard, 7% accommodation, 5% reduced, 0% exempt
     const sampleData = [
-      "INV-2024-001,2024-01-15,2024-02-14,Draft,ABC Company,john@abccompany.com,DE123456789,123 Business St\\, Berlin 10115,Consulting Services,40,125.00,19,5000.00,950.00,5950.00,Net 30",
-      "INV-2024-002,2024-01-16,2024-02-15,Pending,XYZ Corp,jane@xyzcorp.com,FR987654321,456 Commerce Ave\\, Paris 75001,Development Work,20,75.00,20,1500.00,300.00,1800.00,Net 15",
-      "INV-2024-003,2024-01-10,2024-02-09,Paid,Tech Solutions,support@techsol.com,GB555666777,789 Innovation St\\, London SW1A 1AA,Support Services,10,200.00,20,2000.00,400.00,2400.00,Net 30",
-      "INV-2024-004,2024-01-05,2024-02-04,Overdue,StartupLtd,contact@startup.com,NL111222333,321 Venture Rd\\, Amsterdam 1012,Training,5,300.00,21,1500.00,315.00,1815.00,Net 30"
+      "INV-2024-001,2024-01-15,2024-02-14,Draft,Valletta Consultants Ltd,accounts@vallettaconsult.com.mt,MT12345678,Triq ir-Repubblika Valletta VLT 1000,Consulting Services,40,125.00,18,5000.00,900.00,5900.00,Net 30",
+      "INV-2024-002,2024-01-16,2024-02-15,Pending,Grand Harbour Hotel,finance@grandharbour.com.mt,MT98765432,Triq il-Kbira Birgu BRG 1234,Accommodation Services,10,150.00,7,1500.00,105.00,1605.00,Net 30",
+      "INV-2024-003,2024-01-10,2024-02-09,Paid,Gozo Pharma Ltd,info@gozopharma.com.mt,MT55566677,Triq Repubblika Victoria VCT 1000,Medical Accessories,5,80.00,5,400.00,20.00,420.00,Net 30",
+      "INV-2024-004,2024-01-05,2024-02-04,Paid,Malta Exports Ltd,export@maltaexports.com.mt,MT11122233,Triq San Pawl San Pawl il-Bahar SPB 2000,Export Goods,1,200.00,0,200.00,0.00,200.00,Net 30"
     ];
-    
+
     const csvContent = [templateColumns.join(","), ...sampleData].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -326,24 +328,41 @@ const ImportInvoices = () => {
         return groups;
       }, {} as Record<string, CSVRow[]>);
 
-      // Process each invoice
-      for (const [invoiceNumber, rows] of Object.entries(invoiceGroups)) {
+      const groupEntries = Object.entries(invoiceGroups);
+      const total = groupEntries.length;
+      setImportProgress({ current: 0, total });
+
+      // Phase 1: Resolve customers and categorise invoices
+      type ResolvedInvoice = {
+        invoiceNumber: string;
+        firstRow: CSVRow;
+        customerId: string;
+        items: { description: string; quantity: number; unit_price: number; vat_rate: number }[];
+        netAmount: number;
+        vatAmount: number;
+        totalAmount: number;
+        status: string;
+      };
+
+      const toCreate: ResolvedInvoice[] = [];
+      const toUpdate: ResolvedInvoice[] = [];
+
+      for (let i = 0; i < groupEntries.length; i++) {
+        const [invoiceNumber, rows] = groupEntries[i];
+        setImportProgress({ current: i + 1, total });
+
         try {
           const firstRow = rows[0];
           const isExisting = existingInvoices.has(invoiceNumber);
 
           if (isExisting && !allowUpdates) {
             summary.skippedInvoices++;
-            summary.details.push({
-              invoiceNumber,
-              status: 'skipped',
-              reason: 'Invoice exists and updates not allowed'
-            });
+            summary.details.push({ invoiceNumber, status: 'skipped', reason: 'Invoice exists and updates not allowed' });
             continue;
           }
 
-          // Create or get customer
-          let customerId;
+          // Resolve customer
+          let customerId: string;
           if (createMissingClients) {
             customerId = await createOrUpdateCustomer({
               name: firstRow["Client Name"] || "",
@@ -352,28 +371,22 @@ const ImportInvoices = () => {
               address: firstRow["Client Address"] || "",
             });
           } else {
-            // Try to find existing customer only
             let query = supabase.from('customers').select('id');
             if (firstRow["Client Email"]) {
               query = query.eq('email', firstRow["Client Email"]);
             } else {
               query = query.eq('name', firstRow["Client Name"]);
             }
-            
             const { data: existingCustomers } = await query;
             if (!existingCustomers || existingCustomers.length === 0) {
               summary.skippedInvoices++;
-              summary.details.push({
-                invoiceNumber,
-                status: 'skipped',
-                reason: 'Client not found and auto-creation disabled'
-              });
+              summary.details.push({ invoiceNumber, status: 'skipped', reason: 'Client not found and auto-creation disabled' });
               continue;
             }
             customerId = existingCustomers[0].id;
           }
 
-          // Calculate totals
+          // Calculate line items and totals
           let netAmount = 0;
           let vatAmount = 0;
           const items = rows.map(row => {
@@ -381,121 +394,114 @@ const ImportInvoices = () => {
             const unitPrice = parseFloat(row["Unit Price"]) || 0;
             const vatRate = parseFloat(row["VAT %"]) / 100 || 0;
             const lineNet = quantity * unitPrice;
-            const lineVat = lineNet * vatRate;
-            
             netAmount += lineNet;
-            vatAmount += lineVat;
-
-            return {
-              description: row["Item Description"],
-              quantity,
-              unit_price: unitPrice,
-              vat_rate: vatRate,
-            };
+            vatAmount += lineNet * vatRate;
+            return { description: row["Item Description"], quantity, unit_price: unitPrice, vat_rate: vatRate };
           });
 
-          const totalAmount = netAmount + vatAmount;
-          const status = isValidStatus(firstRow["Status"]) ? firstRow["Status"] : "Pending";
+          const resolved: ResolvedInvoice = {
+            invoiceNumber,
+            firstRow,
+            customerId,
+            items,
+            netAmount,
+            vatAmount,
+            totalAmount: netAmount + vatAmount,
+            status: isValidStatus(firstRow["Status"]) ? firstRow["Status"] : "Pending",
+          };
 
           if (isExisting && allowUpdates) {
-            // Update existing invoice
-            const { data: existingInvoice, error: fetchError } = await supabase
-              .from('invoices')
-              .select('id, vat_rate')
-              .eq('invoice_number', invoiceNumber)
-              .single();
-
-            if (fetchError) throw fetchError;
-
-            // Update invoice header
-            const updatePayload: Partial<TablesInsert<'invoices'>> = {
-              invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
-              due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
-              status,
-              customer_id: customerId,
-              amount: netAmount,
-              vat_amount: vatAmount,
-              total_amount: totalAmount,
-            };
-
-            const { error: updateError } = await supabase
-              .from('invoices')
-              .update(updatePayload)
-              .eq('id', existingInvoice.id);
-
-            if (updateError) throw updateError;
-
-            // Delete existing items
-            await supabase
-              .from('invoice_items')
-              .delete()
-              .eq('invoice_id', existingInvoice.id);
-
-            // Insert new items
-            const { error: itemsError } = await supabase
-              .from('invoice_items')
-              .insert(
-                items.map(item => ({
-                  ...item,
-                  invoice_id: existingInvoice.id,
-                }))
-              );
-
-            if (itemsError) throw itemsError;
-
-            summary.updatedInvoices++;
-            summary.details.push({
-              invoiceNumber,
-              status: 'updated'
-            });
+            toUpdate.push(resolved);
           } else {
-            // Create new invoice
-            const invoicePayload: TablesInsert<'invoices'> = {
-              invoice_number: invoiceNumber,
-              invoice_date: firstRow["Invoice Date (YYYY-MM-DD)"],
-              due_date: firstRow["Due Date (YYYY-MM-DD)"] || null,
-              status,
-              customer_id: customerId,
-              amount: netAmount,
-              vat_amount: vatAmount,
-              total_amount: totalAmount,
-              vat_rate: items[0]?.vat_rate || 0.18,
-            };
-
-            const { data: newInvoice, error: invoiceError } = await supabase
-              .from('invoices')
-              .insert(invoicePayload)
-              .select('id')
-              .single();
-
-            if (invoiceError) throw invoiceError;
-
-            // Insert items
-            const { error: itemsError } = await supabase
-              .from('invoice_items')
-              .insert(
-                items.map(item => ({
-                  ...item,
-                  invoice_id: newInvoice.id,
-                }))
-              );
-
-            if (itemsError) throw itemsError;
-
-            summary.newInvoices++;
-            summary.details.push({
-              invoiceNumber,
-              status: 'created'
-            });
+            toCreate.push(resolved);
           }
         } catch (error) {
-          console.error(`Error processing invoice ${invoiceNumber}:`, error);
+          console.error(`Error resolving invoice ${invoiceNumber}:`, error);
           summary.skippedInvoices++;
-          summary.details.push({
-            invoiceNumber,
-            status: 'skipped',
-            reason: 'Processing error'
-          });
+          summary.details.push({ invoiceNumber, status: 'skipped', reason: 'Processing error' });
+        }
+      }
+
+      // Phase 2: Batch-create new invoices (2 round trips for any number of new invoices)
+      if (toCreate.length > 0) {
+        const { data: newInvoices, error: invoiceError } = await supabase
+          .from('invoices')
+          .insert(
+            toCreate.map(inv => ({
+              invoice_number: inv.invoiceNumber,
+              invoice_date: inv.firstRow["Invoice Date (YYYY-MM-DD)"],
+              due_date: inv.firstRow["Due Date (YYYY-MM-DD)"] || null,
+              status: inv.status,
+              customer_id: inv.customerId,
+              amount: inv.netAmount,
+              vat_amount: inv.vatAmount,
+              total_amount: inv.totalAmount,
+              vat_rate: inv.items[0]?.vat_rate ?? 0,
+              payment_terms: inv.firstRow["Payment Terms"]?.trim() || "Net 30",
+            } as TablesInsert<'invoices'>))
+          )
+          .select('id, invoice_number');
+
+        if (invoiceError) throw invoiceError;
+
+        const invoiceIdMap = new Map((newInvoices ?? []).map(r => [r.invoice_number, r.id]));
+
+        const allNewItems = toCreate.flatMap(inv => {
+          const invoiceId = invoiceIdMap.get(inv.invoiceNumber);
+          if (!invoiceId) return [];
+          return inv.items.map(item => ({ ...item, invoice_id: invoiceId }));
+        });
+
+        if (allNewItems.length > 0) {
+          const { error: itemsError } = await supabase.from('invoice_items').insert(allNewItems);
+          if (itemsError) throw itemsError;
+        }
+
+        summary.newInvoices += toCreate.length;
+        toCreate.forEach(inv => summary.details.push({ invoiceNumber: inv.invoiceNumber, status: 'created' }));
+      }
+
+      // Phase 3: Process updates sequentially (fetch existing id, update header, replace items)
+      for (const inv of toUpdate) {
+        try {
+          const { data: existingInvoice, error: fetchError } = await supabase
+            .from('invoices')
+            .select('id')
+            .eq('invoice_number', inv.invoiceNumber)
+            .single();
+
+          if (fetchError) throw fetchError;
+
+          const { error: updateError } = await supabase
+            .from('invoices')
+            .update({
+              invoice_date: inv.firstRow["Invoice Date (YYYY-MM-DD)"],
+              due_date: inv.firstRow["Due Date (YYYY-MM-DD)"] || null,
+              status: inv.status,
+              customer_id: inv.customerId,
+              amount: inv.netAmount,
+              vat_amount: inv.vatAmount,
+              total_amount: inv.totalAmount,
+              payment_terms: inv.firstRow["Payment Terms"]?.trim() || "Net 30",
+            } as Partial<TablesInsert<'invoices'>>)
+            .eq('id', existingInvoice.id);
+
+          if (updateError) throw updateError;
+
+          await supabase.from('invoice_items').delete().eq('invoice_id', existingInvoice.id);
+
+          const { error: itemsError } = await supabase
+            .from('invoice_items')
+            .insert(inv.items.map(item => ({ ...item, invoice_id: existingInvoice.id })));
+
+          if (itemsError) throw itemsError;
+
+          summary.updatedInvoices++;
+          summary.details.push({ invoiceNumber: inv.invoiceNumber, status: 'updated' });
+        } catch (error) {
+          console.error(`Error updating invoice ${inv.invoiceNumber}:`, error);
+          summary.skippedInvoices++;
+          summary.details.push({ invoiceNumber: inv.invoiceNumber, status: 'skipped', reason: 'Update error' });
         }
       }
 
@@ -514,6 +520,7 @@ const ImportInvoices = () => {
       });
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -762,15 +769,33 @@ const ImportInvoices = () => {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={handleImport} 
+                <Button
+                  onClick={handleImport}
                   disabled={importing || validCount === 0 || errorCount > 0}
                   className="w-full"
                   size="lg"
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {importing ? "Importing..." : `Import ${validCount} Valid Rows`}
+                  {importing && importProgress
+                    ? `Processing ${importProgress.current} / ${importProgress.total}…`
+                    : importing
+                    ? "Importing…"
+                    : `Import ${validCount} Valid Rows`}
                 </Button>
+
+                {importing && importProgress && (
+                  <div className="space-y-1">
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 bg-primary rounded-full transition-all duration-200"
+                        style={{ width: `${Math.round((importProgress.current / importProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      {Math.round((importProgress.current / importProgress.total) * 100)}% — resolving invoices
+                    </p>
+                  </div>
+                )}
                 
                 {errorCount > 0 && (
                   <Alert className="bg-red-50 border-red-200">

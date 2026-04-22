@@ -80,8 +80,9 @@ export const useCompanySettings = (userId?: string): UseCompanySettingsReturn =>
       }
     }
 
-    // Warn if address is incomplete
-    if (settings.company_address && (!settings.company_city || !settings.company_country)) {
+    // Warn if legacy address field is set without city/country, but only when new structured fields aren't in use
+    const hasNewAddressFields = settings.company_address_line1 || settings.company_locality || settings.company_post_code;
+    if (!hasNewAddressFields && settings.company_address && (!settings.company_city || !settings.company_country)) {
       errors.push('Address is incomplete (missing city or country)');
     }
 

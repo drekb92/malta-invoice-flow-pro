@@ -29,6 +29,7 @@ import ExportInvoices from "./pages/ExportInvoices";
 import ImportInvoices from "./pages/ImportInvoices";
 import ExportCustomers from "./pages/ExportCustomers";
 import ImportCustomers from "./pages/ImportCustomers";
+import DataHub from "./pages/DataHub";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import CreditNotes from "./pages/CreditNotes";
@@ -240,6 +241,16 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Data hub */}
+              <Route
+                path="/data"
+                element={
+                  <ProtectedRoute>
+                    <DataHub />
                   </ProtectedRoute>
                 }
               />

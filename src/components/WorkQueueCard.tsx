@@ -241,8 +241,8 @@ export function WorkQueueCard({
               {needsSendingInvoices.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CheckCircle2 className="h-10 w-10 text-primary mb-2" />
-                  <p className="text-sm font-medium text-foreground">All invoices have been sent!</p>
-                  <p className="text-xs text-muted-foreground mt-1">No drafts or unsent invoices</p>
+                  <p className="text-sm font-medium text-foreground">All caught up!</p>
+                  <p className="text-xs text-muted-foreground mt-1">No issued invoices or quotations waiting to be sent</p>
                 </div>
               ) : (
                 <>

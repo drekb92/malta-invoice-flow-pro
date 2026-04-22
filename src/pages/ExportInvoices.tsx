@@ -534,7 +534,7 @@ const ExportInvoices = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            ${invoice.total_amount ? formatNumber(invoice.total_amount, 2) : "0.00"}
+                            €{invoice.total_amount ? formatNumber(invoice.total_amount, 2) : "0.00"}
                           </TableCell>
                         </TableRow>
                       ))

@@ -25,12 +25,17 @@ import {
   MessageCircle,
   Loader2,
   Send,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays } from "date-fns";
 import {
@@ -98,6 +103,16 @@ const Quotations = () => {
   const [emailQuotation, setEmailQuotation] = useState<Quotation | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState<string | null>(null);
   const [isConvertingAndSending, setIsConvertingAndSending] = useState(false);
+
+  // Selection mode & sorting
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
+  const pendingDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sortField, setSortField] = useState<"issue_date" | "total_amount" | "status" | "customer" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const navigate = useNavigate();
 
@@ -218,6 +233,104 @@ const Quotations = () => {
     if (statusFilter !== "all") list = list.filter((q) => q.status === statusFilter);
     setFiltered(list);
   }, [searchTerm, statusFilter, quotations]);
+
+  const sortedQuotations = useMemo(() => {
+    if (!sortField) return filtered;
+    return [...filtered].sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+      if (sortField === "issue_date") { aVal = a.issue_date || a.created_at; bVal = b.issue_date || b.created_at; }
+      else if (sortField === "total_amount") { aVal = a.total_amount || a.amount || 0; bVal = b.total_amount || b.amount || 0; }
+      else if (sortField === "status") { aVal = a.status; bVal = b.status; }
+      else { aVal = a.customers?.name || ""; bVal = b.customers?.name || ""; }
+      if (typeof aVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal as string) : (bVal as string).localeCompare(aVal);
+      return sortDir === "asc" ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    });
+  }, [filtered, sortField, sortDir]);
+
+  const displayedQuotations = useMemo(
+    () => sortedQuotations.filter((q) => !pendingDeleteIds.has(q.id)),
+    [sortedQuotations, pendingDeleteIds],
+  );
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortDir("asc"); }
+  };
+
+  const allSelected = displayedQuotations.length > 0 && displayedQuotations.every((q) => selectedIds.has(q.id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(displayedQuotations.map((q) => q.id)));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleUndoDelete = () => {
+    if (pendingDeleteTimerRef.current) clearTimeout(pendingDeleteTimerRef.current);
+    setPendingDeleteIds(new Set());
+  };
+
+  const handleBulkDeleteQuotations = async () => {
+    if (!user) return;
+    setBulkLoading(true);
+    try {
+      const drafts = displayedQuotations.filter((q) => selectedIds.has(q.id) && q.status === "draft");
+      if (drafts.length === 0) {
+        toast({ title: "No drafts selected", description: "Only draft quotations can be deleted in bulk." });
+        setBulkLoading(false);
+        return;
+      }
+      const draftIds = new Set(drafts.map((d) => d.id));
+      setPendingDeleteIds(draftIds);
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      toast({
+        title: `${drafts.length} draft${drafts.length !== 1 ? "s" : ""} deleted`,
+        action: <ToastAction altText="Undo" onClick={handleUndoDelete}>Undo</ToastAction>,
+      });
+      pendingDeleteTimerRef.current = setTimeout(async () => {
+        for (const id of draftIds) {
+          await supabase.from("quotations").delete().eq("id", id).eq("user_id", user.id);
+        }
+        setPendingDeleteIds(new Set());
+        fetchQuotations();
+      }, 6000);
+    } catch {
+      toast({ title: "Error", description: "Failed to delete drafts", variant: "destructive" });
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkDownloadPDFs = async () => {
+    const toDownload = displayedQuotations.filter((q) => selectedIds.has(q.id));
+    for (const q of toDownload) {
+      await handleDownloadPdf(q);
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    setSelectedIds(new Set());
+  };
+
+  // Exit selection mode on Escape
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSelectionMode) {
+        setIsSelectionMode(false);
+        setSelectedIds(new Set());
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isSelectionMode]);
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
@@ -727,44 +840,130 @@ const Quotations = () => {
                 <DropdownMenuItem onClick={() => setStatusFilter("expired")}>Expired</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <div className="border-l border-border pl-4 ml-auto">
+              <Button
+                variant={isSelectionMode ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  const next = !isSelectionMode;
+                  setIsSelectionMode(next);
+                  if (!next) setSelectedIds(new Set());
+                }}
+              >
+                {isSelectionMode ? "Cancel" : "Select"}
+              </Button>
+            </div>
           </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Quotation List</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
+              {isSelectionMode && selectedIds.size > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2 bg-primary/5 border-b border-border">
+                  <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleBulkDownloadPDFs}>
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      Download PDFs
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 border-red-200" onClick={() => setShowBulkDeleteConfirm(true)}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Delete Drafts
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSelectedIds(new Set())}>
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Table>
                 <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
                   <TableRow>
-                    <TableHead>Quotation #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Issue Date</TableHead>
+                    {isSelectionMode && (
+                      <TableHead className="w-10 pl-4">
+                        <Checkbox
+                          checked={allSelected}
+                          data-state={someSelected ? "indeterminate" : allSelected ? "checked" : "unchecked"}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                          className="translate-y-px"
+                        />
+                      </TableHead>
+                    )}
+                    <TableHead className="pl-4">Quotation #</TableHead>
+                    <TableHead>
+                      <button type="button" onClick={() => handleSort("customer")} className="flex items-center hover:text-foreground transition-colors">
+                        Customer
+                        {sortField === "customer" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" onClick={() => handleSort("total_amount")} className="flex items-center hover:text-foreground transition-colors">
+                        Amount
+                        {sortField === "total_amount" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" onClick={() => handleSort("status")} className="flex items-center hover:text-foreground transition-colors">
+                        Status
+                        {sortField === "status" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" onClick={() => handleSort("issue_date")} className="flex items-center hover:text-foreground transition-colors">
+                        Issue Date
+                        {sortField === "issue_date" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
                     <TableHead>Valid Until</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right pr-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6">
-                        Loading quotations...
+                      <TableCell colSpan={isSelectionMode ? 8 : 7} className="text-center py-8 text-muted-foreground text-sm">
+                        Loading quotations…
                       </TableCell>
                     </TableRow>
-                  ) : filtered.length === 0 ? (
+                  ) : displayedQuotations.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6">
-                        {searchTerm || statusFilter !== "all"
-                          ? "No quotations found matching your criteria."
-                          : "No quotations found."}
+                      <TableCell colSpan={isSelectionMode ? 8 : 7}>
+                        {searchTerm || statusFilter !== "all" ? (
+                          <div className="flex flex-col items-center gap-3 py-14 text-center">
+                            <div className="rounded-full bg-muted p-4">
+                              <Search className="h-6 w-6 text-muted-foreground/50" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-foreground">No results found</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">No quotations match your current filters.</p>
+                            </div>
+                            <button type="button" onClick={() => setStatusFilter("all")} className="text-xs text-primary underline underline-offset-2">Clear filters</button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-3 py-16 text-center">
+                            <div className="rounded-full bg-muted p-4">
+                              <Plus className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">No quotations yet</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Create your first quotation to get started</p>
+                            </div>
+                            <Button asChild size="sm">
+                              <Link to="/quotations/new"><Plus className="h-3.5 w-3.5 mr-1.5" />New Quotation</Link>
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filtered.map((q) => (
-                      <TableRow key={q.id}>
-                        <TableCell className="font-medium">
+                    displayedQuotations.map((q) => (
+                      <TableRow key={q.id} className="hover:bg-muted/30">
+                        {isSelectionMode && (
+                          <TableCell className="pl-4 w-10">
+                            <Checkbox checked={selectedIds.has(q.id)} onCheckedChange={() => toggleSelect(q.id)} aria-label={`Select ${q.quotation_number}`} className="translate-y-px" />
+                          </TableCell>
+                        )}
+                        <TableCell className="font-medium pl-4">
                           <button
                             type="button"
                             className="text-left hover:text-primary hover:underline transition-colors"
@@ -946,6 +1145,25 @@ const Quotations = () => {
                 </Button>
                 <Button onClick={confirmConvert} disabled={isConverting || isConvertingAndSending}>
                   {isConverting ? "Converting..." : "Convert"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Bulk Delete Confirm */}
+          <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+            <DialogContent className="sm:max-w-[360px]">
+              <DialogHeader>
+                <DialogTitle>Delete Drafts</DialogTitle>
+                <DialogDescription>
+                  Permanently delete all selected draft quotations? Only drafts will be removed. This cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setShowBulkDeleteConfirm(false)}>Cancel</Button>
+                <Button size="sm" variant="destructive" onClick={handleBulkDeleteQuotations} disabled={bulkLoading}>
+                  {bulkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                  Delete
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080)",
+      "Bash(command -v node)",
+      "Bash(node \"C:\\\\Users\\\\dborg\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\cleanup-deprecated.mjs\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npx impeccable:*)",
+      "Bash(echo \"done:$?\")",
+      "Bash(curl -s http://localhost:65166/)",
+      "Bash(curl -s --max-time 5 http://localhost:65166/)",
+      "Bash(npx tsc:*)",
+      "Skill(critique)",
+      "Skill(critique:*)",
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":8080\")",
+      "Bash(tasklist /FI \"PID eq 4868\" /FO LIST)",
+      "PowerShell(netstat -ano)",
+      "PowerShell(Get-Process | Where-Object { $_.Id -eq 4868 })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8080\" -TimeoutSec 5 -UseBasicParsing; \"Status: $\\($r.StatusCode\\)\" } catch { \"Error: $_\" })",
+      "Bash(xargs grep *)",
+      "Bash(npx supabase *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
+    ]
+  }
+}

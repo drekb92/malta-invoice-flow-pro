@@ -328,11 +328,17 @@ export async function getTodaySnapshot(userId: string) {
 export async function getInvoicesNeedingSending(userId: string, filters: DashboardFilters = {}) {
   const filterCustomer = filters.customerId && filters.customerId !== "all" ? filters.customerId : null;
 
+  // Needs Sending = issued/finalised documents that haven't been sent yet.
+  // Drafts are excluded — they aren't ready to send.
   let query = supabase
     .from("invoices")
     .select("id, invoice_number, customer_id, total_amount, status, last_sent_at")
     .eq("user_id", userId)
-    .or("status.eq.draft,and(status.neq.draft,last_sent_at.is.null)")
+    .neq("status", "draft")
+    .neq("status", "paid")
+    .neq("status", "credited")
+    .neq("status", "cancelled")
+    .is("last_sent_at", null)
     .order("created_at", { ascending: false })
     .limit(5);
 

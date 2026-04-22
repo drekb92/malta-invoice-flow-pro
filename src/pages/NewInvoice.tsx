@@ -1,12 +1,20 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
@@ -30,12 +38,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, ArrowLeft, Download, Zap, Info, Shield, FileText, Library } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Download, Info, Shield, FileText, Library, Loader2, CheckCircle2, User, StickyNote } from "lucide-react";
 import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { format, addDays } from "date-fns";
+import { format, addDays, formatDistanceToNow } from "date-fns";
 import { formatNumber } from "@/lib/utils";
 import { UnifiedInvoiceLayout, TemplateStyle } from "@/components/UnifiedInvoiceLayout";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
@@ -72,6 +80,7 @@ interface Customer {
   post_code: string | null;
   vat_number: string | null;
   payment_terms: string | null;
+  notes: string | null;
 }
 
 interface InvoiceItem {
@@ -116,15 +125,30 @@ const NewInvoice = () => {
   const [discountType, setDiscountType] = useState<'none' | 'amount' | 'percent'>('none');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>("");
-  const [showDiscountReason, setShowDiscountReason] = useState(false);
   const discountInputRef = useRef<HTMLInputElement>(null);
-  const [isQuickMode, setIsQuickMode] = useState(true);
+  const [showCustomerInfo, setShowCustomerInfo] = useState(false);
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [downloadAfterIssue, setDownloadAfterIssue] = useState(true);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [nextNumberPreview, setNextNumberPreview] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   // Template style now comes directly from templateForPreview.style
+
+  // Resume draft state
+  interface ResumeDraft { id: string; customerName: string; totalAmount: number; savedAt: Date; }
+  const [resumeDraft, setResumeDraft] = useState<ResumeDraft | null>(null);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+
+  // Autosave state
+  const [autosaveDraftId, setAutosaveDraftId] = useState<string | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSavingRef = useRef(false);
+  const autosaveDraftIdRef = useRef<string | null>(null);
+  const autosaveInitializedRef = useRef(false);
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -178,7 +202,7 @@ const NewInvoice = () => {
     try {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, email, address, address_line1, address_line2, locality, post_code, vat_number, payment_terms")
+        .select("id, name, email, address, address_line1, address_line2, locality, post_code, vat_number, payment_terms, notes")
         .order("name");
 
       if (error) throw error;
@@ -225,6 +249,14 @@ const NewInvoice = () => {
       setSelectedCustomer(clientId);
     }
   }, [clientId, customers]);
+
+  // Auto-reveal customer info panel when the selected customer has notes
+  useEffect(() => {
+    if (selectedCustomer && customers.length > 0) {
+      const customer = customers.find(c => c.id === selectedCustomer);
+      if (customer?.notes) setShowCustomerInfo(true);
+    }
+  }, [selectedCustomer, customers]);
 
   // Load invoice data if in edit mode
   useEffect(() => {
@@ -368,6 +400,235 @@ const NewInvoice = () => {
     }
   }, [user]);
 
+  // On mount for new invoices: check localStorage for an unfinished draft
+  const DRAFT_KEY = 'malta-invoice-draft';
+  useEffect(() => {
+    if (id || !user?.id) return; // Edit mode — skip
+    const stored = localStorage.getItem(DRAFT_KEY);
+    if (!stored) return;
+    try {
+      const { id: draftId, savedAt } = JSON.parse(stored);
+      const age = Date.now() - new Date(savedAt).getTime();
+      if (age > 7 * 24 * 60 * 60 * 1000) { localStorage.removeItem(DRAFT_KEY); return; }
+      // Verify still in DB and still a draft
+      supabase
+        .from('invoices')
+        .select('id, total_amount, customers(name)')
+        .eq('id', draftId)
+        .eq('status', 'draft')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setResumeDraft({
+              id: data.id,
+              customerName: (data.customers as any)?.name || 'No customer selected',
+              totalAmount: data.total_amount || 0,
+              savedAt: new Date(savedAt),
+            });
+            setShowResumeModal(true);
+          } else {
+            localStorage.removeItem(DRAFT_KEY);
+          }
+        });
+    } catch { localStorage.removeItem(DRAFT_KEY); }
+  }, [id, user?.id]);
+
+  const handleResumeDraft = () => {
+    if (!resumeDraft) return;
+    setShowResumeModal(false);
+    navigate(`/invoices/edit/${resumeDraft.id}`);
+  };
+
+  const handleKeepAndStartNew = () => {
+    // Draft stays in DB and visible in the invoice list — just clear the localStorage pointer
+    localStorage.removeItem(DRAFT_KEY);
+    setShowResumeModal(false);
+    setResumeDraft(null);
+  };
+
+  const handleDiscardDraft = async () => {
+    if (!resumeDraft) return;
+    setShowResumeModal(false);
+    localStorage.removeItem(DRAFT_KEY);
+    await supabase.from('invoices').delete().eq('id', resumeDraft.id);
+    setResumeDraft(null);
+  };
+
+  // Always-current snapshot of form data (prevents stale closures in autosave)
+  const formDataRef = useRef({
+    selectedCustomer, invoiceDate, items, discountType, discountValue,
+    discountReason, notes, isIssued, isEditMode, id,
+  });
+  useEffect(() => {
+    formDataRef.current = {
+      selectedCustomer, invoiceDate, items, discountType, discountValue,
+      discountReason, notes, isIssued, isEditMode, id,
+    };
+  });
+
+  const performAutosave = useCallback(async () => {
+    const {
+      selectedCustomer, invoiceDate, items, discountType, discountValue,
+      discountReason, notes, isIssued, isEditMode, id: formId,
+    } = formDataRef.current;
+    const currentDraftId = autosaveDraftIdRef.current;
+
+    if (isIssued || isSavingRef.current || !user?.id) return;
+
+    // Only autosave new invoices when there's meaningful content
+    const hasContent = !!selectedCustomer || items.some(i => i.description.trim() !== '' || i.unit_price > 0);
+    if (!isEditMode && !currentDraftId && !hasContent) return;
+
+    isSavingRef.current = true;
+    setAutosaveStatus('saving');
+
+    try {
+      // Inline totals calc (mirrors calculateTotals)
+      const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+      const perRate = new Map<number, number>();
+      let subtotal = 0;
+      items.forEach((item) => {
+        const net = (item.quantity || 0) * (item.unit_price || 0);
+        subtotal += net;
+        const rate = item.vat_rate || 0;
+        perRate.set(rate, (perRate.get(rate) || 0) + net);
+      });
+      let discountAmount = 0;
+      if (discountType === 'percent') {
+        discountAmount = round2(subtotal * (Math.min(Math.max(Number(discountValue) || 0, 0), 100) / 100));
+      } else if (discountType === 'amount') {
+        discountAmount = round2(Math.min(Math.max(Number(discountValue) || 0, 0), subtotal));
+      }
+      let taxable = 0;
+      let vatTotal = 0;
+      perRate.forEach((rateNet, rate) => {
+        const share = subtotal > 0 ? rateNet / subtotal : 0;
+        const rateTaxable = Math.max(rateNet - round2(discountAmount * share), 0);
+        taxable += rateTaxable;
+        vatTotal += round2(rateTaxable * rate);
+      });
+      taxable = round2(taxable);
+      vatTotal = round2(vatTotal);
+      const grandTotal = round2(taxable + vatTotal);
+
+      const defaultDays = invoiceSettings?.default_payment_days || companySettings?.default_payment_terms || 30;
+      const selectedCustomerData = customers.find(c => c.id === selectedCustomer);
+      let paymentDays = defaultDays;
+      if (selectedCustomerData?.payment_terms) {
+        const m = selectedCustomerData.payment_terms.match(/\d+/);
+        if (m) paymentDays = parseInt(m[0]);
+      }
+      const dueDateStr = addDays(new Date(invoiceDate), paymentDays).toISOString().split('T')[0];
+
+      const storeDiscountType = discountType === 'none' ? 'amount' : discountType;
+      const storeDiscountValue = discountType === 'none' ? 0 : discountValue;
+
+      const payload = {
+        customer_id: selectedCustomer || null,
+        amount: taxable,
+        vat_amount: vatTotal,
+        total_amount: grandTotal,
+        invoice_date: invoiceDate,
+        due_date: dueDateStr,
+        status: 'draft' as const,
+        is_issued: false,
+        user_id: user.id,
+        vat_rate: items[0]?.vat_rate || 0.18,
+        discount_type: storeDiscountType,
+        discount_value: storeDiscountValue,
+        discount_reason: discountReason || null,
+        notes: notes || null,
+      };
+
+      const effectiveId = isEditMode ? formId : currentDraftId;
+
+      if (effectiveId) {
+        await supabase.from('invoices').update(payload).eq('id', effectiveId);
+        await supabase.from('invoice_items').delete().eq('invoice_id', effectiveId);
+        if (items.length > 0) {
+          await supabase.from('invoice_items').insert(
+            items.map(item => ({
+              invoice_id: effectiveId,
+              description: item.description,
+              quantity: item.quantity,
+              unit: item.unit || 'service',
+              unit_price: item.unit_price,
+              vat_rate: item.vat_rate,
+            }))
+          );
+        }
+      } else {
+        // Create the first autosave draft
+        const { data: newInvoice, error } = await supabase
+          .from('invoices')
+          .insert({ ...payload, invoice_number: null })
+          .select('id')
+          .single();
+
+        if (error) throw error;
+        if (newInvoice?.id) {
+          setAutosaveDraftId(newInvoice.id);
+          autosaveDraftIdRef.current = newInvoice.id;
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ id: newInvoice.id, savedAt: new Date().toISOString() }));
+          if (items.length > 0) {
+            await supabase.from('invoice_items').insert(
+              items.map(item => ({
+                invoice_id: newInvoice.id,
+                description: item.description,
+                quantity: item.quantity,
+                unit: item.unit || 'service',
+                unit_price: item.unit_price,
+                vat_rate: item.vat_rate,
+              }))
+            );
+          }
+          // Update URL to edit path without re-rendering the component
+          window.history.replaceState({}, '', `/invoices/edit/${newInvoice.id}`);
+        }
+      }
+
+      // Refresh localStorage timestamp on every successful save
+      const existingDraft = localStorage.getItem(DRAFT_KEY);
+      if (existingDraft) {
+        const parsed = JSON.parse(existingDraft);
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...parsed, savedAt: new Date().toISOString() }));
+      }
+
+      setLastSavedAt(new Date());
+      setAutosaveStatus('saved');
+    } catch (e) {
+      console.error('Autosave error:', e);
+      setAutosaveStatus('error');
+    } finally {
+      isSavingRef.current = false;
+    }
+  }, [user?.id, invoiceSettings, companySettings, customers]);
+
+  // Debounced autosave — fires 3 s after the last form change
+  useEffect(() => {
+    if (!autosaveInitializedRef.current) {
+      autosaveInitializedRef.current = true;
+      return;
+    }
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(performAutosave, 3000);
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCustomer, invoiceDate, items, discountType, discountValue, discountReason, notes]);
+
+  // Save immediately when the user switches away (tab/window)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+        performAutosave();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [performAutosave]);
+
   useEffect(() => {
     if (searchParams.get('focus') === 'discount') {
       setTimeout(() => discountInputRef.current?.focus(), 0);
@@ -469,10 +730,15 @@ const NewInvoice = () => {
     return { netTotal: round2(subtotal), discountAmount, taxable, vatTotal, grandTotal };
   };
 
-  const handleSubmit = async (e: React.FormEvent, shouldIssue: boolean = false) => {
-    e.preventDefault();
-    
-    if (isIssued && isEditMode) {
+  const performSubmit = async (shouldIssue: boolean = false) => {
+    // Cancel any pending autosave to avoid conflicts
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+
+    // If autosave already created a draft, treat this as an edit of that draft
+    const effectiveId = id || autosaveDraftId;
+    const effectiveEditMode = isEditMode || !!autosaveDraftId;
+
+    if (isIssued && effectiveEditMode) {
       toast({
         title: "Invoice Already Issued",
         description: "This invoice has been issued and cannot be modified.",
@@ -545,24 +811,24 @@ const NewInvoice = () => {
         notes: notes || null,
       };
 
-      if (isEditMode && id) {
-        const editCheckResult = await invoiceService.canEditInvoice(id);
-        
+      if (effectiveEditMode && effectiveId) {
+        const editCheckResult = await invoiceService.canEditInvoice(effectiveId);
+
         if (!editCheckResult.canEdit) {
           throw new Error(
-            editCheckResult.reason || 
+            editCheckResult.reason ||
             "This invoice has been issued and cannot be modified."
           );
         }
-        
-        const draftPayload = shouldIssue 
+
+        const draftPayload = shouldIssue
           ? { ...invoicePayload, is_issued: false, issued_at: null, status: 'draft' as const }
           : invoicePayload;
-        
+
         const { error: invoiceError } = await supabase
           .from("invoices")
           .update(draftPayload)
-          .eq("id", id);
+          .eq("id", effectiveId);
 
         if (invoiceError) throw invoiceError;
 
@@ -571,12 +837,12 @@ const NewInvoice = () => {
             const { error: deleteError } = await supabase
               .from("invoice_items")
               .delete()
-              .eq("invoice_id", id);
+              .eq("invoice_id", effectiveId);
 
             if (deleteError) throw deleteError;
 
             const itemsData: TablesInsert<'invoice_items'>[] = items.map(item => ({
-              invoice_id: id,
+              invoice_id: effectiveId,
               description: item.description,
               quantity: item.quantity,
               unit: item.unit || 'service',
@@ -601,7 +867,7 @@ const NewInvoice = () => {
         }
 
         if (shouldIssue) {
-          const issueResult = await invoiceService.issueInvoice(id);
+          const issueResult = await invoiceService.issueInvoice(effectiveId);
           if (!issueResult.success) {
             throw new Error(issueResult.error || "Failed to issue invoice");
           }
@@ -609,12 +875,13 @@ const NewInvoice = () => {
 
         toast({
           title: shouldIssue ? "Invoice issued" : "Invoice updated",
-          description: shouldIssue 
-            ? `Invoice ${finalInvoiceNumber} has been issued.` 
+          description: shouldIssue
+            ? `Invoice ${finalInvoiceNumber} has been issued.`
             : "Invoice has been successfully updated.",
         });
-        
-        navigate(shouldIssue ? `/invoices/${id}` : "/invoices");
+
+        localStorage.removeItem(DRAFT_KEY);
+        navigate(shouldIssue ? `/invoices/${effectiveId}` : "/invoices");
         return;
       } else {
         let finalInvoiceNumber = invoiceNumber || null;
@@ -677,15 +944,17 @@ const NewInvoice = () => {
 
         toast({
           title: shouldIssue ? "Invoice issued" : "Draft saved",
-          description: shouldIssue 
-            ? `Invoice ${finalInvoiceNumber} has been issued.` 
+          description: shouldIssue
+            ? `Invoice ${finalInvoiceNumber} has been issued.`
             : "Invoice saved as draft.",
         });
-        
+
+        localStorage.removeItem(DRAFT_KEY);
         navigate(shouldIssue ? `/invoices/${invoice.id}` : "/invoices");
         return;
       }
 
+      localStorage.removeItem(DRAFT_KEY);
       navigate("/invoices");
     } catch (error) {
       let errorMessage = "An error occurred";
@@ -706,6 +975,23 @@ const NewInvoice = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent, shouldIssue: boolean = false) => {
+    e.preventDefault();
+    if (shouldIssue) {
+      setShowIssueModal(true);
+    } else {
+      performSubmit(false);
+    }
+  };
+
+  const handleIssueConfirm = async () => {
+    setShowIssueModal(false);
+    await performSubmit(true);
+    if (downloadAfterIssue) {
+      await handleDownloadPDF();
     }
   };
 
@@ -795,31 +1081,56 @@ const NewInvoice = () => {
                     </Badge>
                   )}
                   {!isEditMode && !invoiceNumber && nextNumberPreview && (
-                    <Badge variant="secondary" className="text-xs shrink-0 whitespace-nowrap">
-                      Next: {nextNumberPreview}
-                    </Badge>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="secondary" className="text-xs shrink-0 whitespace-nowrap cursor-default">
+                            Next: {nextNumberPreview}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>This number will be assigned when you issue the invoice</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {/* Autosave status */}
+                  {autosaveStatus === 'saving' && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Saving…
+                    </span>
+                  )}
+                  {autosaveStatus === 'saved' && lastSavedAt && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      Draft saved {format(lastSavedAt, 'HH:mm')}
+                    </span>
+                  )}
+                  {autosaveStatus === 'error' && (
+                    <span className="text-xs text-destructive shrink-0">Autosave failed</span>
                   )}
                 </div>
               </div>
 
-              {/* Right: Quick Mode Toggle - ALWAYS visible */}
+              {/* Right: Customer Info Toggle */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Zap className={`h-4 w-4 ${isQuickMode ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <Label htmlFor="quick-mode" className="text-sm font-medium cursor-pointer hidden sm:inline">
-                        Quick
+                      <User className={`h-4 w-4 ${showCustomerInfo ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <Label htmlFor="customer-info" className="text-sm font-medium cursor-pointer hidden sm:inline">
+                        Client
                       </Label>
                       <Switch
-                        id="quick-mode"
-                        checked={isQuickMode}
-                        onCheckedChange={setIsQuickMode}
+                        id="customer-info"
+                        checked={showCustomerInfo}
+                        onCheckedChange={setShowCustomerInfo}
                       />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    <p>Quick Mode hides discount reason & VAT info</p>
+                    <p>Show internal notes and payment terms for this client</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -855,7 +1166,7 @@ const NewInvoice = () => {
             {/* 2-Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* LEFT COLUMN: Invoice Details + Items */}
-              <div className="lg:col-span-2 space-y-4">
+              <div className="lg:col-span-2 space-y-3">
                 {/* Invoice Details Card - Compact */}
                 <Card>
                   <CardHeader className="py-3 px-4">
@@ -866,8 +1177,8 @@ const NewInvoice = () => {
                       {/* Customer */}
                       <div className="col-span-2">
                         <Label htmlFor="customer" className="text-xs text-muted-foreground">Customer *</Label>
-                        <Select 
-                          value={selectedCustomer} 
+                        <Select
+                          value={selectedCustomer}
                           onValueChange={setSelectedCustomer}
                           disabled={isIssued}
                         >
@@ -875,11 +1186,23 @@ const NewInvoice = () => {
                             <SelectValue placeholder="Select customer" />
                           </SelectTrigger>
                           <SelectContent className="bg-popover z-50">
-                            {customers.map((customer) => (
-                              <SelectItem key={customer.id} value={customer.id}>
-                                {customer.name}
-                              </SelectItem>
-                            ))}
+                            {customers.length === 0 ? (
+                              <div className="px-3 py-4 text-center">
+                                <p className="text-xs text-muted-foreground mb-2">No customers yet.</p>
+                                <Link
+                                  to="/customers/new"
+                                  className="text-xs text-primary underline underline-offset-2"
+                                >
+                                  Add your first customer →
+                                </Link>
+                              </div>
+                            ) : (
+                              customers.map((customer) => (
+                                <SelectItem key={customer.id} value={customer.id}>
+                                  {customer.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -909,6 +1232,34 @@ const NewInvoice = () => {
                         />
                       </div>
                     </div>
+                  {/* Customer context panel */}
+                  {showCustomerInfo && selectedCustomer && (() => {
+                    const cust = customers.find(c => c.id === selectedCustomer);
+                    if (!cust) return null;
+                    return (
+                      <div className="mt-3 pt-3 border-t border-border space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-1">
+                          <StickyNote className="h-3 w-3" />
+                          Client notes
+                        </div>
+                        {cust.payment_terms && (
+                          <p className="text-xs text-foreground">
+                            <span className="text-muted-foreground">Terms: </span>{cust.payment_terms}
+                          </p>
+                        )}
+                        {cust.notes ? (
+                          <p className="text-xs text-foreground whitespace-pre-wrap">{cust.notes}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic">No internal notes for this client.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {showCustomerInfo && !selectedCustomer && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <p className="text-xs text-muted-foreground italic">Select a customer to see their notes.</p>
+                    </div>
+                  )}
                   </CardContent>
                 </Card>
 
@@ -949,8 +1300,8 @@ const NewInvoice = () => {
                           <TableRow className="hover:bg-transparent">
                             <TableHead className="text-xs font-medium h-8 pl-4">Description</TableHead>
                             <TableHead className="text-xs font-medium h-8 w-16 text-center">Qty</TableHead>
-                            <TableHead className="text-xs font-medium h-8 w-24 text-right">Price (€)</TableHead>
-                            <TableHead className="text-xs font-medium h-8 w-20 text-center">VAT</TableHead>
+                            <TableHead className="text-xs font-medium h-8 w-28 text-right">Price (€)</TableHead>
+                            <TableHead className="text-xs font-medium h-8 w-28 text-center">VAT</TableHead>
                             <TableHead className="text-xs font-medium h-8 w-24 text-right">Total</TableHead>
                             <TableHead className="h-8 w-10 pr-4"></TableHead>
                           </TableRow>
@@ -964,7 +1315,7 @@ const NewInvoice = () => {
                                   onChange={(e) => updateItem(index, "description", e.target.value)}
                                   placeholder="Enter item description..."
                                   disabled={isIssued}
-                                  className="h-8 text-sm"
+                                  className="h-8 text-xs"
                                 />
                               </TableCell>
                               <TableCell className="py-1.5 px-1">
@@ -984,7 +1335,7 @@ const NewInvoice = () => {
                                   value={item.unit_price}
                                   onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
                                   disabled={isIssued}
-                                  className="h-8 text-sm text-right w-20 ml-auto"
+                                  className="h-9 text-base text-right w-24 ml-auto font-medium"
                                   min={0}
                                   step={0.01}
                                 />
@@ -995,13 +1346,14 @@ const NewInvoice = () => {
                                   onValueChange={(v) => updateItem(index, "vat_rate", parseFloat(v))}
                                   disabled={isIssued}
                                 >
-                                  <SelectTrigger className="h-8 text-sm w-16 mx-auto text-center">
+                                  <SelectTrigger className="h-8 text-xs w-24 mx-auto text-center">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent className="bg-popover z-50">
-                                    <SelectItem value="0">0%</SelectItem>
+                                    <SelectItem value="0">0% (Exempt)</SelectItem>
                                     <SelectItem value="0.05">5%</SelectItem>
-                                    <SelectItem value="0.18">18%</SelectItem>
+                                    <SelectItem value="0.07">7% (Accommodation)</SelectItem>
+                                    <SelectItem value="0.18">18% (Standard)</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </TableCell>
@@ -1026,35 +1378,17 @@ const NewInvoice = () => {
                       </Table>
                     </div>
                     
-                    {/* VAT Info - only in detailed mode */}
-                    {!isQuickMode && (
-                      <div className="mx-4 mt-3 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
-                        <span className="font-medium">Malta VAT:</span> 18% standard, 5% reduced, 0% exempt
-                      </div>
-                    )}
+                    {/* Malta VAT reference - always visible */}
+                    <div className="mx-4 mt-2 text-[10px] text-muted-foreground">
+                      VAT rates: 18% standard · 5% reduced · 0% exempt
+                    </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* RIGHT SIDEBAR: Summary + Actions */}
               <div className="lg:col-span-1">
-                <div className="lg:sticky lg:top-16 space-y-4">
-                  {/* Template Style Display - Set in Template Designer */}
-                  <Card>
-                    <CardHeader className="py-3 px-4">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Template Style
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-4 pt-0">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="capitalize font-medium">{templateForPreview?.style || 'modern'}</span>
-                        <span className="text-xs text-muted-foreground">(set in Template Designer)</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
+                <div className="lg:sticky lg:top-16 space-y-3">
                   {/* Summary Card */}
                   <Card>
                     <CardHeader className="py-3 px-4">
@@ -1064,32 +1398,24 @@ const NewInvoice = () => {
                       {/* Compact Discount Row */}
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <Label className="text-xs text-muted-foreground">Discount</Label>
-                          <ToggleGroup
-                            type="single"
+                          <Label className="text-xs text-muted-foreground shrink-0">Discount</Label>
+                          <Select
                             value={discountType}
                             onValueChange={(v) => {
-                              if (v) {
-                                setDiscountType(v as 'none' | 'amount' | 'percent');
-                                if (v === 'none') {
-                                  setDiscountValue(0);
-                                  setShowDiscountReason(false);
-                                }
-                              }
+                              setDiscountType(v as 'none' | 'amount' | 'percent');
+                              if (v === 'none') setDiscountValue(0);
                             }}
                             disabled={isIssued}
-                            className="h-7"
                           >
-                            <ToggleGroupItem value="none" aria-label="None" className="text-xs px-2 h-7">
-                              —
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="amount" aria-label="Amount" className="text-xs px-2 h-7">
-                              €
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="percent" aria-label="Percent" className="text-xs px-2 h-7">
-                              %
-                            </ToggleGroupItem>
-                          </ToggleGroup>
+                            <SelectTrigger className="h-7 text-xs w-28">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover z-50">
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="amount">Amount (€)</SelectItem>
+                              <SelectItem value="percent">Percent (%)</SelectItem>
+                            </SelectContent>
+                          </Select>
                           {discountType !== 'none' && (
                             <Input
                               ref={discountInputRef}
@@ -1111,46 +1437,20 @@ const NewInvoice = () => {
                               }}
                               disabled={isIssued}
                               placeholder="0"
-                              className="w-16 h-7 text-sm"
+                              className="w-20 h-7 text-sm"
                             />
                           )}
                         </div>
-                        
-                        {/* Add reason link - hidden in quick mode */}
-                        {!isQuickMode && discountType !== 'none' && discountValue > 0 && !showDiscountReason && (
-                          <button
-                            type="button"
-                            onClick={() => setShowDiscountReason(true)}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            + Add reason
-                          </button>
-                        )}
-                        
-                        {/* Discount reason textarea - hidden in quick mode */}
-                        {!isQuickMode && showDiscountReason && (
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs text-muted-foreground">Reason</Label>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowDiscountReason(false);
-                                  setDiscountReason("");
-                                }}
-                                className="text-xs text-muted-foreground hover:text-foreground"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            <Textarea
-                              value={discountReason}
-                              onChange={(e) => setDiscountReason(e.target.value)}
-                              placeholder="Optional discount note"
-                              disabled={isIssued}
-                              className="h-14 text-sm resize-none"
-                            />
-                          </div>
+
+                        {/* Reason — always visible when a discount type is selected */}
+                        {discountType !== 'none' && (
+                          <Textarea
+                            value={discountReason}
+                            onChange={(e) => setDiscountReason(e.target.value)}
+                            placeholder="Reason (optional)"
+                            disabled={isIssued}
+                            className="h-12 text-xs resize-none"
+                          />
                         )}
                       </div>
 
@@ -1176,9 +1476,9 @@ const NewInvoice = () => {
                           <span className="text-muted-foreground">VAT</span>
                           <span className="tabular-nums">€{formatNumber(totals.vatTotal, 2)}</span>
                         </div>
-                        <div className="flex justify-between pt-2 border-t border-border mt-2">
-                          <span className="font-semibold text-sm">Total</span>
-                          <span className="text-lg font-bold tabular-nums">€{formatNumber(totals.grandTotal, 2)}</span>
+                        <div className="flex justify-between pt-3 mt-3 border-t-2 border-foreground/10">
+                          <span className="font-semibold text-base">Total</span>
+                          <span className="text-2xl font-bold tabular-nums">€{formatNumber(totals.grandTotal, 2)}</span>
                         </div>
                         {totals.discountAmount > 0 && (
                           <p className="text-[10px] text-muted-foreground pt-1">Discount applied before VAT</p>
@@ -1190,18 +1490,28 @@ const NewInvoice = () => {
                   {/* Invoice Notes */}
                   <Card>
                     <CardHeader className="py-3 px-4">
-                      <CardTitle className="text-sm font-medium">Notes</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium">Invoice Notes</CardTitle>
+                        {invoiceSettings?.default_invoice_notes && notes === invoiceSettings.default_invoice_notes && (
+                          <Badge variant="secondary" className="text-[10px] font-normal">
+                            Company default
+                          </Badge>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent className="px-4 pb-4 pt-0">
                       <Textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Payment due within 30 days. Late payments subject to interest."
+                        placeholder="Optional — leave blank to use the company default from Settings."
                         disabled={isIssued}
                         className="text-sm resize-none"
-                        rows={3}
+                        rows={2}
                       />
-                      <p className="text-[10px] text-muted-foreground mt-1">Appears on the invoice PDF. Set defaults in Settings → Invoice.</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Appears on the PDF. Override per-invoice or{" "}
+                        <Link to="/settings" className="underline underline-offset-2">edit the default in Settings</Link>.
+                      </p>
                     </CardContent>
                   </Card>
 
@@ -1215,18 +1525,18 @@ const NewInvoice = () => {
                     />
                   )}
 
-                  {/* Action Buttons - Compact */}
-                  <div className="space-y-2">
+                  {/* Action Buttons */}
+                  <div className="space-y-2 pt-2">
                     {!isIssued && (
                       <>
-                        <Button 
+                        <Button
                           type="button"
-                          onClick={(e) => handleSubmit(e as any, true)}
+                          onClick={() => setShowIssueModal(true)}
                           disabled={loading}
                           className="w-full h-9 bg-green-600 hover:bg-green-700"
                         >
                           <Shield className="h-4 w-4 mr-2" />
-                          {loading ? "Issuing..." : "Save & Issue"}
+                          Issue Invoice
                         </Button>
                         <Button 
                           type="submit" 
@@ -1261,14 +1571,22 @@ const NewInvoice = () => {
                         Create Credit Note
                       </Button>
                     )}
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      asChild 
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      asChild
                       className="w-full h-8 text-sm text-muted-foreground"
                     >
                       <Link to="/invoices">Cancel</Link>
                     </Button>
+                    <p className="text-center text-[10px] text-muted-foreground pt-1">
+                      Template:{" "}
+                      <span className="capitalize">{templateForPreview?.style || 'modern'}</span>
+                      {" · "}
+                      <Link to="/invoice-templates" className="underline underline-offset-2 hover:text-foreground transition-colors">
+                        Change
+                      </Link>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1276,6 +1594,95 @@ const NewInvoice = () => {
           </form>
         </main>
       </div>
+
+      {/* Resume Draft Modal */}
+      <Dialog open={showResumeModal} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-sm" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Continue your last invoice?</DialogTitle>
+            <DialogDescription>
+              You left an unfinished draft {resumeDraft ? formatDistanceToNow(resumeDraft.savedAt, { addSuffix: true }) : ''}.
+            </DialogDescription>
+          </DialogHeader>
+          {resumeDraft && (
+            <div className="rounded-md bg-muted/50 p-3 text-sm space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Customer</span>
+                <span className="font-medium">{resumeDraft.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Amount</span>
+                <span className="font-medium tabular-nums">€{formatNumber(resumeDraft.totalAmount, 2)}</span>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col gap-2 pt-1">
+            <Button onClick={handleResumeDraft} className="w-full">
+              Continue editing
+            </Button>
+            <Button variant="outline" onClick={handleKeepAndStartNew} className="w-full">
+              Keep draft & start new invoice
+            </Button>
+            <Button variant="ghost" onClick={handleDiscardDraft} className="w-full text-muted-foreground hover:text-destructive text-xs">
+              Discard draft
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue Confirmation Modal */}
+      <Dialog open={showIssueModal} onOpenChange={setShowIssueModal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-green-600" />
+              Issue Invoice
+            </DialogTitle>
+            <DialogDescription>
+              Issued invoices are locked and cannot be edited.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="rounded-md bg-muted/50 p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Customer</span>
+                <span className="font-medium">{customers.find(c => c.id === selectedCustomer)?.name || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Invoice No.</span>
+                <span className="font-medium tabular-nums">{nextNumberPreview || 'Auto-assigned'}</span>
+              </div>
+              <div className="flex justify-between border-t border-border pt-1.5 mt-1.5">
+                <span className="font-semibold">Total</span>
+                <span className="font-bold tabular-nums">€{formatNumber(totals.grandTotal, 2)}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="download-after"
+                checked={downloadAfterIssue}
+                onCheckedChange={(v) => setDownloadAfterIssue(!!v)}
+              />
+              <Label htmlFor="download-after" className="text-sm cursor-pointer">
+                Download PDF after issuing
+              </Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowIssueModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleIssueConfirm}
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              {loading ? "Issuing…" : "Confirm & Issue"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Item Library Drawer */}
       <ItemLibraryDrawer

@@ -13,32 +13,45 @@ interface FontPreviewSelectProps {
 }
 
 const fontFamilies = [
-  { value: "Inter", label: "Inter", style: "font-sans" },
-  { value: "Roboto", label: "Roboto", style: "font-sans" },
-  { value: "Open Sans", label: "Open Sans", style: "font-sans" },
-  { value: "Montserrat", label: "Montserrat", style: "font-sans" },
-  { value: "Lato", label: "Lato", style: "font-sans" },
-  { value: "Poppins", label: "Poppins", style: "font-sans" },
+  { value: "Inter",       label: "Inter",       sample: "Clean & modern" },
+  { value: "Roboto",      label: "Roboto",      sample: "Neutral & versatile" },
+  { value: "Open Sans",   label: "Open Sans",   sample: "Friendly & readable" },
+  { value: "Montserrat",  label: "Montserrat",  sample: "Bold & geometric" },
+  { value: "Lato",        label: "Lato",        sample: "Elegant & balanced" },
+  { value: "Poppins",     label: "Poppins",     sample: "Rounded & contemporary" },
 ];
 
 export function FontPreviewSelect({ value, onChange }: FontPreviewSelectProps) {
+  const selected = fontFamilies.find((f) => f.value === value) ?? fontFamilies[0];
+
   return (
     <div className="space-y-2">
-      <Label>Font Family</Label>
+      <Label className="text-xs text-muted-foreground">Font Family</Label>
+
+      {/* Current selection preview */}
+      <div
+        className="p-3 rounded-lg border border-border bg-muted/30"
+        style={{ fontFamily: selected.value }}
+      >
+        <p className="text-base font-semibold">{selected.label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">AaBbCc 0123 — {selected.sample}</p>
+      </div>
+
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
+        <SelectTrigger className="bg-background">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {fontFamilies.map((font) => (
-            <SelectItem
-              key={font.value}
-              value={font.value}
-              style={{ fontFamily: font.value }}
-            >
-              <div className="flex items-center justify-between w-full">
-                <span style={{ fontFamily: font.value }}>{font.label}</span>
-                <span className="text-xs text-muted-foreground ml-4" style={{ fontFamily: font.value }}>
+            <SelectItem key={font.value} value={font.value}>
+              <div className="flex items-center justify-between w-full gap-6 py-0.5">
+                <span style={{ fontFamily: font.value }} className="font-medium">
+                  {font.label}
+                </span>
+                <span
+                  style={{ fontFamily: font.value }}
+                  className="text-xs text-muted-foreground"
+                >
                   AaBbCc
                 </span>
               </div>

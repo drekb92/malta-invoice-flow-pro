@@ -20,8 +20,12 @@ import {
   Shield,
   AlertCircle,
   MessageCircle,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +66,13 @@ const CreditNotes = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [selectedCreditNote, setSelectedCreditNote] = useState<CreditNoteWithRelations | null>(null);
+
+  // Selection mode & sorting
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<"credit_note_date" | "amount" | "status" | "customer" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // PDF download state
   const [pdfCreditNoteData, setPdfCreditNoteData] = useState<InvoiceData | null>(null);
@@ -222,6 +233,61 @@ const CreditNotes = () => {
 
   const calculateTotal = (amount: number, vatRate: number) => amount + amount * vatRate;
 
+  const sortedCreditNotes = useMemo(() => {
+    if (!sortField) return filteredCreditNotes;
+    return [...filteredCreditNotes].sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+      if (sortField === "credit_note_date") { aVal = a.credit_note_date || (a as any).created_at || ""; bVal = b.credit_note_date || (b as any).created_at || ""; }
+      else if (sortField === "amount") { aVal = calculateTotal(a.amount, a.vat_rate); bVal = calculateTotal(b.amount, b.vat_rate); }
+      else if (sortField === "status") { aVal = a.status; bVal = b.status; }
+      else { aVal = a.customers?.name || ""; bVal = b.customers?.name || ""; }
+      if (typeof aVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal as string) : (bVal as string).localeCompare(aVal);
+      return sortDir === "asc" ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+    });
+  }, [filteredCreditNotes, sortField, sortDir]);
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortDir("asc"); }
+  };
+
+  const allSelected = sortedCreditNotes.length > 0 && sortedCreditNotes.every((cn) => selectedIds.has(cn.id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(sortedCreditNotes.map((cn) => cn.id)));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDownloadPDFs = async () => {
+    const toDownload = sortedCreditNotes.filter((cn) => selectedIds.has(cn.id));
+    for (const cn of toDownload) {
+      await handleDownloadPDF(cn.id);
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    setSelectedIds(new Set());
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSelectionMode) {
+        setIsSelectionMode(false);
+        setSelectedIds(new Set());
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isSelectionMode]);
+
   // ── Build InvoiceData from a credit note (shared by PDF + WhatsApp) ────────
   const buildCreditNoteInvoiceData = async (creditNoteId: string): Promise<InvoiceData> => {
     const { data: cn, error: cnError } = await (supabase as any)
@@ -343,7 +409,7 @@ const CreditNotes = () => {
           </Alert>
 
           {/* Filters and Search */}
-          <div className="flex flex-wrap items-center gap-3 mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-6 items-center">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
@@ -382,50 +448,125 @@ const CreditNotes = () => {
                 <DropdownMenuItem onClick={() => setTypeFilter("customer_credit")}>Customer Credit</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <div className="border-l border-border pl-4 ml-auto">
+              <Button
+                variant={isSelectionMode ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => {
+                  const next = !isSelectionMode;
+                  setIsSelectionMode(next);
+                  if (!next) setSelectedIds(new Set());
+                }}
+              >
+                {isSelectionMode ? "Cancel" : "Select"}
+              </Button>
+            </div>
           </div>
 
           {/* Credit Notes Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>Credit Note List</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
+              {isSelectionMode && selectedIds.size > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2 bg-primary/5 border-b border-border">
+                  <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleBulkDownloadPDFs} disabled={bulkLoading}>
+                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      Download PDFs
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSelectedIds(new Set())}>
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Table>
                 <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]">
                   <TableRow>
-                    <TableHead>Credit Note #</TableHead>
-                    <TableHead>Client</TableHead>
+                    {isSelectionMode && (
+                      <TableHead className="w-10 pl-4">
+                        <Checkbox
+                          checked={allSelected}
+                          data-state={someSelected ? "indeterminate" : allSelected ? "checked" : "unchecked"}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                          className="translate-y-px"
+                        />
+                      </TableHead>
+                    )}
+                    <TableHead className="pl-4">Credit Note #</TableHead>
+                    <TableHead>
+                      <button type="button" onClick={() => handleSort("customer")} className="flex items-center hover:text-foreground transition-colors">
+                        Client {sortField === "customer" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Linked Invoice</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Issue Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>
+                      <button type="button" onClick={() => handleSort("status")} className="flex items-center hover:text-foreground transition-colors">
+                        Status {sortField === "status" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button type="button" onClick={() => handleSort("amount")} className="flex items-center ml-auto hover:text-foreground transition-colors">
+                        Total {sortField === "amount" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button type="button" onClick={() => handleSort("credit_note_date")} className="flex items-center hover:text-foreground transition-colors">
+                        Issue Date {sortField === "credit_note_date" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right pr-4">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6">
-                        Loading credit notes...
+                      <TableCell colSpan={isSelectionMode ? 9 : 8} className="text-center py-8 text-muted-foreground text-sm">
+                        Loading credit notes…
                       </TableCell>
                     </TableRow>
-                  ) : filteredCreditNotes.length === 0 ? (
+                  ) : sortedCreditNotes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-6">
-                        {searchTerm || statusFilter !== "all" || typeFilter !== "all"
-                          ? "No credit notes found matching your criteria."
-                          : "No credit notes found. Credit notes are created to correct issued invoices or as standalone customer credits."}
+                      <TableCell colSpan={isSelectionMode ? 9 : 8}>
+                        {searchTerm || statusFilter !== "all" || typeFilter !== "all" ? (
+                          <div className="flex flex-col items-center gap-3 py-14 text-center">
+                            <div className="rounded-full bg-muted p-4">
+                              <Search className="h-6 w-6 text-muted-foreground/50" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-foreground">No results found</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">No credit notes match your current filters.</p>
+                            </div>
+                            <button type="button" onClick={() => { setStatusFilter("all"); setTypeFilter("all"); }} className="text-xs text-primary underline underline-offset-2">Clear filters</button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-3 py-16 text-center">
+                            <div className="rounded-full bg-muted p-4">
+                              <FileText className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">No credit notes yet</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Credit notes are created from issued invoices to correct errors</p>
+                            </div>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredCreditNotes.map((creditNote) => {
+                    sortedCreditNotes.map((creditNote) => {
                       const total = calculateTotal(creditNote.amount, creditNote.vat_rate);
                       const statusBadge = getStatusBadge(creditNote.status);
 
                       return (
-                        <TableRow key={creditNote.id}>
-                          <TableCell className="font-medium">
+                        <TableRow key={creditNote.id} className="hover:bg-muted/30">
+                          {isSelectionMode && (
+                            <TableCell className="pl-4 w-10">
+                              <Checkbox checked={selectedIds.has(creditNote.id)} onCheckedChange={() => toggleSelect(creditNote.id)} aria-label={`Select ${creditNote.credit_note_number}`} className="translate-y-px" />
+                            </TableCell>
+                          )}
+                          <TableCell className="font-medium pl-4">
                             <button
                               type="button"
                               className="flex items-center gap-2 text-left hover:text-primary transition-colors group"

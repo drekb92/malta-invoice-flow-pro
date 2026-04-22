@@ -1370,39 +1370,26 @@ const Settings = () => {
                       <CardDescription>VAT rates and EU compliance settings</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-5">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="vat_standard">Standard VAT Rate (%)</Label>
-                          <Input
-                            id="vat_standard"
-                            type="number"
-                            min="0"
-                            max="27"
-                            step="0.1"
-                            value={invoiceSettings.vatRateStandard}
-                            onChange={(e) => {
-                              setInvoiceSettings({ ...invoiceSettings, vatRateStandard: parseFloat(e.target.value) });
-                              markUnsaved("invoice");
-                            }}
-                          />
-                          <p className="text-xs text-muted-foreground">Malta: 18%</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="vat_reduced">Reduced VAT Rate (%)</Label>
-                          <Input
-                            id="vat_reduced"
-                            type="number"
-                            min="0"
-                            max="27"
-                            step="0.1"
-                            value={invoiceSettings.vatRateReduced}
-                            onChange={(e) => {
-                              setInvoiceSettings({ ...invoiceSettings, vatRateReduced: parseFloat(e.target.value) });
-                              markUnsaved("invoice");
-                            }}
-                          />
-                          <p className="text-xs text-muted-foreground">Malta: 5%</p>
-                        </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="vat_standard">Default VAT Rate</Label>
+                        <Select
+                          value={String(invoiceSettings.vatRateStandard)}
+                          onValueChange={(v) => {
+                            setInvoiceSettings({ ...invoiceSettings, vatRateStandard: parseFloat(v) });
+                            markUnsaved("invoice");
+                          }}
+                        >
+                          <SelectTrigger id="vat_standard">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="18">18% — Standard rate</SelectItem>
+                            <SelectItem value="7">7% — Accommodation</SelectItem>
+                            <SelectItem value="5">5% — Reduced (electricity, medical, print)</SelectItem>
+                            <SelectItem value="0">0% — Exempt / Zero-rated</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">Malta VAT rates per the VAT Act (Cap. 406)</p>
                       </div>
 
                       <div className="flex items-center justify-between py-2">

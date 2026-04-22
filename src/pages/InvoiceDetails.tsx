@@ -17,14 +17,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ChevronLeft,
+  ChevronDown,
   Download,
   Mail,
   MessageCircle,
@@ -744,29 +747,30 @@ const InvoiceDetails = () => {
                   </Button>
                 )}
 
-                {/* FIX: Email + WhatsApp as prominent icon buttons for issued unpaid invoices */}
+                {/* Send Reminder dropdown — Email or WhatsApp in one button */}
                 {isIssued && !isSettled && (
-                  <>
-                    <Button onClick={handleEmailReminder} variant="outline" size="sm" title="Send email">
-                      <Mail className="h-4 w-4 mr-1" />
-                      Email
-                    </Button>
-                    <Button
-                      onClick={handleWhatsAppReminder}
-                      variant="outline"
-                      size="sm"
-                      disabled={whatsappLoading}
-                      title="Send via WhatsApp"
-                      className="text-green-700 border-green-300 hover:bg-green-50 hover:border-green-400"
-                    >
-                      {whatsappLoading ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <MessageCircle className="h-4 w-4 mr-1" />
-                      )}
-                      WhatsApp
-                    </Button>
-                  </>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Mail className="h-4 w-4 mr-1.5" />
+                        Send Reminder
+                        <ChevronDown className="h-3 w-3 ml-1.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel className="text-xs text-muted-foreground font-normal py-1">Send via</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={handleEmailReminder}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Email
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleWhatsAppReminder} disabled={whatsappLoading}>
+                        {whatsappLoading
+                          ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          : <MessageCircle className="h-4 w-4 mr-2" />}
+                        WhatsApp
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
 
                 <Button onClick={handleDownload} size="sm">
@@ -788,6 +792,8 @@ const InvoiceDetails = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="bg-popover">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal py-1">More actions</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
                     {isIssued && !isSettled && (
                       <DropdownMenuItem onClick={handleCreateCreditNote}>
                         <FileText className="h-4 w-4 mr-2" />
@@ -850,8 +856,8 @@ const InvoiceDetails = () => {
                   )}
                   {isIssued && (
                     <>
-                      <span className="text-muted-foreground/60 hidden sm:inline">•</span>
-                      <span className="hidden sm:inline-flex items-center gap-1 text-green-700 dark:text-green-400">
+                      <span className="text-muted-foreground/60">•</span>
+                      <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400">
                         <Shield className="h-2.5 w-2.5" />
                         <span className="font-medium">Compliant</span>
                       </span>
@@ -927,7 +933,7 @@ const InvoiceDetails = () => {
                 <CardContent className="pt-0">
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="sticky top-0 bg-card z-10">
                         <TableRow className="bg-muted/50">
                           <TableHead className="py-2 text-xs font-medium">Description</TableHead>
                           <TableHead className="py-2 text-xs font-medium text-right w-14">Qty</TableHead>
@@ -1037,7 +1043,7 @@ const InvoiceDetails = () => {
                   ) : (
                     <div className="border rounded-md overflow-hidden">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 bg-card z-10">
                           <TableRow className="bg-muted/50">
                             <TableHead className="py-2 text-xs font-medium">Date</TableHead>
                             <TableHead className="py-2 text-xs font-medium">Method</TableHead>
@@ -1115,13 +1121,17 @@ const InvoiceDetails = () => {
                             Audit Trail
                           </div>
                           <span className="audit-helper text-xs text-muted-foreground">
-                            Latest:{" "}
                             {auditTrail[0]?.action === "issued"
                               ? "Invoice Issued"
                               : auditTrail[0]?.action === "credit_note_created"
                                 ? "Credit Note Created"
-                                : auditTrail[0]?.action}{" "}
-                            · Malta VAT compliant
+                                : auditTrail[0]?.action === "created"
+                                  ? "Invoice Created"
+                                  : auditTrail[0]?.action}
+                            {auditTrail[0]?.timestamp
+                              ? ` · ${format(new Date(auditTrail[0].timestamp), "dd MMM yyyy")}`
+                              : ""}
+                            {" · VAT compliant"}
                           </span>
                         </div>
                       </AccordionTrigger>
@@ -1386,10 +1396,16 @@ const InvoiceDetails = () => {
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="check">Check</SelectItem>
+                  <SelectGroup>
+                    <SelectLabel className="text-xs">Digital</SelectLabel>
+                    <SelectItem value="bank_transfer">Bank Transfer (SEPA)</SelectItem>
+                    <SelectItem value="card">Card Payment</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel className="text-xs">Physical</SelectLabel>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="check">Cheque</SelectItem>
+                  </SelectGroup>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>

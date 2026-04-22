@@ -439,6 +439,7 @@ const NewQuotation = () => {
                           <SelectContent>
                             <SelectItem value="0">0% (Exempt)</SelectItem>
                             <SelectItem value="0.05">5%</SelectItem>
+                            <SelectItem value="0.07">7% (Accommodation)</SelectItem>
                             <SelectItem value="0.18">18% (Standard)</SelectItem>
                           </SelectContent>
                         </Select>

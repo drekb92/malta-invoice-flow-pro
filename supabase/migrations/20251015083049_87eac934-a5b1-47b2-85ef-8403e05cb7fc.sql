@@ -99,42 +99,42 @@ CREATE INDEX idx_reminder_logs_user_id ON public.reminder_logs(user_id);
 CREATE INDEX idx_reminder_logs_sent_at ON public.reminder_logs(sent_at);
 
 -- Insert default Malta-friendly email templates
-INSERT INTO public.reminder_templates (user_id, level, subject, body, is_default) 
-SELECT 
+INSERT INTO public.reminder_templates (user_id, level, subject, body, is_default)
+SELECT
   u.id,
   'friendly',
-  'Friendly Reminder: Invoice {invoice_number} Payment Due',
-  E'Dear {customer_name},\n\nWe hope this message finds you well.\n\nThis is a friendly reminder that Invoice {invoice_number} for {amount} is due on {due_date}.\n\nIf you have already processed this payment, please disregard this message. Otherwise, we would appreciate your prompt attention to this matter.\n\nShould you have any questions or require additional information, please do not hesitate to contact us.\n\nThank you for your continued business.\n\nBest regards,\n{company_name}',
+  'Invoice {invoice_number} – Payment Due {due_date}',
+  E'Dear {customer_name},\n\nThis is a courtesy reminder that Invoice {invoice_number} for {amount} is due on {due_date}.\n\nIf you have already arranged payment, thank you — please disregard this message.\n\nShould you have any questions, please do not hesitate to get in touch.\n\nKind regards,\n{company_name}\n{company_phone}\n{company_email}',
   true
 FROM auth.users u
 WHERE NOT EXISTS (
-  SELECT 1 FROM public.reminder_templates rt 
+  SELECT 1 FROM public.reminder_templates rt
   WHERE rt.user_id = u.id AND rt.level = 'friendly'
 );
 
-INSERT INTO public.reminder_templates (user_id, level, subject, body, is_default) 
-SELECT 
+INSERT INTO public.reminder_templates (user_id, level, subject, body, is_default)
+SELECT
   u.id,
   'firm',
-  'Payment Reminder: Invoice {invoice_number} Now Overdue',
-  E'Dear {customer_name},\n\nWe are writing to remind you that Invoice {invoice_number} for {amount}, which was due on {due_date}, remains unpaid.\n\nAs per our payment terms, we kindly request that you settle this outstanding amount at your earliest convenience. Payment is now {days_overdue} days overdue.\n\nIf there are any issues or concerns regarding this invoice, please contact us immediately so we can address them together.\n\nWe value our business relationship and look forward to your prompt response.\n\nKind regards,\n{company_name}\nPayment Terms: {payment_terms}',
+  'Invoice {invoice_number} – Payment Overdue',
+  E'Dear {customer_name},\n\nWe are writing to notify you that Invoice {invoice_number} for {amount}, due on {due_date}, is now {days_overdue} days overdue.\n\nDespite our earlier reminder, this invoice remains outstanding. We kindly ask that you arrange payment without further delay.\n\nIf you are experiencing difficulties or have a query regarding this invoice, please contact us as soon as possible so that we can assist.\n\nWe look forward to your prompt response.\n\nKind regards,\n{company_name}\n{company_phone}\n{company_email}',
   true
 FROM auth.users u
 WHERE NOT EXISTS (
-  SELECT 1 FROM public.reminder_templates rt 
+  SELECT 1 FROM public.reminder_templates rt
   WHERE rt.user_id = u.id AND rt.level = 'firm'
 );
 
-INSERT INTO public.reminder_templates (user_id, level, subject, body, is_default) 
-SELECT 
+INSERT INTO public.reminder_templates (user_id, level, subject, body, is_default)
+SELECT
   u.id,
   'final',
-  'FINAL NOTICE: Immediate Payment Required - Invoice {invoice_number}',
-  E'Dear {customer_name},\n\nThis is our FINAL NOTICE regarding Invoice {invoice_number} for {amount}, originally due on {due_date}.\n\nDespite our previous reminders, this invoice remains unpaid for {days_overdue} days. We must now insist on immediate payment to avoid further action.\n\nPlease arrange payment within 5 business days of receiving this notice. Failure to do so may result in:\n- Late payment interest charges as per Maltese law\n- Suspension of services\n- Referral to debt collection\n- Legal action to recover the outstanding amount\n\nIf you have already made payment, please provide proof of payment immediately. Otherwise, we urge you to contact us without delay to discuss payment arrangements.\n\nThis matter requires your immediate attention.\n\nRegards,\n{company_name}\nPhone: {company_phone}\nEmail: {company_email}',
+  'Final Notice: Invoice {invoice_number} – Immediate Payment Required',
+  E'Dear {customer_name},\n\nThis is a formal final notice regarding Invoice {invoice_number} for {amount}, which was due on {due_date} and remains unpaid after {days_overdue} days.\n\nNotwithstanding our previous correspondence, full payment has not been received. You are hereby required to settle this balance within 5 business days of this notice.\n\nFailure to do so may result in the following:\n\n\u2022 Statutory late payment interest at 8 percentage points above the European Central Bank reference rate, in accordance with EU Directive 2011/7/EU as transposed into Maltese law\n\u2022 Referral to a debt collection agency\n\u2022 Legal proceedings to recover the outstanding amount, court costs, and any associated expenses\n\nIf payment has already been made, please send confirmation to {company_email} immediately.\n\nThis letter constitutes formal notice of the outstanding debt and may be presented as evidence of demand in any subsequent legal proceedings.\n\nYours faithfully,\n{company_name}\n{company_phone}\n{company_email}',
   true
 FROM auth.users u
 WHERE NOT EXISTS (
-  SELECT 1 FROM public.reminder_templates rt 
+  SELECT 1 FROM public.reminder_templates rt
   WHERE rt.user_id = u.id AND rt.level = 'final'
 );
 
