@@ -36,6 +36,7 @@ interface CompanySettings {
   name: string;
   email: string;
   phone: string;
+  phoneAreaCode: string;
   website: string;
   address: string;
   addressLine1: string;
@@ -122,10 +123,60 @@ interface PreferenceSettings {
 
 // ── Default states ─────────────────────────────────────────────────────────────
 
+const PHONE_AREA_CODES = [
+  { code: "+356", label: "+356 Malta" },
+  { code: "+44",  label: "+44 United Kingdom" },
+  { code: "+1",   label: "+1 USA / Canada" },
+  { code: "+49",  label: "+49 Germany" },
+  { code: "+33",  label: "+33 France" },
+  { code: "+39",  label: "+39 Italy" },
+  { code: "+34",  label: "+34 Spain" },
+  { code: "+31",  label: "+31 Netherlands" },
+  { code: "+32",  label: "+32 Belgium" },
+  { code: "+41",  label: "+41 Switzerland" },
+  { code: "+43",  label: "+43 Austria" },
+  { code: "+30",  label: "+30 Greece" },
+  { code: "+351", label: "+351 Portugal" },
+  { code: "+353", label: "+353 Ireland" },
+  { code: "+45",  label: "+45 Denmark" },
+  { code: "+46",  label: "+46 Sweden" },
+  { code: "+47",  label: "+47 Norway" },
+  { code: "+358", label: "+358 Finland" },
+  { code: "+48",  label: "+48 Poland" },
+  { code: "+420", label: "+420 Czech Republic" },
+  { code: "+36",  label: "+36 Hungary" },
+  { code: "+40",  label: "+40 Romania" },
+  { code: "+359", label: "+359 Bulgaria" },
+  { code: "+385", label: "+385 Croatia" },
+  { code: "+386", label: "+386 Slovenia" },
+  { code: "+357", label: "+357 Cyprus" },
+  { code: "+352", label: "+352 Luxembourg" },
+  { code: "+370", label: "+370 Lithuania" },
+  { code: "+371", label: "+371 Latvia" },
+  { code: "+372", label: "+372 Estonia" },
+  { code: "+7",   label: "+7 Russia" },
+  { code: "+971", label: "+971 UAE" },
+  { code: "+61",  label: "+61 Australia" },
+  { code: "+81",  label: "+81 Japan" },
+  { code: "+86",  label: "+86 China" },
+];
+
+function parseStoredPhone(stored: string): { areaCode: string; local: string } {
+  const s = stored.trim();
+  const sorted = [...PHONE_AREA_CODES].sort((a, b) => b.code.length - a.code.length);
+  for (const { code } of sorted) {
+    if (s.startsWith(code)) {
+      return { areaCode: code, local: s.slice(code.length).trim() };
+    }
+  }
+  return { areaCode: "+356", local: s };
+}
+
 const DEFAULT_COMPANY: CompanySettings = {
   name: "",
   email: "",
   phone: "",
+  phoneAreaCode: "+356",
   website: "",
   address: "",
   addressLine1: "",
@@ -256,10 +307,12 @@ const Settings = () => {
           ]);
 
         if (companyData) {
+          const { areaCode, local } = parseStoredPhone(companyData.company_phone || "");
           setCompanySettings({
             name: companyData.company_name || "",
             email: companyData.company_email || "",
-            phone: companyData.company_phone || "",
+            phone: local,
+            phoneAreaCode: areaCode,
             website: companyData.company_website || "",
             address: companyData.company_address || "",
             addressLine1: companyData.company_address_line1 || "",
@@ -362,12 +415,29 @@ const Settings = () => {
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  // FIX: accepts any international phone number — digits, spaces, +, -, (, ), min 6 chars
-  const validatePhone = (phone: string) => /^[+\d][\d\s\-().]{5,24}$/.test(phone.trim());
+  const validatePhone = (local: string) => /^[\d\s\-().]{4,20}$/.test(local.trim());
 
-  const validateMaltaVAT = (vat: string) => /^MT\d{8}$/.test(vat.replace(/\s/g, ""));
+  const validateWebsite = (url: string) =>
+    /^(https?:\/\/)?([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/.*)?$/.test(url.trim());
 
-  const validateIBAN = (iban: string) => /^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$/.test(iban.replace(/\s/g, "").toUpperCase());
+  const validateVAT = (vat: string) => {
+    const v = vat.replace(/\s/g, "").toUpperCase();
+    if (v.startsWith("MT")) return /^MT\d{8}$/.test(v); // standard registered
+    return /^\d{8}$/.test(v);                            // exempt-registered (8 digits, no MT prefix)
+  };
+
+  const validateMaltaRegistrationNumber = (reg: string) => /^[A-Za-z]{1,3}\s?\d{3,6}$/.test(reg.trim());
+
+  const validateIBAN = (iban: string) => {
+    const s = iban.replace(/\s/g, "").toUpperCase();
+    if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$/.test(s)) return false;
+    // MOD-97 checksum: move first 4 chars to end, convert letters to digits (A=10…Z=35), result must be 1
+    const rearranged = s.slice(4) + s.slice(0, 4);
+    const numeric = rearranged.replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
+    let remainder = 0;
+    for (const ch of numeric) remainder = (remainder * 10 + parseInt(ch)) % 97;
+    return remainder === 1;
+  };
 
   // ── Logo upload ──────────────────────────────────────────────────────────────
 
@@ -426,11 +496,20 @@ const Settings = () => {
     const errors: Record<string, string> = {};
     if (companySettings.email && !validateEmail(companySettings.email))
       errors.company_email = "Please enter a valid email address";
-    // FIX: relaxed phone validation — any international format accepted
-    if (companySettings.phone && !validatePhone(companySettings.phone))
-      errors.company_phone = "Please enter a valid phone number (include country code, e.g. +356 99123456)";
-    if (companySettings.taxId && companySettings.taxId.startsWith("MT") && !validateMaltaVAT(companySettings.taxId))
-      errors.company_vat = "Malta VAT format: MT followed by 8 digits (e.g. MT12345678)";
+    if (companySettings.phone) {
+      if (companySettings.phoneAreaCode === "+356") {
+        if (!/^\d{8}$/.test(companySettings.phone.replace(/\s/g, "")))
+          errors.company_phone = "Malta numbers must be 8 digits (e.g. 99123456)";
+      } else if (!validatePhone(companySettings.phone)) {
+        errors.company_phone = "Enter the local number using digits, spaces, or dashes";
+      }
+    }
+    if (companySettings.website && !validateWebsite(companySettings.website))
+      errors.company_website = "Enter a valid website (e.g. www.yourcompany.com)";
+    if (companySettings.taxId && !validateVAT(companySettings.taxId))
+      errors.company_vat = "Malta VAT: MT + 8 digits for standard (e.g. MT12345678), or 8 digits only for exempt-registered (e.g. 12345678)";
+    if (companySettings.registrationNumber && !validateMaltaRegistrationNumber(companySettings.registrationNumber))
+      errors.company_registration = "Malta format: letter prefix + digits (e.g. C12345, VO1234)";
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
@@ -444,9 +523,11 @@ const Settings = () => {
         {
           user_id: user.id,
           company_name: companySettings.name,
-          company_email: companySettings.email,
-          company_phone: companySettings.phone,
-          company_website: companySettings.website,
+          company_email: companySettings.email.trim().toLowerCase(),
+          company_phone: companySettings.phone ? companySettings.phoneAreaCode + " " + companySettings.phone : "",
+          company_website: companySettings.website
+            ? /^https?:\/\//i.test(companySettings.website) ? companySettings.website : "https://" + companySettings.website
+            : "",
           company_address: companySettings.address,
           company_address_line1: companySettings.addressLine1,
           company_address_line2: companySettings.addressLine2,
@@ -456,7 +537,7 @@ const Settings = () => {
           company_state: companySettings.state,
           company_zip_code: companySettings.zipCode,
           company_country: companySettings.country,
-          company_vat_number: companySettings.taxId,
+          company_vat_number: companySettings.taxId.trim().toUpperCase(),
           company_registration_number: companySettings.registrationNumber,
           company_logo: companySettings.logo,
           currency_code: companySettings.defaultCurrency,
@@ -477,7 +558,7 @@ const Settings = () => {
 
   const handleSaveBanking = async () => {
     if (bankingSettings.iban && !validateIBAN(bankingSettings.iban)) {
-      setValidationErrors({ banking_iban: "Please enter a valid IBAN format" });
+      setValidationErrors({ banking_iban: "IBAN is invalid — please double-check every digit" });
       toast({ title: "Validation Error", description: "Please enter a valid IBAN format", variant: "destructive" });
       return;
     }
@@ -828,24 +909,43 @@ const Settings = () => {
                             <Phone className="h-4 w-4" />
                             Phone Number
                           </Label>
-                          <Input
-                            id="company_phone"
-                            placeholder="+356 99123456 or +44 7700 900000"
-                            value={companySettings.phone}
-                            className={validationErrors.company_phone ? "border-destructive" : ""}
-                            onChange={(e) => {
-                              setCompanySettings({ ...companySettings, phone: e.target.value });
-                              markUnsaved("company");
-                            }}
-                          />
+                          <div className="flex gap-2">
+                            <Select
+                              value={companySettings.phoneAreaCode}
+                              onValueChange={(val) => {
+                                setCompanySettings({ ...companySettings, phoneAreaCode: val });
+                                markUnsaved("company");
+                              }}
+                            >
+                              <SelectTrigger className="w-[170px] shrink-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PHONE_AREA_CODES.map(({ code, label }) => (
+                                  <SelectItem key={code} value={code}>{label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              id="company_phone"
+                              placeholder="99123456"
+                              value={companySettings.phone}
+                              className={validationErrors.company_phone ? "border-destructive" : ""}
+                              onChange={(e) => {
+                                setCompanySettings({ ...companySettings, phone: e.target.value });
+                                markUnsaved("company");
+                              }}
+                            />
+                          </div>
                           {validationErrors.company_phone ? (
                             <p className="text-xs text-destructive">{validationErrors.company_phone}</p>
                           ) : (
-                            <p className="text-xs text-muted-foreground">Include country code, e.g. +356 for Malta</p>
+                            <p className="text-xs text-muted-foreground">
+                              {companySettings.phoneAreaCode === "+356" ? "8 digits required for Malta (e.g. 99123456)" : "Local number without country code"}
+                            </p>
                           )}
                         </div>
 
-                        {/* FIX: website field now visible in UI */}
                         <div className="space-y-2">
                           <Label htmlFor="company_website" className="flex items-center gap-2">
                             <Globe className="h-4 w-4" />
@@ -853,16 +953,19 @@ const Settings = () => {
                           </Label>
                           <Input
                             id="company_website"
-                            placeholder="https://www.yourcompany.com"
+                            placeholder="www.yourcompany.com"
                             value={companySettings.website}
+                            className={validationErrors.company_website ? "border-destructive" : ""}
                             onChange={(e) => {
                               setCompanySettings({ ...companySettings, website: e.target.value });
                               markUnsaved("company");
                             }}
                           />
-                          <p className="text-xs text-muted-foreground">
-                            Shown on public invoice view as a clickable link
-                          </p>
+                          {validationErrors.company_website ? (
+                            <p className="text-xs text-destructive">{validationErrors.company_website}</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Shown on public invoice view as a clickable link</p>
+                          )}
                         </div>
 
                         <div className="space-y-2">
@@ -874,7 +977,7 @@ const Settings = () => {
                                   <InfoIcon className="h-3 w-3 text-muted-foreground inline" />
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p className="max-w-xs">Malta: MT12345678 (MT + 8 digits). Leave blank if exempt.</p>
+                                  <p className="max-w-xs">Standard registered: MT + 8 digits (e.g. MT12345678). Exempt-registered: 8 digits only, no MT prefix (e.g. 12345678). Leave blank if not registered for VAT at all.</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -892,7 +995,7 @@ const Settings = () => {
                           {validationErrors.company_vat ? (
                             <p className="text-xs text-destructive">{validationErrors.company_vat}</p>
                           ) : (
-                            <p className="text-xs text-muted-foreground">Optional — leave blank if exempt</p>
+                            <p className="text-xs text-muted-foreground">Optional — leave blank if not registered for VAT</p>
                           )}
                         </div>
 
@@ -902,11 +1005,17 @@ const Settings = () => {
                             id="company_registration"
                             placeholder="C12345"
                             value={companySettings.registrationNumber}
+                            className={validationErrors.company_registration ? "border-destructive" : ""}
                             onChange={(e) => {
                               setCompanySettings({ ...companySettings, registrationNumber: e.target.value });
                               markUnsaved("company");
                             }}
                           />
+                          {validationErrors.company_registration ? (
+                            <p className="text-xs text-destructive">{validationErrors.company_registration}</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">e.g. C12345 for Ltd, VO1234 for NGO</p>
+                          )}
                         </div>
 
                         <div className="space-y-2">

@@ -7,6 +7,7 @@ import { ReceivablesAgingCard } from "@/components/ReceivablesAgingCard";
 import { TodaySnapshotCard } from "@/components/TodaySnapshotCard";
 import { WorkQueueCard } from "@/components/WorkQueueCard";
 import { RecurringSchedulesWidget } from "@/components/RecurringSchedulesWidget";
+import { RecurringDraftsPendingWidget } from "@/components/RecurringDraftsPendingWidget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -531,20 +532,25 @@ const Index = () => {
                   formatCurrency={formatCurrency}
                 />
                 <RecentActivity userId={userId} />
+                <RecurringDraftsPendingWidget userId={userId} />
                 <RecurringSchedulesWidget userId={userId} />
               </div>
 
               {/* Desktop layout — 12-column grid */}
               <div className="hidden lg:grid lg:grid-cols-12 gap-6">
-                <div className="col-span-8 grid grid-cols-2 gap-6">
-                  <WorkQueueCard
-                    overdueInvoices={overdueInvoices}
-                    needsSendingInvoices={needsSendingInvoices}
-                    formatCurrency={formatCurrency}
-                    onReminderSent={() => refetchOverdueInvoices()}
-                    onInvoiceSent={() => refetchNeedsSending()}
-                  />
-                  <ReceivablesAgingCard overdueInvoices={overdueInvoices} formatCurrency={formatCurrency} />
+                <div className="col-span-8 space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <WorkQueueCard
+                      overdueInvoices={overdueInvoices}
+                      needsSendingInvoices={needsSendingInvoices}
+                      formatCurrency={formatCurrency}
+                      onReminderSent={() => refetchOverdueInvoices()}
+                      onInvoiceSent={() => refetchNeedsSending()}
+                    />
+                    <ReceivablesAgingCard overdueInvoices={overdueInvoices} formatCurrency={formatCurrency} />
+                  </div>
+                  <RecurringDraftsPendingWidget userId={userId} />
+                  <RecurringSchedulesWidget userId={userId} />
                 </div>
                 <div className="col-span-4 space-y-6">
                   <TodaySnapshotCard
@@ -554,7 +560,6 @@ const Index = () => {
                     formatCurrency={formatCurrency}
                   />
                   <RecentActivity userId={userId} />
-                  <RecurringSchedulesWidget userId={userId} />
                 </div>
               </div>
             </div>

@@ -26,6 +26,101 @@ function advanceDate(current: string, frequency: string): string {
   return d.toISOString().split("T")[0];
 }
 
+async function generateInvoiceHash(
+  supabase: ReturnType<typeof createClient>,
+  invoiceId: string,
+  invoiceNumber: string,
+): Promise<string> {
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("*, invoice_items(*)")
+    .eq("id", invoiceId)
+    .single();
+
+  if (!invoice) throw new Error("Invoice not found for hashing");
+
+  const sortedItems = [...(invoice.invoice_items || [])]
+    .sort((a: any, b: any) => a.id.localeCompare(b.id))
+    .map((item: any) => ({
+      id: item.id,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      vat_rate: item.vat_rate,
+      unit: item.unit,
+    }));
+
+  const hashInput = JSON.stringify({
+    invoice_number: invoiceNumber,
+    invoice_date: invoice.invoice_date,
+    due_date: invoice.due_date,
+    customer_id: invoice.customer_id,
+    discount_type: invoice.discount_type,
+    discount_value: invoice.discount_value,
+    amount: invoice.amount,
+    vat_amount: invoice.vat_amount,
+    vat_rate: invoice.vat_rate,
+    total_amount: invoice.total_amount,
+    items: sortedItems,
+  });
+
+  const encoder = new TextEncoder();
+  const data = encoder.encode(hashInput);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function autoIssueInvoice(
+  supabase: ReturnType<typeof createClient>,
+  invoiceId: string,
+  userId: string,
+  invoiceData: any,
+): Promise<void> {
+  // Get user's invoice number prefix
+  const { data: settingsRow } = await supabase
+    .from("invoice_settings")
+    .select("numbering_prefix")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const prefix = (settingsRow as any)?.numbering_prefix || "INV-";
+
+  const { data: nextNumber, error: numberError } = await supabase.rpc("next_invoice_number", {
+    p_business_id: userId,
+    p_prefix: prefix,
+  });
+
+  if (numberError || !nextNumber) throw new Error(`Failed to generate invoice number: ${numberError?.message}`);
+
+  const invoiceHash = await generateInvoiceHash(supabase, invoiceId, nextNumber as string);
+
+  await supabase
+    .from("invoices")
+    .update({
+      is_issued: true,
+      issued_at: new Date().toISOString(),
+      invoice_hash: invoiceHash,
+      status: "sent",
+      invoice_number: nextNumber,
+    })
+    .eq("id", invoiceId);
+
+  await supabase.from("invoice_audit_log").insert({
+    invoice_id: invoiceId,
+    user_id: userId,
+    action: "issued",
+    new_data: {
+      invoice_number: nextNumber,
+      amount: invoiceData.amount,
+      total_amount: invoiceData.total_amount,
+      customer_id: invoiceData.customer_id,
+      issued_at: new Date().toISOString(),
+      auto_issued: true,
+    },
+  });
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -99,7 +194,7 @@ const handler = async (req: Request): Promise<Response> => {
         dueDateObj.setDate(dueDateObj.getDate() + paymentDays);
         const dueDate = dueDateObj.toISOString().split("T")[0];
 
-        // Create new draft invoice (no invoice number yet - it's a draft)
+        // Create new draft invoice — link back to the recurring schedule
         const { data: newInvoice, error: createErr } = await supabase
           .from("invoices")
           .insert({
@@ -116,6 +211,7 @@ const handler = async (req: Request): Promise<Response> => {
             discount_type: sourceInvoice.discount_type,
             discount_value: sourceInvoice.discount_value,
             discount_reason: sourceInvoice.discount_reason,
+            source_recurring_id: schedule.id,
           })
           .select("id")
           .single();
@@ -142,6 +238,17 @@ const handler = async (req: Request): Promise<Response> => {
 
           if (itemsErr) {
             console.error(`[process-recurring] Items error for schedule ${schedule.id}:`, itemsErr);
+          }
+        }
+
+        // Auto-issue if enabled — skips the draft review step
+        if (schedule.auto_issue) {
+          try {
+            await autoIssueInvoice(supabase, newInvoice.id, schedule.user_id, sourceInvoice);
+          } catch (issueErr: any) {
+            console.error(`[process-recurring] Auto-issue failed for ${newInvoice.id}:`, issueErr.message);
+            errors.push(`Schedule ${schedule.id}: auto-issue failed - ${issueErr.message}`);
+            // Invoice remains as draft — user can issue manually
           }
         }
 

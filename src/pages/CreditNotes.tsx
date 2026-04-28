@@ -20,9 +20,11 @@ import {
   Shield,
   AlertCircle,
   MessageCircle,
+  Mail,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  X,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useEffect, useMemo } from "react";
@@ -37,6 +39,7 @@ import type { CreditNote as CreditNoteType } from "@/types/invoice-compliance";
 import { TransactionDrawer } from "@/components/TransactionDrawer";
 import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLayout";
 import { SendWhatsAppDialog } from "@/components/SendWhatsAppDialog";
+import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 import { useInvoiceTemplate } from "@/hooks/useInvoiceTemplate";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useBankingSettings } from "@/hooks/useBankingSettings";
@@ -82,6 +85,10 @@ const CreditNotes = () => {
   const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
   const [whatsappCreditNote, setWhatsappCreditNote] = useState<CreditNoteWithRelations | null>(null);
   const [whatsappCreditNoteData, setWhatsappCreditNoteData] = useState<InvoiceData | null>(null);
+
+  // Email state
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailCreditNote, setEmailCreditNote] = useState<CreditNoteWithRelations | null>(null);
 
   const { toast } = useToast();
 
@@ -198,7 +205,8 @@ const CreditNotes = () => {
         (cn) =>
           cn.credit_note_number.toLowerCase().includes(term) ||
           cn.customers?.name.toLowerCase().includes(term) ||
-          cn.invoices?.invoice_number?.toLowerCase().includes(term),
+          cn.invoices?.invoice_number?.toLowerCase().includes(term) ||
+          cn.amount?.toString().includes(term),
       );
     }
     if (statusFilter !== "all") filtered = filtered.filter((cn) => cn.status === statusFilter);
@@ -381,6 +389,23 @@ const CreditNotes = () => {
     }
   };
 
+  // ── Email send ────────────────────────────────────────────────────────────
+  const handleSendEmail = async (cn: CreditNoteWithRelations) => {
+    try {
+      const data = await buildCreditNoteInvoiceData(cn.id);
+      setPdfCreditNoteData(data);
+      setEmailCreditNote(cn);
+      await new Promise((r) => setTimeout(r, 150));
+      setEmailDialogOpen(true);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Could not prepare email.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
@@ -421,10 +446,23 @@ const CreditNotes = () => {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant={statusFilter !== "all" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1"
+                >
                   <Filter className="h-4 w-4 mr-2" />
                   Status:{" "}
                   {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+                  {statusFilter !== "all" && (
+                    <span
+                      role="button"
+                      onClick={(e) => { e.stopPropagation(); setStatusFilter("all"); }}
+                      className="ml-1 rounded-full hover:bg-white/20 p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-background border border-border z-50">
@@ -435,9 +473,22 @@ const CreditNotes = () => {
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant={typeFilter !== "all" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1"
+                >
                   <Filter className="h-4 w-4 mr-2" />
                   Type: {typeFilter === "all" ? "All" : getTypeLabel(typeFilter)}
+                  {typeFilter !== "all" && (
+                    <span
+                      role="button"
+                      onClick={(e) => { e.stopPropagation(); setTypeFilter("all"); }}
+                      className="ml-1 rounded-full hover:bg-white/20 p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-background border border-border z-50">
@@ -500,7 +551,6 @@ const CreditNotes = () => {
                         Client {sortField === "customer" ? (sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />) : <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40" />}
                       </button>
                     </TableHead>
-                    <TableHead>Type</TableHead>
                     <TableHead>Linked Invoice</TableHead>
                     <TableHead>
                       <button type="button" onClick={() => handleSort("status")} className="flex items-center hover:text-foreground transition-colors">
@@ -523,13 +573,13 @@ const CreditNotes = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={isSelectionMode ? 9 : 8} className="text-center py-8 text-muted-foreground text-sm">
+                      <TableCell colSpan={isSelectionMode ? 8 : 7} className="text-center py-8 text-muted-foreground text-sm">
                         Loading credit notes…
                       </TableCell>
                     </TableRow>
                   ) : sortedCreditNotes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isSelectionMode ? 9 : 8}>
+                      <TableCell colSpan={isSelectionMode ? 8 : 7}>
                         {searchTerm || statusFilter !== "all" || typeFilter !== "all" ? (
                           <div className="flex flex-col items-center gap-3 py-14 text-center">
                             <div className="rounded-full bg-muted p-4">
@@ -548,8 +598,14 @@ const CreditNotes = () => {
                             </div>
                             <div>
                               <p className="text-sm font-medium">No credit notes yet</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">Credit notes are created from issued invoices to correct errors</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Credit notes are created from issued invoices — open an invoice and use ··· More Actions</p>
                             </div>
+                            <Button asChild size="sm" variant="outline">
+                              <Link to="/invoices">
+                                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                                Go to Invoices
+                              </Link>
+                            </Button>
                           </div>
                         )}
                       </TableCell>
@@ -560,7 +616,7 @@ const CreditNotes = () => {
                       const statusBadge = getStatusBadge(creditNote.status);
 
                       return (
-                        <TableRow key={creditNote.id} className="hover:bg-muted/30">
+                        <TableRow key={creditNote.id} className="hover:bg-muted/50">
                           {isSelectionMode && (
                             <TableCell className="pl-4 w-10">
                               <Checkbox checked={selectedIds.has(creditNote.id)} onCheckedChange={() => toggleSelect(creditNote.id)} aria-label={`Select ${creditNote.credit_note_number}`} className="translate-y-px" />
@@ -573,17 +629,12 @@ const CreditNotes = () => {
                               onClick={() => setSelectedCreditNote(creditNote)}
                             >
                               <span className="group-hover:underline">{creditNote.credit_note_number}</span>
-                              <span title="Malta VAT Compliant">
+                              <span title="Officially issued — cannot be edited">
                                 <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                               </span>
                             </button>
                           </TableCell>
-                          <TableCell>{creditNote.customers?.name || "Unknown Customer"}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="font-normal">
-                              {getTypeLabel(creditNote.type || "invoice_adjustment")}
-                            </Badge>
-                          </TableCell>
+                          <TableCell className="text-muted-foreground">{creditNote.customers?.name || "Unknown Customer"}</TableCell>
                           <TableCell>
                             {creditNote.invoice_id ? (
                               <Link
@@ -598,14 +649,14 @@ const CreditNotes = () => {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge className={statusBadge.className}>{statusBadge.label}</Badge>
+                            <Badge className={`${statusBadge.className} pointer-events-none`}>{statusBadge.label}</Badge>
                           </TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
-                          <TableCell>
+                          <TableCell className="text-right tabular-nums font-medium">{formatCurrency(total)}</TableCell>
+                          <TableCell className="text-muted-foreground">
                             {creditNote.issued_at ? (
                               format(new Date(creditNote.issued_at), "dd/MM/yyyy")
                             ) : (
-                              <span className="text-muted-foreground">—</span>
+                              <span>—</span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
@@ -616,7 +667,7 @@ const CreditNotes = () => {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="bg-background border border-border z-50">
-                                <DropdownMenuItem onClick={() => navigate(`/credit-notes/${creditNote.id}`)}>
+                                <DropdownMenuItem onClick={() => setSelectedCreditNote(creditNote)}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
@@ -631,6 +682,10 @@ const CreditNotes = () => {
                                 <DropdownMenuItem onClick={() => handleDownloadPDF(creditNote.id)}>
                                   <Download className="h-4 w-4 mr-2" />
                                   Download PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleSendEmail(creditNote)}>
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Send Email
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleSendWhatsApp(creditNote)}>
                                   <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
@@ -692,6 +747,8 @@ const CreditNotes = () => {
             : null
         }
         type="credit_note"
+        onSendEmail={selectedCreditNote ? () => handleSendEmail(selectedCreditNote) : undefined}
+        onSendWhatsApp={selectedCreditNote ? () => handleSendWhatsApp(selectedCreditNote) : undefined}
       />
 
       {/* Hidden PDF preview for download */}
@@ -724,6 +781,32 @@ const CreditNotes = () => {
             footerText={invoiceSettings?.invoice_footer_text}
           />
         </div>
+      )}
+
+      {/* Email dialog */}
+      {emailCreditNote && user && companySettings && (
+        <SendDocumentEmailDialog
+          open={emailDialogOpen}
+          onOpenChange={(open) => {
+            setEmailDialogOpen(open);
+            if (!open) {
+              setEmailCreditNote(null);
+              setPdfCreditNoteData(null);
+            }
+          }}
+          documentType="credit_note"
+          documentId={emailCreditNote.id}
+          documentNumber={emailCreditNote.credit_note_number}
+          customer={{
+            id: emailCreditNote.customer_id || "",
+            name: emailCreditNote.customers?.name || "Customer",
+            email: emailCreditNote.customers?.email || null,
+          }}
+          companyName={companySettings.company_name || ""}
+          userId={user.id}
+          fontFamily={template?.font_family}
+          previewAvailable={true}
+        />
       )}
 
       {/* WhatsApp dialog */}

@@ -235,8 +235,10 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
   };
 
   const generateStatementNumber = () => {
-    const dateRange = `${format(dateFrom, "yyyyMMdd")}-${format(dateTo, "yyyyMMdd")}`;
-    return `Statement-${customer.name.replace(/\s+/g, "_")}-${dateRange}`;
+    const from = format(dateFrom, "MMM-yyyy");
+    const to = format(dateTo, "MMM-yyyy");
+    const period = from === to ? from : `${format(dateFrom, "MMM")}-${format(dateTo, "MMM-yyyy")}`;
+    return `Statement-${customer.name.replace(/\s+/g, "_")}-${period}`;
   };
 
   const handlePreviewPDF = async () => {

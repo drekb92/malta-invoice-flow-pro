@@ -28,6 +28,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  X,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
@@ -227,7 +228,8 @@ const Quotations = () => {
       list = list.filter(
         (q) =>
           q.quotation_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          q.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()),
+          q.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          q.total_amount?.toString().includes(searchTerm),
       );
     }
     if (statusFilter !== "all") list = list.filter((q) => q.status === statusFilter);
@@ -825,10 +827,23 @@ const Quotations = () => {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant={statusFilter !== "all" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1"
+                >
                   <Filter className="h-4 w-4 mr-2" />
                   Filter (
                   {statusFilter === "all" ? "All" : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)})
+                  {statusFilter !== "all" && (
+                    <span
+                      role="button"
+                      onClick={(e) => { e.stopPropagation(); setStatusFilter("all"); }}
+                      className="ml-1 rounded-full hover:bg-white/20 p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
@@ -957,7 +972,7 @@ const Quotations = () => {
                     </TableRow>
                   ) : (
                     displayedQuotations.map((q) => (
-                      <TableRow key={q.id} className="hover:bg-muted/30">
+                      <TableRow key={q.id} className="group hover:bg-muted/50">
                         {isSelectionMode && (
                           <TableCell className="pl-4 w-10">
                             <Checkbox checked={selectedIds.has(q.id)} onCheckedChange={() => toggleSelect(q.id)} aria-label={`Select ${q.quotation_number}`} className="translate-y-px" />
@@ -972,24 +987,26 @@ const Quotations = () => {
                             {q.quotation_number}
                           </button>
                         </TableCell>
-                        <TableCell>{q.customers?.name || "Unknown Customer"}</TableCell>
-                        <TableCell>{formatCurrency(q.total_amount || q.amount || 0)}</TableCell>
+                        <TableCell className="text-muted-foreground">{q.customers?.name || "Unknown Customer"}</TableCell>
+                        <TableCell className="tabular-nums font-medium">{formatCurrency(q.total_amount || q.amount || 0)}</TableCell>
                         <TableCell>
-                          <Badge className={getStatusBadge(q.status)}>
+                          <Badge className={`${getStatusBadge(q.status)} pointer-events-none`}>
                             {q.status === "converted"
                               ? "Converted to Invoice"
                               : q.status.charAt(0).toUpperCase() + q.status.slice(1)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{format(new Date(q.issue_date || q.created_at), "dd/MM/yyyy")}</TableCell>
-                        <TableCell>{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{format(new Date(q.issue_date || q.created_at), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="text-muted-foreground">{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : "-"}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end space-x-2">
+                          <div className="flex items-center justify-end gap-2">
                             {q.status !== "converted" && (
-                              <Button size="sm" onClick={() => openConvertDialog(q)}>
-                                <ArrowRight className="h-4 w-4 mr-2" />
-                                Convert to Invoice
-                              </Button>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                <Button size="sm" onClick={() => openConvertDialog(q)}>
+                                  <ArrowRight className="h-4 w-4 mr-2" />
+                                  Convert to Invoice
+                                </Button>
+                              </div>
                             )}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>

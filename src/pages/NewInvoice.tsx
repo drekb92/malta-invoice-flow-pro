@@ -129,6 +129,7 @@ const NewInvoice = () => {
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [downloadAfterIssue, setDownloadAfterIssue] = useState(true);
+  const [setupRecurringAfterIssue, setSetupRecurringAfterIssue] = useState(false);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [serviceTemplates, setServiceTemplates] = useState<ServiceTemplate[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -730,7 +731,7 @@ const NewInvoice = () => {
     return { netTotal: round2(subtotal), discountAmount, taxable, vatTotal, grandTotal };
   };
 
-  const performSubmit = async (shouldIssue: boolean = false) => {
+  const performSubmit = async (shouldIssue: boolean = false): Promise<string | null> => {
     // Cancel any pending autosave to avoid conflicts
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
 
@@ -743,7 +744,7 @@ const NewInvoice = () => {
         title: "Invoice Already Issued",
         description: "This invoice has been issued and cannot be modified.",
       });
-      return;
+      return null;
     }
     
     setLoading(true);
@@ -881,8 +882,10 @@ const NewInvoice = () => {
         });
 
         localStorage.removeItem(DRAFT_KEY);
-        navigate(shouldIssue ? `/invoices/${effectiveId}` : "/invoices");
-        return;
+        navigate(shouldIssue
+          ? `/invoices/${effectiveId}${setupRecurringAfterIssue ? "?recurring=1" : ""}`
+          : "/invoices");
+        return finalInvoiceNumber;
       } else {
         let finalInvoiceNumber = invoiceNumber || null;
         if (shouldIssue && !finalInvoiceNumber) {
@@ -950,12 +953,15 @@ const NewInvoice = () => {
         });
 
         localStorage.removeItem(DRAFT_KEY);
-        navigate(shouldIssue ? `/invoices/${invoice.id}` : "/invoices");
-        return;
+        navigate(shouldIssue
+          ? `/invoices/${invoice.id}${setupRecurringAfterIssue ? "?recurring=1" : ""}`
+          : "/invoices");
+        return finalInvoiceNumber;
       }
 
       localStorage.removeItem(DRAFT_KEY);
       navigate("/invoices");
+      return null;
     } catch (error) {
       let errorMessage = "An error occurred";
       
@@ -973,6 +979,7 @@ const NewInvoice = () => {
         description: errorMessage,
         variant: "destructive",
       });
+      return null;
     } finally {
       setLoading(false);
     }
@@ -989,13 +996,13 @@ const NewInvoice = () => {
 
   const handleIssueConfirm = async () => {
     setShowIssueModal(false);
-    await performSubmit(true);
+    const issuedNumber = await performSubmit(true);
     if (downloadAfterIssue) {
-      await handleDownloadPDF();
+      await handleDownloadPDF(issuedNumber ?? undefined);
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (numberOverride?: string) => {
     setLoading(true);
     try {
       if (!selectedCustomer) {
@@ -1012,7 +1019,7 @@ const NewInvoice = () => {
         return;
       }
 
-      const filename = `Invoice-${invoiceNumber || 'DRAFT'}`;
+      const filename = `Invoice-${numberOverride || invoiceNumber || 'DRAFT'}`;
       await downloadPdfFromFunction(filename, templateForPreview?.font_family);
       
       toast({ 
@@ -1665,6 +1672,16 @@ const NewInvoice = () => {
               />
               <Label htmlFor="download-after" className="text-sm cursor-pointer">
                 Download PDF after issuing
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="setup-recurring"
+                checked={setupRecurringAfterIssue}
+                onCheckedChange={(v) => setSetupRecurringAfterIssue(!!v)}
+              />
+              <Label htmlFor="setup-recurring" className="text-sm cursor-pointer">
+                Set up recurring schedule after issuing
               </Label>
             </div>
           </div>

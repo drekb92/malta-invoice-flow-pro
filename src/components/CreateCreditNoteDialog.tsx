@@ -37,11 +37,8 @@ interface CreateCreditNoteDialogProps {
 const CREDIT_NOTE_REASONS = [
   { value: "pricing_error", label: "Pricing Error" },
   { value: "quantity_adjustment", label: "Quantity Adjustment" },
-  { value: "damaged_goods", label: "Damaged Goods" },
-  { value: "incorrect_specification", label: "Incorrect Specification" },
   { value: "customer_return", label: "Customer Return" },
   { value: "service_not_rendered", label: "Service Not Rendered" },
-  { value: "overpayment_correction", label: "Overpayment Correction" },
   { value: "discount_applied", label: "Discount Applied" },
   { value: "other", label: "Other" },
 ];
@@ -141,7 +138,7 @@ export function CreateCreditNoteDialog({
             Create Credit Note
           </DialogTitle>
           <DialogDescription>
-            Create a credit note for invoice {invoiceNumber} (Malta VAT Compliant)
+            Create a credit note for invoice {invoiceNumber} (officially issued)
           </DialogDescription>
         </DialogHeader>
 

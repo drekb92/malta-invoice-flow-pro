@@ -37,6 +37,7 @@ import {
   FileText,
   Receipt,
   ArrowUpDown,
+  Users,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -379,8 +380,35 @@ const Customers = () => {
                       </TableRow>
                     ) : filteredCustomers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          {searchTerm ? "No customers found." : "No customers yet."}
+                        <TableCell colSpan={6}>
+                          {searchTerm ? (
+                            <div className="flex flex-col items-center gap-3 py-14 text-center">
+                              <div className="rounded-full bg-muted p-4">
+                                <Search className="h-6 w-6 text-muted-foreground/50" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-foreground">No customers found</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Try a different name, email, or customer code</p>
+                              </div>
+                              <button type="button" onClick={() => setSearchTerm("")} className="text-xs text-primary underline underline-offset-2">Clear search</button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-3 py-16 text-center">
+                              <div className="rounded-full bg-muted p-4">
+                                <Users className="h-6 w-6 text-muted-foreground" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">No customers yet</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Add your first customer to start sending invoices and tracking payments</p>
+                              </div>
+                              <CustomerForm onSave={fetchCustomers} trigger={
+                                <Button size="sm">
+                                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                                  Add Customer
+                                </Button>
+                              } />
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ) : (

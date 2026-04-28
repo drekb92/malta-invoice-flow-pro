@@ -479,7 +479,7 @@ export const InvoiceSettlementSheet = ({
                 <span>Invoice</span>
                 <span className="text-muted-foreground font-normal">•</span>
                 <span>{invoice.invoice_number}</span>
-                <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5`}>
+                <Badge className={`${statusBadge.className} text-[10px] px-1.5 py-0.5 pointer-events-none`}>
                   <StatusIcon className="h-2.5 w-2.5 mr-0.5" />
                   {statusBadge.label}
                 </Badge>

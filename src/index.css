@@ -8,51 +8,53 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 20% 96%;
-    --foreground: 222 47% 11%;
+    --background: 225 22% 96%;
+    --foreground: 232 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 232 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 232 47% 11%;
 
-    --primary: 222 55% 30%;
+    /* Cobalt-indigo: richer than generic 222° steel blue */
+    --primary: 232 65% 32%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 30% 92%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 225 22% 92%;
+    --secondary-foreground: 232 47% 11%;
 
-    --muted: 210 25% 92%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 222 20% 92%;
+    --muted-foreground: 222 14% 46%;
 
-    --accent: 210 30% 92%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 225 22% 92%;
+    --accent-foreground: 232 47% 11%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214 25% 86%;
-    --input: 214 25% 86%;
-    --ring: 222 55% 30%;
+    --border: 222 20% 87%;
+    --input: 222 20% 87%;
+    --ring: 232 65% 32%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 222 45% 13%;
+    /* Deeper navy — distinct hover contrast between levels */
+    --sidebar-background: 232 58% 10%;
 
-    --sidebar-foreground: 210 25% 78%;
+    --sidebar-foreground: 220 25% 76%;
 
     --sidebar-primary: 210 40% 98%;
 
-    --sidebar-primary-foreground: 222 45% 13%;
+    --sidebar-primary-foreground: 232 58% 10%;
 
-    --sidebar-accent: 222 40% 20%;
+    --sidebar-accent: 232 48% 18%;
 
     --sidebar-accent-foreground: 210 40% 98%;
 
-    --sidebar-border: 222 40% 20%;
+    --sidebar-border: 232 48% 16%;
 
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 232 75% 60%;
   }
 
   .dark {
@@ -111,5 +113,10 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Geist', Arial, sans-serif;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Sora', sans-serif;
   }
 }

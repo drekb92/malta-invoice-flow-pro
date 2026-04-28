@@ -8,10 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Loader2, Trash2, Info, Plus, Lock } from "lucide-react";
+import { Shield, Loader2, Trash2, Info, Plus, Lock, CheckCircle2, Mail, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNumber } from "@/lib/utils";
+import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 
 interface LineItem {
   id: string;
@@ -25,11 +28,12 @@ interface LineItem {
 interface CreateCreditNoteDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  creditNoteId?: string | null; // For viewing/editing existing credit notes
+  creditNoteId?: string | null;
   invoiceId?: string | null;
   invoiceNumber?: string | null;
   customerId: string;
   customerName?: string;
+  customerEmail?: string | null;
   defaultType?: "invoice_adjustment" | "customer_credit";
   onSuccess?: () => void;
 }
@@ -44,14 +48,9 @@ interface ValidationErrors {
 const CREDIT_NOTE_REASONS = [
   { value: "pricing_error", label: "Pricing Error" },
   { value: "quantity_adjustment", label: "Quantity Adjustment" },
-  { value: "damaged_goods", label: "Damaged Goods" },
-  { value: "incorrect_specification", label: "Incorrect Specification" },
   { value: "customer_return", label: "Customer Return" },
   { value: "service_not_rendered", label: "Service Not Rendered" },
-  { value: "overpayment_correction", label: "Overpayment Correction" },
   { value: "discount_applied", label: "Discount Applied" },
-  { value: "goodwill_credit", label: "Goodwill Credit" },
-  { value: "prepayment", label: "Prepayment / Deposit" },
   { value: "other", label: "Other" },
 ];
 
@@ -65,10 +64,17 @@ export function CreateCreditNoteDrawer({
   invoiceNumber,
   customerId,
   customerName,
+  customerEmail,
   defaultType = "invoice_adjustment",
   onSuccess,
 }: CreateCreditNoteDrawerProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { settings: companySettings } = useCompanySettings();
+
+  // Post-issue "send now" state
+  const [issuedCreditNote, setIssuedCreditNote] = useState<{ id: string; number: string } | null>(null);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
   
   // Mode: invoice-linked vs standalone
   const isStandalone = !invoiceId && !creditNoteId;
@@ -117,7 +123,9 @@ export function CreateCreditNoteDrawer({
       setValidationErrors({});
       setShowValidation(false);
       setExistingCreditNote(null);
-      
+      setIssuedCreditNote(null);
+      setShowEmailDialog(false);
+
       if (creditNoteId) {
         // Load existing credit note
         loadExistingCreditNote();
@@ -546,12 +554,7 @@ export function CreateCreditNoteDrawer({
         });
       }
 
-      toast({
-        title: action === "draft" ? "Draft Saved" : "Credit Note Issued",
-        description: `Credit Note ${creditNoteNumber} has been ${action === "draft" ? "saved as draft" : "issued"}.`,
-      });
-
-      // Reset form and close
+      // Reset form state
       setReason("");
       setDescription("");
       setLineItems([]);
@@ -559,8 +562,19 @@ export function CreateCreditNoteDrawer({
       setSingleDescription("");
       setValidationErrors({});
       setShowValidation(false);
-      onOpenChange(false);
-      onSuccess?.();
+
+      if (action === "draft") {
+        toast({
+          title: "Draft Saved",
+          description: `Credit Note ${creditNoteNumber} has been saved as draft.`,
+        });
+        onOpenChange(false);
+        onSuccess?.();
+      } else {
+        // Issued: show send-now panel instead of closing immediately
+        setIssuedCreditNote({ id: creditNote.id, number: creditNoteNumber });
+        onSuccess?.();
+      }
     } catch (error: any) {
       console.error("Error creating credit note:", error);
       toast({
@@ -584,6 +598,7 @@ export function CreateCreditNoteDrawer({
   };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-[520px] p-0 flex flex-col">
         <SheetHeader className="px-5 py-4 border-b border-border/60">
@@ -599,11 +614,11 @@ export function CreateCreditNoteDrawer({
           <SheetDescription>
             {existingCreditNote?.credit_note_number
               ? `${customerName || "Customer"} • ${isLocked ? "Issued" : "Draft"}`
-              : invoiceNumber 
-                ? `For invoice ${invoiceNumber} (Malta VAT Compliant)`
-                : customerName 
-                  ? `For ${customerName} (Malta VAT Compliant)`
-                  : "Malta VAT Compliant"
+              : invoiceNumber
+                ? `For invoice ${invoiceNumber}`
+                : customerName
+                  ? `For ${customerName}`
+                  : "New credit note"
             }
           </SheetDescription>
         </SheetHeader>
@@ -627,15 +642,14 @@ export function CreateCreditNoteDrawer({
                 </Alert>
               )}
               
-              {/* Malta VAT Compliance Alert */}
+              {/* Compliance note */}
               {!isLocked && (
-                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800 py-3">
                   <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <AlertTitle className="text-blue-800 dark:text-blue-300">Malta VAT Compliance</AlertTitle>
                   <AlertDescription className="text-blue-700 dark:text-blue-400 text-sm">
-                    {isStandalone 
-                      ? "Customer credits are tracked for accounting and can be applied to future invoices."
-                      : "Credit notes correct issued invoices per Malta VAT regulations. This action will be logged in the audit trail."
+                    {isStandalone
+                      ? "This credit will be tracked for accounting and can be applied to future invoices."
+                      : "Issuing this credit note will be logged in the audit trail."
                     }
                   </AlertDescription>
                 </Alert>
@@ -797,7 +811,7 @@ export function CreateCreditNoteDrawer({
                             Reset to Original
                           </Button>
                         )}
-                        {(isStandalone || (isEditMode && !existingCreditNote?.invoice_id)) && (
+                        {!isLocked && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -913,39 +927,80 @@ export function CreateCreditNoteDrawer({
             </div>
 
             {/* Footer Actions */}
-            <div className="shrink-0 px-5 py-4 border-t border-border/60 bg-background">
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={submitting}
-                >
-                  {isLocked ? "Close" : "Cancel"}
-                </Button>
-                {!isLocked && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handleSubmit("draft")}
-                      disabled={submitting}
-                    >
-                      {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
-                      Save Draft
-                    </Button>
-                    <Button
-                      onClick={() => handleSubmit("issue")}
-                      disabled={submitting}
-                    >
-                      {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
-                      Issue Credit Note
-                    </Button>
-                  </div>
-                )}
+            {issuedCreditNote ? (
+              <div className="shrink-0 px-5 py-4 border-t border-border/60 bg-background space-y-3">
+                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span className="font-medium">{issuedCreditNote.number} issued.</span>
+                  <span className="text-muted-foreground">Send it to the customer?</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" className="flex-1" onClick={() => setShowEmailDialog(true)}>
+                    <Mail className="h-4 w-4 mr-1.5" />
+                    Send Email
+                  </Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+                    Done
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="shrink-0 px-5 py-4 border-t border-border/60 bg-background">
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={submitting}
+                  >
+                    {isLocked ? "Close" : "Cancel"}
+                  </Button>
+                  {!isLocked && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => handleSubmit("draft")}
+                        disabled={submitting}
+                      >
+                        {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                        Save Draft
+                      </Button>
+                      <Button
+                        onClick={() => handleSubmit("issue")}
+                        disabled={submitting}
+                      >
+                        {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
+                        Issue Credit Note
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </SheetContent>
     </Sheet>
+
+    {/* Post-issue email dialog */}
+    {issuedCreditNote && user && companySettings && (
+      <SendDocumentEmailDialog
+        open={showEmailDialog}
+        onOpenChange={(open) => {
+          setShowEmailDialog(open);
+          if (!open) onOpenChange(false);
+        }}
+        documentType="credit_note"
+        documentId={issuedCreditNote.id}
+        documentNumber={issuedCreditNote.number}
+        customer={{
+          id: customerId,
+          name: customerName || "Customer",
+          email: customerEmail ?? null,
+        }}
+        companyName={companySettings.company_name || ""}
+        userId={user.id}
+      />
+    )}
+    </>
   );
 }

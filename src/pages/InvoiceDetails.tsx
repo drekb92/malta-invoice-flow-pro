@@ -49,9 +49,10 @@ import {
   Link2,
   Loader2,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -192,6 +193,8 @@ const InvoiceDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const recurringRef = useRef<HTMLDivElement>(null);
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
@@ -219,6 +222,15 @@ const InvoiceDetails = () => {
   const { settings: invoiceSettings } = useInvoiceSettings();
 
   const { lastEmailSent, lastWhatsAppSent, refetch: refetchSendLogs } = useDocumentSendLogs("invoice", id || "");
+
+  // Scroll to recurring card when navigated with ?recurring=1
+  useEffect(() => {
+    if (searchParams.get("recurring") === "1" && recurringRef.current) {
+      setTimeout(() => {
+        recurringRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 400);
+    }
+  }, [searchParams, recurringRef.current]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -1005,6 +1017,18 @@ const InvoiceDetails = () => {
                 </CardContent>
               </Card>
 
+              {/* Recurring Schedule — anchored for ?recurring=1 deep-link */}
+              <div ref={recurringRef} className="scroll-mt-4">
+                {id && user && invoice.customer_id && (
+                  <RecurringScheduleCard
+                    invoiceId={id}
+                    userId={user.id}
+                    customerId={invoice.customer_id}
+                    viewOnly={false}
+                  />
+                )}
+              </div>
+
               {/* Payment History */}
               <Card className="shadow-sm">
                 <CardHeader className="py-2.5 px-4">
@@ -1088,16 +1112,6 @@ const InvoiceDetails = () => {
                   )}
                 </CardContent>
               </Card>
-
-              {/* Recurring Schedule */}
-              {id && user && invoice.customer_id && (
-                <RecurringScheduleCard
-                  invoiceId={id}
-                  userId={user.id}
-                  customerId={invoice.customer_id}
-                  viewOnly={false}
-                />
-              )}
 
               {/* Share Link */}
               {isIssued && (
@@ -1474,6 +1488,8 @@ const InvoiceDetails = () => {
           invoiceId={invoice.id}
           invoiceNumber={invoice.invoice_number}
           customerId={invoice.customer_id}
+          customerName={customerName}
+          customerEmail={invoice.customers?.email || null}
           onSuccess={handleCreditNoteSuccess}
         />
       )}

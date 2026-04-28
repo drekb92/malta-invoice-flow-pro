@@ -5,8 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { RefreshCw, Pause, Play, Trash2, CalendarClock } from "lucide-react";
-import { format, addDays, addWeeks, addMonths } from "date-fns";
+import { RefreshCw, Pause, Play, Trash2, CalendarClock, Zap, Bell } from "lucide-react";
+import { format, addWeeks, addMonths } from "date-fns";
 import { useState, useEffect } from "react";
 import {
   useRecurringSchedule,
@@ -64,12 +64,19 @@ export function RecurringScheduleCard({
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState("monthly");
   const [nextRunDate, setNextRunDate] = useState(getDefaultNextDate("monthly"));
+  const [autoIssue, setAutoIssue] = useState(false);
+  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [notifyDaysBefore, setNotifyDaysBefore] = useState(1);
 
   useEffect(() => {
     if (schedule) {
       setIsRecurring(true);
       setFrequency(schedule.frequency);
       setNextRunDate(schedule.next_run_date);
+      setAutoIssue(schedule.auto_issue ?? false);
+      const days = schedule.notify_days_before;
+      setNotifyEnabled(days != null);
+      setNotifyDaysBefore(days ?? 1);
     }
   }, [schedule]);
 
@@ -102,7 +109,6 @@ export function RecurringScheduleCard({
   const handleToggleRecurring = (checked: boolean) => {
     setIsRecurring(checked);
     if (!checked && schedule) {
-      // Pause the schedule
       toggleMutation.mutate(
         { scheduleId: schedule.id, isActive: false },
         {
@@ -120,6 +126,8 @@ export function RecurringScheduleCard({
         customerId,
         frequency,
         nextRunDate,
+        autoIssue,
+        notifyDaysBefore: notifyEnabled ? notifyDaysBefore : null,
       },
       {
         onSuccess: () =>
@@ -196,6 +204,26 @@ export function RecurringScheduleCard({
                 <span className="text-muted-foreground text-xs">Last Generated</span>
                 <p className="font-medium">
                   {format(new Date(schedule.last_generated_at), "dd MMM yyyy")}
+                </p>
+              </div>
+            )}
+            <div>
+              <span className="text-muted-foreground text-xs">Mode</span>
+              <p className="font-medium flex items-center gap-1">
+                {schedule.auto_issue ? (
+                  <><Zap className="h-3 w-3 text-amber-500" /> Auto-issue</>
+                ) : (
+                  "Draft for review"
+                )}
+              </p>
+            </div>
+            {schedule.notify_days_before != null && (
+              <div>
+                <span className="text-muted-foreground text-xs">Email Reminder</span>
+                <p className="font-medium">
+                  {schedule.notify_days_before === 1
+                    ? "1 day before"
+                    : `${schedule.notify_days_before} days before`}
                 </p>
               </div>
             )}
@@ -287,6 +315,53 @@ export function RecurringScheduleCard({
               onChange={(e) => setNextRunDate(e.target.value)}
               className="h-8 text-sm"
             />
+          </div>
+
+          {/* Auto-issue toggle */}
+          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            <div className="flex items-center gap-2">
+              <Zap className="h-3.5 w-3.5 text-amber-500" />
+              <div>
+                <p className="text-xs font-medium">Auto-issue</p>
+                <p className="text-xs text-muted-foreground">Issue & send without review</p>
+              </div>
+            </div>
+            <Switch
+              checked={autoIssue}
+              onCheckedChange={setAutoIssue}
+            />
+          </div>
+
+          {/* Email notification toggle (optional) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+                <div>
+                  <p className="text-xs font-medium">Email reminder</p>
+                  <p className="text-xs text-muted-foreground">Notify me before generation</p>
+                </div>
+              </div>
+              <Switch
+                checked={notifyEnabled}
+                onCheckedChange={setNotifyEnabled}
+              />
+            </div>
+            {notifyEnabled && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={notifyDaysBefore}
+                  onChange={(e) => setNotifyDaysBefore(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="h-8 text-sm w-16"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {notifyDaysBefore === 1 ? "day before" : "days before"} generation
+                </span>
+              </div>
+            )}
           </div>
 
           {schedule && (

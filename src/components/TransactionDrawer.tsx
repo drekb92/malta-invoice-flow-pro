@@ -50,6 +50,8 @@ interface TransactionDrawerProps {
   onSendReminder?: (invoiceId: string) => void;
   onSendQuote?: (quotationId: string) => void;
   onApplyCreditNote?: (creditNoteId: string) => void;
+  onSendEmail?: () => void;
+  onSendWhatsApp?: () => void;
 }
 
 export const TransactionDrawer = ({
@@ -63,6 +65,8 @@ export const TransactionDrawer = ({
   onSendReminder,
   onSendQuote,
   onApplyCreditNote,
+  onSendEmail,
+  onSendWhatsApp,
 }: TransactionDrawerProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -597,6 +601,8 @@ export const TransactionDrawer = ({
                 onConvertQuotation={onConvertQuotation}
                 onSendQuote={onSendQuote}
                 onApplyCreditNote={onApplyCreditNote}
+                onSendEmail={onSendEmail}
+                onSendWhatsApp={onSendWhatsApp}
                 onClose={handleClose}
               />
             </>

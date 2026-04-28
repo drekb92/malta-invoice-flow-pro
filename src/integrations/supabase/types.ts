@@ -779,6 +779,7 @@ export type Database = {
           last_sent_channel: string | null
           last_sent_to: string | null
           notes: string | null
+          source_recurring_id: string | null
           status: string | null
           total_amount: number | null
           user_id: string | null
@@ -803,6 +804,7 @@ export type Database = {
           last_sent_channel?: string | null
           last_sent_to?: string | null
           notes?: string | null
+          source_recurring_id?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null
@@ -827,6 +829,7 @@ export type Database = {
           last_sent_channel?: string | null
           last_sent_to?: string | null
           notes?: string | null
+          source_recurring_id?: string | null
           status?: string | null
           total_amount?: number | null
           user_id?: string | null
@@ -1022,6 +1025,7 @@ export type Database = {
       }
       recurring_invoices: {
         Row: {
+          auto_issue: boolean
           created_at: string
           customer_id: string
           frequency: string
@@ -1029,12 +1033,14 @@ export type Database = {
           is_active: boolean
           last_generated_at: string | null
           next_run_date: string
+          notify_days_before: number | null
           source_invoice_id: string
           total_generated: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          auto_issue?: boolean
           created_at?: string
           customer_id: string
           frequency: string
@@ -1042,12 +1048,14 @@ export type Database = {
           is_active?: boolean
           last_generated_at?: string | null
           next_run_date: string
+          notify_days_before?: number | null
           source_invoice_id: string
           total_generated?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          auto_issue?: boolean
           created_at?: string
           customer_id?: string
           frequency?: string
@@ -1055,6 +1063,7 @@ export type Database = {
           is_active?: boolean
           last_generated_at?: string | null
           next_run_date?: string
+          notify_days_before?: number | null
           source_invoice_id?: string
           total_generated?: number
           updated_at?: string

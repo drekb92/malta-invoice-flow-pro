@@ -26,7 +26,16 @@
       "Bash(npx supabase *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(supabase --version)",
+      "Bash(supabase status *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:60981/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "PowerShell(Start-Process -NoNewWindow npm -ArgumentList \"run\",\"dev\",\"--\",\"--port\",\"5173\"; Start-Sleep -Seconds 10; \\(Test-NetConnection -ComputerName localhost -Port 5173 -WarningAction SilentlyContinue\\).TcpTestSucceeded)",
+      "PowerShell(\\(Test-NetConnection -ComputerName localhost -Port 60981 -WarningAction SilentlyContinue\\).TcpTestSucceeded)",
+      "PowerShell(\\(Test-NetConnection -ComputerName localhost -Port 5173 -WarningAction SilentlyContinue\\).TcpTestSucceeded)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:54167/)",
+      "Bash(npx vite *)"
     ]
   }
 }

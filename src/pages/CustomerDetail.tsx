@@ -251,7 +251,7 @@ const CustomerDetail = () => {
                 <TableCell className="py-2 text-sm">{format(new Date(invoice.due_date), "dd/MM/yyyy")}</TableCell>
                 <TableCell className="py-2">
                   <div className="flex items-center gap-1.5">
-                    <Badge className={`${statusBadge.className} text-xs`}>
+                    <Badge className={`${statusBadge.className} text-xs pointer-events-none`}>
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {invoice.status
                         .split("_")

@@ -1,4 +1,4 @@
-import { Download, Loader2, ExternalLink, Plus, Receipt, Bell, ArrowRight, Send } from "lucide-react";
+import { Download, Loader2, ExternalLink, Plus, Receipt, Bell, ArrowRight, Send, Mail, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TransactionType, InvoiceTransaction, Transaction } from "./types";
 import { getTypeLabel } from "./utils";
@@ -19,6 +19,8 @@ interface TransactionFooterActionsProps {
   onConvertQuotation?: (quotationId: string) => void;
   onSendQuote?: (quotationId: string) => void;
   onApplyCreditNote?: (creditNoteId: string) => void;
+  onSendEmail?: () => void;
+  onSendWhatsApp?: () => void;
   onClose: () => void;
 }
 
@@ -38,6 +40,8 @@ export const TransactionFooterActions = ({
   onConvertQuotation,
   onSendQuote,
   onApplyCreditNote,
+  onSendEmail,
+  onSendWhatsApp,
   onClose,
 }: TransactionFooterActionsProps) => {
   const typeLabel = getTypeLabel(type);
@@ -114,19 +118,35 @@ export const TransactionFooterActions = ({
           )}
 
           {/* CREDIT NOTE ACTIONS */}
-          {type === "credit_note" && !originalInvoice && onApplyCreditNote && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-sm"
-              onClick={() => {
-                onClose();
-                onApplyCreditNote(transaction.id);
-              }}
-            >
-              <ArrowRight className="h-4 w-4 mr-1.5" />
-              Apply
-            </Button>
+          {type === "credit_note" && (
+            <>
+              {onSendEmail && (
+                <Button variant="outline" size="sm" className="text-sm" onClick={onSendEmail}>
+                  <Mail className="h-4 w-4 mr-1.5" />
+                  Email
+                </Button>
+              )}
+              {onSendWhatsApp && (
+                <Button variant="outline" size="sm" className="text-sm" onClick={onSendWhatsApp}>
+                  <MessageCircle className="h-4 w-4 mr-1.5 text-green-600" />
+                  WhatsApp
+                </Button>
+              )}
+              {!originalInvoice && onApplyCreditNote && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => {
+                    onClose();
+                    onApplyCreditNote(transaction.id);
+                  }}
+                >
+                  <ArrowRight className="h-4 w-4 mr-1.5" />
+                  Apply
+                </Button>
+              )}
+            </>
           )}
 
           {/* QUOTATION ACTIONS */}
@@ -164,11 +184,13 @@ export const TransactionFooterActions = ({
             </>
           )}
 
-          {/* Primary action: View Full - Always available, right-most */}
-          <Button size="sm" className="text-sm" onClick={onViewFull}>
-            <ExternalLink className="h-4 w-4 mr-1.5" />
-            View
-          </Button>
+          {/* Primary action: View Full - only for types that have a dedicated page */}
+          {type !== "credit_note" && (
+            <Button size="sm" className="text-sm" onClick={onViewFull}>
+              <ExternalLink className="h-4 w-4 mr-1.5" />
+              View
+            </Button>
+          )}
         </div>
       </div>
     </div>
