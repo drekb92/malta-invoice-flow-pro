@@ -102,7 +102,6 @@ export const UnifiedInvoiceLayout = ({
   const isPdf = variant === "pdf";
 
   const primary = templateSettings?.primaryColor || "#1e3a5f";
-  const accent = templateSettings?.accentColor || "#26A65B";
   const fontFamily = templateSettings?.fontFamily || STANDARD_FONT_STACK;
   const styleConfig = getDocumentStyleConfig(templateStyle, primary, isPdf);
 
@@ -164,6 +163,9 @@ export const UnifiedInvoiceLayout = ({
       font-family: ${fontFamily};
       font-size: ${fontSize.body};
       line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
     }
     #${id} .invoice-inner {
       padding: var(--m-top) var(--m-right) var(--m-bottom) var(--m-left);
@@ -216,21 +218,15 @@ export const UnifiedInvoiceLayout = ({
       font-size: ${fontSize.heading};
       font-weight: 800;
       letter-spacing: 0.08em;
-      color: ${accent};
+      color: ${primary};
       margin: 0 0 ${isPdf ? "2mm" : "8px"} 0;
       text-transform: uppercase;
     }
     #${id} .meta { font-size: ${fontSize.small}; color: #4b5563; line-height: 1.4; }
     #${id} .meta .row { display: flex; justify-content: flex-end; gap: ${isPdf ? "2mm" : "8px"}; }
-    #${id} .meta .label { color: #6b7280; }
+    #${id} .meta .label { color: #6b7280; letter-spacing: 0.04em; }
     #${id} .meta .value { color: #111827; font-weight: 600; }
     #${id} .divider { border: 0; border-top: 1px solid #e5e7eb; margin: ${isPdf ? "4mm 0 5mm 0" : "14px 0 16px 0"}; }
-    #${id} .address-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: ${isPdf ? "8mm" : "32px"};
-      margin-bottom: ${isPdf ? "5mm" : "20px"};
-    }
     #${id} .address-block { min-width: 0; }
     #${id} .section-label {
       font-size: ${fontSize.tiny};
@@ -240,10 +236,71 @@ export const UnifiedInvoiceLayout = ({
       text-transform: uppercase;
       margin-bottom: ${isPdf ? "1.5mm" : "6px"};
     }
-    #${id} .billto { margin-bottom: ${isPdf ? "4mm" : "16px"}; }
+    #${id} .billto { margin-bottom: ${isPdf ? "2mm" : "8px"}; }
     #${id} .customer-name { font-size: ${fontSize.subheading}; font-weight: 700; color: #111827; margin-bottom: ${isPdf ? "1mm" : "4px"}; }
     #${id} .customer-info { font-size: ${fontSize.small}; color: #4b5563; line-height: 1.4; }
     #${id} .customer-info div { margin: ${isPdf ? "0.5mm 0" : "2px 0"}; }
+
+    /* ── Info row: Bill To (left) + Invoice aside (right) ── */
+    #${id} .info-row {
+      display: flex;
+      gap: ${isPdf ? "8mm" : "32px"};
+      align-items: flex-start;
+      margin-bottom: ${isPdf ? "5mm" : "20px"};
+    }
+    #${id} .info-left { flex: 0 0 52%; min-width: 0; }
+    #${id} .info-right { flex: 1; min-width: 0; }
+    #${id} .invoice-aside {
+      font-size: ${fontSize.small};
+      border: 1px solid #e5e7eb;
+      border-radius: ${isPdf ? "1mm" : "4px"};
+      overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    #${id} .aside-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: ${isPdf ? "4mm" : "16px"};
+      padding: ${isPdf ? "1.5mm 3mm" : "6px 12px"};
+      border-bottom: 1px solid #f1f5f9;
+    }
+    #${id} .aside-row:last-child { border-bottom: none; }
+    #${id} .aside-label {
+      color: #6b7280;
+      font-size: ${fontSize.tiny};
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #${id} .aside-value {
+      color: #111827;
+      font-weight: 600;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      word-break: break-all;
+    }
+    #${id} .aside-amount {
+      border-top: 1px solid #e5e7eb;
+      padding-top: ${isPdf ? "2mm" : "8px"};
+      padding-bottom: ${isPdf ? "2mm" : "8px"};
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    #${id} .aside-amount .aside-label {
+      color: #374151;
+      font-weight: 700;
+      font-size: ${fontSize.tiny};
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    #${id} .aside-amount .aside-value {
+      font-size: ${fontSize.subheading};
+      font-weight: 800;
+      color: ${primary};
+    }
     #${id} table.items {
       width: 100%;
       border-collapse: collapse;
@@ -260,6 +317,7 @@ export const UnifiedInvoiceLayout = ({
       font-size: ${fontSize.tiny};
       color: #6b7280;
       background: var(--th-bg, ${styleConfig.tableHeaderBg});
+      vertical-align: middle;
     }
     #${id} table.items tbody td {
       padding: ${isPdf ? "2.5mm 2mm" : "9px 8px"};
@@ -290,7 +348,7 @@ export const UnifiedInvoiceLayout = ({
       padding-top: ${isPdf ? "2mm" : "8px"};
     }
     #${id} .totals .total .label { font-size: ${fontSize.totalLabel}; font-weight: 800; color: #111827; }
-    #${id} .totals .total .value { font-size: ${fontSize.totalLabel}; font-weight: 900; color: ${accent}; }
+    #${id} .totals .total .value { font-size: ${fontSize.totalLabel}; font-weight: 900; color: ${primary}; }
     #${id} .body { flex: 1; }
     #${id} .footer { margin-top: auto; padding-top: ${isPdf ? "4mm" : "14px"}; }
     #${id} .banking { font-size: ${fontSize.small}; line-height: 1.4; color: #4b5563; }
@@ -345,50 +403,115 @@ export const UnifiedInvoiceLayout = ({
       border-top: 1px solid #e5e7eb;
     }
 
-    /* ── Style: modern ── */
+    /* ── Style: modern (Split Header) ── */
     ${
       templateStyle === "modern"
         ? `
+      /* Header: no own background — left/right panels carry their own */
       #${id} .header {
-        background: ${styleConfig.headerBg};
-        color: ${styleConfig.headerTextColor};
-        padding: ${isPdf ? "5mm" : "20px"};
-        margin: ${isPdf ? `-${STANDARD_MARGIN_MM}mm -${STANDARD_MARGIN_MM}mm 4mm -${STANDARD_MARGIN_MM}mm` : "-24px -24px 16px -24px"};
+        background: transparent;
+        padding: 0;
+        gap: 0;
+        align-items: stretch;
         height: auto;
-        box-sizing: content-box;
+        min-height: unset;
+        margin: ${isPdf ? `-${STANDARD_MARGIN_MM}mm -${STANDARD_MARGIN_MM}mm 0 -${STANDARD_MARGIN_MM}mm` : "-24px -24px 0 -24px"};
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      #${id} .header .company,
-      #${id} .header .company strong,
-      #${id} .header .meta,
-      #${id} .header .meta .label,
-      #${id} .header .meta .value { color: ${styleConfig.headerTextColor}; }
-      #${id} .doc-title { color: ${styleConfig.headerTextColor}; font-weight: 900; }
+      /* Left panel — off-white, logo-safe */
+      #${id} .header-left {
+        flex: 0 0 56%;
+        background: #f4f6f8;
+        padding: ${isPdf ? `5mm 5mm 5mm ${STANDARD_MARGIN_MM}mm` : "20px 20px 20px 24px"};
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: auto;
+        min-height: ${isPdf ? "30mm" : "120px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      /* Right panel — brand color, document title */
+      #${id} .header-right {
+        flex: 1;
+        background: ${primary};
+        padding: ${isPdf ? `5mm ${STANDARD_MARGIN_MM}mm 5mm 8mm` : "20px 24px 20px 20px"};
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-end;
+        height: auto;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      /* Company text — dark on off-white panel */
+      #${id} .header .company { color: #4b5563; }
+      #${id} .header .company strong { color: #111827; font-weight: 700; }
+      /* Logo — no special treatment needed on off-white bg */
+      #${id} .logo { margin-bottom: ${isPdf ? "2mm" : "8px"}; }
+      /* Doc title — large white on brand-color panel */
+      #${id} .doc-title {
+        color: #ffffff !important;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        font-size: ${isPdf ? "20pt" : "28px"};
+        text-align: right;
+        text-transform: uppercase;
+        margin: 0;
+      }
+      /* Full-width brand-color divider — bleeds to page edges */
+      #${id} .divider {
+        border: none;
+        border-top: ${isPdf ? "3pt" : "4px"} solid ${primary};
+        margin: ${isPdf ? `0 -${STANDARD_MARGIN_MM}mm 5mm -${STANDARD_MARGIN_MM}mm` : "0 -24px 20px -24px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      /* Table header */
       #${id} table.items thead th {
         background: ${styleConfig.tableHeaderBg};
         color: ${styleConfig.tableHeaderColor};
         border-bottom: none;
+        letter-spacing: 0.07em;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      #${id} table.items tbody tr:nth-child(even) { background: ${styleConfig.rowAltBg}; }
+      /* Striped rows — capped at ~6% so vivid brand colors don't saturate */
+      #${id} table.items tbody tr:nth-child(even) td {
+        background: ${primary}0f;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      /* Totals total row */
       #${id} .totals .total {
         background: ${styleConfig.totalBg};
         color: ${styleConfig.totalTextColor};
         padding: ${isPdf ? "2mm 3mm" : "8px 12px"};
         border-radius: ${isPdf ? "1mm" : "4px"};
-        border-top: none;
+        border-top: none !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       #${id} .totals .total .label,
       #${id} .totals .total .value { color: ${styleConfig.totalTextColor}; }
 
+      /* Invoice aside — brand top-border variant (echoes the divider) */
+      #${id} .invoice-aside {
+        border: 1px solid #e5e7eb;
+        border-top: ${isPdf ? "3pt" : "3px"} solid ${primary};
+        border-radius: ${isPdf ? "0 0 1mm 1mm" : "0 0 4px 4px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .aside-row { border-bottom-color: ${primary}18; }
+      #${id} .aside-amount { border-top-color: ${primary}28; background: ${primary}0d; -webkit-print-color-adjust: exact !important; }
+      #${id} .aside-amount .aside-value { color: ${primary}; font-weight: 700; }
+
       /* Banking — modern */
       #${id} .banking {
-        background: ${primary}0e;
-        border: 1px solid ${primary}28;
+        background: ${primary}0c;
+        border: 1px solid ${primary}30;
         padding: ${isPdf ? "2.5mm 4mm" : "10px 16px"};
         border-radius: ${isPdf ? "1mm" : "4px"};
         -webkit-print-color-adjust: exact !important;
@@ -398,14 +521,14 @@ export const UnifiedInvoiceLayout = ({
 
       /* VAT Summary — modern */
       #${id} .vat-summary-section {
-        background: ${primary}10 !important;
-        border: 1px solid ${primary}30 !important;
+        background: ${primary}08 !important;
+        border: 1px solid ${primary}28 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       #${id} .vat-summary-section .section-label { color: ${primary}; font-weight: 700; }
-      #${id} table.vat-summary thead th { color: ${primary}; border-bottom: 1px solid ${primary}30; }
-      #${id} .vat-total-row { background: ${primary}20 !important; }
+      #${id} table.vat-summary thead th { color: ${primary}; border-bottom: 1px solid ${primary}28; }
+      #${id} .vat-total-row { background: ${primary}18 !important; }
       #${id} .vat-total-row td { color: ${primary} !important; }
     `
         : ""
@@ -428,28 +551,53 @@ export const UnifiedInvoiceLayout = ({
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      #${id} .doc-title { color: ${styleConfig.brandColor}; font-weight: 800; }
+      #${id} .doc-title { color: ${styleConfig.brandColor}; font-weight: 800; letter-spacing: 0.1em; }
+      #${id} .meta .row:first-child .value { color: ${primary}; font-weight: 700; }
       #${id} table.items thead th {
         background: ${styleConfig.tableHeaderBg};
         color: ${styleConfig.tableHeaderColor};
         border-bottom: ${"tableHeaderBorder" in styleConfig ? styleConfig.tableHeaderBorder : "none"};
+        letter-spacing: 0.07em;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      #${id} table.items tbody tr:nth-child(even) { background: ${styleConfig.rowAltBg}; }
+      #${id} table.items tbody tr:nth-child(even) td { background: ${styleConfig.rowAltBg}; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      /* Invoice aside — professional */
+      #${id} .invoice-aside {
+        border-color: ${primary}20;
+        border-top: ${isPdf ? "2pt" : "3px"} solid ${primary};
+        border-radius: ${isPdf ? "0 0 1mm 1mm" : "0 0 4px 4px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .aside-row { border-bottom-color: ${primary}12; }
+      #${id} .aside-amount { border-top-color: ${primary}20; background: ${primary}06; }
+      #${id} .aside-amount .aside-value { color: ${primary}; }
+
+      #${id} .totals {
+        background: ${primary}04;
+        border: 1px solid ${primary}18;
+        border-radius: ${isPdf ? "1.5mm" : "6px"};
+        padding: ${isPdf ? "2mm 3mm" : "8px 12px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
       #${id} .totals .total {
         border-top: 2px solid ${styleConfig.brandColor};
-        padding: ${isPdf ? "2mm 0" : "8px 0"};
+        padding: ${isPdf ? "2.5mm 0" : "10px 0"};
         margin-top: ${isPdf ? "2mm" : "8px"};
       }
-      #${id} .totals .total .label { color: #111827; font-weight: 700; }
-      #${id} .totals .total .value { color: ${styleConfig.totalTextColor}; font-weight: 800; }
+      #${id} .totals .total .label { color: #111827; font-weight: 700; font-size: ${fontSize.totalLabel}; }
+      #${id} .totals .total .value { color: ${styleConfig.totalTextColor}; font-weight: 900; font-size: ${isPdf ? "13pt" : "17px"}; }
 
       /* Banking — professional */
       #${id} .banking {
-        border-top: ${isPdf ? "0.8mm" : "2px"} solid ${primary};
-        padding-top: ${isPdf ? "2.5mm" : "10px"};
-        background: transparent;
+        border: 1px solid ${primary}22;
+        padding: ${isPdf ? "2.5mm 3mm" : "10px 12px"};
+        background: ${primary}06;
+        border-radius: ${isPdf ? "1mm" : "4px"};
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       #${id} .banking .section-label { color: ${primary}; font-weight: 700; margin-bottom: ${isPdf ? "1.5mm" : "6px"}; }
 
@@ -482,35 +630,67 @@ export const UnifiedInvoiceLayout = ({
         background: transparent !important;
         padding-bottom: ${isPdf ? "5mm" : "20px"};
         margin-bottom: ${isPdf ? "4mm" : "16px"};
-        border: none !important;
+        border: none;
+        border-bottom: 1px solid #ececec;
         height: auto;
       }
-      #${id} .doc-title { font-weight: 400; letter-spacing: 0.15em; color: #6b7280; font-size: ${isPdf ? "14pt" : "20px"}; }
+      #${id} .doc-title {
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        color: #6b7280;
+        font-size: ${isPdf ? "14pt" : "20px"};
+      }
+      #${id} .doc-title::before {
+        content: '';
+        display: block;
+        width: ${isPdf ? "6mm" : "24px"};
+        height: ${isPdf ? "0.3mm" : "1px"};
+        background: #c4c4c4;
+        margin-left: auto;
+        margin-bottom: ${isPdf ? "2mm" : "8px"};
+      }
       #${id} .divider { display: none; }
       #${id} .section-label { color: #9ca3af; font-weight: 400; letter-spacing: 0.12em; }
       #${id} table.items thead th {
         background: transparent !important;
-        border-bottom: 1px solid #e5e7eb;
-        color: #9ca3af;
-        font-weight: 500;
+        border-bottom: 1px solid #d1d5db;
+        color: #4b5563;
+        font-weight: 600;
+        letter-spacing: 0.07em;
       }
-      #${id} table.items tbody td { border-bottom: 1px solid #f3f4f6; background: #ffffff; }
+      #${id} table.items tbody td { border-bottom: 1px solid #e5e7eb; background: #ffffff; }
       #${id} .totals { margin-top: ${isPdf ? "6mm" : "24px"}; padding-top: ${isPdf ? "3mm" : "12px"}; border-top: 1px solid #e5e7eb; }
       #${id} .totals .row .label { color: #6b7280; }
       #${id} .totals .row .value { color: #374151; }
       #${id} .totals .total { border-top: none; margin-top: ${isPdf ? "3mm" : "12px"}; padding-top: ${isPdf ? "2mm" : "8px"}; }
-      #${id} .totals .total .label { font-weight: 600; color: #374151; }
-      #${id} .totals .total .value { font-weight: 700; color: ${styleConfig.totalTextColor} !important; }
+      #${id} .totals .total .label { font-weight: 600; color: #374151; letter-spacing: 0.04em; }
+      #${id} .totals .total .value { font-weight: 800; color: ${styleConfig.totalTextColor} !important; }
+      /* Invoice aside — minimalist */
+      #${id} .invoice-aside {
+        border-color: #e5e7eb;
+        background: #fafafa;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #${id} .aside-row { border-bottom-color: #efefef; }
+      #${id} .aside-label { color: #9ca3af; letter-spacing: 0.08em; }
+      #${id} .aside-amount { border-top-color: #e5e7eb; background: transparent; }
+      #${id} .aside-amount .aside-label { color: #6b7280; }
+      #${id} .aside-amount .aside-value { color: ${primary}; font-weight: 800; }
+
       /* Banking — minimalist */
       #${id} .banking {
         margin-top: ${isPdf ? "4mm" : "16px"};
-        padding-top: ${isPdf ? "3mm" : "12px"};
-        border-top: 1px solid #e5e7eb;
-        background: transparent !important;
+        padding: ${isPdf ? "3mm" : "12px"};
+        border: 1px solid #e5e7eb;
+        border-radius: ${isPdf ? "1mm" : "4px"};
+        background: #fafafa !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       #${id} .banking .section-label { color: #9ca3af; font-weight: 400; letter-spacing: 0.1em; margin-bottom: ${isPdf ? "1.5mm" : "6px"}; }
       #${id} .banking .line strong { font-weight: 400; color: #9ca3af; }
-      #${id} .banking { color: #6b7280; }
+      #${id} .thanks { text-align: left; border-top: 1px solid #f0f0f0; color: #9ca3af; }
 
       /* VAT Summary — minimalist */
       #${id} .vat-summary-section {
@@ -529,11 +709,9 @@ export const UnifiedInvoiceLayout = ({
         border-bottom: 1px solid #e5e7eb;
         text-transform: lowercase;
       }
-      #${id} table.vat-summary tbody td { color: #6b7280; border-bottom: 1px solid #f3f4f6; }
+      #${id} table.vat-summary tbody td { color: #6b7280; border-bottom: 1px solid #e5e7eb; }
       #${id} .vat-total-row { background: transparent !important; }
       #${id} .vat-total-row td { color: ${primary} !important; font-weight: 600 !important; border-top: 1px solid #e5e7eb; }
-
-      #${id} .thanks { border-top: 1px solid #f3f4f6; color: #9ca3af; }
     `
         : ""
     }
@@ -557,6 +735,7 @@ export const UnifiedInvoiceLayout = ({
         ? `
       #${id} .divider { display: none; }
       #${id} .section-label { display: none; }
+      #${id} .billto .section-label { display: block; }
       #${id} .billto { margin-bottom: ${isPdf ? "5mm" : "20px"}; border-bottom: 1px solid #f3f4f6; padding-bottom: ${isPdf ? "3mm" : "12px"}; }
       #${id} .thanks { border-top: 1px solid #f3f4f6; }
     `
@@ -620,8 +799,8 @@ export const UnifiedInvoiceLayout = ({
     ${
       tableStyle === "minimal"
         ? `
-      #${id} table.items thead th { background: transparent !important; border-bottom: 1px solid #e5e7eb; color: #9ca3af; font-weight: 500; }
-      #${id} table.items tbody td { border-bottom: 1px solid #f3f4f6; }
+      #${id} table.items thead th { background: transparent !important; border-bottom: 1px solid #d1d5db; color: #4b5563; font-weight: 600; letter-spacing: 0.07em; }
+      #${id} table.items tbody td { border-bottom: 1px solid #e5e7eb; }
       #${id} table.items tbody tr:last-child td { border-bottom: none; }
     `
         : ""
@@ -685,8 +864,7 @@ export const UnifiedInvoiceLayout = ({
       ["--m-bottom" as any]: `${STANDARD_MARGIN_MM}mm`,
       ["--m-left" as any]: `${STANDARD_MARGIN_MM}mm`,
       ["--color-primary" as any]: primary,
-      ["--color-accent" as any]: accent,
-      ["--font" as any]: templateSettings?.fontFamily || "Inter",
+      ["--font" as any]: templateSettings?.fontFamily || "Figtree",
       ["--th-bg" as any]: styleConfig.tableHeaderBg,
     } as any),
   };
@@ -717,38 +895,51 @@ export const UnifiedInvoiceLayout = ({
             </div>
             <div className="header-right">
               <div className="doc-title">{documentType}</div>
-              <div className="meta">
-                <div className="row">
-                  <span className="label">No:</span>
-                  <span className="value">{invoiceData.invoiceNumber}</span>
-                </div>
-                <div className="row">
-                  <span className="label">Date:</span>
-                  <span className="value">{formatDate(invoiceData.invoiceDate)}</span>
-                </div>
-                <div className="row">
-                  <span className="label">Due:</span>
-                  <span className="value">{formatDate(invoiceData.dueDate)}</span>
-                </div>
-              </div>
             </div>
           </div>
 
           <hr className="divider" />
 
-          {/* BILL TO */}
-          <div className="address-block billto">
-            <div className="section-label">Bill To</div>
-            <div className="customer-name">{invoiceData.customer.name}</div>
-            <div className="customer-info">
-              {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
-              {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
-              {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
-              {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
-              {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
-                <div className="desc">{invoiceData.customer.address}</div>
-              )}
-              {invoiceData.customer.vat_number && <div>VAT No: {invoiceData.customer.vat_number}</div>}
+          {/* INFO ROW — Bill To (left) + Invoice reference aside (right) */}
+          <div className="info-row">
+            <div className="info-left">
+              <div className="address-block billto">
+                <div className="section-label">Bill To</div>
+                <div className="customer-name">{invoiceData.customer.name}</div>
+                <div className="customer-info">
+                  {invoiceData.customer.address_line1 && <div>{invoiceData.customer.address_line1}</div>}
+                  {invoiceData.customer.address_line2 && <div>{invoiceData.customer.address_line2}</div>}
+                  {invoiceData.customer.locality && <div>{invoiceData.customer.locality}</div>}
+                  {invoiceData.customer.post_code && <div>{invoiceData.customer.post_code}</div>}
+                  {!invoiceData.customer.address_line1 && invoiceData.customer.address && (
+                    <div>{invoiceData.customer.address}</div>
+                  )}
+                  {invoiceData.customer.email && <div>{invoiceData.customer.email}</div>}
+                  {invoiceData.customer.vat_number && <div>VAT No: {invoiceData.customer.vat_number}</div>}
+                </div>
+              </div>
+            </div>
+            <div className="info-right">
+              <div className="invoice-aside">
+                <div className="aside-row">
+                  <span className="aside-label">No</span>
+                  <span className="aside-value">{invoiceData.invoiceNumber}</span>
+                </div>
+                <div className="aside-row">
+                  <span className="aside-label">Issue Date</span>
+                  <span className="aside-value">{formatDate(invoiceData.invoiceDate)}</span>
+                </div>
+                <div className="aside-row">
+                  <span className="aside-label">{documentType === "QUOTATION" ? "Valid Until" : "Due Date"}</span>
+                  <span className="aside-value">{formatDate(invoiceData.dueDate)}</span>
+                </div>
+                <div className="aside-row aside-amount">
+                  <span className="aside-label">
+                    {documentType === "CREDIT NOTE" ? "Credit Total" : documentType === "QUOTATION" ? "Quote Total" : "Amount Due"}
+                  </span>
+                  <span className="aside-value">{money(invoiceData.totals.grandTotal)}</span>
+                </div>
+              </div>
             </div>
           </div>
 

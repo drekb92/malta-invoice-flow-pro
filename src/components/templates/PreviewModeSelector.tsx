@@ -1,4 +1,4 @@
-import { Monitor, Printer, Smartphone, SplitSquareVertical } from "lucide-react";
+import { Monitor, SplitSquareVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export type PreviewMode = 'desktop' | 'print' | 'mobile' | 'comparison';
+export type PreviewMode = 'desktop' | 'comparison';
 
 interface PreviewModeSelectorProps {
   mode: PreviewMode;
@@ -16,9 +16,7 @@ interface PreviewModeSelectorProps {
 
 export function PreviewModeSelector({ mode, onModeChange }: PreviewModeSelectorProps) {
   const modes = [
-    { id: 'desktop' as const, icon: Monitor, label: 'Desktop Preview' },
-    { id: 'print' as const, icon: Printer, label: 'Print Preview (A4)' },
-    { id: 'mobile' as const, icon: Smartphone, label: 'Mobile Preview' },
+    { id: 'desktop' as const, icon: Monitor, label: 'Preview' },
     { id: 'comparison' as const, icon: SplitSquareVertical, label: 'Side-by-Side' },
   ];
 

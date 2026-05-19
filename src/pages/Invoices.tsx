@@ -1160,8 +1160,8 @@ const Invoices = () => {
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
           <link
             href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(
-              template?.font_family || "Inter",
-            )}:wght@400;600;700&display=swap`}
+              template?.font_family || "Figtree",
+            )}:wght@300;400;500;600;700;800;900&display=swap`}
             rel="stylesheet"
           />
         </div>
@@ -1213,7 +1213,6 @@ const Invoices = () => {
                 }}
                 templateSettings={{
                   primaryColor: template.primary_color,
-                  accentColor: template.accent_color,
                   fontFamily: template.font_family,
                   fontSize: template.font_size,
                   layout: template?.layout || "default",

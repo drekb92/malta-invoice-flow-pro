@@ -25,17 +25,16 @@ export const useInvoiceTemplate = (): UseInvoiceTemplateReturn => {
       console.log('[useInvoiceTemplate] Template loaded:', loadedTemplate);
       
       // Validate template has required fields
-      if (!loadedTemplate.primary_color || !loadedTemplate.accent_color) {
-        console.warn('[useInvoiceTemplate] Template missing required color fields, using defaults');
+      if (!loadedTemplate.primary_color) {
+        console.warn('[useInvoiceTemplate] Template missing primary color, using default');
       }
       
       // Normalize template with defaults
       const normalizedTemplate = {
         ...loadedTemplate,
-        font_family: loadedTemplate.font_family || 'Inter',
+        font_family: loadedTemplate.font_family || 'Figtree',
         font_size: loadedTemplate.font_size || '14px',
         primary_color: loadedTemplate.primary_color || '#26A65B',
-        accent_color: loadedTemplate.accent_color || '#1F2D3D',
         layout: loadedTemplate.layout || 'default',
         header_layout: loadedTemplate.header_layout || 'default',
         table_style: loadedTemplate.table_style || 'default',
@@ -92,7 +91,6 @@ export const validateTemplateInvoiceData = (
   if (template && invoiceData) {
     // Check required template fields
     if (!template.primary_color) errors.push('Template missing primary color');
-    if (!template.accent_color) errors.push('Template missing accent color');
     if (!template.font_family) errors.push('Template missing font family');
     
     // Check required invoice fields

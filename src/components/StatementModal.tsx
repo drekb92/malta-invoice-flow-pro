@@ -67,8 +67,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     template
       ? {
           primaryColor: template.primary_color || "#1e3a5f",
-          accentColor: template.accent_color || "#26A65B",
-          fontFamily: template.font_family || "Inter",
+          fontFamily: template.font_family || "Figtree",
           style: (template.style as "modern" | "professional" | "minimalist") || "modern",
           headerLayout: template.header_layout || "default",
           tableStyle: template.table_style || "default",
@@ -227,7 +226,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
     setIsGeneratingPdf(true);
     await new Promise((resolve) => setTimeout(resolve, 100));
     try {
-      await downloadPdfFromFunction(filename, template?.font_family || "Inter");
+      await downloadPdfFromFunction(filename, template?.font_family || "Figtree");
     } finally {
       setIsGeneratingPdf(false);
       setStatementData(null);
@@ -323,7 +322,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
 
       await new Promise((resolve) => setTimeout(resolve, 150));
 
-      const html = await prepareHtmlForPdf(stmtNumber, template?.font_family || "Inter");
+      const html = await prepareHtmlForPdf(stmtNumber, template?.font_family || "Figtree");
 
       const { data: shareData, error: shareError } = await supabase.functions.invoke("create-document-share-link", {
         body: {
@@ -611,7 +610,7 @@ export const StatementModal = ({ open, onOpenChange, customer }: StatementModalP
         customer={{ id: customer.id, name: customer.name, email: customer.email }}
         companyName={companySettings?.company_name || "Your Company"}
         userId={user?.id || ""}
-        fontFamily={template?.font_family || "Inter"}
+        fontFamily={template?.font_family || "Figtree"}
         onSuccess={() => {
           toast({ title: "Statement Sent", description: `Statement emailed to ${customer.email}` });
         }}

@@ -160,7 +160,7 @@ export const SendReminderDialog = ({
       userId,
       totalAmount: invoiceAmount,
       dueDate: dueDate || undefined,
-      fontFamily: "Inter",
+      fontFamily: "Figtree",
       // The message is built inside useWhatsApp — but we can pass a body override
       // by opening WhatsApp with the template body as the message text
     });

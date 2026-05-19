@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   X,
+  Plus,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useEffect, useMemo } from "react";
@@ -37,6 +38,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { CreditNote as CreditNoteType } from "@/types/invoice-compliance";
 import { TransactionDrawer } from "@/components/TransactionDrawer";
+import { CreateCreditNoteDrawer } from "@/components/CreateCreditNoteDrawer";
 import { UnifiedInvoiceLayout, InvoiceData } from "@/components/UnifiedInvoiceLayout";
 import { SendWhatsAppDialog } from "@/components/SendWhatsAppDialog";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
@@ -77,6 +79,9 @@ const CreditNotes = () => {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [bulkLoading, setBulkLoading] = useState(false);
 
+  // Standalone credit note drawer
+  const [standaloneDrawerOpen, setStandaloneDrawerOpen] = useState(false);
+
   // PDF download state
   const [pdfCreditNoteData, setPdfCreditNoteData] = useState<InvoiceData | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -103,7 +108,6 @@ const CreditNotes = () => {
     template
       ? {
           primaryColor: template.primary_color,
-          accentColor: template.accent_color,
           fontFamily: template.font_family,
           fontSize: template.font_size,
           layout: template.layout as any,
@@ -419,6 +423,10 @@ const CreditNotes = () => {
                 <h1 className="text-2xl font-bold text-foreground">Credit Notes</h1>
                 <p className="text-muted-foreground">Manage Malta VAT-compliant credit notes for invoice corrections</p>
               </div>
+              <Button onClick={() => setStandaloneDrawerOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Credit Note
+              </Button>
             </div>
           </div>
         </header>
@@ -598,14 +606,20 @@ const CreditNotes = () => {
                             </div>
                             <div>
                               <p className="text-sm font-medium">No credit notes yet</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">Credit notes are created from issued invoices — open an invoice and use ··· More Actions</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">Create a general customer credit, or link one to an issued invoice.</p>
                             </div>
-                            <Button asChild size="sm" variant="outline">
-                              <Link to="/invoices">
-                                <FileText className="h-3.5 w-3.5 mr-1.5" />
-                                Go to Invoices
-                              </Link>
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" onClick={() => setStandaloneDrawerOpen(true)}>
+                                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                                New Credit Note
+                              </Button>
+                              <Button asChild size="sm" variant="outline">
+                                <Link to="/invoices">
+                                  <FileText className="h-3.5 w-3.5 mr-1.5" />
+                                  Go to Invoices
+                                </Link>
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </TableCell>
@@ -717,10 +731,11 @@ const CreditNotes = () => {
                 preserve the integrity of the original invoice while providing a formal correction.
               </p>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>Credit notes must reference the original invoice</li>
+                <li><strong>Invoice adjustment</strong>: corrects a specific issued invoice and references it explicitly</li>
+                <li><strong>Customer credit</strong>: a general balance credit not tied to any invoice (e.g. goodwill, prepayment)</li>
                 <li>All credit notes are tracked for audit purposes</li>
-                <li>Status changes from Draft → Issued → Applied</li>
-                <li>Each credit note reduces the outstanding amount of the original invoice</li>
+                <li>Status changes from Draft → Issued</li>
+                <li>VAT-bearing credit notes that adjust output tax must reference the original invoice per EU VAT Directive</li>
               </ul>
             </CardContent>
           </Card>
@@ -808,6 +823,17 @@ const CreditNotes = () => {
           previewAvailable={true}
         />
       )}
+
+      {/* Standalone credit note drawer */}
+      <CreateCreditNoteDrawer
+        open={standaloneDrawerOpen}
+        onOpenChange={setStandaloneDrawerOpen}
+        defaultType="customer_credit"
+        onSuccess={() => {
+          setStandaloneDrawerOpen(false);
+          fetchCreditNotes();
+        }}
+      />
 
       {/* WhatsApp dialog */}
       {whatsappCreditNote && user && (

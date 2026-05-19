@@ -49,7 +49,6 @@ export type DocumentTemplateStyle = "modern" | "professional" | "minimalist";
  */
 export interface DocumentTemplateSettings {
   primaryColor?: string;
-  accentColor?: string;
   fontFamily?: string;
   fontSize?: string;
   layout?: string;
@@ -83,7 +82,7 @@ export const STANDARD_LOGO_MAX_HEIGHT_MM = 18;
 export const STANDARD_LOGO_MAX_WIDTH_MM = 45;
 
 /** Standard font stack fallback — same for all documents */
-export const STANDARD_FONT_STACK = "Inter, Helvetica Neue, Helvetica, Arial, sans-serif";
+export const STANDARD_FONT_STACK = "Figtree, Helvetica Neue, Helvetica, Arial, sans-serif";
 
 // ─── Shared formatters ───────────────────────────────────────────────────────
 
@@ -134,13 +133,13 @@ export function getDocumentStyleConfig(style: DocumentTemplateStyle, primaryColo
 
     case "professional":
       return {
-        headerBg: "#ffffff",
+        headerBg: "#f8fafc",
         headerTextColor: "#111827",
-        headerBorderStyle: `${isPdf ? "1.2mm" : "4px"} solid ${primaryColor}`,
+        headerBorderStyle: `${isPdf ? "1.5mm" : "6px"} solid ${primaryColor}`,
         tableHeaderBg: "#f9fafb",
         tableHeaderColor: "#374151",
         tableHeaderBorder: `2px solid ${primaryColor}`,
-        rowAltBg: "#f9fafb",
+        rowAltBg: "#f0f4f8",
         totalBg: "transparent",
         totalTextColor: primaryColor,
         brandColor: primaryColor,

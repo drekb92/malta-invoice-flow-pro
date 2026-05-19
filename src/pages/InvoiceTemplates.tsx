@@ -42,7 +42,6 @@ interface InvoiceTemplate {
   name: string;
   is_default: boolean;
   primary_color: string;
-  accent_color: string;
   font_family: string;
   font_size: string;
   layout?: "default" | "cleanMinimal" | "compact";
@@ -72,8 +71,7 @@ const designPresets = [
     color: "#2563eb",
     settings: {
       primary_color: "#2563eb",
-      accent_color: "#1e40af",
-      font_family: "Inter",
+      font_family: "Archivo",
       font_size: "14px",
       layout: "default" as const,
       header_layout: "default" as const,
@@ -90,8 +88,7 @@ const designPresets = [
     color: "#7c3aed",
     settings: {
       primary_color: "#7c3aed",
-      accent_color: "#6d28d9",
-      font_family: "Inter",
+      font_family: "Barlow",
       font_size: "14px",
       layout: "cleanMinimal" as const,
       header_layout: "logo-right" as const,
@@ -108,8 +105,7 @@ const designPresets = [
     color: "#059669",
     settings: {
       primary_color: "#059669",
-      accent_color: "#047857",
-      font_family: "Inter",
+      font_family: "Figtree",
       font_size: "14px",
       layout: "default" as const,
       header_layout: "default" as const,
@@ -126,8 +122,7 @@ const designPresets = [
     color: "#64748b",
     settings: {
       primary_color: "#64748b",
-      accent_color: "#475569",
-      font_family: "Inter",
+      font_family: "Barlow",
       font_size: "14px",
       layout: "cleanMinimal" as const,
       header_layout: "default" as const,
@@ -140,12 +135,11 @@ const designPresets = [
   {
     id: "corporate",
     name: "Corporate",
-    description: "Lato font, logo right",
+    description: "Archivo, logo right",
     color: "#1e40af",
     settings: {
       primary_color: "#1e40af",
-      accent_color: "#1e3a8a",
-      font_family: "Lato",
+      font_family: "Archivo",
       font_size: "14px",
       layout: "default" as const,
       header_layout: "logo-right" as const,
@@ -171,6 +165,7 @@ const stylePresets = [
       table_style: "default" as const,
       totals_style: "default" as const,
       banking_style: "default" as const,
+      font_family: "Archivo",
     },
   },
   {
@@ -183,6 +178,7 @@ const stylePresets = [
       table_style: "striped" as const,
       totals_style: "boxed" as const,
       banking_style: "boxed" as const,
+      font_family: "Sora",
     },
   },
   {
@@ -195,6 +191,7 @@ const stylePresets = [
       table_style: "minimal" as const,
       totals_style: "default" as const,
       banking_style: "minimal" as const,
+      font_family: "Barlow",
     },
   },
 ];
@@ -288,8 +285,7 @@ const InvoiceTemplates = () => {
             name: "Default Template",
             is_default: true,
             primary_color: "#26A65B",
-            accent_color: "#1F2D3D",
-            font_family: "Inter",
+            font_family: "Figtree",
             font_size: "14px",
             layout: "default",
             header_layout: "default",
@@ -365,7 +361,6 @@ const InvoiceTemplates = () => {
         .from("invoice_templates")
         .update({
           primary_color: currentSettings.primary_color,
-          accent_color: currentSettings.accent_color,
           font_family: currentSettings.font_family,
           font_size: currentSettings.font_size,
           layout: currentSettings.layout,
@@ -411,7 +406,7 @@ const InvoiceTemplates = () => {
   const handleSaveAndTest = async () => {
     await handleSave();
     try {
-      await downloadPdfFromFunction("invoice-template-test", currentSettings.font_family || "Inter");
+      await downloadPdfFromFunction("invoice-template-test", currentSettings.font_family || "Figtree");
       toast({ title: "Test PDF generated", description: "Sample PDF downloaded." });
     } catch (error: any) {
       toast({
@@ -442,21 +437,19 @@ const InvoiceTemplates = () => {
   // ── Derived ─────────────────────────────────────────────────────────────────
   const templateForPreview = {
     primary_color: currentSettings.primary_color || "#26A65B",
-    accent_color: currentSettings.accent_color || "#1F2D3D",
-    font_family: currentSettings.font_family || "Inter",
+    font_family: currentSettings.font_family || "Figtree",
     font_size: currentSettings.font_size || "14px",
   };
 
   const { data: sampleInvoiceData } = useInvoicePreview({ useSampleData: true });
   const isPreviewLoading = isLoading || loadingCompany || loadingBanking;
   const getGoogleFontHref = (family: string) =>
-    `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family.trim())}:wght@400;600;700&display=swap`;
-  const previewWidth = previewMode === "mobile" ? "375px" : previewMode === "print" ? "210mm" : "794px";
+    `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family.trim())}:wght@300;400;500;600;700;800;900&display=swap`;
+  const previewWidth = "794px";
 
   const buildTemplateSettings = (overrides: Partial<InvoiceTemplate> = {}) => ({
     primaryColor: overrides.primary_color || currentSettings.primary_color || "#26A65B",
-    accentColor: overrides.accent_color || currentSettings.accent_color || "#1F2D3D",
-    fontFamily: overrides.font_family || currentSettings.font_family || "Inter",
+    fontFamily: overrides.font_family || currentSettings.font_family || "Figtree",
     fontSize: overrides.font_size || currentSettings.font_size || "14px",
     layout: currentSettings.layout || "default",
     headerLayout: currentSettings.header_layout || "default",
@@ -497,6 +490,7 @@ const InvoiceTemplates = () => {
           swiftCode: bankingSettings.bank_swift_code || "",
         }
       : undefined,
+    notesText: "Payment due within 30 days. Please include the invoice number as a reference.",
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -743,7 +737,7 @@ const InvoiceTemplates = () => {
 
                     {/* Font */}
                     <FontPreviewSelect
-                      value={currentSettings.font_family || "Inter"}
+                      value={currentSettings.font_family || "Figtree"}
                       onChange={(v) => updateSetting("font_family", v)}
                     />
 
@@ -781,24 +775,6 @@ const InvoiceTemplates = () => {
                     </button>
                     {showAdvanced && (
                       <div className="mt-4 space-y-4">
-                        {/* Accent colour */}
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">Accent Colour</Label>
-                          <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border/60 bg-muted/20">
-                            <div
-                              className="w-8 h-8 rounded border border-border cursor-pointer relative overflow-hidden shrink-0"
-                              style={{ backgroundColor: currentSettings.accent_color || "#1F2D3D" }}
-                            >
-                              <Input
-                                type="color"
-                                value={currentSettings.accent_color || "#1F2D3D"}
-                                onChange={(e) => updateSetting("accent_color", e.target.value)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                              />
-                            </div>
-                            <p className="text-xs font-mono text-muted-foreground">{currentSettings.accent_color || "#1F2D3D"}</p>
-                          </div>
-                        </div>
                         {/* Visibility toggles */}
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
@@ -942,9 +918,9 @@ const InvoiceTemplates = () => {
                   </div>
                   <div
                     className="bg-white shadow-xl rounded-sm overflow-hidden w-full"
-                    style={{ maxWidth: "500px", fontFamily: selectedTemplate?.font_family || "Inter" }}
+                    style={{ maxWidth: "500px", fontFamily: selectedTemplate?.font_family || "Figtree" }}
                   >
-                    <link rel="stylesheet" href={getGoogleFontHref(selectedTemplate?.font_family || "Inter")} />
+                    <link rel="stylesheet" href={getGoogleFontHref(selectedTemplate?.font_family || "Figtree")} />
                     {selectedTemplate && (
                       <UnifiedInvoiceLayout
                         {...sharedLayoutBase}
@@ -968,12 +944,12 @@ const InvoiceTemplates = () => {
                     className="bg-white shadow-xl rounded-sm border-2 overflow-hidden w-full"
                     style={{
                       maxWidth: "500px",
-                      fontFamily: currentSettings.font_family || "Inter",
+                      fontFamily: currentSettings.font_family || "Figtree",
                       borderColor: currentSettings.primary_color || "#26A65B",
                       boxShadow: `0 10px 30px -8px ${currentSettings.primary_color || "#26A65B"}40`,
                     }}
                   >
-                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
+                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Figtree")} />
                     <UnifiedInvoiceLayout {...sharedLayoutBase} templateSettings={buildTemplateSettings()} />
                   </div>
                 </div>
@@ -997,12 +973,11 @@ const InvoiceTemplates = () => {
                     className="bg-white shadow-2xl rounded-sm overflow-hidden transition-all duration-300"
                     style={{
                       width: previewWidth,
-                      minHeight: previewMode === "print" ? "297mm" : "auto",
-                      fontFamily: currentSettings.font_family || "Inter",
+                      fontFamily: currentSettings.font_family || "Figtree",
                       boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)",
                     }}
                   >
-                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Inter")} />
+                    <link rel="stylesheet" href={getGoogleFontHref(currentSettings.font_family || "Figtree")} />
                     <UnifiedInvoiceLayout {...sharedLayoutBase} templateSettings={buildTemplateSettings()} />
                   </div>
                 </div>
@@ -1017,7 +992,7 @@ const InvoiceTemplates = () => {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(currentSettings.font_family || "Inter")}:wght@400;600;700&display=swap`}
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(currentSettings.font_family || "Figtree")}:wght@300;400;500;600;700;800;900&display=swap`}
           rel="stylesheet"
         />
       </div>

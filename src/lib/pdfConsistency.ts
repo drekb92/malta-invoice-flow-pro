@@ -54,7 +54,7 @@ export function validatePDFConsistency(
   if (!templateSettings) {
     errors.push('Template settings are missing');
   } else {
-    if (!templateSettings.primaryColor || !templateSettings.accentColor) {
+    if (!templateSettings.primaryColor) {
       warnings.push('Template colors are incomplete - will use defaults');
     }
     if (!templateSettings.fontFamily) {

@@ -62,7 +62,7 @@ export function SendWhatsAppDialog({
   customer,
   companyName,
   userId,
-  fontFamily = "Inter",
+  fontFamily = "Figtree",
   totalAmount,
   dueDate,
   validUntil,

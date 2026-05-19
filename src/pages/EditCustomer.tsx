@@ -254,6 +254,35 @@ const EditCustomer = () => {
       return;
     }
 
+    // ── Field validation ────────────────────────────────────────────────────────
+    const trimmedEmail = formData.email?.trim() || "";
+    const trimmedPhone = formData.phone?.trim() || "";
+    const trimmedVat   = (formData.vat_number?.trim() || "").replace(/\s/g, "").toUpperCase();
+
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      toast({ title: "Invalid email", description: "Please enter a valid email address (e.g. name@company.com)", variant: "destructive" });
+      return;
+    }
+    if (trimmedPhone) {
+      const startsWithMalta = trimmedPhone.startsWith("+356");
+      const localPart = startsWithMalta ? trimmedPhone.slice(4).replace(/\s/g, "") : "";
+      if (startsWithMalta && !/^\d{8}$/.test(localPart)) {
+        toast({ title: "Invalid phone", description: "Malta numbers must be 8 digits after +356 (e.g. +356 99123456)", variant: "destructive" });
+        return;
+      } else if (!startsWithMalta && !/^[+\d][\d\s\-().]{5,24}$/.test(trimmedPhone)) {
+        toast({ title: "Invalid phone", description: "Please enter a valid phone number including country code", variant: "destructive" });
+        return;
+      }
+    }
+    if (trimmedVat) {
+      const validVat = trimmedVat.startsWith("MT") ? /^MT\d{8}$/.test(trimmedVat) : /^\d{8}$/.test(trimmedVat);
+      if (!validVat) {
+        toast({ title: "Invalid VAT number", description: "Malta VAT: MT + 8 digits (e.g. MT12345678), or 8 digits only for exempt-registered", variant: "destructive" });
+        return;
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────────
+
     setSaving(true);
     setCodeError(null);
 

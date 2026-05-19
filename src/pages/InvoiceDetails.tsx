@@ -466,7 +466,7 @@ const InvoiceDetails = () => {
 
       const html = buildA4HtmlDocument({
         filename: `Invoice-${invoice.invoice_number}`,
-        fontFamily: template?.font_family || "Inter",
+        fontFamily: template?.font_family || "Figtree",
         clonedRoot: root.cloneNode(true) as HTMLElement,
       });
 
@@ -1263,7 +1263,6 @@ const InvoiceDetails = () => {
               }}
               templateSettings={{
                 primaryColor: template.primary_color,
-                accentColor: template.accent_color,
                 fontFamily: template.font_family,
                 fontSize: template.font_size,
                 layout: template?.layout || "default",

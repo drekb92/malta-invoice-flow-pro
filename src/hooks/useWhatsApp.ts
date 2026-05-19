@@ -143,7 +143,7 @@ export function useWhatsApp() {
       documentNumber,
       customerId,
       userId,
-      fontFamily = "Inter",
+      fontFamily = "Figtree",
       previewElementId = "invoice-preview-root",
     } = opts;
 

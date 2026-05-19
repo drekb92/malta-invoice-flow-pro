@@ -99,13 +99,13 @@ export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-
         boxSizing: 'border-box' as const,
         fontFamily: template.font_family,
         fontSize: `${fontSizeValue}px`,
-        color: template.accent_color,
+        color: template.primary_color,
         position: 'relative' as const,
       }
     : {
         fontFamily: template.font_family,
         fontSize: `${fontSizeValue}px`,
-        color: template.accent_color,
+        color: template.primary_color,
       };
   
   const containerClassName = variant === 'template' 
@@ -145,7 +145,7 @@ export const InvoiceHTML = ({ invoiceData, template, bankDetails, id = "invoice-
       <div className="mb-8">
         <h2 
           className="text-lg font-semibold mb-3"
-          style={{ color: template.accent_color }}
+          style={{ color: template.primary_color }}
         >
           Bill To:
         </h2>

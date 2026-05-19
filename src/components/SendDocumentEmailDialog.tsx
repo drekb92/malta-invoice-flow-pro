@@ -50,7 +50,7 @@ export function SendDocumentEmailDialog({
   customer,
   companyName,
   userId,
-  fontFamily = "Inter",
+  fontFamily = "Figtree",
   onSuccess,
   defaultSubjectOverride,
   defaultMessageOverride,

@@ -114,7 +114,18 @@ export function buildA4HtmlDocument(opts: { filename: string; fontFamily: string
     <title>${filename}</title>${debugComment}
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-      @page { size: A4; margin: 0; }
+      /* A4 with 15mm margins — bottom margin accommodates page counter */
+      @page { size: A4; margin: 15mm; }
+      /* Page counter — Chrome 131+ required for @page margin boxes.
+         Uses counter(page) only; counter(pages) for total is not yet reliably supported. */
+      @page {
+        @bottom-center {
+          content: "Page " counter(page);
+          font-family: '${fontFamily}', system-ui, sans-serif;
+          font-size: 7pt;
+          color: #9ca3af;
+        }
+      }
       html, body { margin: 0; padding: 0; }
       body {
         color-scheme: light;
@@ -126,7 +137,7 @@ export function buildA4HtmlDocument(opts: { filename: string; fontFamily: string
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=${encodedFamily}:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   </head>
   <body>
     ${clonedRoot.outerHTML}
@@ -155,7 +166,7 @@ async function exportViaPrintWindow(filename: string, selectedFontFamily?: strin
       throw new Error("Preview root not found (invoice-preview-root).");
     }
 
-    const fontFamily = selectedFontFamily || "Inter";
+    const fontFamily = selectedFontFamily || "Figtree";
 
     // Clone and inline images so logos render in the print window.
     const cloned = root.cloneNode(true) as HTMLElement;
@@ -204,7 +215,7 @@ export async function downloadPdfFromEdgeFunction(filename: string, selectedFont
   const root = document.getElementById("invoice-preview-root") as HTMLElement | null;
   if (!root) throw new Error("Preview root not found (invoice-preview-root).");
 
-  const family = selectedFontFamily || "Inter";
+  const family = selectedFontFamily || "Figtree";
   const cloned = root.cloneNode(true) as HTMLElement;
   await inlineImages(cloned);
 

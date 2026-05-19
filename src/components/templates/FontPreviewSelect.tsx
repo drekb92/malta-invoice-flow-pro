@@ -13,12 +13,12 @@ interface FontPreviewSelectProps {
 }
 
 const fontFamilies = [
-  { value: "Inter",       label: "Inter",       sample: "Clean & modern" },
-  { value: "Roboto",      label: "Roboto",      sample: "Neutral & versatile" },
-  { value: "Open Sans",   label: "Open Sans",   sample: "Friendly & readable" },
-  { value: "Montserrat",  label: "Montserrat",  sample: "Bold & geometric" },
-  { value: "Lato",        label: "Lato",        sample: "Elegant & balanced" },
-  { value: "Poppins",     label: "Poppins",     sample: "Rounded & contemporary" },
+  { value: "Figtree",     label: "Figtree",     sample: "Warm & precise" },
+  { value: "Archivo",     label: "Archivo",     sample: "Document-native" },
+  { value: "Barlow",      label: "Barlow",      sample: "Editorial & open" },
+  { value: "Sora",        label: "Sora",        sample: "Geometric & precise" },
+  { value: "Raleway",     label: "Raleway",     sample: "Refined & airy" },
+  { value: "Albert Sans", label: "Albert Sans", sample: "Swiss clean" },
 ];
 
 export function FontPreviewSelect({ value, onChange }: FontPreviewSelectProps) {

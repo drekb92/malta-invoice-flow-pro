@@ -31,7 +31,7 @@ import {
   X,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
@@ -116,6 +116,7 @@ const Quotations = () => {
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { template } = useInvoiceTemplate();
   const { settings: companySettings } = useCompanySettings();
@@ -158,7 +159,6 @@ const Quotations = () => {
     template
       ? {
           primaryColor: template.primary_color,
-          accentColor: template.accent_color,
           fontFamily: template.font_family,
           fontSize: template.font_size,
           layout: template.layout as any,
@@ -195,6 +195,7 @@ const Quotations = () => {
         (q) => q.valid_until < today && !["accepted", "converted", "expired"].includes(q.status),
       );
 
+      let finalList: typeof data;
       if (toExpire.length > 0) {
         await supabase
           .from("quotations")
@@ -204,12 +205,20 @@ const Quotations = () => {
             toExpire.map((q) => q.id),
           );
         const expiredIds = new Set(toExpire.map((q) => q.id));
-        const updated = (data || []).map((q) => (expiredIds.has(q.id) ? { ...q, status: "expired" } : q));
-        setQuotations(updated);
-        setFiltered(updated);
+        finalList = (data || []).map((q) => (expiredIds.has(q.id) ? { ...q, status: "expired" } : q));
       } else {
-        setQuotations(data || []);
-        setFiltered(data || []);
+        finalList = data || [];
+      }
+
+      setQuotations(finalList);
+      setFiltered(finalList);
+
+      // Auto-open drawer for a newly created quotation
+      const createdId = new URLSearchParams(window.location.search).get("created");
+      if (createdId) {
+        const found = finalList.find((q) => q.id === createdId);
+        if (found) setDrawerQuotation(found);
+        setSearchParams({}, { replace: true });
       }
     } catch (e) {
       toast({ title: "Error", description: "Failed to load quotations", variant: "destructive" });
@@ -443,7 +452,7 @@ const Quotations = () => {
 
       const html = buildA4HtmlDocument({
         filename: `Quotation-${quotation.quotation_number}`,
-        fontFamily: template?.font_family || "Inter",
+        fontFamily: template?.font_family || "Figtree",
         clonedRoot: cloned,
       });
 
@@ -748,7 +757,7 @@ const Quotations = () => {
       const { buildA4HtmlDocument } = await import("@/lib/edgePdf");
       const html = buildA4HtmlDocument({
         filename: `Invoice-${invoiceNumber}`,
-        fontFamily: template?.font_family || "Inter",
+        fontFamily: template?.font_family || "Figtree",
         clonedRoot: root.cloneNode(true) as HTMLElement,
       });
 
@@ -999,12 +1008,43 @@ const Quotations = () => {
                         <TableCell className="text-muted-foreground">{format(new Date(q.issue_date || q.created_at), "dd/MM/yyyy")}</TableCell>
                         <TableCell className="text-muted-foreground">{q.valid_until ? format(new Date(q.valid_until), "dd/MM/yyyy") : "-"}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1">
                             {q.status !== "converted" && (
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                                <Button size="sm" onClick={() => openConvertDialog(q)}>
-                                  <ArrowRight className="h-4 w-4 mr-2" />
-                                  Convert to Invoice
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2"
+                                  title="Download PDF"
+                                  onClick={() => handleDownloadPdf(q)}
+                                  disabled={isGeneratingPdf}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2"
+                                  title="Send Email"
+                                  onClick={() => handleSendEmail(q)}
+                                >
+                                  <Mail className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2"
+                                  title="Send WhatsApp"
+                                  onClick={() => handleSendWhatsApp(q)}
+                                  disabled={!!whatsappLoading}
+                                >
+                                  {whatsappLoading === q.id
+                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    : <MessageCircle className="h-3.5 w-3.5 text-green-600" />}
+                                </Button>
+                                <Button size="sm" className="h-7 text-xs" onClick={() => openConvertDialog(q)}>
+                                  <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                                  Convert
                                 </Button>
                               </div>
                             )}
@@ -1019,44 +1059,23 @@ const Quotations = () => {
                                   <Eye className="h-4 w-4 mr-2" />
                                   View
                                 </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link to={`/quotations/${q.id}/edit`}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDownloadPdf(q)}>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleSendEmail(q)}>
-                                  <Mail className="h-4 w-4 mr-2" />
-                                  Send Email
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleSendWhatsApp(q)}
-                                  disabled={whatsappLoading === q.id}
-                                >
-                                  {whatsappLoading === q.id ? (
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  ) : (
-                                    <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
-                                  )}
-                                  {whatsappLoading === q.id ? "Creating link..." : "Send WhatsApp"}
-                                </DropdownMenuItem>
                                 {q.status !== "converted" && (
-                                  <DropdownMenuItem onClick={() => openConvertDialog(q)}>
-                                    <ArrowRight className="h-4 w-4 mr-2" />
-                                    Convert to Invoice
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/quotations/${q.id}/edit`}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </Link>
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem
-                                  onClick={() => handleDelete(q.id)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
+                                {q.status !== "converted" && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleDelete(q.id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -1211,6 +1230,20 @@ const Quotations = () => {
         onConvertQuotation={(id) => {
           const q = quotations.find((qt) => qt.id === id);
           if (q) openConvertDialog(q);
+        }}
+        onSendEmail={() => {
+          if (drawerQuotation) {
+            const q = drawerQuotation;
+            setDrawerQuotation(null);
+            handleSendEmail(q);
+          }
+        }}
+        onSendWhatsApp={() => {
+          if (drawerQuotation) {
+            const q = drawerQuotation;
+            setDrawerQuotation(null);
+            handleSendWhatsApp(q);
+          }
         }}
       />
 

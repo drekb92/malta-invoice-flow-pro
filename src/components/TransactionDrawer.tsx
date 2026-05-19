@@ -639,7 +639,6 @@ export const TransactionDrawer = ({
             } : undefined}
             templateSettings={template ? {
               primaryColor: template.primary_color,
-              accentColor: template.accent_color,
               fontFamily: template.font_family,
               fontSize: template.font_size,
               layout: template.layout as any,

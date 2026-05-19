@@ -8,12 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Loader2, Trash2, Info, Plus, Lock, CheckCircle2, Mail, MessageCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Shield, Loader2, Trash2, Info, Plus, Lock, CheckCircle2, Mail, MessageCircle, ChevronsUpDown, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { supabase } from "@/integrations/supabase/client";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, cn } from "@/lib/utils";
 import { SendDocumentEmailDialog } from "@/components/SendDocumentEmailDialog";
 
 interface LineItem {
@@ -31,11 +33,17 @@ interface CreateCreditNoteDrawerProps {
   creditNoteId?: string | null;
   invoiceId?: string | null;
   invoiceNumber?: string | null;
-  customerId: string;
+  customerId?: string;
   customerName?: string;
   customerEmail?: string | null;
   defaultType?: "invoice_adjustment" | "customer_credit";
   onSuccess?: () => void;
+}
+
+interface CustomerOption {
+  id: string;
+  name: string;
+  email?: string | null;
 }
 
 interface ValidationErrors {
@@ -62,9 +70,9 @@ export function CreateCreditNoteDrawer({
   creditNoteId,
   invoiceId,
   invoiceNumber,
-  customerId,
-  customerName,
-  customerEmail,
+  customerId: customerIdProp,
+  customerName: customerNameProp,
+  customerEmail: customerEmailProp,
   defaultType = "invoice_adjustment",
   onSuccess,
 }: CreateCreditNoteDrawerProps) {
@@ -72,10 +80,23 @@ export function CreateCreditNoteDrawer({
   const { user } = useAuth();
   const { settings: companySettings } = useCompanySettings();
 
+  // Customer picker state (used when no customerId prop is provided)
+  const needsCustomerPicker = !customerIdProp && !creditNoteId;
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string>("");
+  const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string | null>(null);
+
+  // Resolved customer values (prop takes precedence over picker selection)
+  const customerId = customerIdProp || selectedCustomerId;
+  const customerName = customerNameProp || selectedCustomerName;
+  const customerEmail = customerEmailProp !== undefined ? customerEmailProp : selectedCustomerEmail;
+
   // Post-issue "send now" state
   const [issuedCreditNote, setIssuedCreditNote] = useState<{ id: string; number: string } | null>(null);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
-  
+
   // Mode: invoice-linked vs standalone
   const isStandalone = !invoiceId && !creditNoteId;
   
@@ -117,6 +138,18 @@ export function CreateCreditNoteDrawer({
   const isLocked = existingCreditNote?.status === "issued";
   const isEditMode = !!creditNoteId;
 
+  // Fetch customers for the picker when needed
+  useEffect(() => {
+    if (!open || !needsCustomerPicker) return;
+    supabase
+      .from("customers")
+      .select("id, name, email")
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        setCustomers((data || []) as CustomerOption[]);
+      });
+  }, [open, needsCustomerPicker]);
+
   // Reset form when drawer opens
   useEffect(() => {
     if (open) {
@@ -125,6 +158,10 @@ export function CreateCreditNoteDrawer({
       setExistingCreditNote(null);
       setIssuedCreditNote(null);
       setShowEmailDialog(false);
+      setSelectedCustomerId("");
+      setSelectedCustomerName("");
+      setSelectedCustomerEmail(null);
+      setCustomerPickerOpen(false);
 
       if (creditNoteId) {
         // Load existing credit note
@@ -453,6 +490,11 @@ export function CreateCreditNoteDrawer({
 
   // Submit handler
   const handleSubmit = async (action: "draft" | "issue") => {
+    if (needsCustomerPicker && !selectedCustomerId) {
+      toast({ title: "Please select a customer", variant: "destructive" });
+      return;
+    }
+
     if (action === "issue") {
       const errors = validateForm();
       setValidationErrors(errors);
@@ -618,7 +660,9 @@ export function CreateCreditNoteDrawer({
                 ? `For invoice ${invoiceNumber}`
                 : customerName
                   ? `For ${customerName}`
-                  : "New credit note"
+                  : needsCustomerPicker
+                    ? "Select a customer and enter credit details"
+                    : "New credit note"
             }
           </SheetDescription>
         </SheetHeader>
@@ -678,6 +722,54 @@ export function CreateCreditNoteDrawer({
                       <span>-€{formatNumber(existingCredits, 2)}</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Customer Picker (only when no customer is pre-selected) */}
+              {needsCustomerPicker && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Customer <span className="text-destructive">*</span>
+                  </Label>
+                  <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={customerPickerOpen}
+                        className={cn("w-full justify-between font-normal", !selectedCustomerId && "text-muted-foreground")}
+                        disabled={submitting}
+                      >
+                        {selectedCustomerName || "Select a customer…"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search customers…" />
+                        <CommandList>
+                          <CommandEmpty>No customers found.</CommandEmpty>
+                          <CommandGroup>
+                            {customers.map((c) => (
+                              <CommandItem
+                                key={c.id}
+                                value={c.name}
+                                onSelect={() => {
+                                  setSelectedCustomerId(c.id);
+                                  setSelectedCustomerName(c.name);
+                                  setSelectedCustomerEmail(c.email ?? null);
+                                  setCustomerPickerOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", selectedCustomerId === c.id ? "opacity-100" : "opacity-0")} />
+                                {c.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
 

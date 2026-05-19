@@ -281,6 +281,9 @@ const NewQuotation = () => {
           title: "Quotation created",
           description: "Quotation has been created.",
         });
+
+        navigate(`/quotations?created=${q.id}`);
+        return;
       }
 
       navigate("/quotations");

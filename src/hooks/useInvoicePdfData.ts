@@ -180,7 +180,6 @@ export function useInvoicePdfData(invoiceId: string | null, enabled: boolean) {
     // Map template settings
     const templateSettings: TemplateSettings = {
       primaryColor: template?.primary_color || undefined,
-      accentColor: template?.accent_color || undefined,
       fontFamily: template?.font_family || undefined,
       fontSize: template?.font_size || undefined,
       layout: template?.layout || undefined,

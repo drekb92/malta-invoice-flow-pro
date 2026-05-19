@@ -8,7 +8,7 @@ export interface InvoiceTemplate {
   name: string;
   is_default: boolean;
   primary_color: string;
-  accent_color: string;
+  accent_color?: string;
   font_family: string;
   font_size: string;
   layout?: "default" | "cleanMinimal" | "compact";
@@ -44,7 +44,7 @@ export interface InvoiceTemplate {
  */
 export const getStyleSettings = (style: TemplateStyle): Partial<InvoiceTemplate> => {
   // Standard font for all templates
-  const standardFont = "Inter";
+  const standardFont = "Figtree";
 
   switch (style) {
     case "modern":
@@ -109,7 +109,7 @@ export const getDefaultTemplate = async (style?: TemplateStyle): Promise<Invoice
         is_default: true,
         primary_color: "#26A65B",
         accent_color: "#1F2D3D",
-        font_family: "Inter",
+        font_family: "Figtree",
         font_size: "14px",
         layout: "default",
         header_layout: "default",
@@ -161,7 +161,7 @@ export const getDefaultTemplate = async (style?: TemplateStyle): Promise<Invoice
       is_default: true,
       primary_color: "#26A65B",
       accent_color: "#1F2D3D",
-      font_family: "Inter",
+      font_family: "Figtree",
       font_size: "14px",
       layout: "default",
       header_layout: "default",
