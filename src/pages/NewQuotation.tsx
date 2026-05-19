@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, ArrowLeft } from "lucide-react";
-import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useParams, useBlocker } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useInvoiceSettings } from "@/hooks/useInvoiceSettings";
 import { DocumentItem, validateDocumentItems, calculateQuotationTotals } from "@/lib/documentItems";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 
 interface Customer {
   id: string;
@@ -38,6 +40,19 @@ const NewQuotation = () => {
   const [items, setItems] = useState<QuotationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Autosave state
+  const [autosaveDraftId, setAutosaveDraftId] = useState<string | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSavingRef = useRef(false);
+  const autosaveDraftIdRef = useRef<string | null>(null);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  interface ResumeDraft { id: string; customerName: string; totalAmount: number; savedAt: Date; }
+  const [resumeDraft, setResumeDraft] = useState<ResumeDraft | null>(null);
+  const DRAFT_KEY = 'malta-quotation-draft';
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -46,6 +61,8 @@ const NewQuotation = () => {
   const { user } = useAuth();
   const { settings: companySettings } = useCompanySettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
+
+  const { blocker, confirmAndProceed, cancelNavigation } = useUnsavedChangesGuard(isDirty);
 
   const defaultVatRate = invoiceSettings?.vat_rate_standard
     ? invoiceSettings.vat_rate_standard / 100
@@ -181,7 +198,8 @@ const NewQuotation = () => {
     }
   }, [defaultVatRate, isEditMode]);
 
-  const addItem = () =>
+  const addItem = () => {
+    setIsDirty(true);
     setItems((prev) => [
       ...prev,
       {
@@ -192,14 +210,17 @@ const NewQuotation = () => {
         unit: "service",
       },
     ]);
+  };
 
   const removeItem = (index: number) => {
     if (items.length > 1) {
+      setIsDirty(true);
       setItems(items.filter((_, i) => i !== index));
     }
   };
 
   const updateItem = (index: number, field: keyof QuotationItem, value: string | number) => {
+    setIsDirty(true);
     const updated = [...items];
     updated[index] = {
       ...updated[index],
@@ -208,8 +229,113 @@ const NewQuotation = () => {
     setItems(updated);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performAutosave = useCallback(async () => {
+    if (isSavingRef.current) return;
+    const snap = { selectedCustomer, quotationNumber, issueDate, validUntil, items };
+    const hasContent = snap.selectedCustomer || snap.items.some(i => i.description.trim() || i.unit_price > 0);
+    if (!hasContent) return;
+
+    isSavingRef.current = true;
+    setAutosaveStatus('saving');
+    try {
+      const { net, vat, total } = calculateQuotationTotals(snap.items);
+      const payload = {
+        quotation_number: snap.quotationNumber,
+        customer_id: snap.selectedCustomer || null,
+        amount: net,
+        vat_amount: vat,
+        total_amount: total,
+        issue_date: snap.issueDate,
+        valid_until: snap.validUntil,
+        status: 'draft' as const,
+        user_id: user?.id,
+        vat_rate: 0.18,
+      };
+
+      if (autosaveDraftIdRef.current) {
+        await supabase.from('quotations').update(payload).eq('id', autosaveDraftIdRef.current);
+        await supabase.from('quotation_items').delete().eq('quotation_id', autosaveDraftIdRef.current);
+        await supabase.from('quotation_items').insert(
+          snap.items.map(i => ({ quotation_id: autosaveDraftIdRef.current!, ...i }))
+        );
+      } else {
+        const { data: q } = await supabase.from('quotations').insert([payload]).select('id').single();
+        if (q?.id) {
+          autosaveDraftIdRef.current = q.id;
+          setAutosaveDraftId(q.id);
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ id: q.id, savedAt: new Date() }));
+          navigate(`/quotations/${q.id}/edit`, { replace: true });
+          await supabase.from('quotation_items').insert(
+            snap.items.map(i => ({ quotation_id: q.id, ...i }))
+          );
+        }
+      }
+      setAutosaveStatus('saved');
+      setLastSavedAt(new Date());
+    } catch {
+      setAutosaveStatus('error');
+    } finally {
+      isSavingRef.current = false;
+    }
+  }, [user?.id, selectedCustomer, quotationNumber, issueDate, validUntil, items]);
+
+  // Debounced autosave — fires 3s after any field change (new mode only)
+  useEffect(() => {
+    if (isEditMode) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(performAutosave, 3000);
+    return () => { if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current); };
+  }, [selectedCustomer, issueDate, validUntil, items, isEditMode, performAutosave]);
+
+  // Flush autosave when tab hides
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'hidden' && !isEditMode) {
+        if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+        performAutosave();
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, [performAutosave, isEditMode]);
+
+  // Check for a saved draft on mount (new mode only)
+  useEffect(() => {
+    if (id || !user?.id) return;
+    const stored = localStorage.getItem(DRAFT_KEY);
+    if (!stored) return;
+    try {
+      const { id: draftId, savedAt } = JSON.parse(stored);
+      if (Date.now() - new Date(savedAt).getTime() > 7 * 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      supabase
+        .from('quotations')
+        .select('id, total_amount, customers(name)')
+        .eq('id', draftId)
+        .eq('status', 'draft')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setResumeDraft({
+              id: data.id,
+              customerName: (data.customers as any)?.name || 'No customer',
+              totalAmount: data.total_amount || 0,
+              savedAt: new Date(savedAt),
+            });
+            setShowResumeModal(true);
+          } else {
+            localStorage.removeItem(DRAFT_KEY);
+          }
+        });
+    } catch {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }, [id, user?.id]);
+
+  const performQuotationSave = async ({ skipNavigate = false } = {}) => {
     setLoading(true);
 
     try {
@@ -282,11 +408,18 @@ const NewQuotation = () => {
           description: "Quotation has been created.",
         });
 
-        navigate(`/quotations?created=${q.id}`);
-        return;
+        if (!skipNavigate) {
+          navigate(`/quotations?created=${q.id}`);
+          return;
+        }
       }
 
-      navigate("/quotations");
+      setIsDirty(false);
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      localStorage.removeItem(DRAFT_KEY);
+      autosaveDraftIdRef.current = null;
+      setAutosaveDraftId(null);
+      if (!skipNavigate) navigate("/quotations");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -298,9 +431,15 @@ const NewQuotation = () => {
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    performQuotationSave();
+  };
+
   const totals = calculateQuotationTotals(items);
 
   return (
+    <>
     <div className="min-h-screen bg-background">
       <Navigation />
 
@@ -320,6 +459,13 @@ const NewQuotation = () => {
                 </p>
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              {autosaveStatus === 'saving' && <span className="text-xs text-muted-foreground">Saving…</span>}
+              {autosaveStatus === 'saved' && lastSavedAt && (
+                <span className="text-xs text-muted-foreground">Draft saved {format(lastSavedAt, 'HH:mm')}</span>
+              )}
+              {autosaveStatus === 'error' && <span className="text-xs text-destructive">Autosave failed</span>}
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
@@ -332,7 +478,7 @@ const NewQuotation = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Customer *</Label>
-                    <Select value={selectedCustomer} onValueChange={(v) => setSelectedCustomer(v)}>
+                    <Select value={selectedCustomer} onValueChange={(v) => { setSelectedCustomer(v); setIsDirty(true); }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
@@ -351,7 +497,7 @@ const NewQuotation = () => {
                       <Label>Quotation Number *</Label>
                       <Input
                         value={quotationNumber}
-                        onChange={(e) => setQuotationNumber(e.target.value)}
+                        onChange={(e) => { setQuotationNumber(e.target.value); setIsDirty(true); }}
                         placeholder="QUO-000001"
                         required
                         readOnly={!isEditMode}
@@ -360,12 +506,12 @@ const NewQuotation = () => {
 
                     <div className="space-y-2">
                       <Label>Issue Date *</Label>
-                      <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} required />
+                      <Input type="date" value={issueDate} onChange={(e) => { setIssueDate(e.target.value); setIsDirty(true); }} required />
                     </div>
 
                     <div className="space-y-2">
                       <Label>Valid Until *</Label>
-                      <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} required />
+                      <Input type="date" value={validUntil} onChange={(e) => { setValidUntil(e.target.value); setIsDirty(true); }} required />
                     </div>
                   </div>
 
@@ -503,6 +649,55 @@ const NewQuotation = () => {
         </main>
       </div>
     </div>
+
+    <UnsavedChangesDialog
+      open={blocker.state === 'blocked'}
+      variant={(autosaveDraftId || autosaveDraftIdRef.current) && !isEditMode ? 'draft-autosave' : (isEditMode ? 'quotation-edit' : 'draft-no-autosave')}
+      onSaveDraft={async () => {
+        setIsDirty(false);
+        await performQuotationSave({ skipNavigate: true });
+        confirmAndProceed();
+      }}
+      onDiscard={async () => {
+        if (autosaveDraftIdRef.current && !isEditMode) {
+          await supabase.from('quotations').delete().eq('id', autosaveDraftIdRef.current);
+          localStorage.removeItem(DRAFT_KEY);
+        }
+        setIsDirty(false);
+        confirmAndProceed();
+      }}
+      onCancel={cancelNavigation}
+    />
+
+    {/* Resume draft modal */}
+    {showResumeModal && resumeDraft && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-background border border-border rounded-lg p-6 max-w-sm w-full mx-4 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Resume draft quotation?</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              A draft was saved on {format(resumeDraft.savedAt, 'PPP')} for {resumeDraft.customerName} (€{formatNumber(resumeDraft.totalAmount, 2)}).
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button className="w-full" onClick={() => { setShowResumeModal(false); navigate(`/quotations/${resumeDraft.id}/edit`); }}>
+              Continue editing
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => { localStorage.removeItem(DRAFT_KEY); setShowResumeModal(false); }}>
+              Keep draft &amp; start new
+            </Button>
+            <Button variant="destructive" className="w-full" onClick={async () => {
+              await supabase.from('quotations').delete().eq('id', resumeDraft.id);
+              localStorage.removeItem(DRAFT_KEY);
+              setShowResumeModal(false);
+            }}>
+              Discard draft
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +57,26 @@ export function CreateCreditNoteDialog({
   const [reason, setReason] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const { toast } = useToast();
+
+  const isDirty = amount !== '' || reason !== '' || description.trim() !== '';
+
+  const resetForm = () => {
+    setAmount('');
+    setReason('');
+    setDescription('');
+    setShowDiscardConfirm(false);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open && isDirty && !isSubmitting) {
+      setShowDiscardConfirm(true);
+      return;
+    }
+    if (!open) resetForm();
+    onOpenChange(open);
+  };
 
   const netAmount = parseFloat(amount) || 0;
   const vatAmount = netAmount * vatRate;
@@ -130,7 +150,8 @@ export function CreateCreditNoteDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[550px] bg-background border border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -263,7 +284,7 @@ export function CreateCreditNoteDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
           >
             Cancel
@@ -279,5 +300,17 @@ export function CreateCreditNoteDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <UnsavedChangesDialog
+      open={showDiscardConfirm}
+      variant="credit-note"
+      onSaveDraft={async () => {}}
+      onDiscard={() => {
+        resetForm();
+        onOpenChange(false);
+      }}
+      onCancel={() => setShowDiscardConfirm(false)}
+    />
+    </>
   );
 }

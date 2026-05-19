@@ -39,7 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus, Trash2, ArrowLeft, Download, Info, Shield, FileText, Library, Loader2, CheckCircle2, User, StickyNote } from "lucide-react";
-import { Link, useNavigate, useSearchParams, useParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useParams, useBlocker } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,6 +58,8 @@ import type { InvoiceWithCompliance } from '@/types/invoice-compliance';
 import { validateDocumentItems } from "@/lib/documentItems";
 import { ItemLibraryDrawer } from "@/components/invoice/ItemLibraryDrawer";
 import { RecurringScheduleCard } from "@/components/RecurringScheduleCard";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 
 // Type-safe RPC wrapper
 type RpcFunction = 'next_invoice_number' | 'next_credit_note_number';
@@ -151,6 +153,9 @@ const NewInvoice = () => {
   const autosaveDraftIdRef = useRef<string | null>(null);
   const autosaveInitializedRef = useRef(false);
 
+  // Unsaved changes guard
+  const [isDirty, setIsDirty] = useState(false);
+
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { id } = useParams();
@@ -161,6 +166,8 @@ const NewInvoice = () => {
   const { settings: companySettings } = useCompanySettings();
   const { settings: bankingSettings } = useBankingSettings();
   const { settings: invoiceSettings } = useInvoiceSettings();
+
+  const { blocker, confirmAndProceed, cancelNavigation } = useUnsavedChangesGuard(isDirty);
 
   const defaultVatRate = invoiceSettings?.vat_rate_standard
     ? invoiceSettings.vat_rate_standard / 100
@@ -638,15 +645,18 @@ const NewInvoice = () => {
 
   const addItem = () => {
     setItems([...items, { description: "", quantity: 1, unit_price: 0, vat_rate: defaultVatRate, unit: "service" }]);
+    setIsDirty(true);
   };
 
   const removeItem = (index: number) => {
     if (items.length > 1) {
       setItems(items.filter((_, i) => i !== index));
+      setIsDirty(true);
     }
   };
 
   const updateItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
+    setIsDirty(true);
     const updatedItems = [...items];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
     setItems(updatedItems);
@@ -731,7 +741,7 @@ const NewInvoice = () => {
     return { netTotal: round2(subtotal), discountAmount, taxable, vatTotal, grandTotal };
   };
 
-  const performSubmit = async (shouldIssue: boolean = false): Promise<string | null> => {
+  const performSubmit = async (shouldIssue: boolean = false, skipNavigate: boolean = false): Promise<string | null> => {
     // Cancel any pending autosave to avoid conflicts
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
 
@@ -882,6 +892,7 @@ const NewInvoice = () => {
         });
 
         localStorage.removeItem(DRAFT_KEY);
+        setIsDirty(false);
         navigate(shouldIssue
           ? `/invoices/${effectiveId}${setupRecurringAfterIssue ? "?recurring=1" : ""}`
           : "/invoices");
@@ -953,14 +964,15 @@ const NewInvoice = () => {
         });
 
         localStorage.removeItem(DRAFT_KEY);
-        navigate(shouldIssue
+        setIsDirty(false);
+        if (!skipNavigate) navigate(shouldIssue
           ? `/invoices/${invoice.id}${setupRecurringAfterIssue ? "?recurring=1" : ""}`
           : "/invoices");
         return finalInvoiceNumber;
       }
 
       localStorage.removeItem(DRAFT_KEY);
-      navigate("/invoices");
+      if (!skipNavigate) navigate("/invoices");
       return null;
     } catch (error) {
       let errorMessage = "An error occurred";
@@ -1186,7 +1198,7 @@ const NewInvoice = () => {
                         <Label htmlFor="customer" className="text-xs text-muted-foreground">Customer *</Label>
                         <Select
                           value={selectedCustomer}
-                          onValueChange={setSelectedCustomer}
+                          onValueChange={(v) => { setSelectedCustomer(v); setIsDirty(true); }}
                           disabled={isIssued}
                         >
                           <SelectTrigger className="mt-1 h-9">
@@ -1221,7 +1233,7 @@ const NewInvoice = () => {
                           id="invoiceDate"
                           type="date"
                           value={invoiceDate}
-                          onChange={(e) => setInvoiceDate(e.target.value)}
+                          onChange={(e) => { setInvoiceDate(e.target.value); setIsDirty(true); }}
                           required
                           disabled={isIssued}
                           className="mt-1 h-9"
@@ -1411,6 +1423,7 @@ const NewInvoice = () => {
                             onValueChange={(v) => {
                               setDiscountType(v as 'none' | 'amount' | 'percent');
                               if (v === 'none') setDiscountValue(0);
+                              setIsDirty(true);
                             }}
                             disabled={isIssued}
                           >
@@ -1441,6 +1454,7 @@ const NewInvoice = () => {
                                   v = Math.max(0, Math.min(totals.netTotal, v));
                                 }
                                 setDiscountValue(v);
+                                setIsDirty(true);
                               }}
                               disabled={isIssued}
                               placeholder="0"
@@ -1453,7 +1467,7 @@ const NewInvoice = () => {
                         {discountType !== 'none' && (
                           <Textarea
                             value={discountReason}
-                            onChange={(e) => setDiscountReason(e.target.value)}
+                            onChange={(e) => { setDiscountReason(e.target.value); setIsDirty(true); }}
                             placeholder="Reason (optional)"
                             disabled={isIssued}
                             className="h-12 text-xs resize-none"
@@ -1509,7 +1523,7 @@ const NewInvoice = () => {
                     <CardContent className="px-4 pb-4 pt-0">
                       <Textarea
                         value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
+                        onChange={(e) => { setNotes(e.target.value); setIsDirty(true); }}
                         placeholder="Optional — leave blank to use the company default from Settings."
                         disabled={isIssued}
                         className="text-sm resize-none"
@@ -1700,6 +1714,26 @@ const NewInvoice = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Unsaved Changes Navigation Guard */}
+      <UnsavedChangesDialog
+        open={blocker.state === 'blocked'}
+        variant={(autosaveDraftId || autosaveDraftIdRef.current) && !isEditMode ? 'draft-autosave' : 'draft-no-autosave'}
+        onSaveDraft={async () => {
+          setIsDirty(false);
+          await performSubmit(false, true);
+          confirmAndProceed();
+        }}
+        onDiscard={async () => {
+          if (autosaveDraftIdRef.current && !isEditMode) {
+            await supabase.from('invoices').delete().eq('id', autosaveDraftIdRef.current);
+            localStorage.removeItem(DRAFT_KEY);
+          }
+          setIsDirty(false);
+          confirmAndProceed();
+        }}
+        onCancel={cancelNavigation}
+      />
 
       {/* Item Library Drawer */}
       <ItemLibraryDrawer

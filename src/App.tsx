@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Toaster } from "@/components/ui/toaster";
@@ -46,259 +46,66 @@ const queryClient = new QueryClient({
   },
 });
 
+const RootLayout = () => (
+  <AuthProvider>
+    <Outlet />
+  </AuthProvider>
+);
+
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      { path: "/auth", element: <Auth /> },
+      { path: "/reset-password", element: <ResetPassword /> },
+      { path: "/redirect", element: <Redirect /> },
+      { path: "/view/:token", element: <PublicInvoiceView /> },
+
+      { path: "/onboarding", element: <ProtectedRoute><Onboarding /></ProtectedRoute> },
+      { path: "/", element: <ProtectedRoute><Index /></ProtectedRoute> },
+      { path: "/activity", element: <ProtectedRoute><ActivityLog /></ProtectedRoute> },
+
+      { path: "/invoices", element: <ProtectedRoute><Invoices /></ProtectedRoute> },
+      { path: "/invoices/new", element: <ProtectedRoute><NewInvoice /></ProtectedRoute> },
+      { path: "/invoices/edit/:id", element: <ProtectedRoute><NewInvoice /></ProtectedRoute> },
+      { path: "/invoices/:id", element: <ProtectedRoute><InvoiceDetails /></ProtectedRoute> },
+
+      { path: "/credit-notes", element: <ProtectedRoute><CreditNotes /></ProtectedRoute> },
+      { path: "/services", element: <ProtectedRoute><ServiceLibrary /></ProtectedRoute> },
+
+      { path: "/quotations", element: <ProtectedRoute><Quotations /></ProtectedRoute> },
+      { path: "/quotations/new", element: <ProtectedRoute><NewQuotation /></ProtectedRoute> },
+      { path: "/quotations/:id/edit", element: <ProtectedRoute><NewQuotation /></ProtectedRoute> },
+
+      { path: "/customers", element: <ProtectedRoute><Customers /></ProtectedRoute> },
+      { path: "/customers/:id", element: <ProtectedRoute><CustomerDetail /></ProtectedRoute> },
+      { path: "/customers/edit/:id", element: <ProtectedRoute><EditCustomer /></ProtectedRoute> },
+
+      { path: "/reports", element: <ProtectedRoute><Reports /></ProtectedRoute> },
+      { path: "/reminders", element: <ProtectedRoute><ReminderSettings /></ProtectedRoute> },
+      { path: "/templates", element: <ProtectedRoute><InvoiceTemplates /></ProtectedRoute> },
+      { path: "/invoice-templates", element: <ProtectedRoute><InvoiceTemplates /></ProtectedRoute> },
+      { path: "/settings", element: <ProtectedRoute><Settings /></ProtectedRoute> },
+      { path: "/data", element: <ProtectedRoute><DataHub /></ProtectedRoute> },
+
+      { path: "/exports/invoices", element: <ProtectedRoute><ExportInvoices /></ProtectedRoute> },
+      { path: "/imports/invoices", element: <ProtectedRoute><ImportInvoices /></ProtectedRoute> },
+      { path: "/exports/customers", element: <ProtectedRoute><ExportCustomers /></ProtectedRoute> },
+      { path: "/imports/customers", element: <ProtectedRoute><ImportCustomers /></ProtectedRoute> },
+
+      { path: "*", element: <NotFound /> },
+    ],
+  },
+]);
+
 const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              {/* Auth & recovery */}
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/redirect" element={<Redirect />} />
-
-              {/* Public invoice view — no auth required */}
-              <Route path="/view/:token" element={<PublicInvoiceView />} />
-
-              {/* Onboarding (protected, but special) */}
-              <Route
-                path="/onboarding"
-                element={
-                  <ProtectedRoute>
-                    <Onboarding />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Main dashboard */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Activity Log */}
-              <Route
-                path="/activity"
-                element={
-                  <ProtectedRoute>
-                    <ActivityLog />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Invoices */}
-              <Route
-                path="/invoices"
-                element={
-                  <ProtectedRoute>
-                    <Invoices />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/invoices/new"
-                element={
-                  <ProtectedRoute>
-                    <NewInvoice />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/invoices/edit/:id"
-                element={
-                  <ProtectedRoute>
-                    <NewInvoice />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/invoices/:id"
-                element={
-                  <ProtectedRoute>
-                    <InvoiceDetails />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Credit notes */}
-              <Route
-                path="/credit-notes"
-                element={
-                  <ProtectedRoute>
-                    <CreditNotes />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Services */}
-              <Route
-                path="/services"
-                element={
-                  <ProtectedRoute>
-                    <ServiceLibrary />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Quotations */}
-              <Route
-                path="/quotations"
-                element={
-                  <ProtectedRoute>
-                    <Quotations />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/quotations/new"
-                element={
-                  <ProtectedRoute>
-                    <NewQuotation />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/quotations/:id/edit"
-                element={
-                  <ProtectedRoute>
-                    <NewQuotation />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Customers */}
-              <Route
-                path="/customers"
-                element={
-                  <ProtectedRoute>
-                    <Customers />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/customers/:id"
-                element={
-                  <ProtectedRoute>
-                    <CustomerDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/customers/edit/:id"
-                element={
-                  <ProtectedRoute>
-                    <EditCustomer />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Reports */}
-              <Route
-                path="/reports"
-                element={
-                  <ProtectedRoute>
-                    <Reports />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Reminders */}
-              <Route
-                path="/reminders"
-                element={
-                  <ProtectedRoute>
-                    <ReminderSettings />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Templates */}
-              <Route
-                path="/templates"
-                element={
-                  <ProtectedRoute>
-                    <InvoiceTemplates />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/invoice-templates"
-                element={
-                  <ProtectedRoute>
-                    <InvoiceTemplates />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Settings */}
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute>
-                    <Settings />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Data hub */}
-              <Route
-                path="/data"
-                element={
-                  <ProtectedRoute>
-                    <DataHub />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Import / Export */}
-              <Route
-                path="/exports/invoices"
-                element={
-                  <ProtectedRoute>
-                    <ExportInvoices />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/imports/invoices"
-                element={
-                  <ProtectedRoute>
-                    <ImportInvoices />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/exports/customers"
-                element={
-                  <ProtectedRoute>
-                    <ExportCustomers />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/imports/customers"
-                element={
-                  <ProtectedRoute>
-                    <ImportCustomers />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Catch-all */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
+        <RouterProvider router={router} />
+        <Toaster />
+        <Sonner />
       </TooltipProvider>
-
-      {/* Global toasters */}
-      <Toaster />
-      <Sonner />
     </QueryClientProvider>
   );
 };
