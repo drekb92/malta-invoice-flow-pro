@@ -270,7 +270,7 @@ export function CustomerForm({ customer, onSave, trigger }: CustomerFormProps) {
       <Edit className="h-4 w-4" />
     </Button>
   ) : (
-    <Button size="sm">
+    <Button>
       <Plus className="h-4 w-4 mr-2" />
       New Customer
     </Button>

@@ -702,12 +702,12 @@ const Invoices = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 border-r border-border pr-3 mr-1">
-                  <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" onClick={() => navigate("/imports/invoices")}>
-                    <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  <Button variant="outline" size="sm" onClick={() => navigate("/imports/invoices")}>
+                    <Upload className="h-4 w-4 mr-2" />
                     Import
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-8 text-muted-foreground" onClick={() => navigate("/exports/invoices")}>
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                  <Button variant="outline" size="sm" onClick={() => navigate("/exports/invoices")}>
+                    <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
                 </div>

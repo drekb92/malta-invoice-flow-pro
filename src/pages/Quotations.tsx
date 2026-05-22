@@ -812,7 +812,7 @@ const Quotations = () => {
                 <p className="text-muted-foreground">Create and manage quotations for potential customers</p>
               </div>
               <div className="flex items-center space-x-3">
-                <Button asChild size="sm">
+                <Button asChild>
                   <Link to="/quotations/new">
                     <Plus className="h-4 w-4 mr-2" />
                     New Quotation
