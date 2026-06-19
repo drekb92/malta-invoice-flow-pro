@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AiChatPanel from "@/components/AiChatPanel";
 
 import Index from "./pages/Index";
 import Invoices from "./pages/Invoices";
@@ -36,6 +37,7 @@ import CreditNotes from "./pages/CreditNotes";
 import Redirect from "./pages/Redirect";
 import ActivityLog from "./pages/ActivityLog";
 import PublicInvoiceView from "./pages/PublicInvoiceView";
+import RecurringInvoices from "./pages/RecurringInvoices";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +51,7 @@ const queryClient = new QueryClient({
 const RootLayout = () => (
   <AuthProvider>
     <Outlet />
+    <AiChatPanel />
   </AuthProvider>
 );
 
@@ -83,6 +86,7 @@ const router = createBrowserRouter([
 
       { path: "/reports", element: <ProtectedRoute><Reports /></ProtectedRoute> },
       { path: "/reminders", element: <ProtectedRoute><ReminderSettings /></ProtectedRoute> },
+      { path: "/recurring-invoices", element: <ProtectedRoute><RecurringInvoices /></ProtectedRoute> },
       { path: "/templates", element: <ProtectedRoute><InvoiceTemplates /></ProtectedRoute> },
       { path: "/invoice-templates", element: <ProtectedRoute><InvoiceTemplates /></ProtectedRoute> },
       { path: "/settings", element: <ProtectedRoute><Settings /></ProtectedRoute> },

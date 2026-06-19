@@ -43,6 +43,23 @@ export function useRecurringSchedule(invoiceId: string | undefined) {
   });
 }
 
+/** All schedules (active + paused) — for the management page. */
+export function useAllRecurringSchedules(userId: string | undefined) {
+  return useQuery({
+    queryKey: ["allRecurringSchedules", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recurring_invoices")
+        .select("*, customers(name)")
+        .eq("user_id", userId!)
+        .order("next_run_date", { ascending: true });
+      if (error) throw error;
+      return (data || []) as (RecurringInvoice & { customers: { name: string } | null })[];
+    },
+    enabled: !!userId,
+  });
+}
+
 export function useActiveRecurringSchedules(userId: string | undefined) {
   return useQuery({
     queryKey: ["activeRecurringSchedules", userId],
@@ -155,6 +172,26 @@ export function useToggleRecurringSchedule() {
       queryClient.invalidateQueries({ queryKey: ["recurringSchedule"] });
       queryClient.invalidateQueries({ queryKey: ["activeRecurringSchedules"] });
       queryClient.invalidateQueries({ queryKey: ["recurringSourceIds"] });
+    },
+  });
+}
+
+export function useGenerateRecurringNow() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (scheduleId: string) => {
+      const { data, error } = await supabase.functions.invoke(
+        "process-recurring-invoices",
+        { body: { scheduleId } },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recurringSchedule"] });
+      queryClient.invalidateQueries({ queryKey: ["allRecurringSchedules"] });
+      queryClient.invalidateQueries({ queryKey: ["activeRecurringSchedules"] });
+      queryClient.invalidateQueries({ queryKey: ["pendingRecurringDrafts"] });
     },
   });
 }

@@ -16,6 +16,7 @@ import {
   FileSpreadsheet,
   Search,
   Database,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ const navigationGroups = [
       { name: "Reports", href: "/reports", icon: BarChart3 },
       { name: "Payments", href: "/payments", icon: CreditCard },
       { name: "Reminders", href: "/reminders", icon: Mail },
+      { name: "Recurring", href: "/recurring-invoices", icon: RefreshCw },
     ],
   },
   {

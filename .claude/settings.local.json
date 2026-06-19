@@ -35,7 +35,26 @@
       "PowerShell(\\(Test-NetConnection -ComputerName localhost -Port 60981 -WarningAction SilentlyContinue\\).TcpTestSucceeded)",
       "PowerShell(\\(Test-NetConnection -ComputerName localhost -Port 5173 -WarningAction SilentlyContinue\\).TcpTestSucceeded)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:54167/)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:61757/)",
+      "WebFetch(domain:www.invoices.mt)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git -C \"C:\\Users\\dborg\\Desktop\\Claude\\malta-invoice-flow-pro\" push origin main",
+            "if": "Bash(git commit*)",
+            "shell": "powershell",
+            "statusMessage": "Pushing to GitHub…",
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }

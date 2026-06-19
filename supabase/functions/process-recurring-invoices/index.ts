@@ -133,12 +133,21 @@ const handler = async (req: Request): Promise<Response> => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Fetch all due recurring schedules
-    const { data: schedules, error: schedErr } = await supabase
-      .from("recurring_invoices")
-      .select("*")
-      .eq("is_active", true)
-      .lte("next_run_date", today);
+    // Optional scheduleId in body → manual "Generate Now" for a single schedule (bypasses date check)
+    let scheduleId: string | null = null;
+    try {
+      const body = await req.json();
+      scheduleId = body?.scheduleId ?? null;
+    } catch { /* empty body is fine for cron path */ }
+
+    // Fetch due recurring schedules; if scheduleId provided run that one immediately
+    let query = supabase.from("recurring_invoices").select("*").eq("is_active", true);
+    if (scheduleId) {
+      query = query.eq("id", scheduleId);
+    } else {
+      query = query.lte("next_run_date", today);
+    }
+    const { data: schedules, error: schedErr } = await query;
 
     if (schedErr) {
       console.error("[process-recurring] Error fetching schedules:", JSON.stringify(schedErr));

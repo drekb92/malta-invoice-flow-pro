@@ -277,6 +277,9 @@ export function RecurringScheduleCard({
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <CalendarClock className="h-4 w-4" />
             Recurring
+            {schedule?.is_active && (
+              <Badge className="text-xs px-1.5 py-0 h-4 bg-green-500 hover:bg-green-500 text-white">Active</Badge>
+            )}
           </CardTitle>
           <Switch
             checked={isRecurring}
